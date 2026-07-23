@@ -1,0 +1,99 @@
+(() => {
+  "use strict";
+
+  const DEFAULT_ROBOT_IP = "192.168.4.1";
+  const RECONNECT_DELAY_MS = 3000;
+
+  const ipInput = document.getElementById("robot-ip");
+  const configForm = document.getElementById("robot-config");
+  const statusDot = document.getElementById("connection-dot");
+  const statusTitle = document.getElementById("connection-title");
+  const statusDetail = document.getElementById("connection-detail");
+  const socketUrl = document.getElementById("socket-url");
+
+  let socket = null;
+  let reconnectTimer = null;
+  let robotIp = normalizeRobotIp(localStorage.getItem("robot_ip") || DEFAULT_ROBOT_IP);
+
+  function normalizeRobotIp(value) {
+    return String(value || "")
+      .trim()
+      .replace(/^wss?:\/\//i, "")
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/.*$/, "") || DEFAULT_ROBOT_IP;
+  }
+
+  function currentUrl() {
+    return `ws://${robotIp}/ws`;
+  }
+
+  function setStatus(kind, title, detail) {
+    statusDot.className = `status-dot ${kind || ""}`.trim();
+    statusTitle.textContent = title;
+    statusDetail.textContent = detail;
+  }
+
+  function scheduleReconnect() {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+  }
+
+  function connect() {
+    clearTimeout(reconnectTimer);
+
+    if (socket) {
+      socket.onclose = null;
+      socket.close();
+    }
+
+    const url = currentUrl();
+    ipInput.value = robotIp;
+    socketUrl.textContent = url;
+    setStatus("connecting", "Conectando…", url);
+
+    try {
+      socket = new WebSocket(url);
+    } catch (error) {
+      setStatus("", "Dirección no válida", error.message);
+      scheduleReconnect();
+      return;
+    }
+
+    socket.addEventListener("open", () => {
+      setStatus("connected", "Carrito conectado", url);
+    });
+
+    socket.addEventListener("message", (event) => {
+      window.dispatchEvent(new CustomEvent("robot-message", { detail: event.data }));
+    });
+
+    socket.addEventListener("error", () => {
+      setStatus("", "No se pudo conectar", `Revisando nuevamente ${url}`);
+    });
+
+    socket.addEventListener("close", () => {
+      setStatus("", "Carrito desconectado", `Reintento en ${RECONNECT_DELAY_MS / 1000} segundos`);
+      scheduleReconnect();
+    });
+  }
+
+  configForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    robotIp = normalizeRobotIp(ipInput.value);
+    localStorage.setItem("robot_ip", robotIp);
+    connect();
+  });
+
+  window.RobotConnection = {
+    connect,
+    get socket() { return socket; },
+    get url() { return currentUrl(); },
+    send(payload) {
+      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+      socket.send(typeof payload === "string" ? payload : JSON.stringify(payload));
+      return true;
+    }
+  };
+
+  connect();
+})();

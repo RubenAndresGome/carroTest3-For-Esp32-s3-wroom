@@ -1,0 +1,2264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="app-token" content="">
+    <title>Robot Autonomo S3 — HMI Dual (BETA)</title>
+    
+    <!-- Librerias Chart.js originales -->
+    <script src="chart.js"></script>
+    <script src="chartjs-plugin-datalabels.js"></script>
+    <script src="hammer.js"></script>
+    <script src="chartjs-plugin-zoom.js"></script>
+
+    <style>
+        /* ============================================
+           1. VARIABLES DE DISENO
+           ============================================ */
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #111820;
+            --bg-card: #161d27;
+            --bg-card-hover: #1c2533;
+            --bg-input: #0d1219;
+            --border: #243040;
+            --border-light: #2d3d50;
+            --text-primary: #d8e2ec;
+            --text-secondary: #5a7088;
+            --text-muted: #3a4d60;
+            --accent: #00e676;
+            --accent-dim: rgba(0,230,118,0.12);
+            --accent-glow: rgba(0,230,118,0.35);
+            --warn: #ffab00;
+            --warn-dim: rgba(255,171,0,0.12);
+            --error: #ff1744;
+            --error-dim: rgba(255,23,68,0.12);
+            --info: #00b0ff;
+            --info-dim: rgba(0,176,255,0.12);
+            --reverse: #ff6d00;
+            --reverse-dim: rgba(255,109,0,0.12);
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --font-mono: 'SF Mono','Fira Code','Cascadia Code', Consolas, monospace;
+            --radius: 8px;
+            --radius-sm: 4px;
+            /* Alturas de elementos fijos */
+            --header-h: 46px;
+            --tabbar-h: 38px;
+            --fsm-h: auto;
+        }
+
+        /* ============================================
+           2. RESET & BASE
+           ============================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html {
+            font-size: 14px;
+            touch-action: manipulation;
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            min-height: 100dvh;
+            background-image:
+                radial-gradient(ellipse at 50% 0%, rgba(0,230,118,0.025) 0%, transparent 60%),
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 100% 100%, 32px 32px, 32px 32px;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* ============================================
+           3. HEADER
+           ============================================ */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: var(--header-h);
+            padding: 0 12px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .header-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .brand-icon {
+            width: 26px; height: 26px; border: 2px solid var(--accent);
+            border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .brand-icon::after { content: ''; width: 8px; height: 8px; border: 2px solid var(--accent); border-radius: 50%; }
+        .brand-title { font-size: 13px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+        .brand-sub { font-size: 8px; color: var(--text-secondary); letter-spacing: 0.8px; text-transform: uppercase; display: none; }
+        .header-center { display: flex; align-items: center; gap: 8px; }
+        .conn-status { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-secondary); white-space: nowrap; }
+        .conn-dot {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--error);
+            transition: background 0.3s, box-shadow 0.3s; flex-shrink: 0;
+        }
+        .conn-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); animation: pulse-dot 2s ease-in-out infinite; }
+        .demo-badge {
+            font-size: 8px; padding: 1px 6px; background: var(--warn-dim); color: var(--warn);
+            border-radius: 8px; font-weight: 600; letter-spacing: 0.8px; display: none;
+        }
+        .demo-badge.show { display: inline-block; }
+
+        /* ============================================
+           4. TAB BAR
+           ============================================ */
+        .tab-bar {
+            display: flex;
+            height: var(--tabbar-h);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: var(--header-h);
+            z-index: 99;
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 0 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: var(--font-ui);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tab-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.02); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ============================================
+           5. BOTONES
+           ============================================ */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: var(--bg-card); color: var(--text-primary); font-family: var(--font-ui);
+            font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+        .btn:active { transform: scale(0.97); }
+        .btn-accent { background: var(--accent-dim); border-color: rgba(0,230,118,0.3); color: var(--accent); }
+        .btn-accent:hover { background: rgba(0,230,118,0.2); }
+        .btn-reverse { background: var(--reverse-dim); border-color: rgba(255,109,0,0.3); color: var(--reverse); }
+        .btn-reverse:hover { background: rgba(255,109,0,0.2); }
+        .btn-stop { background: var(--warn-dim); border-color: rgba(255,171,0,0.3); color: var(--warn); }
+        .btn-stop:hover { background: rgba(255,171,0,0.2); }
+        .btn-estop {
+            background: var(--error); border: 2px solid var(--error); color: #fff;
+            font-weight: 800; font-size: 10px; padding: 4px 12px;
+            letter-spacing: 1.5px; text-transform: uppercase; border-radius: var(--radius);
+            animation: estop-glow 2s ease-in-out infinite; flex-shrink: 0;
+        }
+        .btn-estop:hover { background: #e6002e; }
+        .btn-sm { padding: 4px 8px; font-size: 10px; }
+        .btn-flash { animation: cmd-flash 0.25s ease-out; }
+
+        /* ============================================
+           6. TARJETAS
+           ============================================ */
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 10px; margin-bottom: 8px;
+        }
+        .card-title {
+            font-size: 9px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1.2px; color: var(--text-secondary);
+            margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+        }
+
+        /* ============================================
+           7. SLIDERS PWM
+           ============================================ */
+        .pwm-group { margin-bottom: 10px; }
+        .pwm-group:last-child { margin-bottom: 0; }
+        .pwm-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .pwm-label span:first-child { font-size: 11px; font-weight: 500; }
+        .pwm-val {
+            font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+            color: var(--accent); min-width: 24px; text-align: right;
+        }
+        .pwm-val.rev { color: var(--reverse); }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+            background: var(--border); border-radius: 3px; outline: none; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--accent); border: 2px solid var(--bg-card);
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px; height: 16px; border-radius: 50%;
+            background: var(--accent); border: 2px solid var(--bg-card); cursor: pointer;
+        }
+        input[type="range"].slider-reverse::-webkit-slider-thumb {
+            background: var(--reverse); box-shadow: 0 0 6px rgba(255,109,0,0.4);
+        }
+        .pwm-direction { display: flex; gap: 3px; margin-top: 4px; }
+        .dir-btn {
+            flex: 1; padding: 3px 0; font-size: 9px; text-align: center;
+            border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-family: var(--font-ui); transition: all 0.15s;
+        }
+        .dir-btn.active-fwd { background: var(--accent-dim); border-color: rgba(0,230,118,0.4); color: var(--accent); }
+        .dir-btn.active-rev { background: var(--reverse-dim); border-color: rgba(255,109,0,0.4); color: var(--reverse); }
+        .dir-btn.active-stop { background: var(--border); color: var(--text-primary); }
+
+        /* ============================================
+           8. COMANDOS DE MOVIMIENTO
+           ============================================ */
+        .cmd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+        .cmd-grid .btn { width: 100%; }
+        .drive-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; align-items: stretch; }
+        .drive-pad .btn { min-height: 42px; padding: 5px 3px; flex-direction: column; gap: 1px; font-size: 10px; }
+        .drive-pad .drive-icon { font-size: 15px; line-height: 1; }
+        .drive-forward { grid-column: 2; }
+        .drive-left { grid-column: 1; grid-row: 2; }
+        .drive-stop { grid-column: 2; grid-row: 2; }
+        .drive-right { grid-column: 3; grid-row: 2; }
+        .drive-reverse { grid-column: 2; grid-row: 3; }
+        .reset-pose { width: 100%; margin-top: 7px; }
+        .cmd-input-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: end; }
+        .cmd-input-group { flex: 1; }
+        .cmd-input-group label {
+            display: block; font-size: 9px; color: var(--text-secondary);
+            margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .cmd-input-group input[type="number"], .cmd-input-group input[type="text"] {
+            width: 100%; padding: 5px 6px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;
+        }
+        .cmd-input-group input[type="number"]:focus, .cmd-input-group input[type="text"]:focus { border-color: var(--accent); }
+
+        /* ============================================
+           9. MOTOR SVG
+           ============================================ */
+        .motor-container { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .motor-svg {
+            width: 150px; height: 150px;
+            filter: drop-shadow(0 0 0px transparent); transition: filter 0.5s;
+        }
+        .motor-svg.active-green { filter: drop-shadow(0 0 10px var(--accent-glow)); }
+        .motor-svg.active-orange { filter: drop-shadow(0 0 10px rgba(255,109,0,0.4)); }
+        .motor-svg.active-red { filter: drop-shadow(0 0 10px rgba(255,23,68,0.4)); }
+        .motor-outer-ring { fill: none; stroke: var(--border); stroke-width: 2; }
+        .motor-inner-ring { fill: none; stroke: var(--border); stroke-width: 0.5; stroke-dasharray: 3 5; }
+        .tick-major { stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; }
+        .tick-minor { stroke: var(--border); stroke-width: 1; stroke-linecap: round; }
+        .rotor-arm { stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; transition: stroke 0.3s; }
+        .rotor-arm-sec { stroke: var(--text-muted); stroke-width: 1.5; stroke-linecap: round; opacity: 0.5; transition: stroke 0.3s; }
+        .rotor-tip { fill: var(--accent); transition: fill 0.3s; }
+        .motor-hub { fill: var(--bg-card); stroke: var(--border-light); stroke-width: 1.5; }
+        .motor-hub-center { fill: var(--text-muted); transition: fill 0.3s; }
+        .state-reverse .rotor-arm { stroke: var(--reverse); }
+        .state-reverse .rotor-tip { fill: var(--reverse); }
+        .state-reverse .rotor-arm-sec { stroke: var(--reverse); }
+        .state-error .rotor-arm { stroke: var(--error); }
+        .state-error .rotor-tip { fill: var(--error); }
+        .state-error .motor-hub-center { fill: var(--error); }
+        .motor-name { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); }
+        .motor-rpm { font-family: var(--font-mono); font-size: 13px; font-weight: 700; display: block; margin-top: 1px; }
+        .motor-state-label { font-size: 9px; font-weight: 600; padding: 1px 7px; border-radius: 8px; display: inline-block; margin-top: 2px; }
+        .msl-idle { background: var(--border); color: var(--text-secondary); }
+        .msl-forward { background: var(--accent-dim); color: var(--accent); }
+        .msl-reverse { background: var(--reverse-dim); color: var(--reverse); }
+        .msl-error { background: var(--error-dim); color: var(--error); }
+        .motors-pair { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+        .motor-divider { width: 1px; height: 130px; background: var(--border); }
+
+        /* ============================================
+           10. TELEMETRIA
+           ============================================ */
+        .telem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .telem-item {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 6px 8px;
+        }
+        .telem-item.full { grid-column: 1 / -1; }
+        .telem-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 1px; }
+        .telem-value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+        .telem-value.state-val { font-size: 10px; padding: 1px 6px; border-radius: 3px; display: inline-block; }
+        .tv-idle { background: var(--border); color: var(--text-secondary); }
+        .tv-advancing { background: var(--accent-dim); color: var(--accent); }
+        .tv-turning { background: var(--info-dim); color: var(--info); }
+        .tv-braking { background: var(--warn-dim); color: var(--warn); }
+        .tv-reverse { background: var(--reverse-dim); color: var(--reverse); }
+        .tv-estop { background: var(--error-dim); color: var(--error); animation: blink-estop 0.8s infinite; }
+        .tv-calibrating { background: var(--info-dim); color: var(--info); }
+        .tv-init { background: var(--border); color: var(--text-muted); }
+
+        /* ============================================
+           11. MAPA DE POSICION (BETA S3)
+           ============================================ */
+        .pos-map-container {
+            position: relative; width: 100%; aspect-ratio: 1; max-height: 200px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); overflow: hidden;
+        }
+        .pos-map { width: 100%; height: 100%; }
+        .pos-map .grid-line { stroke: var(--border); stroke-width: 0.5; }
+        .pos-map .axis-line { stroke: var(--border-light); stroke-width: 1; }
+        .pos-map .trail-line { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0.25; stroke-linecap: round; stroke-linejoin: round; }
+        .pos-map .pos-dot { fill: var(--accent); transition: cx 0.15s, cy 0.15s; }
+        .pos-map .origin-mark { fill: var(--text-muted); }
+        .pos-coords { display: flex; gap: 10px; margin-top: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+        .pos-coords span { color: var(--text-primary); font-weight: 600; }
+
+        /* ============================================
+           12. MAQUINA DE ESTADOS
+           ============================================ */
+        .fsm-panel {
+            padding: 8px 12px;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-secondary);
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .fsm-flow {
+            display: flex; align-items: center; gap: 0;
+            justify-content: center; flex-wrap: wrap; min-width: fit-content;
+        }
+        .fsm-node {
+            padding: 3px 8px; font-size: 8px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: var(--bg-card); color: var(--text-muted); white-space: nowrap; transition: all 0.3s;
+        }
+        .fsm-node.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 10px var(--accent-glow); }
+        .fsm-node.active-reverse { border-color: var(--reverse); color: var(--reverse); background: var(--reverse-dim); box-shadow: 0 0 10px rgba(255,109,0,0.3); }
+        .fsm-node.active-estop { border-color: var(--error); color: #fff; background: var(--error); box-shadow: 0 0 14px rgba(255,23,68,0.5); animation: blink-estop 0.8s infinite; }
+        .fsm-arrow { color: var(--text-muted); font-size: 11px; padding: 0 2px; user-select: none; }
+        .fsm-sep { width: 12px; }
+
+        /* ============================================
+           13. SISTEMA DE LOGS
+           ============================================ */
+        .log-panel { padding: 8px 12px 12px; flex-shrink: 0; }
+        .log-toolbar { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
+        .log-filters { display: flex; gap: 2px; }
+        .log-filter-btn {
+            padding: 2px 6px; font-size: 9px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.3px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-family: var(--font-ui); transition: all 0.15s;
+        }
+        .log-filter-btn.active { color: var(--text-primary); border-color: var(--border-light); background: var(--bg-card); }
+        .log-filter-btn.lf-info.active { color: var(--accent); border-color: rgba(0,230,118,0.4); background: var(--accent-dim); }
+        .log-filter-btn.lf-warn.active { color: var(--warn); border-color: rgba(255,171,0,0.4); background: var(--warn-dim); }
+        .log-filter-btn.lf-error.active { color: var(--error); border-color: rgba(255,23,68,0.4); background: var(--error-dim); }
+        .log-filter-btn.lf-cmd.active { color: var(--info); border-color: rgba(0,176,255,0.4); background: var(--info-dim); }
+        .log-count { font-size: 9px; color: var(--text-muted); margin-left: auto; font-family: var(--font-mono); }
+        .log-container {
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm);
+            height: 120px; overflow-y: auto; font-family: var(--font-mono); font-size: 10px; line-height: 1.5;
+        }
+        .log-container::-webkit-scrollbar { width: 4px; }
+        .log-container::-webkit-scrollbar-track { background: transparent; }
+        .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .log-entry { padding: 1px 6px; border-left: 2px solid transparent; animation: log-in 0.2s ease-out; }
+        .log-entry:hover { background: rgba(255,255,255,0.02); }
+        .log-entry.log-info { border-left-color: var(--accent); }
+        .log-entry.log-warn { border-left-color: var(--warn); background: rgba(255,171,0,0.03); }
+        .log-entry.log-error { border-left-color: var(--error); background: rgba(255,23,68,0.05); }
+        .log-entry.log-cmd { border-left-color: var(--info); }
+        .log-time { color: var(--text-muted); }
+        .log-level { font-weight: 700; display: inline-block; min-width: 38px; }
+        .log-level.ll-info { color: var(--accent); }
+        .log-level.ll-warn { color: var(--warn); }
+        .log-level.ll-error { color: var(--error); }
+        .log-level.ll-cmd { color: var(--info); }
+        .log-msg { color: var(--text-secondary); }
+        .log-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 11px; font-family: var(--font-ui); }
+
+        /* ============================================
+           14. MODO TOUCH — CONTROL DONA
+           ============================================ */
+        .touch-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 270px;
+            gap: 0;
+            min-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 120px);
+        }
+        .touch-joystick-area {
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; border-right: 1px solid var(--border);
+            background: radial-gradient(circle at center, rgba(0,230,118,.045), transparent 54%);
+            min-height: 540px;
+        }
+        .joystick-wrapper {
+            position: relative; width: min(72vh, 560px, 92%); aspect-ratio: 1;
+            user-select: none; -webkit-user-select: none;
+            filter: drop-shadow(0 12px 30px rgba(0,0,0,.35));
+        }
+        .joystick-svg { width: 100%; height: 100%; }
+        .joy-donut-shell { fill: rgba(17,24,32,.92); stroke: var(--border-light); stroke-width: 1.2; }
+        .joy-donut-hole { fill: rgba(10,14,20,.96); stroke: var(--border); stroke-width: 1; }
+        .joy-track { fill: none; stroke: var(--border); stroke-width: 14; opacity: .9; }
+        .joy-boundary { fill: none; stroke: var(--border-light); stroke-width: 1; }
+        .joy-boundary-active { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0; transition: opacity 0.2s; }
+        .joystick-wrapper.active .joy-boundary-active { opacity: .72; }
+        .joy-crosshair { stroke: var(--border); stroke-width: .45; stroke-dasharray: 3 7; }
+        .joy-deadzone { fill: none; stroke: var(--border); stroke-width: .65; }
+        .joy-dir-line { stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; opacity: .75; filter: drop-shadow(0 0 4px var(--accent-glow)); }
+        .joy-thumb-outer {
+            fill: rgba(0,230,118,.06); stroke: var(--accent); stroke-width: 1; opacity: 0; transition: opacity .2s;
+        }
+        .joystick-wrapper.active .joy-thumb-outer { opacity: 1; }
+        .joy-thumb {
+            fill: var(--accent); stroke: #a7ffd1; stroke-width: 1;
+            cursor: grab; transition: stroke .2s, fill .2s; filter: drop-shadow(0 0 7px var(--accent-glow));
+        }
+        .joy-thumb:active { cursor: grabbing; }
+        .joystick-wrapper.active .joy-thumb { fill: #58f4a3; }
+        .joy-center-dot { fill: var(--accent); filter: drop-shadow(0 0 5px var(--accent-glow)); }
+        .joy-label {
+            font-family: var(--font-ui); font-size: 7px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1.2px; fill: var(--text-secondary);
+        }
+        .joy-speed-arc { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; opacity: .9; filter: drop-shadow(0 0 6px var(--accent-glow)); }
+        .donut-kicker { font-family: var(--font-ui); font-size: 7px; fill: var(--text-secondary); letter-spacing: .7px; }
+        .donut-value { font-family: var(--font-mono); font-size: 23px; font-weight: 700; fill: var(--text-primary); }
+        .donut-unit { font-size: 8px; fill: var(--text-secondary); }
+        .donut-direction { font-family: var(--font-mono); font-size: 8px; fill: var(--accent); letter-spacing: .8px; }
+
+        .touch-side {
+            padding: 10px; overflow-y: auto; max-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 120px);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .motor-bars-svg { width: 100%; height: 185px; }
+        .bar-bg { fill: var(--bg-input); stroke: var(--border); stroke-width: 1; }
+        .bar-fill-fwd { fill: var(--accent); opacity: 0.8; }
+        .bar-fill-rev { fill: var(--reverse); opacity: 0.8; }
+        .bar-center-line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+        .bar-label { font-family: var(--font-ui); font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; fill: var(--text-secondary); }
+        .bar-value { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--text-primary); }
+        .bar-dir-label { font-family: var(--font-ui); font-size: 7px; fill: var(--text-muted); text-transform: uppercase; }
+        .joy-info { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .joy-info-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 6px; text-align: center; }
+        .joy-info-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); }
+        .joy-info-value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .touch-cmd-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+        .touch-cmd-grid .btn { width: 100%; padding: 8px 4px; font-size: 10px; font-weight: 700; }
+        .encoder-list { display: grid; gap: 5px; }
+        .encoder-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); }
+        .encoder-wheel { position: relative; width: 30px; height: 30px; border: 1px solid var(--text-muted); border-radius: 50%; }
+        .encoder-wheel::before { content: ''; position: absolute; inset: 6px; border: 1px dashed var(--text-secondary); border-radius: 50%; }
+        .encoder-arrow { position: absolute; top: -7px; left: -3px; color: var(--text-secondary); font-size: 13px; transform-origin: 18px 22px; }
+        .encoder-row[data-dir="rev"] .encoder-arrow { transform: rotate(180deg); color: var(--reverse); }
+        .encoder-row[data-dir="fwd"] .encoder-arrow { color: var(--accent); }
+        .encoder-name { font-size: 9px; color: var(--text-secondary); }
+        .encoder-pulses { font: 8px var(--font-mono); color: var(--text-muted); }
+        .encoder-speed { font: 700 15px var(--font-mono); color: var(--text-primary); white-space: nowrap; }
+        .encoder-speed small { font-size: 8px; color: var(--text-secondary); }
+        .encoder-list.stale .encoder-row { opacity: .48; }
+
+        /* --- Mapa de navegación unificado --- */
+        .nav-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 10px; margin: 12px auto; padding: 0 12px; max-width: 1280px; }
+        .nav-control-card, .nav-chart-card { margin: 0; }
+        .nav-control-card { align-self: start; }
+        .nav-form { display: grid; gap: 10px; }
+        .nav-actions { display: grid; gap: 6px; margin-top: 4px; }
+        .nav-actions .btn { width: 100%; min-height: 34px; }
+        .nav-status-card { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+        .nav-distance { margin-right: auto; font-size: 12px; color: var(--text-secondary); }
+        .nav-distance strong { color: var(--text-primary); font-family: var(--font-mono); }
+        .nav-chip { padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); font: 10px var(--font-mono); color: var(--text-secondary); }
+        .nav-chip span { color: var(--text-primary); }
+        .nav-progress { width: 100%; height: 7px; overflow: hidden; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-input); }
+        .nav-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg,var(--info),var(--accent)); transition: width .3s; }
+        .nav-canvas-wrap { position: relative; width: 100%; min-height: 480px; height: 58vh; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(180deg,rgba(17,24,32,.96),rgba(10,14,20,.98)); }
+
+        /* --- Tablas técnicas para Rutas Ockham --- */
+        .route-content { margin: 12px auto; max-width: 1280px; padding: 16px; }
+        .route-tables-grid { display: grid; grid-template-columns: minmax(320px,.8fr) minmax(440px,1.2fr); gap: 12px; margin-top: 12px; min-width: 0; }
+        .route-tables-grid > * { min-width: 0; }
+        .data-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-input); }
+        .data-table-title { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .data-table th { padding: 7px 8px; text-align: left; color: var(--text-muted); font-size: 8px; text-transform: uppercase; letter-spacing: .6px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .data-table td { padding: 7px 8px; border-bottom: 1px solid rgba(36,48,64,.7); color: var(--text-secondary); font-family: var(--font-mono); }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover { background: rgba(255,255,255,.025); }
+        .route-step-current td { color: var(--accent); background: var(--accent-dim); }
+        .route-step-done td { color: var(--text-muted); }
+        .route-status { display: inline-block; padding: 2px 6px; border-radius: 9px; border: 1px solid var(--border); font: 7px var(--font-ui); letter-spacing: .5px; text-transform: uppercase; }
+        .route-status.current { color: var(--accent); border-color: rgba(0,230,118,.35); }
+        .route-status.done { color: var(--text-muted); }
+        .route-status.pending { color: var(--info); border-color: rgba(0,176,255,.3); }
+
+        @media (max-width: 900px) {
+            .nav-layout { grid-template-columns: 1fr; }
+            .nav-form { grid-template-columns: 1fr 1fr; }
+            .nav-actions { grid-column: 1 / -1; grid-template-columns: repeat(3,1fr); }
+            .route-tables-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .touch-joystick-area { min-height: 390px; padding: 12px; }
+            .joystick-wrapper { width: min(360px,96%); }
+            .nav-form { grid-template-columns: 1fr; }
+            .nav-actions { grid-column: auto; grid-template-columns: 1fr; }
+            .nav-canvas-wrap { min-height: 360px; height: 48vh; }
+            .route-content { padding: 10px; }
+            .data-table { min-width: 420px; }
+        }
+
+        /* ============================================
+           15. ANIMACIONES
+           ============================================ */
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes estop-glow {
+            0%, 100% { box-shadow: 0 0 8px rgba(255,23,68,0.4); }
+            50% { box-shadow: 0 0 20px rgba(255,23,68,0.7), 0 0 40px rgba(255,23,68,0.2); }
+        }
+        @keyframes blink-estop { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes cmd-flash { 0% { filter: brightness(1.8); } 100% { filter: brightness(1); } }
+        @keyframes log-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+
+        /* ============================================
+           16. RESPONSIVE — ESTRATEGIA EN CASCADE
+           ============================================ */
+
+        /* --- Tablets pequenas / landscape movil: 768-1100px --- */
+        @media (max-width: 1100px) {
+            .testing-grid { grid-template-columns: 1fr 1fr; }
+            .col-motors { grid-column: 1 / -1; flex-direction: row; order: -1; padding: 12px; }
+            .touch-layout { grid-template-columns: minmax(0,1fr) 250px; }
+            .touch-joystick-area { min-height: 500px; }
+        }
+
+        /* --- Movil portrait: 480-768px --- */
+        @media (max-width: 768px) {
+            :root { --header-h: 42px; --tabbar-h: 34px; }
+            .brand-sub { display: none; }
+            .conn-status span:not(.conn-dot) { display: none; }
+            .testing-grid { grid-template-columns: 1fr; }
+            .col-controls { border: none; border-bottom: 1px solid var(--border); max-height: none; overflow: visible; }
+            .col-motors { border-bottom: 1px solid var(--border); padding: 10px; }
+            .col-telemetry { border: none; border-bottom: 1px solid var(--border); max-height: none; overflow: visible; }
+            .touch-layout { grid-template-columns: 1fr; }
+            .touch-joystick-area { border-right: none; border-bottom: 1px solid var(--border); min-height: 390px; }
+            .touch-side { max-height: none; }
+            .motor-svg { width: 120px; height: 120px; }
+            .motor-divider { width: 100px; height: 1px; }
+            .motor-rpm { font-size: 12px; }
+            .motor-name { font-size: 8px; }
+            .motor-state-label { font-size: 8px; }
+            .pos-map-container { max-height: 160px; }
+            .fsm-node { padding: 2px 6px; font-size: 7px; }
+            .fsm-arrow { font-size: 10px; padding: 0 1px; }
+            .fsm-sep { width: 8px; }
+            .log-container { height: 100px; font-size: 9px; }
+            .log-panel { padding: 6px 10px 10px; }
+        }
+
+        /* --- Movil pequeno: < 480px --- */
+        @media (max-width: 480px) {
+            html { font-size: 13px; }
+            :root { --header-h: 38px; --tabbar-h: 32px; }
+            .app-header { padding: 0 8px; }
+            .brand-icon { width: 22px; height: 22px; }
+            .brand-icon::after { width: 6px; height: 6px; }
+            .brand-title { font-size: 11px; }
+            .btn-estop { font-size: 8px; padding: 3px 8px; letter-spacing: 1px; }
+            .tab-btn { font-size: 9px; padding: 0 6px; letter-spacing: 0.3px; }
+            .card { padding: 8px; margin-bottom: 6px; }
+            .card-title { font-size: 8px; margin-bottom: 6px; padding-bottom: 5px; }
+            .motor-svg { width: 100px; height: 100px; }
+            .motor-divider { width: 80px; height: 1px; }
+            .motors-pair { gap: 10px; }
+            .pwm-label span:first-child { font-size: 10px; }
+            .pwm-val { font-size: 11px; }
+            .dir-btn { font-size: 8px; padding: 2px 0; }
+            .cmd-input-row { gap: 4px; }
+            .cmd-grid { gap: 3px; }
+            .cmd-grid .btn { padding: 5px 4px; font-size: 10px; }
+            .telem-grid { gap: 3px; }
+            .telem-item { padding: 4px 6px; }
+            .telem-label { font-size: 7px; }
+            .telem-value { font-size: 11px; }
+            .telem-value.state-val { font-size: 9px; }
+            .pos-map-container { max-height: 130px; }
+            .pos-coords { font-size: 9px; gap: 6px; }
+            .fsm-panel { padding: 5px 8px; }
+            .fsm-node { padding: 2px 5px; font-size: 7px; letter-spacing: 0.5px; }
+            .fsm-arrow { font-size: 9px; }
+            .fsm-sep { width: 6px; }
+            .log-toolbar { gap: 3px; }
+            .log-filter-btn { font-size: 8px; padding: 1px 4px; }
+            .log-count { font-size: 8px; }
+            .log-container { height: 80px; font-size: 9px; line-height: 1.4; }
+            .log-entry { padding: 0 4px; }
+            .log-panel { padding: 5px 8px 8px; }
+            .touch-joystick-area { min-height: 200px; padding: 8px; }
+            .joystick-wrapper { max-width: 240px; }
+            .joy-label { font-size: 7px; letter-spacing: 1px; }
+            .touch-side { padding: 8px; gap: 6px; }
+            .touch-cmd-grid .btn { padding: 7px 2px; font-size: 9px; }
+            .joy-info-value { font-size: 11px; }
+        }
+
+        /* --- Pantallas muy pequenas: < 360px --- */
+        @media (max-width: 360px) {
+            html { font-size: 12px; }
+            :root { --header-h: 36px; --tabbar-h: 30px; }
+            .brand-title { font-size: 10px; }
+            .brand-icon { width: 18px; height: 18px; border-width: 1.5px; }
+            .brand-icon::after { width: 5px; height: 5px; border-width: 1.5px; }
+            .btn-estop { font-size: 7px; padding: 2px 6px; }
+            .tab-btn { font-size: 8px; }
+            .motor-svg { width: 85px; height: 85px; }
+            .motor-divider { width: 60px; height: 1px; }
+            .motor-rpm { font-size: 11px; }
+            .motor-state-label { font-size: 7px; }
+            .log-container { height: 64px; font-size: 8px; }
+            .pos-map-container { max-height: 110px; }
+            .touch-joystick-area { min-height: 170px; }
+            .joystick-wrapper { max-width: 200px; }
+        }
+
+        /* --- Landscape muy estrecho --- */
+        @media (max-height: 500px) and (orientation: landscape) {
+            :root { --header-h: 34px; --tabbar-h: 28px; }
+            .brand-sub { display: none; }
+            .motor-svg { width: 80px; height: 80px; }
+            .motor-divider { width: 1px; height: 80px; }
+            .fsm-panel { padding: 3px 8px; }
+            .fsm-node { padding: 1px 4px; font-size: 7px; }
+            .log-container { height: 60px; }
+            .log-panel { padding: 3px 8px 6px; }
+            .testing-grid { grid-template-columns: 1fr 1fr; }
+            .col-motors { order: 0; flex-direction: row; grid-column: auto; }
+            .col-controls, .col-telemetry { max-height: calc(100vh - 34px - 28px - 40px - 60px); overflow-y: auto; }
+            .touch-joystick-area { min-height: 150px; }
+        }
+
+        .testing-grid { display: grid; grid-template-columns: 260px minmax(500px, 1fr) 270px; gap: 0; }
+        .col-controls, .col-telemetry { padding: 12px; border-right: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 140px); }
+        .col-telemetry { border-right: none; border-left: 1px solid var(--border); }
+        .col-motors { min-width: 0; padding: 12px; }
+
+        /* --- Banco visual de cuatro ruedas / ESP32 --- */
+        .testing-stage-title {
+            width: 100%; font-size: 9px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1.2px; color: var(--text-secondary); padding-bottom: 7px;
+            border-bottom: 1px solid var(--border); margin-bottom: 8px;
+        }
+        .robot-blueprint {
+            position: relative; isolation: isolate; min-height: 590px; width: 100%;
+            display: grid; grid-template-columns: minmax(126px, 1fr) minmax(210px, 1.35fr) minmax(126px, 1fr);
+            grid-template-rows: 1fr 1fr; grid-template-areas: "fl core fr" "bl core br";
+            align-items: center; gap: 12px 8px; padding: 12px 4px;
+            background-image: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+            background-size: 24px 24px; border-radius: var(--radius);
+        }
+        .robot-wiring { position: absolute; inset: 7% 3%; width: 94%; height: 86%; z-index: -1; overflow: visible; }
+        .chassis-line { fill: rgba(17,24,32,.42); stroke: var(--border-light); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+        .wire-line { fill: none; stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .9; }
+        .motor-station { min-width: 0; text-align: center; }
+        .motor-fl { grid-area: fl; } .motor-fr { grid-area: fr; }
+        .motor-bl { grid-area: bl; } .motor-br { grid-area: br; }
+        .motor-station .motor-svg { width: min(100%, 132px); height: auto; display: block; margin: 0 auto -2px; }
+        .motor-station .motor-name { display: block; color: var(--text-primary); letter-spacing: .7px; }
+        .motor-data { margin-top: 3px; font-family: var(--font-mono); font-size: 9px; line-height: 1.45; color: var(--text-secondary); }
+        .motor-data strong { display: block; color: var(--text-primary); font-size: 11px; }
+        .motor-data span { display: block; }
+        .motor-station .motor-state-label { margin-top: 4px; }
+        .robot-core { grid-area: core; align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; }
+        .esp32-board {
+            position: relative; width: min(190px, 92%); min-height: 72px; margin: 0 auto; padding: 14px 18px;
+            display: grid; place-items: center; border: 1px solid rgba(0,230,118,.42); border-radius: 5px;
+            background: linear-gradient(135deg, #153f36, #0d2925); color: #eefcf5;
+            font-family: var(--font-mono); font-size: 14px; font-weight: 800; letter-spacing: 1.4px;
+            box-shadow: inset 0 0 18px rgba(0,230,118,.08), 0 0 16px rgba(0,230,118,.08);
+        }
+        .esp32-board::before, .esp32-board::after {
+            content: ''; position: absolute; left: 8px; right: 8px; height: 5px;
+            background: repeating-linear-gradient(90deg, #c8a952 0 3px, transparent 3px 10px);
+        }
+        .esp32-board::before { top: -4px; } .esp32-board::after { bottom: -4px; }
+        .esp32-chip { padding: 7px 13px; background: #111820; border: 1px solid #587063; border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+        .esp32-caption { margin-top: 5px; font-size: 8px; color: var(--accent); letter-spacing: .8px; text-align: center; text-transform: uppercase; }
+        .gyro-card { width: min(230px, 100%); margin: 0 auto; padding: 10px; background: rgba(22,29,39,.94); border: 1px solid var(--border-light); border-radius: var(--radius); }
+        .gyro-card .card-title { margin-bottom: 7px; }
+        .gyro-dial {
+            --gyro-angle: 0deg; position: relative; width: 150px; aspect-ratio: 1; margin: 2px auto 8px; border-radius: 50%;
+            border: 8px solid #88929b; outline: 2px solid #303d4b;
+            background: radial-gradient(circle at 50% 50%, #384858 0 5%, transparent 6%), radial-gradient(circle, rgba(0,176,255,.15), #16202c 67%), repeating-conic-gradient(from -1deg, rgba(216,226,236,.65) 0 1deg, transparent 1deg 15deg);
+            box-shadow: inset 0 0 18px #020406, 0 5px 18px rgba(0,0,0,.45);
+        }
+        .gyro-dial::before, .gyro-dial::after { position: absolute; font: 700 9px var(--font-ui); color: var(--text-primary); }
+        .gyro-dial::before { content: 'N'; top: 5px; left: 50%; transform: translateX(-50%); color: var(--error); }
+        .gyro-dial::after { content: 'S'; bottom: 5px; left: 50%; transform: translateX(-50%); }
+        .gyro-east, .gyro-west { position: absolute; top: 50%; transform: translateY(-50%); font-size: 9px; font-weight: 700; z-index: 2; }
+        .gyro-east { right: 7px; } .gyro-west { left: 7px; }
+        .gyro-needle { position: absolute; inset: 14px; transform: rotate(var(--gyro-angle)); transition: transform .25s ease; }
+        .gyro-needle::before, .gyro-needle::after { content: ''; position: absolute; left: calc(50% - 5px); width: 10px; height: 50%; clip-path: polygon(50% 0,100% 100%,0 100%); }
+        .gyro-needle::before { top: 0; background: linear-gradient(#ff7043,#a62c1b); }
+        .gyro-needle::after { bottom: 0; background: linear-gradient(#e6edf3,#637486); transform: rotate(180deg); }
+        .gyro-center { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #d8e2ec; border: 3px solid #5e6d7d; inset: calc(50% - 6px); z-index: 2; }
+        .gyro-readout { text-align: center; }
+        .gyro-angle { font-family: var(--font-mono); font-size: 17px; font-weight: 800; color: var(--accent); }
+        .gyro-axes { margin-top: 2px; font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+        .gyro-status { margin-top: 7px; padding: 4px 6px; border-radius: var(--radius-sm); text-align: center; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(0,230,118,.25); font-size: 8px; letter-spacing: .7px; text-transform: uppercase; }
+
+        @media (max-width: 1100px) {
+            .testing-grid { grid-template-columns: 1fr 1fr; }
+            .col-motors { grid-column: 1 / -1; order: -1; }
+            .robot-blueprint { min-height: 540px; }
+        }
+        @media (max-width: 768px) {
+            .testing-grid { grid-template-columns: 1fr; }
+            .col-motors { order: 0; border-bottom: 1px solid var(--border); }
+            .robot-blueprint { grid-template-columns: 1fr 1.25fr 1fr; min-height: 500px; padding-inline: 0; }
+            .motor-station .motor-svg { width: min(100%, 105px); }
+            .gyro-dial { width: 125px; }
+        }
+        @media (max-width: 480px) {
+            .robot-blueprint { min-height: 460px; gap: 6px 2px; }
+            .motor-station .motor-svg { width: min(100%, 82px); }
+            .motor-data { font-size: 7px; }
+            .motor-data strong { font-size: 9px; }
+            .motor-station .motor-state-label { font-size: 6px; padding-inline: 4px; }
+            .esp32-board { min-height: 58px; padding: 10px 8px; font-size: 11px; }
+            .gyro-card { padding: 7px 5px; }
+            .gyro-dial { width: 104px; border-width: 6px; }
+            .gyro-angle { font-size: 14px; }
+        }
+
+        /* --- Estilos Pestaña Rutas --- */
+        .route-maps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        @media (max-width: 768px) { .route-maps-grid { grid-template-columns: 1fr; } }
+        .route-map-card { position: relative; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border); padding: 10px; display: flex; flex-direction: column; transition: all 0.3s; }
+        .route-map-card.cinema-mode { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-primary); margin: 0; border: none; border-radius: 0; padding: 20px; }
+        .route-map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .route-map-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
+        .route-map-container { position: relative; flex-grow: 1; min-height: 360px; height: min(52vh,520px); display: flex; justify-content: center; align-items: center; overflow: hidden; background: linear-gradient(180deg,rgba(17,24,32,.96),rgba(10,14,20,.98)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
+        .route-map-card.cinema-mode .route-map-container { min-height: auto; height: auto; }
+        .route-chart-canvas { width: 100% !important; height: 100% !important; }
+        .route-svg { width: 100%; height: 100%; max-height: 100%; }
+        .route-line-pending { stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 6 4; fill: none; }
+        .route-line-done { stroke: var(--accent); stroke-width: 3; fill: none; }
+        .route-wp-dot { fill: var(--text-muted); }
+        .route-wp-dot.done { fill: var(--accent); }
+        .tab-btn.disabled { opacity: 0.3; pointer-events: none; }
+        .route-running-badge { font-size: 10px; padding: 2px 8px; background: var(--accent); color: var(--bg-primary); border-radius: 12px; font-weight: bold; animation: pulse-dot 1.5s infinite; display: none; margin-right: 5px; }
+        .route-running-badge.show { display: inline-block; }
+        /* Conexión PC -> ESP32 y sesiones SQLite */
+        .connection-layout { max-width: 1180px; margin: 0 auto; padding: 14px; display: grid; grid-template-columns: 360px 1fr; gap: 12px; }
+        .connection-stack { display: grid; gap: 12px; align-content: start; }
+        .connection-identity { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .identity-value { background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; padding: 9px; min-width: 0; }
+        .identity-value small { display:block; color:var(--text-secondary); font-size:8px; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+        .identity-value strong { display:block; overflow:hidden; text-overflow:ellipsis; color:var(--text-primary); font: 600 11px var(--font-mono); }
+        .connection-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:10px; }
+        .connection-state-line { display:flex; align-items:center; gap:8px; padding:9px; border:1px solid var(--border); background:var(--bg-input); border-radius:5px; margin-top:8px; }
+        .connection-state-line .conn-dot { position:static; flex:none; }
+        .retention-note { margin-top:10px; padding:8px; border-left:2px solid var(--info); background:var(--info-dim); color:var(--text-secondary); font-size:10px; line-height:1.5; }
+        .session-table-wrap { overflow:auto; max-height:calc(100vh - 205px); border:1px solid var(--border); border-radius:5px; }
+        .session-table { width:100%; border-collapse:collapse; font:10px var(--font-mono); }
+        .session-table th { position:sticky; top:0; z-index:1; background:#111923; color:var(--text-secondary); text-align:left; letter-spacing:.7px; text-transform:uppercase; }
+        .session-table th,.session-table td { padding:9px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
+        .session-table tbody tr:hover { background:rgba(0,230,118,.035); }
+        .session-table a { color:var(--info); text-decoration:none; margin-right:8px; }
+        .session-empty { color:var(--text-muted); text-align:center; padding:30px !important; }
+        @media(max-width:800px) { .connection-layout { grid-template-columns:1fr; } .connection-identity { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="app-header">
+        <div class="header-brand">
+            <div class="brand-icon"></div>
+            <div>
+                <div class="brand-title">Robot S3 BETA</div>
+                <div class="brand-sub">HMI Dual</div>
+            </div>
+        </div>
+        <div class="header-center">
+            <span class="route-running-badge" id="route-running-badge">RUTA EN EJECUCIÓN</span>
+            <div class="conn-status">
+                <div class="conn-dot" id="conn-dot"></div>
+                <span id="conn-text">Conectando...</span>
+            </div>
+            <span class="demo-badge" id="demo-badge">DEMO</span>
+        </div>
+        <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia">E-STOP</button>
+    </header>
+
+    <!-- TAB BAR -->
+    <nav class="tab-bar" role="tablist">
+        <button class="tab-btn active" data-tab="conexion" role="tab" aria-selected="true">Conexión</button>
+        <button class="tab-btn" data-tab="mapa" role="tab" aria-selected="false">Mapa de Navegación</button>
+        <button class="tab-btn" data-tab="testing" role="tab" aria-selected="false">Testing S3</button>
+        <button class="tab-btn" data-tab="touch" role="tab" aria-selected="false">Control Touch</button>
+        <button class="tab-btn" data-tab="rutas" role="tab" aria-selected="false">Rutas (Ockham)</button>
+    </nav>
+
+    <!-- TAB 1: CONEXIÓN Y SESIONES LOCALES -->
+    <div class="tab-content active" id="tab-conexion" role="tabpanel">
+        <div class="connection-layout">
+            <aside class="connection-stack">
+                <section class="card">
+                    <div class="card-title">Enlace PC → ESP32</div>
+                    <div class="cmd-input-group">
+                        <label>Dirección del carrito</label>
+                        <input type="text" id="robot-host" value="192.168.4.1" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="connection-state-line"><span class="conn-dot" id="connection-panel-dot"></span><strong id="connection-panel-state">DESCONECTADO</strong></div>
+                    <div class="connection-actions">
+                        <button class="btn btn-accent" id="btn-connect">Conectar</button>
+                        <button class="btn" id="btn-reconnect">Reconectar</button>
+                        <button class="btn btn-reverse" id="btn-disconnect">Desconectar</button>
+                    </div>
+                    <div class="retention-note">La red Wi‑Fi se selecciona en Windows. SSID esperado: <strong>ROBOT_S3_LOCAL</strong>. La aplicación administra únicamente el WebSocket y no conecta automáticamente al iniciar.</div>
+                </section>
+                <section class="card">
+                    <div class="card-title">Identidad permanente</div>
+                    <div class="connection-identity">
+                        <div class="identity-value"><small>Robot ID (eFuse/MAC)</small><strong id="robot-id">—</strong></div>
+                        <div class="identity-value"><small>Firmware</small><strong id="firmware-version">—</strong></div>
+                        <div class="identity-value"><small>Protocolo</small><strong id="protocol-version">—</strong></div>
+                        <div class="identity-value"><small>Sesión SQLite</small><strong id="active-session">—</strong></div>
+                    </div>
+                    <div class="retention-note">Retención de pruebas: permanente. No se borran sesiones automáticamente. Muestreo de telemetría: 5 Hz.</div>
+                </section>
+            </aside>
+            <section class="card">
+                <div class="card-title">Historial de sesiones y exportaciones</div>
+                <div class="session-table-wrap">
+                    <table class="session-table">
+                        <thead><tr><th>ID</th><th>Inicio</th><th>Fin</th><th>Robot</th><th>Muestras</th><th>Motivo</th><th>Exportar</th></tr></thead>
+                        <tbody id="session-history"><tr><td colspan="7" class="session-empty">Sin sesiones registradas</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- TAB 2: MAPA CHART.JS (Original UI Logic) -->
+    <div class="tab-content" id="tab-mapa" role="tabpanel">
+        <div class="nav-layout">
+            <aside class="card nav-control-card">
+                <div class="card-title">Coordenadas de destino</div>
+                <form id="chart-form" class="nav-form">
+                    <div class="cmd-input-group"><label>Coordenada X</label><input type="number" id="chart-x" step="0.1" required></div>
+                    <div class="cmd-input-group"><label>Coordenada Y</label><input type="number" id="chart-y" step="0.1" required></div>
+                    <div class="nav-actions">
+                        <button type="submit" class="btn btn-accent" id="btn-chart-move">Mover robot</button>
+                        <button type="button" class="btn btn-reverse" id="btn-chart-reset">Reiniciar trayectoria</button>
+                        <button type="button" class="btn" id="btn-chart-zoom">Restablecer zoom</button>
+                    </div>
+                </form>
+                <div class="gyro-status" style="margin-top:10px">Control por coordenadas X / Y</div>
+            </aside>
+            <section class="card nav-chart-card" aria-label="Mapa de trayectoria">
+                <div class="nav-status-card">
+                    <div class="nav-distance" id="chart-distanceLabel">Distancia recorrida: <strong>0.00 cm</strong></div>
+                    <div class="nav-chip">X: <span id="chart-status-x">0.0</span></div>
+                    <div class="nav-chip">Y: <span id="chart-status-y">0.0</span></div>
+                    <div class="nav-chip">Ángulo: <span id="chart-status-angle">0.0°</span></div>
+                    <div class="nav-chip">Estado: <span id="chart-status-state">INIT</span></div>
+                    <div class="nav-progress"><div id="chart-progressBar" class="nav-progress-fill"></div></div>
+                </div>
+                <div class="nav-canvas-wrap"><canvas id="robotChart"></canvas></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- TAB 2: TESTING CONFIG -->
+    <div class="tab-content" id="tab-testing" role="tabpanel">
+        <div class="testing-grid">
+            <aside class="col-controls">
+                <div class="card">
+                    <div class="card-title">PWM Manual</div>
+                    <div class="pwm-group">
+                        <div class="pwm-label"><span>Motor Izquierdo</span><span class="pwm-val" id="pwm-left-val">0</span></div>
+                        <input type="range" id="pwm-left" min="0" max="255" value="0" aria-label="PWM motor izquierdo">
+                        <div class="pwm-direction">
+                            <button class="dir-btn active-stop" data-motor="left" data-dir="stop">STOP</button>
+                            <button class="dir-btn" data-motor="left" data-dir="fwd">FWD</button>
+                            <button class="dir-btn" data-motor="left" data-dir="rev">REV</button>
+                        </div>
+                    </div>
+                    <div class="pwm-group">
+                        <div class="pwm-label"><span>Motor Derecho</span><span class="pwm-val" id="pwm-right-val">0</span></div>
+                        <input type="range" id="pwm-right" min="0" max="255" value="0" aria-label="PWM motor derecho">
+                        <div class="pwm-direction">
+                            <button class="dir-btn active-stop" data-motor="right" data-dir="stop">STOP</button>
+                            <button class="dir-btn" data-motor="right" data-dir="fwd">FWD</button>
+                            <button class="dir-btn" data-motor="right" data-dir="rev">REV</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-accent btn-sm" id="btn-apply-pwm" style="width:100%">Aplicar PWM</button>
+                    <div class="cmd-input-group" style="margin-top:8px">
+                        <label>Duraci&oacute;n (ms):</label>
+                        <input type="number" id="test-duration" value="500" min="100" max="1500" step="100">
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Control Movimiento S3</div>
+                    <div class="cmd-input-row">
+                        <div class="cmd-input-group"><label>Dist (cm)</label><input type="number" id="cmd-dist" value="50" min="1" max="999"></div>
+                        <div class="cmd-input-group"><label>Ang (deg)</label><input type="number" id="cmd-angle" value="90" min="1" max="360"></div>
+                    </div>
+                    <div class="drive-pad">
+                        <button class="btn btn-accent drive-forward" data-cmd="avance"><span class="drive-icon">&uarr;</span>Avanzar</button>
+                        <button class="btn drive-left" data-cmd="giro-izq"><span class="drive-icon">&larr;</span>Izquierda</button>
+                        <button class="btn btn-stop drive-stop" data-cmd="parada">Parar</button>
+                        <button class="btn drive-right" data-cmd="giro-der"><span class="drive-icon">&rarr;</span>Derecha</button>
+                        <button class="btn btn-reverse drive-reverse" data-cmd="retroceso"><span class="drive-icon">&darr;</span>Reversa</button>
+                    </div>
+                    <button class="btn btn-sm reset-pose" data-cmd="reset">Reset de posici&oacute;n</button>
+                </div>
+            </aside>
+
+            <section class="col-motors" aria-label="Vista de prueba de sensores ESP32-S3">
+                <div class="testing-stage-title">Vista de prueba de sensores S3</div>
+                <div class="robot-blueprint">
+                    <svg class="robot-wiring" viewBox="0 0 600 600" preserveAspectRatio="none" aria-hidden="true">
+                        <path class="chassis-line" d="M110 20 H490 L565 96 V218 L530 262 V338 L565 382 V504 L490 580 H110 L35 504 V382 L70 338 V262 L35 218 V96 Z"/>
+                        <path class="wire-line" d="M115 120 H210 V185 H300 M485 120 H390 V185 H300 M115 480 H210 V415 H300 M485 480 H390 V415 H300"/>
+                    </svg>
+
+                    <div class="motor-station motor-fl" data-wheel="fl">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-fl">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-fl"></g>
+                            <g id="rotor-fl" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Superior Izq</span>
+                        <div class="motor-data"><strong id="rpm-fl">0 RPM</strong><span id="pwm-fl">PWM: 0</span><span id="pulses-fl">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-fl">DETENIDO</span>
+                    </div>
+
+                    <div class="motor-station motor-fr" data-wheel="fr">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-fr">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-fr"></g>
+                            <g id="rotor-fr" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Superior Der</span>
+                        <div class="motor-data"><strong id="rpm-fr">0 RPM</strong><span id="pwm-fr">PWM: 0</span><span id="pulses-fr">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-fr">DETENIDO</span>
+                    </div>
+
+                    <div class="robot-core">
+                        <div>
+                            <div class="esp32-board" aria-label="ESP32-S3 WROOM DevKit"><span class="esp32-chip">ESP32</span></div>
+                            <div class="esp32-caption">ESP32-S3 WROOM DevKit</div>
+                        </div>
+                        <div class="gyro-card">
+                            <div class="card-title">MPU 6050 · Giroscopio</div>
+                            <div class="gyro-dial" id="gyro-dial">
+                                <span class="gyro-west">W</span><span class="gyro-east">E</span>
+                                <div class="gyro-needle"></div><div class="gyro-center"></div>
+                            </div>
+                            <div class="gyro-readout">
+                                <div>&Aacute;ngulo actual Z: <span class="gyro-angle" id="gyro-angle">0.0&deg;</span></div>
+                                <div class="gyro-axes">X: <span id="gyro-x">0.0&deg;</span> &nbsp; Y: <span id="gyro-y">0.0&deg;</span></div>
+                                <div class="gyro-status" id="gyro-status">Estado giroscopio: estable</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="motor-station motor-bl" data-wheel="bl">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-bl">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-bl"></g>
+                            <g id="rotor-bl" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Inferior Izq</span>
+                        <div class="motor-data"><strong id="rpm-bl">0 RPM</strong><span id="pwm-bl">PWM: 0</span><span id="pulses-bl">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-bl">DETENIDO</span>
+                    </div>
+
+                    <div class="motor-station motor-br" data-wheel="br">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-br">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-br"></g>
+                            <g id="rotor-br" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Inferior Der</span>
+                        <div class="motor-data"><strong id="rpm-br">0 RPM</strong><span id="pwm-br">PWM: 0</span><span id="pulses-br">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-br">DETENIDO</span>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="col-telemetry">
+                <div class="card">
+                    <div class="card-title">Telemetria (Live)</div>
+                    <div class="telem-grid">
+                        <div class="telem-item full"><div class="telem-label">Estado FSM</div><div class="telem-value state-val tv-idle" id="telem-state">IDLE</div></div>
+                        <div class="telem-item"><div class="telem-label">Distancia Total</div><div class="telem-value" id="telem-dist">0.0 cm</div></div>
+                        <div class="telem-item"><div class="telem-label">Angulo (Z)</div><div class="telem-value" id="telem-angle">0.0°</div></div>
+                        <div class="telem-item"><div class="telem-label">Enc Izq</div><div class="telem-value" id="telem-enc-l">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">Enc Der</div><div class="telem-value" id="telem-enc-r">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">PWM Izq</div><div class="telem-value" id="telem-pwm-l" style="color:var(--accent)">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">PWM Der</div><div class="telem-value" id="telem-pwm-r" style="color:var(--accent)">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">Orient Rads</div><div class="telem-value" id="telem-orient">0.00 rad</div></div>
+                        <div class="telem-item"><div class="telem-label">Clientes</div><div class="telem-value" id="telem-clients">N/A</div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Posicion S3 (Beta)</div>
+                    <div class="pos-map-container">
+                        <svg id="pos-map" class="pos-map" viewBox="-300 -300 600 600" preserveAspectRatio="xMidYMid meet">
+                            <line x1="-300" y1="-200" x2="300" y2="-200" class="grid-line"/>
+                            <line x1="-300" y1="-100" x2="300" y2="-100" class="grid-line"/>
+                            <line x1="-300" y1="0" x2="300" y2="0" class="axis-line"/>
+                            <line x1="-300" y1="100" x2="300" y2="100" class="grid-line"/>
+                            <line x1="-300" y1="200" x2="300" y2="200" class="grid-line"/>
+                            <line x1="-200" y1="-300" x2="-200" y2="300" class="grid-line"/>
+                            <line x1="-100" y1="-300" x2="-100" y2="300" class="grid-line"/>
+                            <line x1="0" y1="-300" x2="0" y2="300" class="axis-line"/>
+                            <line x1="100" y1="-300" x2="100" y2="300" class="grid-line"/>
+                            <line x1="200" y1="-300" x2="200" y2="300" class="grid-line"/>
+                            <text x="290" y="-8" fill="var(--text-muted)" font-size="11" font-family="var(--font-mono)">X</text>
+                            <text x="6" y="-286" fill="var(--text-muted)" font-size="11" font-family="var(--font-mono)">Y</text>
+                            <polyline id="pos-trail" class="trail-line" points=""/>
+                            <circle cx="0" cy="0" r="3" class="origin-mark"/>
+                            <circle id="pos-dot" class="pos-dot" cx="0" cy="0" r="7"/>
+                            <line id="pos-heading" x1="0" y1="0" x2="0" y2="-25" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div class="pos-coords">X: <span id="pos-x">0.0</span> cm &nbsp; Y: <span id="pos-y">0.0</span> cm</div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- TAB 3: CONTROL TOUCH -->
+    <div class="tab-content" id="tab-touch" role="tabpanel">
+        <div class="touch-layout">
+            <div class="touch-joystick-area">
+                <div class="joystick-wrapper" id="joystick-wrapper">
+                    <svg class="joystick-svg" viewBox="0 0 300 300" id="joystick-svg">
+                        <circle cx="150" cy="150" r="138" class="joy-donut-shell"/>
+                        <circle cx="150" cy="150" r="118" class="joy-track"/>
+                        <circle cx="150" cy="150" r="130" class="joy-boundary"/>
+                        <circle cx="150" cy="150" r="130" class="joy-boundary-active"/>
+                        <line x1="150" y1="20" x2="150" y2="280" class="joy-crosshair"/>
+                        <line x1="20" y1="150" x2="280" y2="150" class="joy-crosshair"/>
+                        <circle cx="150" cy="150" r="78" class="joy-donut-hole"/>
+                        <circle cx="150" cy="150" r="22" class="joy-deadzone"/>
+                        <circle cx="150" cy="150" r="118" class="joy-speed-arc" stroke-dasharray="0 742" stroke-dashoffset="0" transform="rotate(-90 150 150)" id="joy-speed-arc"/>
+                        <line x1="150" y1="150" x2="150" y2="150" class="joy-dir-line" id="joy-dir-line"/>
+                        <circle cx="150" cy="150" r="14" class="joy-thumb-outer"/>
+                        <circle cx="150" cy="150" r="5" class="joy-thumb" id="joy-thumb"/>
+                        <circle cx="150" cy="150" r="3" class="joy-center-dot"/>
+                        <text x="150" y="19" text-anchor="middle" class="joy-label">AVANCE</text>
+                        <text x="150" y="287" text-anchor="middle" class="joy-label">REVERSA</text>
+                        <text x="13" y="154" text-anchor="middle" class="joy-label" transform="rotate(-90 13 154)">IZQ.</text>
+                        <text x="287" y="154" text-anchor="middle" class="joy-label" transform="rotate(90 287 154)">DER.</text>
+                        <text x="150" y="111" text-anchor="middle" class="donut-kicker">ÁNGULO ACTUAL Z</text>
+                        <text x="150" y="137" text-anchor="middle" class="donut-value" id="touch-angle-value">0.0°</text>
+                        <text x="150" y="170" text-anchor="middle" class="donut-kicker">VELOCIDAD DETECTADA</text>
+                        <text x="150" y="195" text-anchor="middle" class="donut-value" id="touch-speed-value">--</text>
+                        <text x="185" y="195" class="donut-unit">cm/s</text>
+                        <text x="150" y="216" text-anchor="middle" class="donut-direction" id="joy-dir-val">EN REPOSO</text>
+                    </svg>
+                </div>
+            </div>
+            <div class="touch-side">
+                <div class="card">
+                    <div class="card-title">Salida Motores Actual</div>
+                    <svg class="motor-bars-svg" viewBox="0 0 220 240" id="motor-bars">
+                        <rect x="25" y="20" width="70" height="200" rx="4" class="bar-bg"/>
+                        <rect x="125" y="20" width="70" height="200" rx="4" class="bar-bg"/>
+                        <line x1="25" y1="120" x2="95" y2="120" class="bar-center-line"/>
+                        <line x1="125" y1="120" x2="195" y2="120" class="bar-center-line"/>
+                        <rect id="bar-left-fill" x="27" y="120" width="66" height="0" rx="3" class="bar-fill-fwd"/>
+                        <rect id="bar-right-fill" x="127" y="120" width="66" height="0" rx="3" class="bar-fill-fwd"/>
+                        <text x="60" y="14" text-anchor="middle" class="bar-label">IZQ</text>
+                        <text x="160" y="14" text-anchor="middle" class="bar-label">DER</text>
+                        <text id="bar-left-val" x="60" y="130" text-anchor="middle" class="bar-value">0</text>
+                        <text id="bar-right-val" x="160" y="130" text-anchor="middle" class="bar-value">0</text>
+                        <text id="bar-left-dir" x="60" y="235" text-anchor="middle" class="bar-dir-label">stop</text>
+                        <text id="bar-right-dir" x="160" y="235" text-anchor="middle" class="bar-dir-label">stop</text>
+                        <text x="10" y="26" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">+255</text>
+                        <text x="10" y="123" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">0</text>
+                        <text x="14" y="224" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">-255</text>
+                    </svg>
+                </div>
+                <div class="card">
+                    <div class="card-title">Encoder Data (Live)</div>
+                    <div class="encoder-list stale" id="encoder-live-list">
+                        <div class="encoder-row" id="encoder-row-fl" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Sup. Izq.</div><div class="encoder-pulses" id="encoder-pulses-fl">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-fl">-- <small>cm/s</small></div></div>
+                        <div class="encoder-row" id="encoder-row-fr" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Sup. Der.</div><div class="encoder-pulses" id="encoder-pulses-fr">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-fr">-- <small>cm/s</small></div></div>
+                        <div class="encoder-row" id="encoder-row-bl" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Inf. Izq.</div><div class="encoder-pulses" id="encoder-pulses-bl">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-bl">-- <small>cm/s</small></div></div>
+                        <div class="encoder-row" id="encoder-row-br" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Inf. Der.</div><div class="encoder-pulses" id="encoder-pulses-br">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-br">-- <small>cm/s</small></div></div>
+                    </div>
+                </div>
+                <div class="joy-info">
+                    <div class="joy-info-item"><div class="joy-info-label">Orden táctil</div><div class="joy-info-value" id="joy-speed-val">0%</div></div>
+                    <div class="joy-info-item"><div class="joy-info-label">Estado</div><div class="joy-info-value" id="touch-live-state">IDLE</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: RUTAS -->
+    <div class="tab-content" id="tab-rutas" role="tabpanel">
+        <div class="card route-content">
+            <div class="card-title" style="font-size: 14px;">Programación de Rutas (Descomposición Ortogonal)</div>
+            
+            <form id="route-form" style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; align-items: flex-end;">
+                <div class="cmd-input-group" style="flex: 0 1 150px;">
+                    <label>Modo de Entrada:</label>
+                    <select id="route-mode" style="width: 100%; padding: 5px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                        <option value="rect">Rectangular (X, Y)</option>
+                        <option value="polar">Polar (Radio, Ángulo)</option>
+                    </select>
+                </div>
+                <div class="cmd-input-group" style="flex: 0 1 150px;">
+                    <label id="route-label-1">Coordenada Relativa X:</label>
+                    <input type="number" id="route-input-1" step="0.1" required>
+                </div>
+                <div class="cmd-input-group" style="flex: 0 1 150px;">
+                    <label id="route-label-2">Coordenada Relativa Y:</label>
+                    <input type="number" id="route-input-2" step="0.1" required>
+                </div>
+                <button type="submit" class="btn btn-accent" style="height: 34px; font-weight: bold;">+ Agregar Paso Ortogonal</button>
+            </form>
+
+            <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;">Equiv: X = 0.00, Y = 0.00</div>
+
+            <div class="route-maps-grid">
+                <div class="route-map-card" id="card-plan-map">
+                    <div class="route-map-header">
+                        <span class="route-map-title">Plan Teórico</span>
+                        <button class="btn btn-sm route-cinema" data-card="card-plan-map">⛶ Cine</button>
+                    </div>
+                    <div class="route-map-container">
+                        <canvas class="route-chart-canvas" id="route-plan-chart" aria-label="Gráfica del plan teórico"></canvas>
+                    </div>
+                </div>
+                
+                <div class="route-map-card" id="card-telem-map">
+                    <div class="route-map-header">
+                        <span class="route-map-title">Telemetría Real</span>
+                        <button class="btn btn-sm route-cinema" data-card="card-telem-map">⛶ Cine</button>
+                    </div>
+                    <div class="route-map-container">
+                        <canvas class="route-chart-canvas" id="route-telem-chart" aria-label="Gráfica de telemetría real"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-accent" id="btn-route-start">▶ Iniciar Ruta</button>
+                <button type="button" class="btn btn-stop" id="btn-route-stop">⏹ Detener / Reset</button>
+                <button type="button" class="btn btn-reverse" id="btn-route-ockham">🏠 Regresar al Inicio (Ockham)</button>
+            </div>
+
+            <div class="route-tables-grid">
+                <section class="data-table-wrap" aria-label="Telemetría de ruta en vivo">
+                    <div class="data-table-title">Telemetría de Ruta (Live)</div>
+                    <table class="data-table">
+                        <thead><tr><th>Dato</th><th>Valor</th><th>Dato</th><th>Valor</th></tr></thead>
+                        <tbody>
+                            <tr><td>X</td><td id="route-live-x">0.0 cm</td><td>Y</td><td id="route-live-y">0.0 cm</td></tr>
+                            <tr><td>Yaw</td><td id="route-live-yaw">0.0°</td><td>Estado</td><td id="route-live-state">INIT</td></tr>
+                            <tr><td>Distancia</td><td id="route-live-dist">0.0 cm</td><td>PWM L / R</td><td id="route-live-pwm">0 / 0</td></tr>
+                            <tr><td>Sup. Izq.</td><td id="route-live-fl">0</td><td>Sup. Der.</td><td id="route-live-fr">0</td></tr>
+                            <tr><td>Inf. Izq.</td><td id="route-live-bl">0</td><td>Inf. Der.</td><td id="route-live-br">0</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+                <section class="data-table-wrap" aria-label="Cola de waypoints absolutos">
+                    <div class="data-table-title">Cola de Comandos · Waypoints Absolutos</div>
+                    <table class="data-table">
+                        <thead><tr><th>#</th><th>Descripción</th><th>X</th><th>Y</th><th>Estado</th></tr></thead>
+                        <tbody id="route-list">
+                            <tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- FSM -->
+    <section class="fsm-panel" aria-label="Maquina de estados">
+        <div class="fsm-flow" id="fsm-flow">
+            <div class="fsm-node active" data-state="INIT">INIT</div>
+            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-node" data-state="IDLE">IDLE</div>
+            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-node" data-state="GIRANDO">GIRANDO</div>
+            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-node" data-state="ESPERANDO">ESPERANDO</div>
+            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-node" data-state="AVANZANDO">AVANZANDO</div>
+            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-node" data-state="TERMINADO">TERMINADO</div>
+        </div>
+    </section>
+
+    <!-- LOGS -->
+    <section class="log-panel" aria-label="Logs">
+        <div class="log-toolbar">
+            <div class="log-filters">
+                <button class="log-filter-btn lf-info active" data-filter="info">Info</button>
+                <button class="log-filter-btn lf-warn active" data-filter="warn">Warn</button>
+                <button class="log-filter-btn lf-error active" data-filter="error">Error</button>
+                <button class="log-filter-btn lf-cmd active" data-filter="cmd">Cmd</button>
+            </div>
+            <button class="btn btn-sm" id="btn-download-log">TXT</button>
+            <button class="btn btn-sm" id="btn-clear-log">Limpiar</button>
+            <span class="log-count" id="log-count">0</span>
+        </div>
+        <div class="log-container" id="log-container" role="log" aria-live="polite">
+            <div class="log-empty" id="log-empty">Esperando eventos...</div>
+        </div>
+    </section>
+
+    <!-- JAVASCRIPT -->
+    <script>
+    /* ==============================================
+       CHART.JS LOGIC & VARIABLES GLOBALES
+       ============================================== */
+    let robotChart;
+    let totalDistance = 0;
+    let totalPoints = 0;
+    let currentPoint = 0;
+    let lastPoint = {x:0, y:0};
+
+    function initChart() {
+        const ctx = document.getElementById('robotChart').getContext('2d');
+        const chartTheme = getComputedStyle(document.documentElement);
+        const chartInfo = chartTheme.getPropertyValue('--info').trim();
+        const chartAccent = chartTheme.getPropertyValue('--accent').trim();
+        const chartGrid = chartTheme.getPropertyValue('--border').trim();
+        const chartText = chartTheme.getPropertyValue('--text-secondary').trim();
+        robotChart = new Chart(ctx, {
+          type: 'scatter',
+          data: {
+            datasets: [
+              { label: 'Trayectoria del Robot', data: [{x:0, y:0}], borderColor: chartInfo, backgroundColor: chartInfo,
+                showLine: true, tension: 0.3, borderWidth: 2, pointRadius: 3, pointBackgroundColor: chartInfo },
+              { label: 'Posición Actual', data: [{x:0, y:0}], borderColor: chartAccent, backgroundColor: chartAccent,
+                showLine: false, pointRadius: 7, pointBackgroundColor: chartAccent }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              datalabels: {
+                align: 'top', color: chartText, font: { weight: 'bold' },
+                formatter: function(value, context) {
+                  const dataset = context.chart.data.datasets[0].data;
+                  if (value === dataset[dataset.length - 1]) {
+                    return "Distancia total: " + totalDistance.toFixed(2);
+                  }
+                  return '';
+                }
+              },
+              zoom: {
+                pan: { enabled: true, mode: 'xy' },
+                zoom: {
+                  wheel: { enabled: true },
+                  pinch: { enabled: true },
+                  mode: 'xy'
+                }
+              }
+            },
+            scales: {
+              x: { title: { display: true, text: 'X', color: chartText }, ticks: { color: chartText }, grid: { color: chartGrid }, min: -1000, max: 1000 },
+              y: { title: { display: true, text: 'Y', color: chartText }, ticks: { color: chartText }, grid: { color: chartGrid }, min: -1000, max: 1000 }
+            }
+          },
+          plugins: [ChartDataLabels]
+        });
+
+        // Eventos del Formulario Chart
+        document.getElementById('chart-form').addEventListener('submit', function(event) {
+          event.preventDefault();
+          const xInput = document.getElementById('chart-x').value;
+          const yInput = document.getElementById('chart-y').value;
+          if (xInput === '' || yInput === '') return;
+          const x = parseFloat(xInput);
+          const y = parseFloat(yInput);
+
+          const newPoint = {x: lastPoint.x + x, y: lastPoint.y + y};
+          robotChart.data.datasets[0].data.push(newPoint);
+
+          const dx = newPoint.x - lastPoint.x;
+          const dy = newPoint.y - lastPoint.y;
+          totalDistance += Math.sqrt(dx*dx + dy*dy);
+
+          lastPoint = newPoint;
+          totalPoints = 1;
+          currentPoint = 0;
+
+          robotChart.data.datasets[1].data[0] = newPoint;
+          robotChart.update();
+
+          // Enviar via WebSocket Centralizado
+          WSControl.sendMove(newPoint.x, newPoint.y);
+          
+          actualizarBarra();
+          document.getElementById('chart-x').value = '';
+          document.getElementById('chart-y').value = '';
+        });
+
+        document.getElementById("btn-chart-reset").addEventListener("click", function() {
+          robotChart.data.datasets[0].data = [{x:0, y:0}];
+          robotChart.data.datasets[1].data = [{x:0, y:0}];
+          totalDistance = 0;
+          totalPoints = 0;
+          currentPoint = 0;
+          lastPoint = {x:0, y:0};
+          document.getElementById('chart-progressBar').style.width = "0%";
+          document.getElementById('chart-distanceLabel').innerHTML = "Distancia recorrida: <strong>0.00 cm</strong>";
+          robotChart.update();
+        });
+
+        document.getElementById("btn-chart-zoom").addEventListener("click", function() {
+          if (robotChart) robotChart.resetZoom();
+        });
+    }
+
+    function actualizarBarra() {
+      const progressBar = document.getElementById('chart-progressBar');
+      let porcentaje = totalPoints === 0 ? 0 : (currentPoint / totalPoints) * 100;
+      progressBar.style.width = porcentaje + "%";
+      document.getElementById('chart-distanceLabel').innerHTML = `Distancia recorrida: <strong>${totalDistance.toFixed(2)} cm</strong>`;
+      if (robotChart) robotChart.update();
+    }
+
+    /* ==============================================
+       CONFIG GENERAL Y ESTADO UI
+       ============================================== */
+    const CONFIG = {
+        MAX_RPM_VISUAL: 120, MIN_RPM_VISUAL: 5,
+        TRAIL_MAX: 200, LOG_MAX: 500,
+        JOYSTICK_MAX_RADIUS: 108, JOYSTICK_DEAD_ZONE: 18
+    };
+
+    const state = {
+        connected: false, demoMode: false, estado: 'INIT', estadoAnterior: '',
+        telemetria: { distancia:0, angulo:0, posX:0, posY:0, orientacion:0, pfl:0, pfr:0, pbl:0, pbr:0, pwmL:0, pwmR:0 },
+        clientes: 0, trail: [],
+        logFilters: { info:true, warn:true, error:true, cmd:true },
+        motorDir: { left:'stop', right:'stop' },
+        activeTab: 'conexion',
+        joy: { active:false, nx:0, ny:0, magnitude:0, angle:0, pwmL:0, pwmR:0, dirL:'stop', dirR:'stop' }
+    };
+
+    /* ==============================================
+       SISTEMA DE WEBSOCKET (Sustituye HTTP Fetch)
+       ============================================== */
+    const WSControl = {
+        ws: null, events: null, reconnectTimer: null, _orientacionEstimada: 0, _lastPos: null,
+        appToken: document.querySelector('meta[name="app-token"]')?.content || '',
+        get flaskMode() { return Boolean(this.appToken); },
+        init() { this.flaskMode ? this.connectBackend() : this.connect(); },
+        connect() {
+            this.ws = new WebSocket(`ws://${window.location.host}/ws`);
+            this.ws.onopen = () => {
+                state.connected = true; state.demoMode = false;
+                document.getElementById('demo-badge').classList.remove('show');
+                Telemetry._ui(); LogSystem.add('INFO', 'WebSocket Conectado');
+            };
+            this.ws.onclose = () => {
+                state.connected = false; document.getElementById('demo-badge').classList.add('show');
+                Telemetry._ui();
+                LogSystem.add('WARN', 'WebSocket Desconectado. Reconectando en 3s...');
+                clearTimeout(this.reconnectTimer);
+                this.reconnectTimer = setTimeout(() => this.connect(), 3000);
+            };
+            this.ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // ACK / completed / fault desde firmware
+                    if (data.type === 'completed') LogSystem.add('INFO', `Robot: ${data.cmd||'cmd'} completado (${data.detail||''})`);
+                    else if (data.type === 'fault')   LogSystem.add('ERROR', `Robot FAULT: ${data.detail||''}`);
+                    else if (data.type === 'rejected') LogSystem.add('WARN', `Robot rechazo: ${data.cmd||'cmd'} - ${data.reason||''}`);
+                    else if (data.type === 'queued')   LogSystem.add('CMD', `Robot encolado: ${data.cmd||'cmd'} id=${data.id||'?'}`);
+
+                    // Telemetría posicional: acepta formato plano legado y payload V1.
+                    const raw = data.type === 'telemetry' && data.payload ? data.payload : data;
+                    const telemX = typeof raw.x_mm === 'number' ? raw.x_mm / 10 : raw.x;
+                    const telemY = typeof raw.y_mm === 'number' ? raw.y_mm / 10 : raw.y;
+                    if (typeof telemX === 'number' && typeof telemY === 'number') {
+                        if (robotChart) {
+                            robotChart.data.datasets[1].data[0] = {x: telemX, y: telemY};
+                            robotChart.update('none');
+                        }
+                        const dx = telemX - (this._lastPos ? this._lastPos.x : 0);
+                        const dy = telemY - (this._lastPos ? this._lastPos.y : 0);
+                        if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) {
+                            this._orientacionEstimada = Math.atan2(dy, dx);
+                        }
+                        this._lastPos = { x: telemX, y: telemY };
+
+                        const mapped = {
+                            distancia: totalDistance,
+                            angulo: Number(raw.yaw_deg ?? raw.a ?? 0),
+                            posX: telemX, posY: telemY,
+                            orientacion: typeof raw.yaw_deg === 'number' ? raw.yaw_deg * Math.PI / 180 : (this._orientacionEstimada || 0),
+                            estado: raw.state || raw.s,
+                            pfl: Number(raw.pfl||0), pfr: Number(raw.pfr||0), pbl: Number(raw.pbl||0), pbr: Number(raw.pbr||0),
+                            pwmL: Number(raw.pwm_l ?? raw.pwmL ?? 0), pwmR: Number(raw.pwm_r ?? raw.pwmR ?? 0)
+                        };
+                        Telemetry._process(mapped);
+                    }
+                } catch(e) { console.error("Error parseando WS:", e); }
+            };
+        },
+        async api(path, options={}) {
+            const headers = { 'Content-Type':'application/json', ...(options.headers||{}) };
+            if (this.appToken) headers['X-App-Token'] = this.appToken;
+            const response = await fetch(path, { ...options, headers });
+            const data = await response.json().catch(()=>({}));
+            if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+            return data;
+        },
+        connectBackend() {
+            const receive = event => {
+                try { this.consumeBackend(JSON.parse(event.data)); }
+                catch (error) { LogSystem.add('ERROR', `Evento local inválido: ${error.message}`); }
+            };
+            this.events = new EventSource('/api/v1/events');
+            this.events.addEventListener('snapshot', receive);
+            this.events.onmessage = receive;
+            this.events.onerror = () => LogSystem.add('WARN', 'Canal SSE local interrumpido; el navegador reintentará.');
+            this.api('/api/v1/status').then(snapshot => this.consumeBackend(snapshot)).catch(error => LogSystem.add('ERROR', error.message));
+        },
+        consumeBackend(message) {
+            if (message.type) {
+                if (message.type === 'telemetry') this.applyBackendTelemetry(message.payload);
+                else if (message.type === 'connection') ConnectionPanel.applyConnection(message.payload);
+                else if (message.type === 'session') { ConnectionPanel.applySession(message.payload); ConnectionPanel.loadHistory(); }
+                else if (message.type === 'robot_event') LogSystem.add('INFO', `Robot: ${JSON.stringify(message.payload)}`);
+                else if (message.type === 'command') LogSystem.add('CMD', `${message.payload.name}: ${message.payload.status}`);
+                return;
+            }
+            if (message.connection) ConnectionPanel.applySnapshot(message);
+            if (message.telemetry) this.applyBackendTelemetry(message.telemetry);
+        },
+        applyBackendTelemetry(raw) {
+            const telemX = Number(raw.x_mm || 0) / 10;
+            const telemY = Number(raw.y_mm || 0) / 10;
+            if (robotChart) { robotChart.data.datasets[1].data[0] = {x:telemX,y:telemY}; robotChart.update('none'); }
+            const dx = telemX - (this._lastPos ? this._lastPos.x : 0);
+            const dy = telemY - (this._lastPos ? this._lastPos.y : 0);
+            if (Math.abs(dx) > .05 || Math.abs(dy) > .05) this._orientacionEstimada = Math.atan2(dy,dx);
+            this._lastPos = {x:telemX,y:telemY};
+            const yaw = Number(raw.yaw_deg || 0);
+            const pulses = raw.pulses || {};
+            const pwm = raw.pwm || {};
+            Telemetry._process({
+                distancia:totalDistance, angulo:yaw, posX:telemX, posY:telemY,
+                orientacion:yaw*Math.PI/180, estado:raw.state,
+                pfl:Number(pulses.fl||0), pfr:Number(pulses.fr||0), pbl:Number(pulses.bl||0), pbr:Number(pulses.br||0),
+                pwmL:Number(pwm.left||0), pwmR:Number(pwm.right||0)
+            });
+            ConnectionPanel.applyIdentity(raw);
+        },
+        send(obj) {
+            if (this.flaskMode) {
+                const cmd = String(obj.cmd || '').toLowerCase();
+                const payload = {...obj}; delete payload.cmd;
+                const endpoint = cmd === 'estop' ? '/api/v1/estop' : '/api/v1/commands';
+                const body = cmd === 'estop' ? {} : {name:cmd,payload};
+                this.api(endpoint,{method:'POST',body:JSON.stringify(body)}).catch(error=>LogSystem.add('ERROR',error.message));
+                return true;
+            }
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                LogSystem.add('ERROR', 'WebSocket no conectado');
+                return false;
+            }
+            this.ws.send(JSON.stringify(obj));
+            return true;
+        },
+        sendMove(x, y) {
+            if (isNaN(x) || isNaN(y)) { LogSystem.add('ERROR', "Coordenadas invalidas."); return false; }
+            this.send({cmd:"move", x:x, y:y});
+            LogSystem.add('CMD', `WS -> Mover a X:${x.toFixed(1)}, Y:${y.toFixed(1)}`);
+            return true;
+        }
+    };
+
+    const ConnectionPanel = {
+        state:'stopped',
+        init() {
+            document.getElementById('btn-connect').addEventListener('click',()=>this.change('connect'));
+            document.getElementById('btn-reconnect').addEventListener('click',()=>this.change('reconnect'));
+            document.getElementById('btn-disconnect').addEventListener('click',()=>this.change('disconnect'));
+            this.loadHistory();
+        },
+        async change(action) {
+            if (!WSControl.flaskMode) { LogSystem.add('WARN','La gestión explícita está disponible en la aplicación Flask.'); return; }
+            try {
+                const host=document.getElementById('robot-host').value.trim();
+                if (action !== 'disconnect') await WSControl.api('/api/v1/config/robot',{method:'PUT',body:JSON.stringify({robot_host:host})});
+                const snapshot=await WSControl.api(`/api/v1/connection/${action}`,{method:'POST',body:'{}'});
+                this.applySnapshot(snapshot);
+                LogSystem.add('INFO',`${action.toUpperCase()} solicitado a Flask.`);
+            } catch(error) { LogSystem.add('ERROR',error.message); }
+        },
+        applySnapshot(snapshot) {
+            document.getElementById('robot-host').value=snapshot.robot_host||'192.168.4.1';
+            this.applyConnection(snapshot.connection||{});
+            this.applySession({recording:snapshot.recording,session_id:snapshot.session_id});
+            document.getElementById('protocol-version').textContent=snapshot.connection?.state==='stopped' ? '—' : (snapshot.connection?.protocol||'—');
+            if(snapshot.telemetry)this.applyIdentity(snapshot.telemetry);
+        },
+        applyConnection(connection) {
+            this.state=connection.state||'stopped';
+            state.connected=this.state==='connected';
+            const label={stopped:'DESCONECTADO',connecting:'CONECTANDO',connected:'CONECTADO',backoff:'REINTENTANDO'}[this.state]||this.state.toUpperCase();
+            document.getElementById('connection-panel-state').textContent=label;
+            document.getElementById('connection-panel-dot').classList.toggle('ok',state.connected);
+            Telemetry._ui();
+        },
+        applySession(session) { document.getElementById('active-session').textContent=session.recording ? `#${session.session_id}` : '—'; },
+        applyIdentity(telemetry) {
+            if(telemetry.robot_id)document.getElementById('robot-id').textContent=telemetry.robot_id;
+            if(telemetry.firmware_version)document.getElementById('firmware-version').textContent=telemetry.firmware_version;
+            if(telemetry.protocol)document.getElementById('protocol-version').textContent=telemetry.protocol;
+        },
+        esc(value) { const node=document.createElement('span'); node.textContent=value??'—'; return node.innerHTML; },
+        async loadHistory() {
+            if(!WSControl.flaskMode)return;
+            try {
+                const rows=await WSControl.api('/api/v1/sessions');
+                const body=document.getElementById('session-history');
+                if(!rows.length){body.innerHTML='<tr><td colspan="7" class="session-empty">Sin sesiones registradas</td></tr>';return;}
+                body.innerHTML=rows.map(row=>`<tr><td>#${row.id}</td><td>${this.esc(row.started_at)}</td><td>${this.esc(row.ended_at||'ACTIVA')}</td><td>${this.esc(row.robot_id||'pendiente')}</td><td>${row.samples}</td><td>${this.esc(row.disconnect_reason||'—')}</td><td><a href="/api/v1/sessions/${row.id}/telemetry.csv">CSV</a><a href="/api/v1/sessions/${row.id}.json">JSON</a></td></tr>`).join('');
+            } catch(error){LogSystem.add('ERROR',`Historial: ${error.message}`);}
+        }
+    };
+
+    /* ==============================================
+       SISTEMA DE LOGS Y UI S3 (TELEMETRIA, MOTORES)
+       ============================================== */
+    const LogSystem = {
+        entries: [], container: null, emptyMsg: null,
+        init() { this.container = document.getElementById('log-container'); this.emptyMsg = document.getElementById('log-empty'); },
+        add(level, message) {
+            const now = new Date();
+            const ts = now.toTimeString().slice(0,8) + '.' + String(now.getMilliseconds()).padStart(3,'0');
+            this.entries.push({ timestamp:ts, level, message });
+            if (this.entries.length > CONFIG.LOG_MAX) this.entries.shift();
+            if (this.emptyMsg) this.emptyMsg.style.display = 'none';
+            const div = document.createElement('div');
+            div.className = `log-entry log-${level.toLowerCase()}`;
+            div.innerHTML = `<span class="log-time">${ts}</span> <span class="log-level ll-${level.toLowerCase()}">${level.padEnd(5)}</span> <span class="log-msg">${message}</span>`;
+            if (!state.logFilters[level.toLowerCase()]) div.style.display = 'none';
+            this.container.appendChild(div);
+            if (this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight < 50)
+                this.container.scrollTop = this.container.scrollHeight;
+            while (this.container.children.length > CONFIG.LOG_MAX + 5)
+                if (this.container.children[0] !== this.emptyMsg) this.container.removeChild(this.container.children[0]);
+            document.getElementById('log-count').textContent = this.entries.length;
+        },
+        clear() {
+            this.entries = [];
+            while (this.container.children.length > 1) this.container.removeChild(this.container.lastChild);
+            if (this.emptyMsg) this.emptyMsg.style.display = 'block';
+            document.getElementById('log-count').textContent = '0';
+        },
+        setFilter(l, a) { state.logFilters[l] = a; this.container.querySelectorAll(`.log-entry.log-${l}`).forEach(e => { e.style.display = a ? '' : 'none'; }); },
+        downloadTXT() {
+            if (!this.entries.length) return;
+            const h = ['========','Robot BETA Logs','========',`Descarga: ${new Date().toLocaleString()}`,`Entradas: ${this.entries.length}`,`Estado: ${state.estado}`,'========',''].join('\n');
+            const b = new Blob([h + this.entries.map(e => `[${e.timestamp}] [${e.level.padEnd(5)}] ${e.message}`).join('\n')], { type:'text/plain;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+            a.download = `robot_logs_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+    };
+
+    const MotorViz = {
+        fl:{side:'left'}, fr:{side:'right'}, bl:{side:'left'}, br:{side:'right'}, lastTime:0,
+        init() {
+            for (const s of ['fl','fr','bl','br']) {
+                const m = this[s]; m.angle = 0;
+                m.el = document.getElementById(`rotor-${s}`);
+                m.svg = document.getElementById(`svg-${s}`);
+                m.rpm = document.getElementById(`rpm-${s}`);
+                m.pwm = document.getElementById(`pwm-${s}`);
+                m.msl = document.getElementById(`msl-${s}`);
+                this._ticks(`ticks-${s}`, 24, 78, 88);
+            }
+            this.lastTime = performance.now();
+            requestAnimationFrame(t => this.loop(t));
+        },
+        _ticks(gId, n, rI, rO) {
+            const g = document.getElementById(gId);
+            for (let i = 0; i < n; i++) {
+                const a = (i*360/n)*Math.PI/180, mj = i%(n/4)===0, r1 = mj ? rI-2 : rI+2;
+                const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+                l.setAttribute('x1',100+r1*Math.sin(a)); l.setAttribute('y1',100-r1*Math.cos(a));
+                l.setAttribute('x2',100+rO*Math.sin(a)); l.setAttribute('y2',100-rO*Math.cos(a));
+                l.setAttribute('class', mj ? 'tick-major' : 'tick-minor'); g.appendChild(l);
+            }
+        },
+        loop(now) {
+            const dt = Math.min((now-this.lastTime)/1000, 0.1); this.lastTime = now;
+            const useJoy = state.activeTab === 'touch' && state.joy.active;
+
+            let currentMotorState = { left: {pwm:0, dir:'stop'}, right: {pwm:0, dir:'stop'} };
+
+            if (useJoy) {
+                currentMotorState = { left:{pwm:state.joy.pwmL, dir:state.joy.dirL}, right:{pwm:state.joy.pwmR, dir:state.joy.dirR} };
+            } else if (state.connected) {
+                const pwmL = state.telemetria.pwmL || 0, pwmR = state.telemetria.pwmR || 0;
+                currentMotorState = {
+                    left:  { pwm: Math.abs(pwmL), dir: pwmL>0?'fwd':pwmL<0?'rev':'stop' },
+                    right: { pwm: Math.abs(pwmR), dir: pwmR>0?'fwd':pwmR<0?'rev':'stop' }
+                };
+            } else {
+                if (state.estado === 'AVANZANDO') currentMotorState = { left:{pwm:150, dir:'fwd'}, right:{pwm:150, dir:'fwd'} };
+                else if (state.estado === 'GIRANDO') currentMotorState = { left:{pwm:150, dir:'fwd'}, right:{pwm:150, dir:'rev'} };
+            }
+
+            for (const s of ['fl','fr','bl','br']) {
+                const m = this[s], {pwm, dir} = currentMotorState[m.side];
+                m.pwm.textContent = `PWM: ${Math.round(pwm)}`;
+                if (pwm > 0 && dir !== 'stop') {
+                    const rpm = CONFIG.MIN_RPM_VISUAL + (pwm/255)*(CONFIG.MAX_RPM_VISUAL-CONFIG.MIN_RPM_VISUAL);
+                    m.angle += (rpm*360/60)*dt*(dir==='fwd'?1:-1); m.angle %= 360;
+                    m.el.setAttribute('transform',`rotate(${m.angle},100,100)`);
+                    m.rpm.textContent = `${Math.round(rpm)} RPM`;
+                    m.svg.classList.remove('active-green','active-orange','active-red');
+                    m.el.parentElement.classList.remove('state-reverse','state-error');
+                    if (dir==='fwd') m.svg.classList.add('active-green');
+                    else { m.svg.classList.add('active-orange'); m.el.parentElement.classList.add('state-reverse'); }
+                    m.msl.className = 'motor-state-label '+(dir==='fwd'?'msl-forward':'msl-reverse');
+                    m.msl.textContent = dir==='fwd'?'AVANCE':'REVERSA';
+                } else {
+                    m.rpm.textContent = '0 RPM';
+                    m.svg.classList.remove('active-green','active-orange','active-red');
+                    m.el.parentElement.classList.remove('state-reverse','state-error');
+                    m.msl.className='motor-state-label msl-idle'; m.msl.textContent='DETENIDO';
+                }
+            }
+            requestAnimationFrame(t => this.loop(t));
+        }
+    };
+
+    const EncoderSpeed = {
+        cmPerPulse: (Math.PI * 6.6) / 20,
+        alpha: 0.3,
+        last: null,
+        updatedAt: 0,
+        values: { fl:0, fr:0, bl:0, br:0 },
+        init() { setInterval(() => this.render(), 500); },
+        update(t) {
+            const now = performance.now();
+            const counts = { fl:t.pfl||0, fr:t.pfr||0, bl:t.pbl||0, br:t.pbr||0 };
+            if (this.last) {
+                const dt = (now - this.last.time) / 1000;
+                if (dt >= 0.05 && dt <= 2) {
+                    for (const wheel of ['fl','fr','bl','br']) {
+                        const delta = counts[wheel] - this.last.counts[wheel];
+                        const sidePwm = wheel.endsWith('l') ? t.pwmL : t.pwmR;
+                        const sign = sidePwm < 0 ? -1 : sidePwm > 0 ? 1 : 0;
+                        const raw = delta >= 0 ? (delta * this.cmPerPulse / dt) * sign : 0;
+                        this.values[wheel] = this.alpha * raw + (1 - this.alpha) * this.values[wheel];
+                    }
+                } else {
+                    this.values = { fl:0, fr:0, bl:0, br:0 };
+                }
+            }
+            this.last = { time:now, counts };
+            this.updatedAt = Date.now();
+            this.render();
+        },
+        render() {
+            const t = state.telemetria;
+            const fresh = state.connected && Date.now() - this.updatedAt <= 2000;
+            const list = document.getElementById('encoder-live-list');
+            if (!list) return;
+            list.classList.toggle('stale', !fresh);
+            for (const wheel of ['fl','fr','bl','br']) {
+                const sidePwm = wheel.endsWith('l') ? t.pwmL : t.pwmR;
+                const dir = sidePwm > 0 ? 'fwd' : sidePwm < 0 ? 'rev' : 'stop';
+                document.getElementById(`encoder-row-${wheel}`).dataset.dir = dir;
+                document.getElementById(`encoder-pulses-${wheel}`).textContent = `${t['p'+wheel] || 0} pulsos`;
+                document.getElementById(`encoder-speed-${wheel}`).innerHTML = fresh ? `${Math.abs(this.values[wheel]).toFixed(1)} <small>cm/s</small>` : `-- <small>cm/s</small>`;
+            }
+            const meanSpeed = Object.values(this.values).reduce((sum,v)=>sum+Math.abs(v),0) / 4;
+            document.getElementById('touch-speed-value').textContent = fresh ? meanSpeed.toFixed(1) : '--';
+        }
+    };
+
+    const Telemetry = {
+        _process(t) {
+            state.telemetria = { ...state.telemetria, ...t };
+            
+            const ne = t.estado || 'IDLE';
+            if (ne !== state.estado) {
+                FSMDisplay.update(ne); 
+                LogSystem.add('INFO',`FSM: ${state.estado} -> ${ne}`);
+                state.estadoAnterior = state.estado; state.estado = ne;
+                if (ne === 'IDLE') {
+                    if (typeof RouteManager !== 'undefined') RouteManager.onFsmIdle();
+                }
+            }
+            if (ne !== 'IDLE' && typeof RouteManager !== 'undefined') {
+                RouteManager.waitingForMovement = false;
+            }
+            if (typeof RouteManager !== 'undefined') {
+                RouteManager.updateTelemetryMap(t.posX, t.posY, t.orientacion);
+            }
+            this._uiTelem(); this._uiPos();
+        },
+        _uiTelem() {
+            const t = state.telemetria;
+            document.getElementById('telem-dist').textContent=`${t.distancia.toFixed(1)} cm`;
+            document.getElementById('telem-angle').textContent=`${t.angulo.toFixed(1)}°`;
+            document.getElementById('telem-orient').textContent=`${t.orientacion.toFixed(2)} rad`;
+            document.getElementById('telem-enc-l').textContent=`F:${t.pfl} B:${t.pbl}`;
+            document.getElementById('telem-enc-r').textContent=`F:${t.pfr} B:${t.pbr}`;
+            document.getElementById('telem-pwm-l').textContent=`${t.pwmL}`;
+            document.getElementById('telem-pwm-r').textContent=`${t.pwmR}`;
+            document.getElementById('telem-clients').textContent=state.connected?'1':'0';
+            document.getElementById('pulses-fl').textContent=`Pulsos: ${t.pfl || 0}`;
+            document.getElementById('pulses-fr').textContent=`Pulsos: ${t.pfr || 0}`;
+            document.getElementById('pulses-bl').textContent=`Pulsos: ${t.pbl || 0}`;
+            document.getElementById('pulses-br').textContent=`Pulsos: ${t.pbr || 0}`;
+            const angleZ = Number.isFinite(t.angulo) ? t.angulo : 0;
+            document.getElementById('gyro-angle').textContent=`${angleZ.toFixed(1)}°`;
+            document.getElementById('gyro-x').textContent=`${angleZ.toFixed(1)}°`;
+            document.getElementById('gyro-y').textContent=`${(t.orientacion * 180 / Math.PI).toFixed(1)}°`;
+            document.getElementById('gyro-dial').style.setProperty('--gyro-angle', `${angleZ}deg`);
+            document.getElementById('touch-angle-value').textContent=`${angleZ.toFixed(1)}°`;
+            document.getElementById('touch-live-state').textContent=state.estado;
+            document.getElementById('chart-status-x').textContent=t.posX.toFixed(1);
+            document.getElementById('chart-status-y').textContent=t.posY.toFixed(1);
+            document.getElementById('chart-status-angle').textContent=`${angleZ.toFixed(1)}°`;
+            document.getElementById('chart-status-state').textContent=state.estado;
+            document.getElementById('route-live-x').textContent=`${t.posX.toFixed(1)} cm`;
+            document.getElementById('route-live-y').textContent=`${t.posY.toFixed(1)} cm`;
+            document.getElementById('route-live-yaw').textContent=`${angleZ.toFixed(1)}°`;
+            document.getElementById('route-live-state').textContent=state.estado;
+            document.getElementById('route-live-dist').textContent=`${t.distancia.toFixed(1)} cm`;
+            document.getElementById('route-live-pwm').textContent=`${t.pwmL} / ${t.pwmR}`;
+            document.getElementById('route-live-fl').textContent=t.pfl || 0;
+            document.getElementById('route-live-fr').textContent=t.pfr || 0;
+            document.getElementById('route-live-bl').textContent=t.pbl || 0;
+            document.getElementById('route-live-br').textContent=t.pbr || 0;
+            EncoderSpeed.update(t);
+        },
+        _uiPos() {
+            const t = state.telemetria;
+            document.getElementById('pos-dot').setAttribute('cx',t.posX);
+            document.getElementById('pos-dot').setAttribute('cy',-t.posY);
+            const hl=25;
+            document.getElementById('pos-heading').setAttribute('x1',t.posX);
+            document.getElementById('pos-heading').setAttribute('y1',-t.posY);
+            document.getElementById('pos-heading').setAttribute('x2',t.posX+hl*Math.sin(t.orientacion));
+            document.getElementById('pos-heading').setAttribute('y2',-t.posY-hl*Math.cos(t.orientacion));
+            state.trail.push({x:t.posX,y:-t.posY});
+            if (state.trail.length>CONFIG.TRAIL_MAX) state.trail.shift();
+            if (state.trail.length%3===0) document.getElementById('pos-trail').setAttribute('points',state.trail.map(p=>`${p.x},${p.y}`).join(' '));
+            document.getElementById('pos-x').textContent=t.posX.toFixed(1);
+            document.getElementById('pos-y').textContent=t.posY.toFixed(1);
+        },
+        _ui() {
+            document.getElementById('conn-dot').classList.toggle('ok',state.connected);
+            document.getElementById('conn-text').textContent=state.connected?'Conectado':'Desconectado';
+            EncoderSpeed.render();
+        }
+    };
+
+    const FSMDisplay = {
+        update(s) {
+            document.querySelectorAll('.fsm-node').forEach(n => {
+                n.classList.remove('active','active-reverse','active-estop');
+                if (n.dataset.state===s) n.classList.add(s==='REVERSE'?'active-reverse':s==='ESTOP'?'active-estop':'active');
+            });
+            const el=document.getElementById('telem-state'); el.textContent=s;
+            el.className='telem-value state-val '+({INIT:'tv-init',IDLE:'tv-idle',AVANZANDO:'tv-advancing',GIRANDO:'tv-turning',ESPERANDO:'tv-calibrating',TERMINADO:'tv-init'}[s]||'tv-idle');
+        }
+    };
+
+    /* ==============================================
+       ROUTE MANAGER (Path Programming)
+       ============================================== */
+    const RouteManager = {
+        queue: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null,
+        init() {
+            this.modeSelect = document.getElementById('route-mode');
+            this.input1 = document.getElementById('route-input-1');
+            this.input2 = document.getElementById('route-input-2');
+            this.lbl1 = document.getElementById('route-label-1');
+            this.lbl2 = document.getElementById('route-label-2');
+            this.list = document.getElementById('route-list');
+            this.preview = document.getElementById('route-polar-preview');
+            this._initCharts();
+            
+            this.modeSelect.addEventListener('change', () => { this.updateLabels(); this.updatePreview(); });
+            this.input1.addEventListener('input', () => this.updatePreview());
+            this.input2.addEventListener('input', () => this.updatePreview());
+            document.getElementById('route-form').addEventListener('submit', (e) => {
+                e.preventDefault(); this.addStep();
+            });
+            document.getElementById('btn-route-start').addEventListener('click', () => this.start());
+            document.getElementById('btn-route-stop').addEventListener('click', () => this.stopAndReset());
+            document.getElementById('btn-route-ockham').addEventListener('click', () => this.ockhamReturn());
+        },
+        _chartOptions() {
+            const theme = getComputedStyle(document.documentElement);
+            const grid = theme.getPropertyValue('--border').trim();
+            const text = theme.getPropertyValue('--text-secondary').trim();
+            return {
+                responsive:true, maintainAspectRatio:false, animation:false, normalized:true,
+                plugins:{
+                    legend:{ position:'top', labels:{ color:text, boxWidth:28, boxHeight:8, font:{size:10} } },
+                    datalabels:{ display:false },
+                    zoom:{ pan:{enabled:true,mode:'xy'}, zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'xy'} }
+                },
+                scales:{
+                    x:{ type:'linear', min:-50, max:50, title:{display:true,text:'X (cm)',color:text}, ticks:{color:text}, grid:{color:grid} },
+                    y:{ type:'linear', min:-50, max:50, title:{display:true,text:'Y (cm)',color:text}, ticks:{color:text}, grid:{color:grid} }
+                }
+            };
+        },
+        _initCharts() {
+            const theme = getComputedStyle(document.documentElement);
+            this.colors = {
+                info:theme.getPropertyValue('--info').trim(), accent:theme.getPropertyValue('--accent').trim(),
+                reverse:theme.getPropertyValue('--reverse').trim(), muted:theme.getPropertyValue('--text-muted').trim()
+            };
+            this.planChart = new Chart(document.getElementById('route-plan-chart').getContext('2d'), {
+                type:'scatter',
+                data:{ datasets:[
+                    { label:'Ruta planificada', data:[{x:0,y:0}], showLine:true, borderColor:this.colors.info, backgroundColor:this.colors.info, borderWidth:2, tension:0, pointRadius:(ctx)=>ctx.dataIndex===0?0:4, pointBackgroundColor:(ctx)=>{ const i=ctx.dataIndex-1; return i<this.currentStepIndex?this.colors.accent:i===this.currentStepIndex&&this.isRunning?this.colors.accent:this.colors.info; } },
+                    { label:'Origen', data:[{x:0,y:0}], pointRadius:5, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse }
+                ]},
+                options:this._chartOptions()
+            });
+            this.telemChart = new Chart(document.getElementById('route-telem-chart').getContext('2d'), {
+                type:'scatter',
+                data:{ datasets:[
+                    { label:'Trayectoria real', data:[], showLine:true, borderColor:this.colors.info, backgroundColor:this.colors.info, borderWidth:2, tension:.2, pointRadius:0 },
+                    { label:'Posición actual', data:[{x:0,y:0}], pointRadius:6, pointBackgroundColor:this.colors.accent, pointBorderColor:this.colors.accent },
+                    { label:'Orientación', data:[{x:0,y:0},{x:0,y:8}], showLine:true, borderColor:this.colors.accent, borderWidth:2, pointRadius:0 },
+                    { label:'Origen', data:[{x:0,y:0}], pointRadius:4, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse }
+                ]},
+                options:this._chartOptions()
+            });
+        },
+        resizeCharts() {
+            if (!this.planChart || !this.telemChart) return;
+            requestAnimationFrame(()=>{ this.planChart.resize(); this.telemChart.resize(); });
+        },
+        clearTelemetryTrail() {
+            this.telemetryTrail = [];
+            if (this.telemChart) { this.telemChart.data.datasets[0].data = []; this.telemChart.update('none'); }
+        },
+        updateLabels() {
+            if (this.modeSelect.value === 'rect') {
+                this.lbl1.textContent = 'Coordenada Relativa X:';
+                this.lbl2.textContent = 'Coordenada Relativa Y:';
+                this.preview.style.display = 'none';
+            } else {
+                this.lbl1.textContent = 'Radio (Distancia):';
+                this.lbl2.textContent = 'Ángulo (Grados):';
+                this.preview.style.display = 'block';
+                this.updatePreview();
+            }
+        },
+        updatePreview() {
+            if (this.modeSelect.value !== 'polar') return;
+            let v1 = parseFloat(this.input1.value)||0, v2 = parseFloat(this.input2.value)||0;
+            const rad = v2 * Math.PI / 180;
+            const dx = v1 * Math.cos(rad), dy = v1 * Math.sin(rad);
+            this.preview.textContent = `Equiv: X = ${dx.toFixed(2)}, Y = ${dy.toFixed(2)}`;
+        },
+        addStep() {
+            if (this.isRunning) return LogSystem.add('WARN', 'Ruta en ejecución. Detén primero.');
+            let v1 = parseFloat(this.input1.value), v2 = parseFloat(this.input2.value);
+            let dx = 0, dy = 0;
+            if (this.modeSelect.value === 'rect') { dx = v1; dy = v2; } 
+            else {
+                const rad = v2 * Math.PI / 180;
+                dx = v1 * Math.cos(rad); dy = v1 * Math.sin(rad);
+            }
+            
+            if (this.queue.length === 0) {
+                this.currentOrigin = {x: state.telemetria.posX, y: state.telemetria.posY};
+                this.clearTelemetryTrail();
+            }
+            
+            const lastWp = this.queue.length > 0 ? this.queue[this.queue.length - 1] : this.currentOrigin;
+            
+            if (Math.abs(dx) > 0.01) {
+                this.queue.push({ x: lastWp.x + dx, y: lastWp.y, desc: `Mover X a ${(lastWp.x + dx - this.currentOrigin.x).toFixed(2)}` });
+            }
+            if (Math.abs(dy) > 0.01) {
+                const nx = Math.abs(dx) > 0.01 ? lastWp.x + dx : lastWp.x;
+                this.queue.push({ x: nx, y: lastWp.y + dy, desc: `Mover Y a ${(lastWp.y + dy - this.currentOrigin.y).toFixed(2)}` });
+            }
+            
+            this.input1.value = ''; this.input2.value = '';
+            this.updateListUI();
+            this.drawPlan();
+            this.autoScale();
+        },
+        updateListUI() {
+            if (this.queue.length === 0) {
+                this.list.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>';
+                return;
+            }
+            this.list.innerHTML = this.queue.map((wp, i) => {
+                const isPast = i < this.currentStepIndex;
+                const isCurrent = i === this.currentStepIndex && this.isRunning;
+                const rowClass = isPast ? 'route-step-done' : isCurrent ? 'route-step-current' : '';
+                const status = isPast ? 'Completado' : isCurrent ? 'En curso' : 'Pendiente';
+                const statusClass = isPast ? 'done' : isCurrent ? 'current' : 'pending';
+                return `<tr class="${rowClass}"><td>${i+1}</td><td>${wp.desc}</td><td>${wp.x.toFixed(2)}</td><td>${wp.y.toFixed(2)}</td><td><span class="route-status ${statusClass}">${status}</span></td></tr>`;
+            }).join('');
+        },
+        drawPlan() {
+            if (!this.planChart) return;
+            this.planChart.data.datasets[0].data = [{x:0,y:0}, ...this.queue.map(wp=>({x:wp.x-this.currentOrigin.x,y:wp.y-this.currentOrigin.y}))];
+            this.planChart.update('none');
+        },
+        autoScale() {
+            let maxDist = 50; // min scale
+            this.queue.forEach(wp => {
+                let rx = Math.abs(wp.x - this.currentOrigin.x);
+                let ry = Math.abs(wp.y - this.currentOrigin.y);
+                if (rx > maxDist) maxDist = rx;
+                if (ry > maxDist) maxDist = ry;
+            });
+            const s = maxDist * 1.2; // 20% padding
+            for (const chart of [this.planChart,this.telemChart]) {
+                chart.options.scales.x.min=-s; chart.options.scales.x.max=s;
+                chart.options.scales.y.min=-s; chart.options.scales.y.max=s;
+                chart.update('none');
+            }
+        },
+        updateTelemetryMap(posX, posY, orientacion) {
+            if (!this.telemChart) return;
+            const rx = posX - this.currentOrigin.x, ry = posY - this.currentOrigin.y;
+            if (this.isRunning) {
+                this.telemetryTrail.push({x:rx,y:ry});
+                if (this.telemetryTrail.length > CONFIG.TRAIL_MAX) this.telemetryTrail.shift();
+            }
+            const headingLength = Math.max(8,(this.telemChart.options.scales.x.max-this.telemChart.options.scales.x.min)*.04);
+            this.telemChart.data.datasets[0].data=this.telemetryTrail;
+            this.telemChart.data.datasets[1].data=[{x:rx,y:ry}];
+            this.telemChart.data.datasets[2].data=[{x:rx,y:ry},{x:rx+headingLength*Math.sin(orientacion),y:ry+headingLength*Math.cos(orientacion)}];
+            this.telemChart.update('none');
+        },
+        toggleCinema(cardId) {
+            const card = document.getElementById(cardId);
+            card.classList.toggle('cinema-mode');
+            setTimeout(()=>this.resizeCharts(),0);
+        },
+        lockTabs() {
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                if (b.dataset.tab !== 'rutas') b.classList.add('disabled');
+            });
+            document.getElementById('route-running-badge').classList.add('show');
+        },
+        unlockTabs() {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('disabled'));
+            document.getElementById('route-running-badge').classList.remove('show');
+        },
+        start() {
+            if (this.isRunning || this.queue.length === 0 || this.currentStepIndex >= this.queue.length) return;
+            this.isRunning = true;
+            this.lockTabs();
+            LogSystem.add('INFO', 'Ruta iniciada.');
+            this.updateListUI();
+            this.drawPlan();
+            this.sendNext();
+        },
+        sendNext() {
+            if (!this.isRunning) return;
+            if (this.currentStepIndex >= this.queue.length) {
+                this.isRunning = false;
+                this.unlockTabs();
+                LogSystem.add('INFO', 'Ruta completada.');
+                this.updateListUI();
+                this.drawPlan();
+                return;
+            }
+            const wp = this.queue[this.currentStepIndex];
+            WSControl.sendMove(wp.x, wp.y);
+            this.waitingForMovement = true;
+            this.updateListUI();
+            this.drawPlan();
+            
+            // Timeout de seguridad para movimientos ultra-cortos
+            clearTimeout(this.moveTimeout);
+            this.moveTimeout = setTimeout(() => {
+                if (this.waitingForMovement && this.isRunning) {
+                    LogSystem.add('WARN', 'Timeout de movimiento (salto de seguridad).');
+                    this.waitingForMovement = false;
+                    this.currentStepIndex++;
+                    this.sendNext();
+                }
+            }, 3000);
+        },
+        onFsmIdle() {
+            if (this.isRunning && !this.waitingForMovement) {
+                this.currentStepIndex++;
+                clearTimeout(this.moveTimeout);
+                setTimeout(() => this.sendNext(), 500); // Pausa de estabilización 500ms
+            }
+        },
+        stopAndReset() {
+            if (this.queue.length > 0 && !confirm("¿Borrar la ruta actual y reiniciar el origen?")) return;
+            this.isRunning = false;
+            this.unlockTabs();
+            clearTimeout(this.moveTimeout);
+            this.waitingForMovement = false;
+            this.queue = [];
+            this.currentStepIndex = 0;
+            this.currentOrigin = {x: state.telemetria.posX, y: state.telemetria.posY};
+            this.clearTelemetryTrail();
+            LogSystem.add('WARN', 'Ruta detenida y reset.');
+            this.updateListUI();
+            this.drawPlan();
+        },
+        ockhamReturn() {
+            if (!confirm("¿Ejecutar regreso de Ockham a 0,0?")) return;
+            this.isRunning = false;
+            this.unlockTabs();
+            clearTimeout(this.moveTimeout);
+            this.queue = [];
+            this.currentStepIndex = 0;
+            this.currentOrigin = {x: state.telemetria.posX, y: state.telemetria.posY};
+            this.clearTelemetryTrail();
+            LogSystem.add('CMD', 'Ejecutando Regreso de Ockham a 0,0');
+            WSControl.sendMove(0.01, 0.01);
+            this.updateListUI();
+            this.drawPlan();
+        }
+    };
+
+    /* ==============================================
+       TAB MANAGER
+       ============================================== */
+    const TabManager = {
+        init() { document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click',()=>this.switch(b.dataset.tab))); },
+        switch(id) {
+            if (typeof RouteManager !== 'undefined' && RouteManager.isRunning && id !== 'rutas') return;
+            state.activeTab=id;
+            document.querySelectorAll('.tab-btn').forEach(b=>{const a=b.dataset.tab===id;b.classList.toggle('active',a);b.setAttribute('aria-selected',a);});
+            document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id===`tab-${id}`));
+            if (id === 'rutas' && typeof RouteManager !== 'undefined') RouteManager.resizeCharts();
+        }
+    };
+
+    /* ==============================================
+       TOUCH / JOYSTICK
+       ============================================== */
+    const Touch = {
+        wrap:null,svg:null,thumb:null,dirLine:null,arc:null,
+        cx:150,cy:150,maxR:108,deadR:18,
+        _sendTimer:0, _lastPwmL:0, _lastPwmR:0,
+        init() {
+            this.wrap=document.getElementById('joystick-wrapper');
+            this.svg=document.getElementById('joystick-svg');
+            this.thumb=document.getElementById('joy-thumb');
+            this.dirLine=document.getElementById('joy-dir-line');
+            this.arc=document.getElementById('joy-speed-arc');
+            this.wrap.addEventListener('touchstart',e=>this.start(e),{passive:false});
+            this.wrap.addEventListener('touchmove',e=>this.move(e),{passive:false});
+            this.wrap.addEventListener('touchend',e=>this.end(e));
+            this.wrap.addEventListener('touchcancel',e=>this.end(e));
+            this.wrap.addEventListener('mousedown',e=>this.start(e));
+            window.addEventListener('mousemove',e=>{if(state.joy.active)this.move(e);});
+            window.addEventListener('mouseup',e=>{if(state.joy.active)this.end(e);});
+        },
+        _pos(e) {
+            const cx=e.touches?e.touches[0].clientX:e.clientX, cy=e.touches?e.touches[0].clientY:e.clientY;
+            const r=this.svg.getBoundingClientRect(), s=300/r.width;
+            return {x:(cx-r.left)*s, y:(cy-r.top)*s};
+        },
+        _sendManual(pwmL, pwmR, dirL, dirR) {
+            const now = Date.now();
+            if (now - this._sendTimer < 80) return;
+            this._sendTimer = now;
+            const l = dirL==='rev' ? -pwmL : dirL==='stop' ? 0 : pwmL;
+            const r = dirR==='rev' ? -pwmR : dirR==='stop' ? 0 : pwmR;
+            if (l === this._lastPwmL && r === this._lastPwmR) return;
+            this._lastPwmL = l; this._lastPwmR = r;
+            WSControl.send({cmd:"manual", l:l, r:r});
+        },
+        start(e) { e.preventDefault(); state.joy.active=true; this.wrap.classList.add('active'); this.move(e); },
+        move(e) {
+            if(!state.joy.active)return; e.preventDefault();
+            const p=this._pos(e); let dx=p.x-this.cx, dy=p.y-this.cy, dist=Math.sqrt(dx*dx+dy*dy);
+            if(dist>this.maxR){dx=(dx/dist)*this.maxR;dy=(dy/dist)*this.maxR;}
+            const tx=this.cx+dx, ty=this.cy+dy;
+            this.thumb.setAttribute('cx',tx);this.thumb.setAttribute('cy',ty);
+            this.wrap.querySelector('.joy-thumb-outer').setAttribute('cx',tx);this.wrap.querySelector('.joy-thumb-outer').setAttribute('cy',ty);
+            this.dirLine.setAttribute('x2',tx);this.dirLine.setAttribute('y2',ty);
+            const cd=Math.min(dist,this.maxR), nx=cd>0?dx/this.maxR:0, ny=cd>0?dy/this.maxR:0;
+            let mag=cd/this.maxR; if(cd<this.deadR)mag=0;
+            const ang=Math.atan2(dx,-dy)*180/Math.PI, fwd=-ny, turn=nx;
+            let lM=fwd+turn, rM=fwd-turn, ma=Math.max(Math.abs(lM),Math.abs(rM),0.001);
+            if(ma>1){lM/=ma;rM/=ma;}
+            const rL=Math.round(lM*mag*255), rR=Math.round(rM*mag*255);
+            const dL=rL>2?'fwd':rL<-2?'rev':'stop', dR=rR>2?'fwd':rR<-2?'rev':'stop';
+            const pL=Math.min(Math.abs(rL),255), pR=Math.min(Math.abs(rR),255);
+            Object.assign(state.joy,{nx,ny,magnitude:mag,angle:ang,pwmL:pL,pwmR:pR,dirL:dL,dirR:dR});
+            const circ=2*Math.PI*118;
+            this.arc.setAttribute('stroke-dasharray',`${mag*circ*0.75} ${circ}`);
+            this.arc.setAttribute('transform',`rotate(${ang-90} ${this.cx} ${this.cy})`);
+            this._bars(pL,pR,dL,dR);
+            document.getElementById('joy-speed-val').textContent=`${Math.round(mag*100)}%`;
+            document.getElementById('joy-dir-val').textContent=this._dirName(ang,mag);
+            this._sendManual(pL, pR, dL, dR);
+        },
+        end() {
+            state.joy.active=false; this.wrap.classList.remove('active'); this._resetVis();
+            this._bars(0,0,'stop','stop');
+            document.getElementById('joy-speed-val').textContent='0%';
+            document.getElementById('joy-dir-val').textContent='EN REPOSO';
+            this._lastPwmL = -999; this._lastPwmR = -999;
+            this._sendManual(0, 0, 'stop', 'stop');
+        },
+        _resetVis() {
+            this.thumb.setAttribute('cx',this.cx);this.thumb.setAttribute('cy',this.cy);
+            this.wrap.querySelector('.joy-thumb-outer').setAttribute('cx',this.cx);this.wrap.querySelector('.joy-thumb-outer').setAttribute('cy',this.cy);
+            this.dirLine.setAttribute('x2',this.cx);this.dirLine.setAttribute('y2',this.cy);
+            const c=2*Math.PI*118;this.arc.setAttribute('stroke-dasharray',`0 ${c}`);
+        },
+        _bars(pL,pR,dL,dR) {
+            const sc=100/255;
+            const fL=document.getElementById('bar-left-fill'), fR=document.getElementById('bar-right-fill');
+            if(dL==='fwd'){const h=pL*sc;fL.setAttribute('y',120-h);fL.setAttribute('height',h);fL.setAttribute('class','bar-fill-fwd');}
+            else if(dL==='rev'){const h=pL*sc;fL.setAttribute('y',120);fL.setAttribute('height',h);fL.setAttribute('class','bar-fill-rev');}
+            else{fL.setAttribute('y',120);fL.setAttribute('height',0);}
+            if(dR==='fwd'){const h=pR*sc;fR.setAttribute('y',120-h);fR.setAttribute('height',h);fR.setAttribute('class','bar-fill-fwd');}
+            else if(dR==='rev'){const h=pR*sc;fR.setAttribute('y',120);fR.setAttribute('height',h);fR.setAttribute('class','bar-fill-rev');}
+            else{fR.setAttribute('y',120);fR.setAttribute('height',0);}
+            document.getElementById('bar-left-val').textContent=pL;
+            document.getElementById('bar-right-val').textContent=pR;
+            document.getElementById('bar-left-dir').textContent=dL;
+            document.getElementById('bar-right-dir').textContent=dR;
+        },
+        _dirName(a,m) {
+            if(m<0.05)return'EN REPOSO';
+            if(a>-22.5&&a<=22.5)return'AVANCE';if(a>22.5&&a<=67.5)return'AVANCE + DER';
+            if(a>67.5&&a<=112.5)return'DERECHA';if(a>112.5&&a<=157.5)return'REVERSA + DER';
+            if(a>157.5||a<=-157.5)return'REVERSA';if(a>-157.5&&a<=-112.5)return'REVERSA + IZQ';
+            if(a>-112.5&&a<=-67.5)return'IZQUIERDA';if(a>-67.5&&a<=-22.5)return'AVANCE + IZQ';return'EN REPOSO';
+        }
+    };
+
+    /* ==============================================
+       INIT GENERAL
+       ============================================== */
+    function init() {
+        LogSystem.init(); MotorViz.init(); EncoderSpeed.init(); FSMDisplay.update('INIT');
+        TabManager.init(); ConnectionPanel.init(); initChart(); Touch.init();
+        if (typeof RouteManager !== 'undefined') RouteManager.init();
+        document.querySelectorAll('.route-cinema').forEach(button=>button.addEventListener('click',()=>RouteManager.toggleCinema(button.dataset.card)));
+
+        // E‑STOP
+        document.getElementById('btn-estop').addEventListener('click', () => {
+            WSControl.send({cmd:"estop"});
+            LogSystem.add('ERROR', 'E-STOP enviado al robot');
+        });
+
+        // Testing: Aplicar PWM
+        document.getElementById('btn-apply-pwm').addEventListener('click', function() {
+            const l = parseInt(document.getElementById('pwm-left').value);
+            const r = parseInt(document.getElementById('pwm-right').value);
+            const dur = parseInt(document.getElementById('test-duration').value) || 500;
+            const safeL = Math.max(-120, Math.min(120, l * (state.motorDir.left === 'rev' ? -1 : 1)));
+            const safeR = Math.max(-120, Math.min(120, r * (state.motorDir.right === 'rev' ? -1 : 1)));
+            const safeDur = Math.min(Math.max(dur, 100), 1500);
+            WSControl.send({cmd:"test_pwm", l:safeL, r:safeR, dur_ms:safeDur});
+            LogSystem.add('CMD', `Test PWM: L=${safeL} R=${safeR} dur=${safeDur}ms`);
+            this.classList.add('btn-flash'); setTimeout(()=>this.classList.remove('btn-flash'),250);
+        });
+
+        document.querySelectorAll('.dir-btn').forEach(b=>b.addEventListener('click',function(){
+            const m = this.dataset.motor;
+            document.querySelectorAll(`.dir-btn[data-motor="${m}"]`).forEach(el => el.classList.remove('active-fwd','active-rev','active-stop'));
+            this.classList.add(this.dataset.dir==='fwd'?'active-fwd':this.dataset.dir==='rev'?'active-rev':'active-stop');
+            state.motorDir[m] = this.dataset.dir;
+        }));
+
+        document.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',function(){
+            const c=this.dataset.cmd;
+            const dist=parseFloat(document.getElementById('cmd-dist').value)||50;
+            const angle=parseFloat(document.getElementById('cmd-angle').value)||90;
+            const orient=state.telemetria.orientacion||0;
+            const posX=state.telemetria.posX||0, posY=state.telemetria.posY||0;
+            this.classList.add('btn-flash'); setTimeout(()=>this.classList.remove('btn-flash'),250);
+
+            if(c==='avance'){
+                const tx=posX+dist*Math.cos(orient), ty=posY+dist*Math.sin(orient);
+                WSControl.sendMove(tx, ty);
+            } else if(c==='retroceso'){
+                const tx=posX-dist*Math.cos(orient), ty=posY-dist*Math.sin(orient);
+                WSControl.sendMove(tx, ty);
+            } else if(c==='giro-izq'){
+                const rad=orient+(angle*Math.PI/180);
+                WSControl.sendMove(posX+Math.cos(rad), posY+Math.sin(rad));
+            } else if(c==='giro-der'){
+                const rad=orient-(angle*Math.PI/180);
+                WSControl.sendMove(posX+Math.cos(rad), posY+Math.sin(rad));
+            } else if(c==='parada'){
+                WSControl.send({cmd:"stop"});
+                LogSystem.add('CMD', 'Parada inmediata enviada');
+            } else if(c==='reset'){
+                WSControl.send({cmd:"reset_pose"});
+                LogSystem.add('CMD', 'Reset pose enviado');
+            }
+        }));
+
+        document.querySelectorAll('.log-filter-btn').forEach(b=>b.addEventListener('click',function(){
+            this.classList.toggle('active');
+            LogSystem.setFilter(this.dataset.filter, this.classList.contains('active'));
+        }));
+        
+        document.getElementById('btn-download-log').addEventListener('click',()=>LogSystem.downloadTXT());
+        document.getElementById('btn-clear-log').addEventListener('click',()=>{LogSystem.clear();LogSystem.add('INFO','Log limpiado');});
+
+        WSControl.init();
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); 
+    else init();
+
+    </script>
+</body>
+</html>

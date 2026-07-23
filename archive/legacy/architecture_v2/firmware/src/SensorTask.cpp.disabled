@@ -1,0 +1,3 @@
+// TODO V2: PCNT para cuatro encoders y lectura MPU-6050 a 100 Hz.
+// Usar unidades SI entregadas por Adafruit_MPU6050.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

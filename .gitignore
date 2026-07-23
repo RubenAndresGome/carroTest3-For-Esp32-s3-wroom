@@ -1,0 +1,116 @@
+# -----------------------------------------------------------------------------
+# Sistema operativo y editores
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+.agents/
+.codex/
+.codex_debug/
+.codex_video_review/
+.antigravity/
+.open-code/
+.open_code/
+.opencode/
+**/.someone/
+
+# -----------------------------------------------------------------------------
+# Secretos y configuración privada
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+**/Secrets.h
+**/secrets.*
+**/credentials.*
+!**/Secrets.example.h
+!**/secrets.example.*
+!**/credentials.example.*
+!**/credentials_template.*
+platformio_override.ini
+wifi_config.json
+network_config.json
+*.key
+*.pem
+*.p12
+*.pfx
+
+# -----------------------------------------------------------------------------
+# PlatformIO / ESP32
+# -----------------------------------------------------------------------------
+.pio/
+.pioenvs/
+.piolibdeps/
+compile_commands.json
+*.elf
+*.bin
+*.map
+*.hex
+
+# -----------------------------------------------------------------------------
+# Python, pruebas y PyInstaller
+# -----------------------------------------------------------------------------
+**/__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+**/.venv/
+**/.venv-*/
+**/.test-venv/
+**/.build-venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+desktop_app/build/
+desktop_app/dist/
+desktop_app/.test-data/
+desktop_app/.exe-smoke-data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Paquete opcional para reconstrucción offline; se conserva solo el marcador.
+desktop_app/vendor/wheels/**/*.whl
+!desktop_app/vendor/wheels/.gitkeep
+
+# -----------------------------------------------------------------------------
+# Node / Vite
+# -----------------------------------------------------------------------------
+**/node_modules/
+.tools/
+.npm/
+desktop_app/frontend/dist/
+desktop_app/robot_app/static/vite-dist/
+android_app/.gradle/
+android_app/local.properties
+android_app/**/build/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------------------------------------------------------
+# Logs, volcados y temporales
+# -----------------------------------------------------------------------------
+*.log
+*.dump
+*.tmp
+*.bak
+*.stackdump
+
+# -----------------------------------------------------------------------------
+# Snapshots regenerables del legado
+# -----------------------------------------------------------------------------
+archive/legacy/generados/*.ino
+archive/legacy/generados/*.ino.disabled
+archive/legacy/generados/*.txt
+archive/legacy/IUInWeb/data/*.gz
+archive/legacy/IUInWeb/data/*.gz.disabled

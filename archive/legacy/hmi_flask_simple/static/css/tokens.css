@@ -1,0 +1,16 @@
+:root {
+  --bg: #0a0f16;
+  --surface: #111925;
+  --surface-raised: #172231;
+  --line: #273548;
+  --text: #eef4fb;
+  --muted: #8fa1b5;
+  --cyan: #38d6e7;
+  --green: #48d597;
+  --amber: #f7b955;
+  --red: #ff4d5e;
+  --red-dark: #b7172b;
+  --radius: 16px;
+  --shadow: 0 16px 40px rgb(0 0 0 / 22%);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

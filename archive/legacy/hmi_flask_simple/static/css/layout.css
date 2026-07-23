@@ -1,0 +1,27 @@
+.topbar { max-width: 1440px; margin: auto; padding: 1.2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.topbar > div:first-child { display: grid; gap: .25rem; }
+.dashboard { max-width: 1440px; margin: auto; padding: 0 1rem 2rem; display: grid; gap: .85rem; grid-template-columns: 1fr; }
+.card { min-width: 0; display: grid; align-content: start; gap: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgb(23 34 49 / 96%), rgb(14 22 33 / 96%)); box-shadow: var(--shadow); }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: .8rem; }
+.section-heading > div, .card > div:first-child { display: grid; gap: .25rem; }
+.field-action, .button-row { display: flex; gap: .55rem; flex-wrap: wrap; }
+.field-action input { flex: 1 1 11rem; }
+.inline-form, .coordinate-form { display: grid; gap: .75rem; }
+.coordinate-form { grid-template-columns: 1fr 1fr; }
+.coordinate-form .button { grid-column: 1 / -1; }
+@media (min-width: 720px) {
+  .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pose-card, .wheels-card, .events-card { grid-column: span 2; }
+  .coordinate-form { grid-template-columns: 1fr 1fr auto; align-items: end; }
+  .coordinate-form .button { grid-column: auto; }
+}
+@media (min-width: 1120px) {
+  .dashboard { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .connection-card { grid-column: span 3; }
+  .safety-card { grid-column: span 1; }
+  .pose-card { grid-column: span 2; grid-row: span 2; }
+  .wheels-card { grid-column: span 2; }
+  .manual-card, .route-card { grid-column: span 2; }
+  .record-card { grid-column: span 1; }
+  .events-card { grid-column: span 3; }
+}

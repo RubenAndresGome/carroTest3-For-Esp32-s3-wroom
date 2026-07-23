@@ -1,0 +1,166 @@
+#include <Arduino.h>
+#include "esp32-hal-ledc.h"
+
+// --- Pines de los motores ---
+const int pin_motor_inferior_izquierdo_a = 4;
+const int pin_motor_inferior_izquierdo_b = 5;
+const int pin_motor_inferior_derecho_a = 15;
+const int pin_motor_inferior_derecho_b = 16;
+const int pin_motor_superior_izquierdo_a = 6;
+const int pin_motor_superior_izquierdo_b = 7;
+const int pin_motor_superior_derecho_a = 17;
+const int pin_motor_superior_derecho_b = 18;
+
+// --- Variables de control de potencia (0 a 255) ---
+byte potenciaEnLadoIzquierdo = 255;
+byte potenciaEnLadoDerecho = 255;
+
+// --- Configuración del PWM (LEDC) ---
+const int frecuenciaPWM = 5000;  // 5 kHz
+const int resolucionPWM = 8;     // 8 bits (0 a 255)
+
+// Función auxiliar: Recibe el PIN directamente y maneja el mapeo interno.
+// Así tú solo te preocupas por el pin, no por los canales del hardware.
+void escribirPWM(int pin, uint8_t valor) {
+  int canalInterno = -1;
+  
+  // Mapeo interno de Pin a Canal LEDC (Requisito técnico de ESP32 Core 2.x)
+  if      (pin == 4)  canalInterno = 0;
+  else if (pin == 5)  canalInterno = 1;
+  else if (pin == 15) canalInterno = 2;
+  else if (pin == 16) canalInterno = 3;
+  else if (pin == 6)  canalInterno = 4;
+  else if (pin == 7)  canalInterno = 5;
+  else if (pin == 17) canalInterno = 6;
+  else if (pin == 18) canalInterno = 7;
+  
+  if (canalInterno != -1) {
+    ledcWrite(canalInterno, valor);
+  }
+}
+
+// --- CONFIGURACIÓN DE MOTORES ---
+void configurarMotoresTraseros() {
+  // Se configuran los canales internos (0 a 3) y se vinculan directamente a los pines
+  ledcSetup(0, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_inferior_izquierdo_a, 0);
+  
+  ledcSetup(1, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_inferior_izquierdo_b, 1);
+  
+  ledcSetup(2, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_inferior_derecho_a, 2);
+  
+  ledcSetup(3, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_inferior_derecho_b, 3);
+}
+
+void configurarMotoresDelanteros() {
+  // Se configuran los canales internos (4 a 7) y se vinculan directamente a los pines
+  ledcSetup(4, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_superior_izquierdo_a, 4);
+  
+  ledcSetup(5, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_superior_izquierdo_b, 5);
+  
+  ledcSetup(6, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_superior_derecho_a, 6);
+  
+  ledcSetup(7, frecuenciaPWM, resolucionPWM);
+  ledcAttachPin(pin_motor_superior_derecho_b, 7);
+}
+
+void configurarMotores() {
+  configurarMotoresTraseros();
+  configurarMotoresDelanteros();
+}
+
+// --- FUNCIONES DE MOVIMIENTO ---
+// Ahora usan directamente las constantes de los PINES, sin mencionar canales.
+
+void apagarMotores() {
+  escribirPWM(pin_motor_inferior_izquierdo_a, 0);
+  escribirPWM(pin_motor_inferior_izquierdo_b, 0);
+  escribirPWM(pin_motor_inferior_derecho_a, 0);
+  escribirPWM(pin_motor_inferior_derecho_b, 0);
+  escribirPWM(pin_motor_superior_izquierdo_a, 0);
+  escribirPWM(pin_motor_superior_izquierdo_b, 0);
+  escribirPWM(pin_motor_superior_derecho_a, 0);
+  escribirPWM(pin_motor_superior_derecho_b, 0);
+}
+
+void avanzarHaciaEnfrente() {
+  escribirPWM(pin_motor_inferior_izquierdo_a, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_inferior_izquierdo_b, 0);
+  escribirPWM(pin_motor_superior_izquierdo_a, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_superior_izquierdo_b, 0);
+  escribirPWM(pin_motor_inferior_derecho_a, potenciaEnLadoDerecho);
+  escribirPWM(pin_motor_inferior_derecho_b, 0);
+  escribirPWM(pin_motor_superior_derecho_a, potenciaEnLadoDerecho);
+  escribirPWM(pin_motor_superior_derecho_b, 0);
+}
+
+void avanzarHaciaAtras() {
+  escribirPWM(pin_motor_inferior_izquierdo_a, 0);
+  escribirPWM(pin_motor_inferior_izquierdo_b, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_superior_izquierdo_a, 0);
+  escribirPWM(pin_motor_superior_izquierdo_b, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_inferior_derecho_a, 0);
+  escribirPWM(pin_motor_inferior_derecho_b, potenciaEnLadoDerecho);
+  escribirPWM(pin_motor_superior_derecho_a, 0);
+  escribirPWM(pin_motor_superior_derecho_b, potenciaEnLadoDerecho);
+}
+
+void girarDerecha() {
+  // Izquierda avanza, Derecha retrocede
+  escribirPWM(pin_motor_inferior_izquierdo_a, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_inferior_izquierdo_b, 0);
+  escribirPWM(pin_motor_superior_izquierdo_a, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_superior_izquierdo_b, 0);
+  escribirPWM(pin_motor_inferior_derecho_a, 0); 
+  escribirPWM(pin_motor_inferior_derecho_b, potenciaEnLadoDerecho);
+  escribirPWM(pin_motor_superior_derecho_a, 0);
+  escribirPWM(pin_motor_superior_derecho_b, potenciaEnLadoDerecho);
+}
+
+void girarIzquierda() {
+  // Izquierda retrocede, Derecha avanza
+  escribirPWM(pin_motor_inferior_izquierdo_a, 0);
+  escribirPWM(pin_motor_inferior_izquierdo_b, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_superior_izquierdo_a, 0);
+  escribirPWM(pin_motor_superior_izquierdo_b, potenciaEnLadoIzquierdo);
+  escribirPWM(pin_motor_inferior_derecho_a, potenciaEnLadoDerecho);
+  escribirPWM(pin_motor_inferior_derecho_b, 0);
+  escribirPWM(pin_motor_superior_derecho_a, potenciaEnLadoDerecho); 
+  escribirPWM(pin_motor_superior_derecho_b, 0);
+}
+
+// ----------------------------------- SETUP Y LOOP ---------------------------------------
+void setup() {
+  Serial.begin(115200);
+  configurarMotores();
+  apagarMotores(); // Asegurar que inicie detenido
+  Serial.println("Motores configurados y listos.");
+}
+
+void loop() {
+  avanzarHaciaEnfrente();
+  delay(2000);
+  apagarMotores();
+  delay(500);
+  
+  girarDerecha();
+  delay(1000);
+  apagarMotores();
+  delay(500);
+  
+  girarIzquierda();
+  delay(1000);
+  apagarMotores();
+  delay(500);
+  
+  avanzarHaciaAtras();
+  delay(2000);
+  apagarMotores();
+  delay(3000);
+}

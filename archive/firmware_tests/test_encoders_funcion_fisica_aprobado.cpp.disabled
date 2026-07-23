@@ -1,0 +1,470 @@
+// ENSAYO FISICO CON MOVIMIENTO ACTIVO: usar sólo en una zona libre de al
+// menos 3 m. Elevar primero el carro y verificar los cuatro encoders. Al
+// terminar las pruebas, devolver la extensión a .cpp.dislabled.
+//
+// Secuencia cerrada por distancia:
+//   1) 1 m adelante, pausa segura de 2 s, 1 m atras.
+//   2) espera 7 s.
+//   3) 2 m adelante, pausa segura de 2 s, 2 m atras.
+//
+// La distancia se deriva de ticks: D = ticks * PI * diametro / PPR. No se
+// integra velocidad por tiempo. Los dos encoders de cada lado se fusionan y
+// el mayor conteo del par protege contra algunos pulsos tragados; si el
+// desacuerdo supera 25 %, el ensayo se detiene en vez de ocultar el fallo.
+
+#include <Arduino.h>
+#include <ESPAsyncWebServer.h>
+#include <WiFi.h>
+#include "driver/pcnt.h"
+#include "esp32-hal-ledc.h"
+
+#include "Config.h"
+
+namespace {
+
+constexpr char RED_AP[] = "PRUEBA_DISTANCIA_S3";
+constexpr char CLAVE_AP[] = "distancia123";
+// El test fisico verificado sólo vence la fricción de arranque cerca de 255.
+// A 100 % el lado atrasado queda en 255 y el lazo corrige reduciendo el lado
+// adelantado; nunca intenta superar el límite eléctrico del PWM.
+constexpr uint8_t PWM_BASE = 255;
+constexpr uint8_t PWM_CORRECCION_MAX = 48;
+constexpr uint8_t PWM_MINIMO_CONTROL = 180;
+// Marco de referencia físico comprobado: la polaridad negativa de los cuatro
+// puentes mueve el chasis hacia su frente real.
+constexpr int POLARIDAD_AVANCE = -1;
+constexpr int POLARIDAD_REGRESO = 1;
+constexpr float KP_RECTO_PWM_POR_PULSO = 1.25f;
+constexpr float CM_POR_TICK = (PI * WHEEL_DIAMETER_CM) / ENCODER_PPR;
+constexpr uint32_t PERIODO_CONTROL_MS = 20;
+constexpr uint32_t CUENTA_REGRESIVA_MS = 5000;
+constexpr uint32_t PAUSA_INVERSION_MS = 2000;
+constexpr uint32_t PAUSA_ENTRE_BLOQUES_MS = 7000;
+constexpr uint32_t TIMEOUT_SIN_PULSOS_MS = 2500;
+constexpr uint32_t TIMEOUT_HMI_MS = 2500;
+constexpr uint32_t TIMEOUT_BASE_MS = 8000;
+constexpr uint32_t TIMEOUT_POR_CM_MS = 250;
+constexpr int64_t PULSOS_MINIMOS_AUDITORIA = 20;
+constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
+constexpr float DESACUERDO_MAXIMO_LADOS = 0.30f;
+constexpr size_t VENTANA_PROMEDIO_VELOCIDAD = 10;
+
+enum class EstadoPrueba : uint8_t {
+    ESPERANDO,
+    CUENTA_REGRESIVA,
+    AVANCE_1M,
+    PAUSA_1M,
+    REGRESO_1M,
+    ESPERA_7S,
+    AVANCE_2M,
+    PAUSA_2M,
+    REGRESO_2M,
+    COMPLETADO,
+    FALLO,
+    ESTOP,
+};
+
+struct EncoderFisico {
+    const char* nombre;
+    int pin;
+    pcnt_unit_t unidad;
+    int64_t pulsos_segmento;
+    int64_t pulsos_sesion;
+};
+
+EncoderFisico encoders[] = {
+    {"FL", PIN_ENC_FL, PCNT_UNIT_0, 0, 0},
+    {"FR", PIN_ENC_FR, PCNT_UNIT_1, 0, 0},
+    {"BL", PIN_ENC_BL, PCNT_UNIT_2, 0, 0},
+    {"BR", PIN_ENC_BR, PCNT_UNIT_3, 0, 0},
+};
+
+// Canales verificados por el test fisico de motores existente.
+constexpr int CANAL_BL_FWD = 0;
+constexpr int CANAL_BL_REV = 1;
+constexpr int CANAL_BR_FWD = 2;
+constexpr int CANAL_BR_REV = 3;
+constexpr int CANAL_FL_FWD = 4;
+constexpr int CANAL_FL_REV = 5;
+constexpr int CANAL_FR_FWD = 6;
+constexpr int CANAL_FR_REV = 7;
+constexpr uint32_t FRECUENCIA_PWM = 5000;
+constexpr uint8_t RESOLUCION_PWM_BITS = 8;
+
+AsyncWebServer servidor(80);
+portMUX_TYPE mux_estado = portMUX_INITIALIZER_UNLOCKED;
+EstadoPrueba estado = EstadoPrueba::ESPERANDO;
+const char* detalle_estado = "Listo; coloque el carro en una zona libre.";
+uint32_t inicio_estado_ms = 0;
+uint32_t inicio_movimiento_ms = 0;
+uint32_t ultimo_control_ms = 0;
+uint32_t ultimo_pulso_ms = 0;
+int64_t suma_pulsos_anterior = 0;
+float objetivo_cm = 0.0f;
+float distancia_cm = 0.0f;
+float pulsos_lado_izquierdo = 0.0f;
+float pulsos_lado_derecho = 0.0f;
+int pwm_izquierdo = 0;
+int pwm_derecho = 0;
+float velocidad_izquierda_cm_s = 0.0f;
+float velocidad_derecha_cm_s = 0.0f;
+float historial_delta_izquierda[VENTANA_PROMEDIO_VELOCIDAD] = {};
+float historial_delta_derecha[VENTANA_PROMEDIO_VELOCIDAD] = {};
+float suma_delta_izquierda = 0.0f;
+float suma_delta_derecha = 0.0f;
+float pulsos_izquierda_anteriores = 0.0f;
+float pulsos_derecha_anteriores = 0.0f;
+size_t indice_promedio = 0;
+size_t muestras_promedio = 0;
+volatile bool solicitud_inicio = false;
+volatile bool solicitud_estop = false;
+volatile bool solicitud_rearme = false;
+volatile uint32_t ultimo_heartbeat_web_ms = 0;
+
+const char PAGINA[] PROGMEM = R"HTML(
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba cerrada de distancia</title><style>
+:root{color-scheme:dark;--bg:#08111f;--panel:#101d31;--line:#294565;--ok:#2dd4bf;--warn:#fbbf24;--stop:#ef4444;color:#e6edf7;font-family:system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg)}main{width:min(900px,94vw);margin:24px auto}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}h1{margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.card{border:1px solid var(--line);border-radius:9px;padding:10px}.valor{font-size:1.4rem;font-weight:700;color:var(--ok)}button{border:0;border-radius:9px;padding:12px 18px;margin:14px 8px 0 0;font-weight:800;cursor:pointer}.start{background:var(--ok)}.stop{background:var(--stop);color:white}.reset{background:var(--warn)}table{width:100%;margin-top:18px;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}.aviso{color:var(--warn)}
+</style></head><body><main><section class="panel"><h1>Lazo cerrado por encoders</h1><p id="detalle" class="aviso">Conectando...</p><div class="grid"><div class="card">Estado<div id="estado" class="valor">--</div></div><div class="card">Distancia<div id="dist" class="valor">0 cm</div></div><div class="card">Objetivo<div id="obj" class="valor">0 cm</div></div><div class="card">PWM L / R<div id="pwm" class="valor">0 / 0</div></div><div class="card">Velocidad L / R<div id="vel" class="valor">0 / 0</div></div></div><button class="start" onclick="accion('iniciar')">INICIAR</button><button class="stop" onclick="accion('estop')">E-STOP</button><button class="reset" onclick="accion('rearmar')">REARMAR</button><table><thead><tr><th>Encoder</th><th>Ticks segmento</th><th>Ticks sesión</th></tr></thead><tbody id="filas"></tbody></table><p>Red local sin Internet. Mantenga esta página abierta: perder telemetría detiene el carro.</p></section></main><script>
+async function accion(a){if(a==='iniciar'&&!confirm('¿Zona libre, carro en el suelo y E-STOP accesible?'))return;await fetch('/api/'+a,{method:'POST'});actualizar()}
+async function actualizar(){try{const r=await fetch('/api/estado',{cache:'no-store'}),d=await r.json();estado.textContent=d.estado;detalle.textContent=d.detalle;dist.textContent=d.distancia_cm.toFixed(1)+' cm';obj.textContent=d.objetivo_cm.toFixed(0)+' cm';pwm.textContent=d.pwm_l+' / '+d.pwm_r;vel.textContent=d.vel_l_cm_s.toFixed(1)+' / '+d.vel_r_cm_s.toFixed(1)+' cm/s';filas.innerHTML=d.encoders.map(e=>`<tr><td>${e.nombre}</td><td>${e.segmento}</td><td>${e.sesion}</td></tr>`).join('')}catch(e){detalle.textContent='Sin respuesta del ESP32'}}actualizar();setInterval(actualizar,250);
+</script></body></html>
+)HTML";
+
+const char* nombreEstado(EstadoPrueba valor) {
+    switch (valor) {
+        case EstadoPrueba::ESPERANDO: return "ESPERANDO";
+        case EstadoPrueba::CUENTA_REGRESIVA: return "INICIA EN 5 S";
+        case EstadoPrueba::AVANCE_1M: return "ADELANTE 1 M";
+        case EstadoPrueba::PAUSA_1M: return "PAUSA 2 S";
+        case EstadoPrueba::REGRESO_1M: return "ATRAS 1 M";
+        case EstadoPrueba::ESPERA_7S: return "ESPERA 7 S";
+        case EstadoPrueba::AVANCE_2M: return "ADELANTE 2 M";
+        case EstadoPrueba::PAUSA_2M: return "PAUSA 2 S";
+        case EstadoPrueba::REGRESO_2M: return "ATRAS 2 M";
+        case EstadoPrueba::COMPLETADO: return "COMPLETADO";
+        case EstadoPrueba::FALLO: return "FALLO";
+        case EstadoPrueba::ESTOP: return "E-STOP";
+    }
+    return "DESCONOCIDO";
+}
+
+bool esMovimiento(EstadoPrueba valor) {
+    return valor == EstadoPrueba::AVANCE_1M || valor == EstadoPrueba::REGRESO_1M ||
+           valor == EstadoPrueba::AVANCE_2M || valor == EstadoPrueba::REGRESO_2M;
+}
+
+void escribirPuente(int canal_fwd, int canal_rev, int pwm_firmado) {
+    if (pwm_firmado > 0) {
+        ledcWrite(canal_fwd, pwm_firmado);
+        ledcWrite(canal_rev, 0);
+    } else if (pwm_firmado < 0) {
+        ledcWrite(canal_fwd, 0);
+        ledcWrite(canal_rev, -pwm_firmado);
+    } else {
+        ledcWrite(canal_fwd, 0);
+        ledcWrite(canal_rev, 0);
+    }
+}
+
+void aplicarMotores(int direccion, int pwm_l, int pwm_r) {
+    pwm_l = constrain(pwm_l, PWM_MINIMO_CONTROL, 255);
+    pwm_r = constrain(pwm_r, PWM_MINIMO_CONTROL, 255);
+    pwm_izquierdo = direccion * pwm_l;
+    pwm_derecho = direccion * pwm_r;
+    escribirPuente(CANAL_FL_FWD, CANAL_FL_REV, pwm_izquierdo);
+    escribirPuente(CANAL_BL_FWD, CANAL_BL_REV, pwm_izquierdo);
+    escribirPuente(CANAL_FR_FWD, CANAL_FR_REV, pwm_derecho);
+    escribirPuente(CANAL_BR_FWD, CANAL_BR_REV, pwm_derecho);
+}
+
+void detenerMotores() {
+    pwm_izquierdo = 0;
+    pwm_derecho = 0;
+    escribirPuente(CANAL_FL_FWD, CANAL_FL_REV, 0);
+    escribirPuente(CANAL_BL_FWD, CANAL_BL_REV, 0);
+    escribirPuente(CANAL_FR_FWD, CANAL_FR_REV, 0);
+    escribirPuente(CANAL_BR_FWD, CANAL_BR_REV, 0);
+}
+
+void configurarMotores() {
+    const int pines[] = {PIN_BL_FWD, PIN_BL_REV, PIN_BR_FWD, PIN_BR_REV,
+                         PIN_FL_FWD, PIN_FL_REV, PIN_FR_FWD, PIN_FR_REV};
+    for (int canal = 0; canal < 8; ++canal) {
+        ledcSetup(canal, FRECUENCIA_PWM, RESOLUCION_PWM_BITS);
+        ledcAttachPin(pines[canal], canal);
+    }
+    detenerMotores();
+}
+
+void configurarEncoder(EncoderFisico& encoder) {
+    pinMode(encoder.pin, INPUT_PULLUP);
+    pcnt_config_t cfg = {};
+    cfg.pulse_gpio_num = encoder.pin;
+    cfg.ctrl_gpio_num = PCNT_PIN_NOT_USED;
+    cfg.lctrl_mode = PCNT_MODE_KEEP;
+    cfg.hctrl_mode = PCNT_MODE_KEEP;
+    cfg.pos_mode = PCNT_COUNT_INC;
+    cfg.neg_mode = PCNT_COUNT_DIS;
+    cfg.counter_h_lim = 32767;
+    cfg.counter_l_lim = -32768;
+    cfg.unit = encoder.unidad;
+    cfg.channel = PCNT_CHANNEL_0;
+    ESP_ERROR_CHECK(pcnt_unit_config(&cfg));
+    ESP_ERROR_CHECK(pcnt_set_filter_value(encoder.unidad, 100));
+    ESP_ERROR_CHECK(pcnt_filter_enable(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_counter_clear(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_counter_resume(encoder.unidad));
+}
+
+int16_t leerPulsos(EncoderFisico& encoder) {
+    int16_t valor = 0;
+    pcnt_counter_pause(encoder.unidad);
+    pcnt_get_counter_value(encoder.unidad, &valor);
+    pcnt_counter_clear(encoder.unidad);
+    pcnt_counter_resume(encoder.unidad);
+    encoder.pulsos_segmento += valor;
+    encoder.pulsos_sesion += valor;
+    return valor;
+}
+
+void reiniciarSegmento() {
+    for (EncoderFisico& encoder : encoders) {
+        encoder.pulsos_segmento = 0;
+        pcnt_counter_pause(encoder.unidad);
+        pcnt_counter_clear(encoder.unidad);
+        pcnt_counter_resume(encoder.unidad);
+    }
+    distancia_cm = 0.0f;
+    pulsos_lado_izquierdo = 0.0f;
+    pulsos_lado_derecho = 0.0f;
+    suma_pulsos_anterior = 0;
+    suma_delta_izquierda = 0.0f;
+    suma_delta_derecha = 0.0f;
+    pulsos_izquierda_anteriores = 0.0f;
+    pulsos_derecha_anteriores = 0.0f;
+    velocidad_izquierda_cm_s = 0.0f;
+    velocidad_derecha_cm_s = 0.0f;
+    indice_promedio = 0;
+    muestras_promedio = 0;
+    for (size_t i = 0; i < VENTANA_PROMEDIO_VELOCIDAD; ++i) {
+        historial_delta_izquierda[i] = 0.0f;
+        historial_delta_derecha[i] = 0.0f;
+    }
+    ultimo_pulso_ms = millis();
+    inicio_movimiento_ms = millis();
+}
+
+void cambiarEstado(EstadoPrueba nuevo, const char* detalle) {
+    detenerMotores();
+    estado = nuevo;
+    detalle_estado = detalle;
+    inicio_estado_ms = millis();
+    Serial.printf("ESTADO: %s | %s\n", nombreEstado(estado), detalle_estado);
+}
+
+void iniciarMovimiento(EstadoPrueba nuevo, float cm) {
+    reiniciarSegmento();
+    objetivo_cm = cm;
+    cambiarEstado(nuevo, cm < 150.0f ? "Objetivo 100 cm a PWM base 255."
+                                     : "Objetivo 200 cm a PWM base 255.");
+    // cambiarEstado detiene por seguridad; el siguiente ciclo aplica PWM.
+}
+
+void provocarFallo(const char* motivo) {
+    cambiarEstado(EstadoPrueba::FALLO, motivo);
+}
+
+bool parCoherente(int64_t a, int64_t b) {
+    const int64_t mayor = max(a, b);
+    if (mayor < PULSOS_MINIMOS_AUDITORIA) return true;
+    return static_cast<float>(abs(a - b)) / static_cast<float>(mayor) <= DESACUERDO_MAXIMO_PAR;
+}
+
+void actualizarControl() {
+    for (EncoderFisico& encoder : encoders) leerPulsos(encoder);
+
+    // En cada lado se toma el mayor: si uno traga algunos pulsos, el otro
+    // conserva la mejor estimacion. Un desacuerdo grande provoca paro.
+    pulsos_lado_izquierdo = max(encoders[0].pulsos_segmento, encoders[2].pulsos_segmento);
+    pulsos_lado_derecho = max(encoders[1].pulsos_segmento, encoders[3].pulsos_segmento);
+    distancia_cm = 0.5f * (pulsos_lado_izquierdo + pulsos_lado_derecho) * CM_POR_TICK;
+
+    // Promedio móvil de 10 ciclos (200 ms) sólo para velocidad. La distancia
+    // conserva los ticks acumulados completos y nunca se filtra.
+    const float delta_izquierda = pulsos_lado_izquierdo - pulsos_izquierda_anteriores;
+    const float delta_derecha = pulsos_lado_derecho - pulsos_derecha_anteriores;
+    pulsos_izquierda_anteriores = pulsos_lado_izquierdo;
+    pulsos_derecha_anteriores = pulsos_lado_derecho;
+    suma_delta_izquierda -= historial_delta_izquierda[indice_promedio];
+    suma_delta_derecha -= historial_delta_derecha[indice_promedio];
+    historial_delta_izquierda[indice_promedio] = delta_izquierda;
+    historial_delta_derecha[indice_promedio] = delta_derecha;
+    suma_delta_izquierda += delta_izquierda;
+    suma_delta_derecha += delta_derecha;
+    indice_promedio = (indice_promedio + 1) % VENTANA_PROMEDIO_VELOCIDAD;
+    if (muestras_promedio < VENTANA_PROMEDIO_VELOCIDAD) ++muestras_promedio;
+    const float ciclos_por_segundo = 1000.0f / PERIODO_CONTROL_MS;
+    velocidad_izquierda_cm_s =
+        (suma_delta_izquierda / muestras_promedio) * CM_POR_TICK * ciclos_por_segundo;
+    velocidad_derecha_cm_s =
+        (suma_delta_derecha / muestras_promedio) * CM_POR_TICK * ciclos_por_segundo;
+
+    if (!parCoherente(encoders[0].pulsos_segmento, encoders[2].pulsos_segmento)) {
+        provocarFallo("Desacuerdo mayor a 25 % entre FL y BL.");
+        return;
+    }
+    if (!parCoherente(encoders[1].pulsos_segmento, encoders[3].pulsos_segmento)) {
+        provocarFallo("Desacuerdo mayor a 25 % entre FR y BR.");
+        return;
+    }
+
+    const float mayor_lado = max(pulsos_lado_izquierdo, pulsos_lado_derecho);
+    if (mayor_lado >= PULSOS_MINIMOS_AUDITORIA &&
+        fabsf(pulsos_lado_izquierdo - pulsos_lado_derecho) / mayor_lado > DESACUERDO_MAXIMO_LADOS) {
+        provocarFallo("Los lados difieren mas de 30 %; posible atasco o derrape.");
+        return;
+    }
+
+    const int64_t suma = encoders[0].pulsos_segmento + encoders[1].pulsos_segmento +
+                         encoders[2].pulsos_segmento + encoders[3].pulsos_segmento;
+    if (suma != suma_pulsos_anterior) {
+        suma_pulsos_anterior = suma;
+        ultimo_pulso_ms = millis();
+    } else if (millis() - ultimo_pulso_ms > TIMEOUT_SIN_PULSOS_MS) {
+        provocarFallo("Sin pulsos durante 2.5 s: motor atascado, potencia insuficiente o encoder ausente.");
+        return;
+    }
+
+    const uint32_t timeout_ms = TIMEOUT_BASE_MS + static_cast<uint32_t>(objetivo_cm * TIMEOUT_POR_CM_MS);
+    if (millis() - inicio_movimiento_ms > timeout_ms) {
+        provocarFallo("Tiempo maximo de movimiento excedido.");
+        return;
+    }
+
+    if (millis() - ultimo_heartbeat_web_ms > TIMEOUT_HMI_MS) {
+        provocarFallo("Miniapp desconectada por mas de 2.5 s.");
+        return;
+    }
+
+    if (distancia_cm >= objetivo_cm) {
+        if (estado == EstadoPrueba::AVANCE_1M) cambiarEstado(EstadoPrueba::PAUSA_1M, "Pausa antes de invertir.");
+        else if (estado == EstadoPrueba::REGRESO_1M) cambiarEstado(EstadoPrueba::ESPERA_7S, "Bloque de 1 m terminado.");
+        else if (estado == EstadoPrueba::AVANCE_2M) cambiarEstado(EstadoPrueba::PAUSA_2M, "Pausa antes de invertir.");
+        else if (estado == EstadoPrueba::REGRESO_2M) cambiarEstado(EstadoPrueba::COMPLETADO, "Secuencia completa; motores detenidos.");
+        return;
+    }
+
+    const float error_ticks = pulsos_lado_izquierdo - pulsos_lado_derecho;
+    const int correccion = constrain(static_cast<int>(lroundf(error_ticks * KP_RECTO_PWM_POR_PULSO)),
+                                     -static_cast<int>(PWM_CORRECCION_MAX),
+                                     static_cast<int>(PWM_CORRECCION_MAX));
+    // En el chasis físico la polaridad positiva del puente corresponde al
+    // marco de referencia trasero. Se invierte aquí para que AVANCE signifique
+    // desplazarse hacia el frente real del robot y REGRESO en sentido opuesto.
+    const int direccion =
+        (estado == EstadoPrueba::AVANCE_1M || estado == EstadoPrueba::AVANCE_2M)
+            ? POLARIDAD_AVANCE
+            : POLARIDAD_REGRESO;
+    // Con base 255, el constrain conserva el lado atrasado en 255 y reduce
+    // solamente el lado que acumula más ticks.
+    aplicarMotores(direccion, PWM_BASE - correccion, PWM_BASE + correccion);
+}
+
+void atenderSecuencia() {
+    if (solicitud_estop) {
+        solicitud_estop = false;
+        cambiarEstado(EstadoPrueba::ESTOP, "E-STOP solicitado; requiere REARMAR.");
+    }
+    if (solicitud_rearme) {
+        solicitud_rearme = false;
+        if (estado == EstadoPrueba::ESTOP || estado == EstadoPrueba::FALLO || estado == EstadoPrueba::COMPLETADO) {
+            objetivo_cm = 0.0f;
+            distancia_cm = 0.0f;
+            cambiarEstado(EstadoPrueba::ESPERANDO, "Rearmado; listo para una nueva prueba.");
+        }
+    }
+    if (solicitud_inicio) {
+        solicitud_inicio = false;
+        if (estado == EstadoPrueba::ESPERANDO) {
+            for (EncoderFisico& encoder : encoders) encoder.pulsos_sesion = 0;
+            cambiarEstado(EstadoPrueba::CUENTA_REGRESIVA, "Movimiento inicia en 5 segundos.");
+        }
+    }
+
+    const uint32_t en_estado_ms = millis() - inicio_estado_ms;
+    if (estado == EstadoPrueba::CUENTA_REGRESIVA && en_estado_ms >= CUENTA_REGRESIVA_MS) {
+        iniciarMovimiento(EstadoPrueba::AVANCE_1M, 100.0f);
+    } else if (estado == EstadoPrueba::PAUSA_1M && en_estado_ms >= PAUSA_INVERSION_MS) {
+        iniciarMovimiento(EstadoPrueba::REGRESO_1M, 100.0f);
+    } else if (estado == EstadoPrueba::ESPERA_7S && en_estado_ms >= PAUSA_ENTRE_BLOQUES_MS) {
+        iniciarMovimiento(EstadoPrueba::AVANCE_2M, 200.0f);
+    } else if (estado == EstadoPrueba::PAUSA_2M && en_estado_ms >= PAUSA_INVERSION_MS) {
+        iniciarMovimiento(EstadoPrueba::REGRESO_2M, 200.0f);
+    }
+
+    if (esMovimiento(estado) && millis() - ultimo_control_ms >= PERIODO_CONTROL_MS) {
+        ultimo_control_ms = millis();
+        actualizarControl();
+    }
+}
+
+void responderEstado(AsyncWebServerRequest* request) {
+    ultimo_heartbeat_web_ms = millis();
+    AsyncResponseStream* r = request->beginResponseStream("application/json");
+    r->addHeader("Cache-Control", "no-store");
+    r->printf("{\"estado\":\"%s\",\"detalle\":\"%s\",\"distancia_cm\":%.3f,\"objetivo_cm\":%.1f,\"pwm_l\":%d,\"pwm_r\":%d,\"vel_l_cm_s\":%.3f,\"vel_r_cm_s\":%.3f,\"encoders\":[",
+              nombreEstado(estado), detalle_estado, distancia_cm, objetivo_cm,
+              pwm_izquierdo, pwm_derecho, velocidad_izquierda_cm_s, velocidad_derecha_cm_s);
+    for (size_t i = 0; i < 4; ++i) {
+        if (i) r->print(',');
+        r->printf("{\"nombre\":\"%s\",\"segmento\":%lld,\"sesion\":%lld}", encoders[i].nombre,
+                  static_cast<long long>(encoders[i].pulsos_segmento),
+                  static_cast<long long>(encoders[i].pulsos_sesion));
+    }
+    r->print("]}");
+    request->send(r);
+}
+
+void iniciarWeb() {
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(RED_AP, CLAVE_AP);
+    servidor.on("/", HTTP_GET, [](AsyncWebServerRequest* req) { req->send(200, "text/html; charset=utf-8", PAGINA); });
+    servidor.on("/api/estado", HTTP_GET, responderEstado);
+    servidor.on("/api/iniciar", HTTP_POST, [](AsyncWebServerRequest* req) { ultimo_heartbeat_web_ms = millis(); solicitud_inicio = true; req->send(202); });
+    servidor.on("/api/estop", HTTP_POST, [](AsyncWebServerRequest* req) { solicitud_estop = true; req->send(202); });
+    servidor.on("/api/rearmar", HTTP_POST, [](AsyncWebServerRequest* req) { solicitud_rearme = true; req->send(202); });
+    servidor.onNotFound([](AsyncWebServerRequest* req) { req->redirect("/"); });
+    servidor.begin();
+    Serial.printf("Wi-Fi: %s | clave: %s | http://%s/\n", RED_AP, CLAVE_AP, WiFi.softAPIP().toString().c_str());
+}
+
+void atenderSerial() {
+    if (!Serial.available()) return;
+    String comando = Serial.readStringUntil('\n');
+    comando.trim();
+    comando.toUpperCase();
+    if (comando == "INICIAR") solicitud_inicio = true;
+    else if (comando == "ESTOP" || comando == "STOP") solicitud_estop = true;
+    else if (comando == "REARMAR") solicitud_rearme = true;
+}
+
+}  // namespace
+
+void setup() {
+    Serial.begin(115200);
+    configurarMotores();
+    for (EncoderFisico& encoder : encoders) configurarEncoder(encoder);
+    iniciarWeb();
+    inicio_estado_ms = millis();
+    ultimo_control_ms = millis();
+    Serial.printf("CM por tick: %.5f | 1 m: %.2f ticks | 2 m: %.2f ticks\n",
+                  CM_POR_TICK, 100.0f / CM_POR_TICK, 200.0f / CM_POR_TICK);
+    Serial.println("Comandos: INICIAR, ESTOP, REARMAR. Motores detenidos al arrancar.");
+}
+
+void loop() {
+    atenderSerial();
+    atenderSecuencia();
+    delay(2);
+}

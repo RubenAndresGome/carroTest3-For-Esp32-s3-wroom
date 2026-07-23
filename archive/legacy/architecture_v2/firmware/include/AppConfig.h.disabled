@@ -1,0 +1,5 @@
+#pragma once
+
+// TODO V2: concentrar pinout, frecuencias, limites y parametros calibrables.
+// TODO V2: cargar valores sensibles desde include/Secrets.h.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

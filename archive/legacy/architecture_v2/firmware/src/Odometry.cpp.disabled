@@ -1,0 +1,3 @@
+// TODO V2: distancia y velocidad por rueda, pose diferencial y fusion de
+// yaw entre giroscopio y encoders. No corregir yaw con acelerometro.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

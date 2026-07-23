@@ -1,0 +1,18 @@
+[project]
+name = "robot-s3-local"
+version = "0.1.0"
+description = "Gateway y panel local para el robot ESP32-S3"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask==3.1.3",
+  "platformdirs==4.10.0",
+  "waitress==3.0.2",
+  "websocket-client==1.9.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

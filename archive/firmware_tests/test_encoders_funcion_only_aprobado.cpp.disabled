@@ -1,0 +1,344 @@
+// Prueba fisica exclusiva de los cuatro encoders LM393.
+//
+// Todo el diagnostico vive en este archivo: PCNT, punto de acceso Wi-Fi,
+// miniapp HTML, API JSON y registro CSV descargable. No acciona motores: las
+// ocho entradas de los DRV8833 permanecen en LOW durante toda la ejecucion.
+//
+// Red Wi-Fi: PRUEBA_ENCODERS_S3
+// Clave:     encoders123
+// Pagina:    http://192.168.4.1/
+
+#include <Arduino.h>
+#include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
+#include <WiFi.h>
+#include "driver/pcnt.h"
+
+#include "Config.h"
+
+namespace {
+
+constexpr uint32_t INTERVALO_REPORTE_MS = 1000;
+constexpr uint8_t REPORTES_POR_CABECERA = 10;
+constexpr char NOMBRE_RED[] = "PRUEBA_ENCODERS_S3";
+constexpr char CLAVE_RED[] = "encoders123";
+constexpr char ARCHIVO_CSV[] = "/encoders.csv";
+constexpr size_t RESERVA_FLASH_BYTES = 16 * 1024;
+
+struct MedicionEncoder {
+    int64_t pulsos_totales = 0;
+    float pulsos_por_segundo = 0.0f;
+    float velocidad_cm_s = 0.0f;
+    float rpm = 0.0f;
+    float vueltas_totales = 0.0f;
+    float vueltas_por_segundo = 0.0f;
+};
+
+struct EncoderPrueba {
+    const char* nombre;
+    int pin;
+    pcnt_unit_t unidad;
+    MedicionEncoder medicion;
+};
+
+EncoderPrueba encoders[] = {
+    {"FL", PIN_ENC_FL, PCNT_UNIT_0, {}},
+    {"FR", PIN_ENC_FR, PCNT_UNIT_1, {}},
+    {"BL", PIN_ENC_BL, PCNT_UNIT_2, {}},
+    {"BR", PIN_ENC_BR, PCNT_UNIT_3, {}},
+};
+
+constexpr int PINES_MOTOR[] = {
+    PIN_FL_FWD, PIN_FL_REV,
+    PIN_FR_FWD, PIN_FR_REV,
+    PIN_BL_FWD, PIN_BL_REV,
+    PIN_BR_FWD, PIN_BR_REV,
+};
+
+AsyncWebServer servidor(80);
+portMUX_TYPE mux_mediciones = portMUX_INITIALIZER_UNLOCKED;
+uint32_t ultimo_reporte_ms = 0;
+uint8_t reportes_desde_cabecera = REPORTES_POR_CABECERA;
+bool sistema_archivos_disponible = false;
+bool registro_csv_activo = false;
+
+const char PAGINA_HTML[] PROGMEM = R"HTML(
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prueba de encoders ESP32-S3</title>
+  <style>
+    :root{color-scheme:dark;--fondo:#0b1220;--panel:#111c30;--linea:#29405f;--texto:#e6edf7;--acento:#31d0aa;--aviso:#ffd166}
+    *{box-sizing:border-box}body{margin:0;background:var(--fondo);color:var(--texto);font-family:system-ui,sans-serif}
+    main{width:min(1050px,94vw);margin:28px auto}.panel{background:var(--panel);border:1px solid var(--linea);border-radius:14px;padding:18px;box-shadow:0 12px 30px #0005}
+    h1{margin:0 0 6px;font-size:clamp(1.4rem,4vw,2.2rem)}p{line-height:1.45}.estado{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+    .dato{border:1px solid var(--linea);border-radius:9px;padding:8px 12px}.ok{color:var(--acento)}.aviso{color:var(--aviso)}
+    .tabla{overflow:auto}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:10px 8px;border-bottom:1px solid var(--linea);text-align:right;font-variant-numeric:tabular-nums}th:first-child,td:first-child{text-align:left}th{color:#9fb5d1}
+    a.boton{display:inline-block;margin-top:16px;padding:10px 16px;background:var(--acento);color:#06231c;text-decoration:none;font-weight:700;border-radius:9px}
+    code{color:var(--acento)}small{color:#9fb5d1}
+  </style>
+</head>
+<body>
+<main><section class="panel">
+  <h1>Diagnóstico de encoders LM393</h1>
+  <p>Mueve una llanta a la vez. Los motores permanecen bloqueados en <code>LOW</code>.</p>
+  <div class="estado">
+    <span class="dato">Estado: <b id="estado" class="aviso">conectando…</b></span>
+    <span class="dato">Tiempo: <b id="tiempo">0.0 s</b></span>
+    <span class="dato">CSV: <b id="csv">esperando…</b></span>
+  </div>
+  <div class="tabla"><table>
+    <thead><tr><th>Encoder</th><th>Pulsos total</th><th>Pulsos/s</th><th>Velocidad cm/s</th><th>RPM</th><th>Vueltas total</th><th>Vueltas/s</th></tr></thead>
+    <tbody id="filas"></tbody>
+  </table></div>
+  <a class="boton" href="/descargar.csv">Descargar sesión CSV</a>
+  <p><small>FL: frontal izquierda · FR: frontal derecha · BL: trasera izquierda · BR: trasera derecha. Un encoder de un canal mide magnitud, no dirección.</small></p>
+</section></main>
+<script>
+const n=(v,d=2)=>Number(v).toFixed(d);
+async function actualizar(){
+  try{
+    const r=await fetch('/api/datos',{cache:'no-store'}); if(!r.ok)throw Error(r.status);
+    const d=await r.json();
+    document.querySelector('#estado').textContent='recibiendo'; document.querySelector('#estado').className='ok';
+    document.querySelector('#tiempo').textContent=n(d.t_s,1)+' s';
+    document.querySelector('#csv').textContent=d.csv_activo ? n(d.csv_bytes/1024,1)+' KiB' : 'no disponible';
+    document.querySelector('#filas').innerHTML=d.encoders.map(e=>`<tr><td>${e.nombre}</td><td>${e.pulsos_total}</td><td>${n(e.pulsos_s)}</td><td>${n(e.velocidad_cm_s)}</td><td>${n(e.rpm)}</td><td>${n(e.vueltas_total,3)}</td><td>${n(e.vueltas_s,3)}</td></tr>`).join('');
+  }catch(e){document.querySelector('#estado').textContent='sin respuesta';document.querySelector('#estado').className='aviso'}
+}
+actualizar();setInterval(actualizar,1000);
+</script>
+</body></html>
+)HTML";
+
+void bloquearMotores() {
+    for (const int pin : PINES_MOTOR) {
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, LOW);
+    }
+}
+
+void configurarEncoder(EncoderPrueba& encoder) {
+    pinMode(encoder.pin, INPUT_PULLUP);
+
+    pcnt_config_t configuracion = {};
+    configuracion.pulse_gpio_num = encoder.pin;
+    configuracion.ctrl_gpio_num = PCNT_PIN_NOT_USED;
+    configuracion.lctrl_mode = PCNT_MODE_KEEP;
+    configuracion.hctrl_mode = PCNT_MODE_KEEP;
+    configuracion.pos_mode = PCNT_COUNT_INC;
+    configuracion.neg_mode = PCNT_COUNT_DIS;
+    configuracion.counter_h_lim = 32767;
+    configuracion.counter_l_lim = -32768;
+    configuracion.unit = encoder.unidad;
+    configuracion.channel = PCNT_CHANNEL_0;
+
+    ESP_ERROR_CHECK(pcnt_unit_config(&configuracion));
+    // 100 ciclos APB (~1.25 us a 80 MHz) eliminan glitches muy cortos.
+    ESP_ERROR_CHECK(pcnt_set_filter_value(encoder.unidad, 100));
+    ESP_ERROR_CHECK(pcnt_filter_enable(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_counter_pause(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_counter_clear(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_counter_resume(encoder.unidad));
+}
+
+int16_t leerYVaciarContador(EncoderPrueba& encoder) {
+    int16_t pulsos_intervalo = 0;
+    ESP_ERROR_CHECK(pcnt_counter_pause(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_get_counter_value(encoder.unidad, &pulsos_intervalo));
+    ESP_ERROR_CHECK(pcnt_counter_clear(encoder.unidad));
+    ESP_ERROR_CHECK(pcnt_counter_resume(encoder.unidad));
+    return pulsos_intervalo;
+}
+
+void imprimirCabecera() {
+    Serial.println();
+    Serial.println("+---------+------+--------------+----------+-----------+----------+---------------+----------+");
+    Serial.println("| t (s)   | ENC  | Pulsos total | Pulsos/s | Vel cm/s  | RPM      | Vueltas total | Vueltas/s|");
+    Serial.println("+---------+------+--------------+----------+-----------+----------+---------------+----------+");
+    reportes_desde_cabecera = 0;
+}
+
+void iniciarRegistroCsv() {
+    sistema_archivos_disponible = LittleFS.begin(true);
+    if (!sistema_archivos_disponible) {
+        Serial.println("AVISO: LittleFS no disponible; la web funcionara sin descarga CSV.");
+        return;
+    }
+
+    File archivo = LittleFS.open(ARCHIVO_CSV, FILE_WRITE);
+    if (!archivo) {
+        Serial.println("AVISO: no se pudo crear /encoders.csv.");
+        return;
+    }
+    archivo.println("tiempo_s,encoder,pulsos_total,pulsos_s,velocidad_cm_s,rpm,vueltas_total,vueltas_s");
+    archivo.close();
+    registro_csv_activo = true;
+}
+
+void guardarFilaCsv(float tiempo_s, const EncoderPrueba& encoder) {
+    if (!registro_csv_activo) return;
+    if (LittleFS.totalBytes() - LittleFS.usedBytes() < RESERVA_FLASH_BYTES) {
+        registro_csv_activo = false;
+        Serial.println("AVISO: registro CSV detenido para no llenar LittleFS.");
+        return;
+    }
+
+    File archivo = LittleFS.open(ARCHIVO_CSV, FILE_APPEND);
+    if (!archivo) {
+        registro_csv_activo = false;
+        Serial.println("AVISO: no se pudo anexar al CSV.");
+        return;
+    }
+    const MedicionEncoder& m = encoder.medicion;
+    archivo.printf("%.3f,%s,%lld,%.3f,%.3f,%.3f,%.5f,%.5f\n",
+                   tiempo_s,
+                   encoder.nombre,
+                   static_cast<long long>(m.pulsos_totales),
+                   m.pulsos_por_segundo,
+                   m.velocidad_cm_s,
+                   m.rpm,
+                   m.vueltas_totales,
+                   m.vueltas_por_segundo);
+    archivo.close();
+}
+
+void imprimirYGuardarReporte(uint32_t ahora_ms, uint32_t intervalo_real_ms) {
+    if (reportes_desde_cabecera >= REPORTES_POR_CABECERA) imprimirCabecera();
+
+    const float tiempo_s = ahora_ms / 1000.0f;
+    const float segundos = intervalo_real_ms / 1000.0f;
+    const float circunferencia_cm = PI * WHEEL_DIAMETER_CM;
+
+    for (EncoderPrueba& encoder : encoders) {
+        const int16_t pulsos_intervalo = leerYVaciarContador(encoder);
+
+        portENTER_CRITICAL(&mux_mediciones);
+        MedicionEncoder& m = encoder.medicion;
+        m.pulsos_totales += pulsos_intervalo;
+        m.pulsos_por_segundo = pulsos_intervalo / segundos;
+        m.vueltas_por_segundo = m.pulsos_por_segundo / ENCODER_PPR;
+        m.vueltas_totales = static_cast<float>(m.pulsos_totales) / ENCODER_PPR;
+        m.velocidad_cm_s = m.vueltas_por_segundo * circunferencia_cm;
+        m.rpm = m.vueltas_por_segundo * 60.0f;
+        portEXIT_CRITICAL(&mux_mediciones);
+
+        Serial.printf(
+            "| %7.1f | %-4s | %12lld | %8.2f | %9.2f | %8.2f | %13.3f | %8.3f |\n",
+            tiempo_s, encoder.nombre, static_cast<long long>(m.pulsos_totales),
+            m.pulsos_por_segundo, m.velocidad_cm_s, m.rpm,
+            m.vueltas_totales, m.vueltas_por_segundo);
+        guardarFilaCsv(tiempo_s, encoder);
+    }
+
+    Serial.println("+---------+------+--------------+----------+-----------+----------+---------------+----------+");
+    ++reportes_desde_cabecera;
+}
+
+void responderDatos(AsyncWebServerRequest* request) {
+    MedicionEncoder copia[4];
+    portENTER_CRITICAL(&mux_mediciones);
+    for (size_t i = 0; i < 4; ++i) copia[i] = encoders[i].medicion;
+    portEXIT_CRITICAL(&mux_mediciones);
+
+    size_t bytes_csv = 0;
+    if (sistema_archivos_disponible) {
+        File archivo = LittleFS.open(ARCHIVO_CSV, FILE_READ);
+        if (archivo) {
+            bytes_csv = archivo.size();
+            archivo.close();
+        }
+    }
+
+    AsyncResponseStream* respuesta = request->beginResponseStream("application/json");
+    respuesta->addHeader("Cache-Control", "no-store");
+    respuesta->printf("{\"t_s\":%.3f,\"csv_activo\":%s,\"csv_bytes\":%u,\"encoders\":[",
+                      millis() / 1000.0f,
+                      registro_csv_activo ? "true" : "false",
+                      static_cast<unsigned>(bytes_csv));
+    for (size_t i = 0; i < 4; ++i) {
+        if (i != 0) respuesta->print(',');
+        const MedicionEncoder& m = copia[i];
+        respuesta->printf(
+            "{\"nombre\":\"%s\",\"pulsos_total\":%lld,\"pulsos_s\":%.3f,"
+            "\"velocidad_cm_s\":%.3f,\"rpm\":%.3f,\"vueltas_total\":%.5f,\"vueltas_s\":%.5f}",
+            encoders[i].nombre,
+            static_cast<long long>(m.pulsos_totales),
+            m.pulsos_por_segundo,
+            m.velocidad_cm_s,
+            m.rpm,
+            m.vueltas_totales,
+            m.vueltas_por_segundo);
+    }
+    respuesta->print("]}");
+    request->send(respuesta);
+}
+
+void iniciarMiniapp() {
+    WiFi.mode(WIFI_AP);
+    if (!WiFi.softAP(NOMBRE_RED, CLAVE_RED)) {
+        Serial.println("ERROR: no se pudo iniciar el punto de acceso Wi-Fi.");
+        return;
+    }
+
+    servidor.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->send(200, "text/html; charset=utf-8", PAGINA_HTML);
+    });
+    servidor.on("/api/datos", HTTP_GET, responderDatos);
+    servidor.on("/descargar.csv", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!sistema_archivos_disponible || !LittleFS.exists(ARCHIVO_CSV)) {
+            request->send(503, "text/plain; charset=utf-8", "CSV no disponible");
+            return;
+        }
+        request->send(LittleFS, ARCHIVO_CSV, "text/csv", true);
+    });
+    servidor.onNotFound([](AsyncWebServerRequest* request) {
+        request->redirect("/");
+    });
+    servidor.begin();
+
+    Serial.printf("Wi-Fi: %s\n", NOMBRE_RED);
+    Serial.printf("Clave: %s\n", CLAVE_RED);
+    Serial.printf("Miniapp: http://%s/\n", WiFi.softAPIP().toString().c_str());
+}
+
+}  // namespace
+
+void setup() {
+    bloquearMotores();
+    Serial.begin(115200);
+    delay(800);
+
+    Serial.println();
+    Serial.println("PRUEBA EXCLUSIVA DE ENCODERS LM393");
+    Serial.println("Motores bloqueados en LOW; mueva las cuatro llantas manualmente.");
+    Serial.printf("Configuracion: %d PPR, diametro %.2f cm, reporte cada %lu ms.\n",
+                  ENCODER_PPR, WHEEL_DIAMETER_CM,
+                  static_cast<unsigned long>(INTERVALO_REPORTE_MS));
+    Serial.println("FL=frontal izquierda, FR=frontal derecha, BL=trasera izquierda, BR=trasera derecha.");
+    Serial.println("Los valores no tienen signo porque el LM393 de un canal no detecta direccion.");
+
+    for (EncoderPrueba& encoder : encoders) {
+        configurarEncoder(encoder);
+        Serial.printf("Encoder %s listo en GPIO %d (PCNT unit %d).\n",
+                      encoder.nombre, encoder.pin, static_cast<int>(encoder.unidad));
+    }
+
+    iniciarRegistroCsv();
+    iniciarMiniapp();
+    ultimo_reporte_ms = millis();
+}
+
+void loop() {
+    bloquearMotores();
+
+    const uint32_t ahora_ms = millis();
+    const uint32_t transcurrido_ms = ahora_ms - ultimo_reporte_ms;
+    if (transcurrido_ms >= INTERVALO_REPORTE_MS) {
+        ultimo_reporte_ms = ahora_ms;
+        imprimirYGuardarReporte(ahora_ms, transcurrido_ms);
+    }
+    delay(5);
+}

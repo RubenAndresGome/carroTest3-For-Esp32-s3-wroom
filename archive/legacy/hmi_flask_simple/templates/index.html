@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="app-token" content="{{ app_token }}">
+  <title>Robot S3 · Centro de control</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">ESP32-S3 · CONTROL LOCAL</p>
+      <h1>Centro de control</h1>
+    </div>
+    <div class="connection-pill" id="connection-pill" data-state="connecting" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span id="connection-label">Conectando</span>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <section class="card connection-card" aria-labelledby="conexion-title">
+      <div class="section-heading">
+        <div><p class="kicker">ENLACE</p><h2 id="conexion-title">Carrito</h2></div>
+        <span class="protocol-badge" id="protocol-badge">—</span>
+      </div>
+      <form id="robot-config" class="inline-form">
+        <label for="robot-host">IP o nombre del ESP32</label>
+        <div class="field-action">
+          <input id="robot-host" name="robot-host" value="192.168.4.1" autocomplete="off" spellcheck="false">
+          <button class="button secondary" type="submit">Reconectar</button>
+        </div>
+      </form>
+      <p class="muted" id="connection-detail">La app de Windows busca ws://192.168.4.1/ws</p>
+    </section>
+
+    <section class="card safety-card" aria-labelledby="seguridad-title">
+      <div><p class="kicker">SEGURIDAD</p><h2 id="seguridad-title">Paro inmediato</h2></div>
+      <button id="estop" class="estop" type="button"><span>PARO</span><small>EMERGENCIA</small></button>
+      <button class="button secondary command" data-command="clear_fault" type="button">Liberar falla</button>
+    </section>
+
+    <section class="card pose-card" aria-labelledby="pose-title">
+      <div class="section-heading">
+        <div><p class="kicker">ODOMETRÍA</p><h2 id="pose-title">Posición estimada</h2></div>
+        <span class="state-badge" id="robot-state">SIN DATOS</span>
+      </div>
+      <div class="metrics">
+        <div><span>X</span><strong id="pose-x">0.0</strong><small>mm</small></div>
+        <div><span>Y</span><strong id="pose-y">0.0</strong><small>mm</small></div>
+        <div><span>Rumbo</span><strong id="pose-yaw">0.0</strong><small>°</small></div>
+      </div>
+      <p class="muted" id="filter-status">Filtros: esperando telemetría del ESP32</p>
+      <canvas id="path-chart" height="180" aria-label="Trayectoria reciente del robot"></canvas>
+    </section>
+
+    <section class="card wheels-card" aria-labelledby="wheels-title">
+      <div class="section-heading">
+        <div><p class="kicker">ENCODERS · 20 PPR</p><h2 id="wheels-title">Ruedas</h2></div>
+        <span class="muted">Ø 66 mm</span>
+      </div>
+      <div class="wheel-grid">
+        <article class="wheel"><span>Superior izq.</span><strong id="pulse-fl">0</strong><small>GPIO 10 · rojo</small></article>
+        <article class="wheel"><span>Superior der.</span><strong id="pulse-fr">0</strong><small>GPIO 11 · café</small></article>
+        <article class="wheel"><span>Inferior izq.</span><strong id="pulse-bl">0</strong><small>GPIO 12 · negro</small></article>
+        <article class="wheel"><span>Inferior der.</span><strong id="pulse-br">0</strong><small>GPIO 13 · blanco</small></article>
+      </div>
+      <p class="muted" id="wheel-speed">Velocidad filtrada: 0.0 / 0.0 cm/s</p>
+    </section>
+
+    <section class="card manual-card" aria-labelledby="manual-title">
+      <div class="section-heading">
+        <div><p class="kicker">MOVIMIENTO</p><h2 id="manual-title">Control manual</h2></div>
+        <span class="muted" id="pwm-label">PWM 0 / 0</span>
+      </div>
+      <div class="dpad" aria-label="Control direccional">
+        <button class="drive" data-left="180" data-right="180" type="button">↑<span>Avanzar</span></button>
+        <button class="drive" data-left="-150" data-right="150" type="button">←<span>Izquierda</span></button>
+        <button class="drive stop" data-left="0" data-right="0" type="button">■<span>Detener</span></button>
+        <button class="drive" data-left="150" data-right="-150" type="button">→<span>Derecha</span></button>
+        <button class="drive" data-left="-180" data-right="-180" type="button">↓<span>Reversa</span></button>
+      </div>
+      <p class="muted">Al soltar un botón se envía detener. Usa el paro rojo ante cualquier riesgo.</p>
+    </section>
+
+    <section class="card route-card" aria-labelledby="route-title">
+      <div><p class="kicker">DESTINO</p><h2 id="route-title">Movimiento absoluto</h2></div>
+      <form id="move-form" class="coordinate-form">
+        <label>X (mm)<input name="x" type="number" step="1" value="0" required></label>
+        <label>Y (mm)<input name="y" type="number" step="1" value="0" required></label>
+        <button class="button primary" type="submit">Enviar destino</button>
+      </form>
+      <div class="button-row">
+        <button class="button secondary command" data-command="reset_pose" type="button">Reiniciar pose</button>
+        <button class="button secondary command" data-command="clear_route" type="button">Borrar ruta</button>
+      </div>
+    </section>
+
+    <section class="card record-card" aria-labelledby="record-title">
+      <div class="section-heading">
+        <div><p class="kicker">DATOS LOCALES</p><h2 id="record-title">Sesión</h2></div>
+        <span class="record-indicator" id="record-indicator">DETENIDA</span>
+      </div>
+      <p class="muted">Guarda como máximo 5 muestras por segundo en SQLite.</p>
+      <div class="button-row">
+        <button class="button primary" id="record-toggle" type="button">Iniciar grabación</button>
+        <a class="button secondary disabled" id="export-link" href="#">Exportar CSV</a>
+      </div>
+    </section>
+
+    <section class="card events-card" aria-labelledby="events-title">
+      <div class="section-heading">
+        <div><p class="kicker">DIAGNÓSTICO</p><h2 id="events-title">Eventos recientes</h2></div>
+        <button id="clear-log" class="text-button" type="button">Limpiar</button>
+      </div>
+      <ol id="event-log" class="event-log" aria-live="polite"></ol>
+    </section>
+  </main>
+
+  <noscript>Esta interfaz necesita JavaScript local para comunicarse con la app Python.</noscript>
+  <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

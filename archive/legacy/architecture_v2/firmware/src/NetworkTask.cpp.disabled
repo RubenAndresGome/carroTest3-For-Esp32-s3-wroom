@@ -1,0 +1,3 @@
+// TODO V2: AP Wi-Fi, WebSocket JSON y telemetria limitada a 10 Hz.
+// La interfaz HTML sera servida por la computadora, no por LittleFS.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

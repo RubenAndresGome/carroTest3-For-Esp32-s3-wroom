@@ -1,0 +1,3 @@
+// TODO V2: maquina de estados y control de cuatro motores.
+// Ningun callback de red podra escribir directamente en PWM.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

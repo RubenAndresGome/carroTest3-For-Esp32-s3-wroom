@@ -1,0 +1,3 @@
+// TODO V2: crear tareas FreeRTOS y colas sin usar loop() para control.
+// Core 1: control y seguridad. Core 0: red y telemetria.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

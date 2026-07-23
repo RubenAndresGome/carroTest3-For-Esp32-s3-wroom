@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recorrido del Robot</title>
+  <script src="chart.js"></script>
+  <script src="chartjs-plugin-datalabels.js"></script>
+  <script src="hammer.js"></script>
+  <script src="chartjs-plugin-zoom.js"></script>
+  <style>
+    body { background-color: black; color: white; font-family: Arial, sans-serif; margin: 0; padding: 20px; text-align: center; }
+    h2 { color: white; display: inline-block; padding: 10px 20px; border-radius: 10px;
+         background: linear-gradient(270deg, red, orange, yellow, green, blue, indigo, violet);
+         background-size: 1400% 1400%; animation: rainbow 10s ease infinite; }
+    @keyframes rainbow { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+    .container { display: flex; justify-content: center; align-items: flex-start; gap: 60px; margin-top: 30px; }
+    form { display: flex; flex-direction: column; gap: 15px; align-items: flex-start; }
+    label { color: white; font-weight: bold; }
+    input { padding: 5px; text-align: center; width: 200px; }
+    button { background-color: white; color: black; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; border-radius: 8px; margin-top: 10px; }
+    button:hover { background-color: gray; color: white; }
+    .graph-section { display: flex; flex-direction: column; align-items: center; }
+    canvas { background-color: white; border-radius: 10px; width: 1200px !important; height: 600px !important; margin-top: 10px; }
+    .progress-container { width: 1200px; background-color: #333; border-radius: 10px; margin-bottom: 10px; }
+    .progress-bar { height: 25px; width: 0%; background-color: limegreen; border-radius: 10px; text-align: center; color: black; font-weight: bold; font-size: 16px; }
+    .distance-label { color: white; font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+    .connection-status { margin-bottom: 10px; font-weight: bold; font-size: 18px; }
+    .telemetry-panel { display: flex; gap: 20px; background-color: #222; padding: 15px; border-radius: 10px; margin-bottom: 15px; justify-content: center; }
+    .telem-item { font-size: 18px; font-weight: bold; color: limegreen; }
+    .telem-item span { color: white; }
+  </style>
+</head>
+<body>
+  <h2>Ingresa coordenadas del robot</h2>
+  
+  <div class="container">
+    <form id="form">
+      <div class="connection-status" id="wsStatus" style="color: gray;">⚫ Desconectado</div>
+
+      <label for="x">Coordenada X:</label>
+      <input type="number" id="x" name="x" required>
+      
+      <label for="y">Coordenada Y:</label>
+      <input type="number" id="y" name="y" required>
+      
+      <button type="submit" id="moveBtn">🤖 MoverElRobot</button>
+      <button type="button" id="resetBtn">Resetear gráfica</button>
+      <button type="button" onclick="robotChart.resetZoom()">Resetear Zoom</button>
+    </form>
+    
+    <div class="graph-section">
+      <div class="telemetry-panel">
+        <div class="telem-item">X: <span id="tX">0.00</span></div>
+        <div class="telem-item">Y: <span id="tY">0.00</span></div>
+        <div class="telem-item">Ángulo: <span id="tA">0.00°</span></div>
+        <div class="telem-item">Estado: <span id="tS">IDLE</span></div>
+      </div>
+      <div class="distance-label" id="distanceLabel">Distancia recorrida: 0</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar">0%</div>
+      </div>
+      <canvas id="robotChart"></canvas>
+    </div>
+  </div>
+  
+  <script>
+    const ctx = document.getElementById('robotChart').getContext('2d');
+    let totalDistance = 0;
+
+    const robotChart = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          { label: 'Trayectoria del Robot', data: [{x:0, y:0}], borderColor: 'blue', backgroundColor: 'red',
+            showLine: true, tension: 0.3, pointRadius: 5, pointBackgroundColor: 'red' },
+          { label: 'Posición Actual', data: [{x:0, y:0}], borderColor: 'green', backgroundColor: 'green',
+            showLine: false, pointRadius: 8, pointBackgroundColor: 'green' }
+        ]
+      },
+      options: {
+        plugins: {
+          datalabels: {
+            align: 'top', color: 'black', font: { weight: 'bold' },
+            formatter: function(value, context) {
+              const dataset = context.chart.data.datasets[0].data;
+              if (value === dataset[dataset.length - 1]) {
+                return "Distancia total: " + totalDistance.toFixed(2);
+              }
+              return '';
+            }
+          },
+          zoom: {
+            pan: { enabled: true, mode: 'xy' },
+            zoom: {
+              wheel: { enabled: true },
+              pinch: { enabled: true },
+              mode: 'xy'
+            }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: 'X' }, grid: { color: '#ccc' }, min: -1000, max: 1000 },
+          y: { title: { display: true, text: 'Y' }, grid: { color: '#ccc' }, min: -1000, max: 1000 }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+
+    let totalPoints = 0;
+    let currentPoint = 0;
+    let lastPoint = {x:0, y:0};
+
+    // WebSocket logic
+    const ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+    ws.onopen = () => {
+      document.getElementById('wsStatus').textContent = '🟢 Conectado';
+      document.getElementById('wsStatus').style.color = 'limegreen';
+      console.log("WebSocket Conectado");
+    };
+
+    ws.onclose = () => {
+      document.getElementById('wsStatus').textContent = '🔴 Desconectado';
+      document.getElementById('wsStatus').style.color = 'red';
+      console.log("WebSocket Desconectado");
+      setTimeout(() => { location.reload(); }, 3000);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        document.getElementById('tX').textContent = data.x.toFixed(2);
+        document.getElementById('tY').textContent = data.y.toFixed(2);
+        document.getElementById('tA').textContent = data.a.toFixed(2) + '°';
+        document.getElementById('tS').textContent = data.s;
+
+        // Actualizar posición actual del robot en gráfica
+        robotChart.data.datasets[1].data[0] = {x: data.x, y: data.y};
+        robotChart.update('none'); 
+      } catch (e) {
+        console.error("Error parsing WebSocket JSON:", e);
+      }
+    };
+
+    // Botón "MoverElRobot"
+    document.getElementById('form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const x = parseFloat(document.getElementById('x').value);
+      const y = parseFloat(document.getElementById('y').value);
+
+      const newPoint = {x: lastPoint.x + x, y: lastPoint.y + y};
+      robotChart.data.datasets[0].data.push(newPoint);
+
+      const dx = newPoint.x - lastPoint.x;
+      const dy = newPoint.y - lastPoint.y;
+      totalDistance += Math.sqrt(dx*dx + dy*dy);
+
+      lastPoint = newPoint;
+
+      totalPoints = 1;
+      currentPoint = 0;
+
+      robotChart.data.datasets[1].data[0] = newPoint;
+      robotChart.update();
+
+      // Enviar via WebSocket
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({cmd: "move", x: newPoint.x, y: newPoint.y}));
+      } else {
+        alert("WebSocket no conectado");
+      }
+      
+      actualizarBarra();
+
+      document.getElementById('x').value = '';
+      document.getElementById('y').value = '';
+    });
+
+    function actualizarBarra() {
+      const progressBar = document.getElementById('progressBar');
+      let porcentaje = totalPoints === 0 ? 0 : (currentPoint / totalPoints) * 100;
+      progressBar.style.width = porcentaje + "%";
+      progressBar.textContent = Math.floor(porcentaje) + "%";
+      document.getElementById('distanceLabel').textContent = "Distancia recorrida: " + totalDistance.toFixed(2);
+      robotChart.update();
+    }
+
+    // Botón Resetear gráfica
+    document.getElementById("resetBtn").addEventListener("click", function() {
+      robotChart.data.datasets[0].data = [{x:0, y:0}];
+      robotChart.data.datasets[1].data = [{x:0, y:0}];
+      totalDistance = 0;
+      totalPoints = 0;
+      currentPoint = 0;
+      lastPoint = {x:0, y:0};
+      document.getElementById('progressBar').style.width = "0%";
+      document.getElementById('progressBar').textContent = "0%";
+      document.getElementById('distanceLabel').textContent = "Distancia recorrida: 0";
+      robotChart.update();
+    });
+  </script>
+</body>
+</html>

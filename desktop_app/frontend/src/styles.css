@@ -1,0 +1,6 @@
+:root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background: #0a0f16; color: #eef4fb; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+main { width: min(38rem, calc(100% - 2rem)); padding: 2rem; border: 1px solid #273548; border-radius: 1rem; background: #111925; }
+h1 { margin-top: 0; }
+p { color: #8fa1b5; line-height: 1.5; }
+.status { padding: .8rem; border-radius: .6rem; background: #0c141f; color: #38d6e7; }

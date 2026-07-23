@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAMINO TEORICO — HMI Navegacion Ortogonal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<script>
+tailwind.config={theme:{extend:{colors:{deep:'#060a12',panel:'#0c1220',card:'#111a2e',bdr:'#1a2744','bdr-lt':'#243558',accent:'#00e5a0',origin:'#ff6b35',pt:'#00e676',route:'#42a5f5',ortho:'#ffd740','cr':'#ff1744'},fontFamily:{display:['Space Grotesk','sans-serif'],mono:['JetBrains Mono','monospace']}}}}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Space Grotesk',sans-serif;overflow:hidden}
+.cs::-webkit-scrollbar{width:3px}.cs::-webkit-scrollbar-track{background:transparent}.cs::-webkit-scrollbar-thumb{background:#1a2744;border-radius:2px}
+.ipt:focus{outline:none;border-color:#00e5a0;box-shadow:0 0 0 2px rgba(0,229,160,.12)}
+.hdr-g{background:linear-gradient(90deg,#0b1019,#101d35,#0b1019);border-bottom:1px solid #1a2744;position:relative}
+.hdr-g::after{content:'';position:absolute;bottom:-1px;left:8%;right:8%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,160,.25),transparent)}
+.sts-g{background:linear-gradient(90deg,#0b1019,#101d35,#0b1019);border-top:1px solid #1a2744;position:relative}
+.sts-g::before{content:'';position:absolute;top:-1px;left:8%;right:8%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,160,.12),transparent)}
+.pnl{background:linear-gradient(180deg,#0d1424 0%,#090e1a 100%)}
+.step-a{border-color:#ffd740!important;background:linear-gradient(135deg,rgba(255,215,64,.07),rgba(255,215,64,.015))!important;box-shadow:0 0 20px rgba(255,215,64,.08),inset 0 0 20px rgba(255,215,64,.02)}
+@keyframes t-in{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes t-out{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(30px)}}
+.t-in{animation:t-in .25s ease}.t-out{animation:t-out .25s ease forwards}
+#plane{cursor:grab}#plane:active{cursor:grabbing}
+input[type=range]{-webkit-appearance:none;appearance:none;height:3px;background:#1a2744;border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#00e5a0;cursor:pointer;box-shadow:0 0 5px rgba(0,229,160,.4)}
+@keyframes opulse{0%,100%{box-shadow:0 0 4px #ff6b35}50%{box-shadow:0 0 16px #ff6b35,0 0 28px rgba(255,107,53,.2)}}
+
+/* Resize handles */
+.rh{
+  width:5px;flex-shrink:0;position:relative;z-index:10;
+  cursor:col-resize;
+  background:transparent;
+  transition:background .15s;
+}
+.rh::after{
+  content:'';position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:3px;height:32px;border-radius:2px;
+  background:transparent;transition:background .15s;
+}
+.rh:hover{background:rgba(0,229,160,.04)}
+.rh:hover::after{background:rgba(0,229,160,.25)}
+.rh.active{background:rgba(0,229,160,.06)}
+.rh.active::after{background:rgba(0,229,160,.5);box-shadow:0 0 8px rgba(0,229,160,.3)}
+body.rz-active{user-select:none!important;-webkit-user-select:none!important}
+body.rz-active *{cursor:col-resize!important}
+body.rz-active #plane{cursor:col-resize!important}
+
+/* Panel collapse indicator */
+.rh .rz-hint{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:8px;color:transparent;pointer-events:none;
+  transition:color .15s;font-family:'JetBrains Mono',monospace;letter-spacing:1px;
+}
+.rh:hover .rz-hint{color:rgba(0,229,160,.3)}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body class="bg-deep text-slate-400 h-screen flex flex-col">
+
+<div id="toast-box" class="fixed top-14 right-4 z-50 flex flex-col gap-2"></div>
+
+<!-- HEADER -->
+<header class="hdr-g h-11 min-h-[44px] flex items-center justify-between px-5 shrink-0 z-10">
+  <h1 class="text-[13px] font-semibold tracking-[3px] uppercase text-slate-100 flex items-center gap-3">
+    <span class="w-[7px] h-[7px] rounded-full bg-accent shadow-[0_0_8px_#00e5a0] animate-pulse"></span>
+    Camino Teorico
+  </h1>
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 text-[10px] text-slate-600 font-mono">
+      <span>Vel</span>
+      <input type="range" id="spd-sl" min="30" max="500" value="140" class="w-14" aria-label="Velocidad">
+      <span id="spd-v" class="w-8 text-slate-500">140</span>
+    </div>
+    <button id="btn-cine" onclick="toggleCine()" disabled
+      class="px-3.5 py-1 text-[11px] font-semibold tracking-wide rounded border border-bdr-lt bg-card text-slate-500 hover:border-cr hover:text-cr hover:bg-red-500/10 transition-all disabled:opacity-25 disabled:cursor-not-allowed flex items-center gap-1.5">
+      <i class="fa-solid fa-play text-[8px]"></i> Cine
+    </button>
+    <button onclick="resetV()" class="px-3 py-1 text-[11px] font-semibold rounded border border-bdr-lt bg-card text-slate-500 hover:border-accent hover:text-accent hover:bg-accent/10 transition-all flex items-center gap-1.5">
+      <i class="fa-solid fa-crosshairs text-[8px]"></i> Centro
+    </button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main id="main-area" class="flex-1 flex overflow-hidden">
+
+  <!-- IZQ -->
+  <aside id="pnl-l" class="pnl flex flex-col overflow-hidden border-r border-bdr" style="width:260px;min-width:0">
+    <div class="p-3 border-b border-bdr">
+      <h2 class="text-[9px] font-bold tracking-[2px] uppercase text-slate-600 mb-2.5">Registrar Punto</h2>
+      <div class="flex gap-1.5 mb-2">
+        <input id="iL" class="ipt w-12 px-1.5 py-1.5 text-[11px] font-mono bg-deep border border-bdr rounded text-center uppercase text-slate-200" placeholder="A" maxlength="3" aria-label="Letra">
+        <input id="iX" type="number" step="0.1" class="ipt flex-1 px-2 py-1.5 text-[11px] font-mono bg-deep border border-bdr rounded text-slate-200" placeholder="X cm" aria-label="X">
+        <input id="iY" type="number" step="0.1" class="ipt flex-1 px-2 py-1.5 text-[11px] font-mono bg-deep border border-bdr rounded text-slate-200" placeholder="Y cm" aria-label="Y">
+      </div>
+      <button onclick="addPt()" class="w-full py-1.5 text-[11px] font-semibold tracking-wide rounded bg-accent/10 border border-accent/25 text-accent hover:bg-accent/20 transition-all">
+        <i class="fa-solid fa-plus text-[8px] mr-1"></i> Agregar Punto
+      </button>
+    </div>
+    <div class="px-3 pt-2.5 pb-1.5 flex items-center justify-between">
+      <h2 class="text-[9px] font-bold tracking-[2px] uppercase text-slate-600">Puntos <span id="pc" class="text-slate-700">(0)</span></h2>
+      <button onclick="clearAll()" class="text-[9px] text-slate-700 hover:text-red-400 transition-colors">Limpiar</button>
+    </div>
+    <div id="pt-list" class="flex-1 overflow-y-auto cs px-3 pb-2"></div>
+    <div class="p-3 border-t border-bdr">
+      <h2 class="text-[9px] font-bold tracking-[2px] uppercase text-slate-600 mb-2">Secuencia Ruta</h2>
+      <div class="flex gap-1.5">
+        <input id="iR" class="ipt flex-1 px-2 py-1.5 text-[11px] font-mono bg-deep border border-bdr rounded text-slate-200 uppercase" placeholder="A,B,C,D" aria-label="Ruta">
+        <button onclick="genRoute()" class="px-3 py-1.5 text-[11px] font-semibold rounded bg-route/10 border border-route/25 text-route hover:bg-route/20 transition-all">
+          <i class="fa-solid fa-route text-[8px]"></i>
+        </button>
+      </div>
+      <div id="r-chips" class="flex flex-wrap gap-1 mt-2 min-h-[22px]"></div>
+    </div>
+  </aside>
+
+  <!-- RESIZE HANDLE IZQ -->
+  <div id="rh-l" class="rh" aria-label="Redimensionar panel izquierdo">
+    <span class="rz-hint">|||</span>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="cw" class="flex-1 relative overflow-hidden bg-deep" style="min-width:200px">
+    <canvas id="plane"></canvas>
+    <div class="absolute top-2.5 left-1/2 -translate-x-1/2 text-[9px] text-slate-700 tracking-wide pointer-events-none select-none">
+      Scroll = Zoom &middot; Arrastrar = Mover
+    </div>
+    <div class="absolute bottom-0 left-0 right-0 px-3.5 py-1.5 flex justify-between pointer-events-none font-mono text-[9px] text-slate-600 bg-gradient-to-t from-deep/95 to-transparent">
+      <span id="m-coord">X: 0.0 &nbsp; Y: 0.0</span>
+      <span id="z-info">8.0 px/cm</span>
+    </div>
+    <div class="absolute top-2.5 right-3 text-[8px] font-mono space-y-1.5 pointer-events-none select-none">
+      <div class="flex items-center gap-1.5"><span class="w-3 h-[2px] rounded bg-route inline-block opacity-60"></span><span class="text-slate-600">Ruta directa</span></div>
+      <div class="flex items-center gap-1.5"><span class="w-3 h-[2px] rounded bg-ortho inline-block opacity-70"></span><span class="text-slate-600">Camino ortogonal</span></div>
+      <div class="flex items-center gap-1.5"><span class="w-[7px] h-[7px] rounded-full bg-origin inline-block" style="animation:opulse 2s infinite"></span><span class="text-slate-600">Origen</span></div>
+      <div class="flex items-center gap-1.5"><span class="w-[7px] h-[7px] rounded-full bg-pt inline-block"></span><span class="text-slate-600">Puntos</span></div>
+    </div>
+  </div>
+
+  <!-- RESIZE HANDLE DER -->
+  <div id="rh-r" class="rh" aria-label="Redimensionar panel derecho">
+    <span class="rz-hint">|||</span>
+  </div>
+
+  <!-- DER -->
+  <aside id="pnl-r" class="pnl flex flex-col overflow-hidden border-l border-bdr" style="width:295px;min-width:0">
+    <div class="p-3 border-b border-bdr">
+      <h2 class="text-[9px] font-bold tracking-[2px] uppercase text-slate-600 mb-0.5">Instrucciones de Ruta</h2>
+      <p class="text-[9px] text-slate-700">Ortogonal: primero X, luego Y</p>
+    </div>
+    <div id="st-list" class="flex-1 overflow-y-auto cs p-3 space-y-2"></div>
+    <div id="sum-box" class="p-3 border-t border-bdr bg-card/40"></div>
+  </aside>
+
+</main>
+
+<!-- STATUS -->
+<footer class="sts-g h-6 min-h-[24px] flex items-center px-5 text-[9px] font-mono text-slate-600 gap-5 shrink-0">
+  <div class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-pt shadow-[0_0_3px_#00e676]"></span>Puntos: <span id="s1" class="text-slate-500">0</span></div>
+  <div class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-route shadow-[0_0_3px_#42a5f5]"></span>Pasos: <span id="s2" class="text-slate-500">0</span></div>
+  <div class="flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-ortho shadow-[0_0_3px_#ffd740]"></span>Dist: <span id="s3" class="text-slate-500">0.0</span></div>
+  <div class="ml-auto flex items-center gap-1.5"><span class="w-1 h-1 rounded-full bg-cr shadow-[0_0_3px_#ff1744]"></span><span id="s4">Inactivo</span></div>
+</footer>
+
+<script>
+/* ===================== ESTADO ===================== */
+let pts=[],route=[],steps=[],cSegs=[];
+let cv,cx,wr; let W=0,H=0,sc=8,px=0,py=0;
+let pan=false,psx=0,psy=0,ppx=0,ppy=0;
+let mw={x:0,y:0},ms={x:0,y:0},mo=false;
+let cState='idle',cIdx=0,cProg=0,cSpd=140,cAnim=0,cLast=0,dOff=0;
+let hPt=null,hSt=-1,nLI=0;
+
+/* ===================== RESIZE STATE ===================== */
+const MIN_L=180, MIN_R=220, MIN_C=200;
+let rzState=null; // { type:'left'|'right', startX, startW }
+
+/* ===================== UTIL ===================== */
+const sx=w=>W/2+w*sc+px, sy=w=>H/2-w*sc+py;
+const wx=s=>(s-W/2-px)/sc, wy=s=>-(s-H/2-py)/sc;
+const fm=(n,d=1)=>Number(n).toFixed(d);
+const sg=n=>n>0?'+':n<0?'':'';
+function nLetter(){const i=nLI++;const s=Math.floor(i/26);return String.fromCharCode(65+i%26)+(s?''+s:'');}
+
+/* ===================== TOAST ===================== */
+function toast(m,t='info'){
+  const c=document.getElementById('toast-box'),d=document.createElement('div');
+  const cl={success:'border-accent text-accent',error:'border-red-400 text-red-400',info:'border-route text-route'};
+  d.className=`t-in px-3.5 py-2 rounded text-[11px] font-medium border bg-card shadow-xl ${cl[t]||cl.info}`;
+  d.textContent=m;c.appendChild(d);
+  setTimeout(()=>{d.classList.replace('t-in','t-out');setTimeout(()=>d.remove(),250)},2200);
+}
+
+/* ===================== PUNTOS ===================== */
+function addPt(){
+  const lE=document.getElementById('iL'),xE=document.getElementById('iX'),yE=document.getElementById('iY');
+  let l=lE.value.trim().toUpperCase();const x=parseFloat(xE.value),y=parseFloat(yE.value);
+  if(!l)l=nLetter();
+  if(isNaN(x)){toast('Valor X invalido','error');xE.focus();return}
+  if(isNaN(y)){toast('Valor Y invalido','error');yE.focus();return}
+  if(pts.find(p=>p.l===l)){toast(`"${l}" ya existe`,'error');return}
+  pts.push({l,x,y});lE.value='';xE.value='';yE.value='';lE.focus();
+  rPts();upSt();draw();toast(`${l} (${fm(x)}, ${fm(y)}) registrado`,'success');
+}
+
+function rmPt(l){
+  pts=pts.filter(p=>p.l!==l);route=route.filter(r=>r!==l);
+  calcSteps();rPts();rChips();rSteps();upSt();draw();
+}
+
+function clearAll(){
+  if(!pts.length)return;
+  pts=[];route=[];steps=[];cSegs=[];nLI=0;
+  rPts();rChips();rSteps();upSt();draw();stopC();toast('Todo limpiado','info');
+}
+
+function rPts(){
+  const el=document.getElementById('pt-list');
+  document.getElementById('pc').textContent=`(${pts.length})`;
+  if(!pts.length){el.innerHTML='<p class="text-[9px] text-slate-700 italic py-3">Sin puntos</p>';return}
+  el.innerHTML=pts.map(p=>`
+    <div class="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-accent/5 transition-colors cursor-default group"
+         onmouseenter="hPt='${p.l}';draw()" onmouseleave="hPt=null;draw()">
+      <span class="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold bg-pt/10 text-pt border border-pt/20 shrink-0">${p.l}</span>
+      <span class="flex-1 font-mono text-[10px] text-slate-500">(<span class="text-slate-300">${fm(p.x)}</span>, <span class="text-slate-300">${fm(p.y)}</span>)</span>
+      <button onclick="rmPt('${p.l}')" class="w-4 h-4 flex items-center justify-center rounded text-slate-700 hover:bg-red-500/15 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100" aria-label="Eliminar ${p.l}"><i class="fa-solid fa-xmark text-[8px]"></i></button>
+    </div>`).join('');
+}
+
+/* ===================== RUTA ===================== */
+function genRoute(){
+  const raw=document.getElementById('iR').value.trim().toUpperCase();
+  if(!raw){toast('Ingresa secuencia','error');return}
+  const ls=raw.split(/[,;\s]+/).filter(l=>l),ok=[],bad=[];
+  ls.forEach(l=>{if(pts.find(p=>p.l===l))ok.push(l);else bad.push(l)});
+  if(bad.length)toast(`No encontrados: ${bad.join(', ')}`,'error');
+  if(!ok.length){toast('Sin puntos validos','error');return}
+  route=ok;calcSteps();rChips();rSteps();upSt();draw();
+  document.getElementById('btn-cine').disabled=!steps.length;
+  toast(`Ruta: ${ok.join(' → ')}`,'success');
+}
+
+function rChips(){
+  const el=document.getElementById('r-chips');
+  if(!route.length){el.innerHTML='<span class="text-[9px] text-slate-700 italic">Sin ruta</span>';return}
+  el.innerHTML=route.map((l,i)=>{
+    const arr=i<route.length-1?'<i class="fa-solid fa-angle-right text-slate-700 text-[7px]"></i>':'';
+    return`<span class="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-route/8 text-route/80 border border-route/15">${l}</span>${arr}`;
+  }).join('');
+}
+
+/* ===================== CALCULO PASOS ===================== */
+function calcSteps(){
+  steps=[];if(!route.length)return;
+  let cx2=0,cy2=0,cl='O';
+  route.forEach(l=>{
+    const p=pts.find(pt=>pt.l===l);if(!p)return;
+    const dx=p.x-cx2,dy=p.y-cy2;
+    steps.push({i:steps.length+1,fx:cx2,fy:cy2,fl:cl,tx:p.x,ty:p.y,tl:l,dx,dy,d:Math.sqrt(dx*dx+dy*dy)});
+    cx2=p.x;cy2=p.y;cl=l;
+  });
+  buildCSegs();
+}
+
+function buildCSegs(){
+  cSegs=[];
+  steps.forEach(s=>{
+    if(Math.abs(s.dx)>0.001)cSegs.push({t:'x',fx:s.fx,fy:s.fy,tx:s.fx+s.dx,ty:s.fy,si:s.i});
+    if(Math.abs(s.dy)>0.001)cSegs.push({t:'y',fx:s.fx+s.dx,fy:s.fy,tx:s.tx,ty:s.ty,si:s.i});
+  });
+}
+
+/* ===================== RENDER PASOS ===================== */
+function rSteps(){
+  const el=document.getElementById('st-list'),su=document.getElementById('sum-box');
+  if(!steps.length){el.innerHTML='<p class="text-[9px] text-slate-700 italic py-6 text-center">Define una ruta para ver instrucciones</p>';su.innerHTML='';return}
+  el.innerHTML=steps.map(s=>{
+    const xc=s.dx>0?'text-accent':s.dx<0?'text-red-400':'text-slate-600';
+    const yc=s.dy>0?'text-accent':s.dy<0?'text-red-400':'text-slate-600';
+    return`
+    <div id="st-${s.i}" class="sc p-2.5 border border-bdr rounded-lg bg-card/50 transition-all"
+         onmouseenter="hSt=${s.i};draw()" onmouseleave="hSt=-1;draw()">
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="w-[18px] h-[18px] rounded flex items-center justify-center text-[8px] font-bold bg-accent/10 text-accent sn">${s.i}</span>
+        <span class="text-[10px] font-semibold text-slate-200">${s.fl} → ${s.tl}</span>
+      </div>
+      <div class="font-mono text-[9px] space-y-[2px] pl-6">
+        <div class="flex gap-1.5"><span class="text-slate-700 w-6 shrink-0">Pos</span><span class="text-slate-500">${s.fl} (${fm(s.fx)}, ${fm(s.fy)})</span></div>
+        <div class="flex gap-1.5"><span class="text-slate-700 w-6 shrink-0">&Delta;X</span><span class="${xc} font-medium">${sg(s.dx)}${fm(Math.abs(s.dx))} cm</span></div>
+        <div class="flex gap-1.5"><span class="text-slate-700 w-6 shrink-0">&Delta;Y</span><span class="${yc} font-medium">${sg(s.dy)}${fm(Math.abs(s.dy))} cm</span></div>
+        <div class="flex gap-1.5"><span class="text-slate-700 w-6 shrink-0">Dist</span><span class="text-ortho font-medium">${fm(s.d,2)} cm</span></div>
+      </div>
+    </div>`}).join('');
+
+  const td=steps.reduce((a,s)=>a+s.d,0);
+  const to=steps.reduce((a,s)=>a+Math.abs(s.dx)+Math.abs(s.dy),0);
+  const tdx=steps.reduce((a,s)=>a+s.dx,0),tdy=steps.reduce((a,s)=>a+s.dy,0);
+  su.innerHTML=`
+    <div class="text-[8px] font-bold tracking-[2px] uppercase text-slate-600 mb-2">Resumen</div>
+    <div class="font-mono text-[9px] space-y-1">
+      <div class="flex justify-between"><span class="text-slate-600">Dist. directa</span><span class="text-ortho">${fm(td,2)} cm</span></div>
+      <div class="flex justify-between"><span class="text-slate-600">Recorrido real</span><span class="text-slate-300">${fm(to,2)} cm</span></div>
+      <div class="flex justify-between"><span class="text-slate-600">&Delta;X total</span><span class="${tdx>=0?'text-accent':'text-red-400'}">${sg(tdx)}${fm(Math.abs(tdx))} cm</span></div>
+      <div class="flex justify-between"><span class="text-slate-600">&Delta;Y total</span><span class="${tdy>=0?'text-accent':'text-red-400'}">${sg(tdy)}${fm(Math.abs(tdy))} cm</span></div>
+    </div>`;
+}
+
+/* ===================== DIBUJO CANVAS ===================== */
+function draw(){
+  if(!cx)return;
+  const w=W,h=H,ceX=w/2,ceY=h/2;
+
+  const bg=cx.createRadialGradient(ceX+px,ceY+py,0,ceX+px,ceY+py,Math.max(w,h)*.75);
+  bg.addColorStop(0,'#0c1425');bg.addColorStop(1,'#060a12');
+  cx.fillStyle=bg;cx.fillRect(0,0,w,h);
+
+  const x0=wx(0),x1=wx(w),y0=wy(h),y1=wy(0);
+  const gN=Math.floor(Math.min(x0,x1,y0,y1))-1;
+  const gM=Math.ceil(Math.max(x0,x1,y0,y1))+1;
+
+  cx.strokeStyle='rgba(22,35,62,0.35)';cx.lineWidth=.5;
+  for(let g=gN;g<=gM;g++){
+    if(g%5===0)continue;
+    const s=sx(g);if(s>=-1&&s<=w+1){cx.beginPath();cx.moveTo(s,0);cx.lineTo(s,h);cx.stroke()}
+    const s2=sy(g);if(s2>=-1&&s2<=h+1){cx.beginPath();cx.moveTo(0,s2);cx.lineTo(w,s2);cx.stroke()}
+  }
+
+  cx.strokeStyle='rgba(22,35,62,0.6)';cx.lineWidth=.7;
+  const g5=Math.floor(gN/5)*5;
+  for(let g=g5;g<=gM;g+=5){
+    const s=sx(g);if(s>=-1&&s<=w+1){cx.beginPath();cx.moveTo(s,0);cx.lineTo(s,h);cx.stroke()}
+    const s2=sy(g);if(s2>=-1&&s2<=h+1){cx.beginPath();cx.moveTo(0,s2);cx.lineTo(w,s2);cx.stroke()}
+  }
+
+  cx.strokeStyle='rgba(100,116,139,0.35)';cx.lineWidth=1;
+  cx.beginPath();cx.moveTo(0,sy(0));cx.lineTo(w,sy(0));cx.stroke();
+  cx.beginPath();cx.moveTo(sx(0),0);cx.lineTo(sx(0),h);cx.stroke();
+
+  cx.font='8px "JetBrains Mono"';cx.fillStyle='rgba(100,116,139,0.5)';
+  cx.textAlign='center';cx.textBaseline='top';
+  for(let g=g5;g<=gM;g+=5){if(!g)continue;const s=sx(g);if(s>18&&s<w-18)cx.fillText(g,s,sy(0)+5)}
+  cx.textAlign='right';cx.textBaseline='middle';
+  for(let g=g5;g<=gM;g+=5){if(!g)continue;const s=sy(g);if(s>8&&s<h-8)cx.fillText(g,sx(0)-7,s)}
+  cx.textAlign='right';cx.textBaseline='top';cx.fillText('O',sx(0)-5,sy(0)+4);
+
+  cx.font='bold 10px "Space Grotesk"';cx.fillStyle='rgba(148,163,184,0.4)';
+  cx.textAlign='left';cx.textBaseline='bottom';cx.fillText('X/cm',w-32,sy(0)-5);
+  cx.textAlign='left';cx.textBaseline='top';cx.fillText('Y/cm',sx(0)+7,7);
+
+  if(route.length>=2){
+    cx.save();cx.setLineDash([5,4]);cx.lineDashOffset=-dOff;
+    cx.strokeStyle='rgba(66,165,245,0.35)';cx.lineWidth=1.2;
+    cx.beginPath();cx.moveTo(sx(0),sy(0));
+    route.forEach(l=>{const p=pts.find(pt=>pt.l===l);if(p)cx.lineTo(sx(p.x),sy(p.y))});
+    cx.stroke();cx.restore();
+  }
+
+  if(steps.length){
+    const mS=cState==='playing'?cIdx:cSegs.length;
+    const mP=cState==='playing'?cProg:1;
+    for(let i=0;i<Math.min(mS,cSegs.length);i++){
+      const sg2=cSegs[i],isL=i===mS-1,pr=isL?mP:1;
+      const x1=sx(sg2.fx),y1=sy(sg2.fy);
+      const x2=sx(sg2.fx+(sg2.tx-sg2.fx)*pr),y2=sy(sg2.fy+(sg2.ty-sg2.fy)*pr);
+      const isH=hSt===sg2.si;
+      cx.save();
+      cx.strokeStyle=isH?'rgba(255,215,64,0.85)':'rgba(255,215,64,0.5)';
+      cx.lineWidth=isH?2.2:1.5;
+      cx.shadowColor='rgba(255,215,64,0.25)';cx.shadowBlur=isH?10:4;
+      cx.beginPath();cx.moveTo(x1,y1);cx.lineTo(x2,y2);cx.stroke();
+      cx.restore();
+      if(pr>=1&&sg2.t==='x'&&i+1<cSegs.length){
+        cx.beginPath();cx.arc(x2,y2,Math.max(0.5,2.5),0,Math.PI*2);
+        cx.fillStyle='rgba(255,215,64,0.5)';cx.fill();
+      }
+      if(pr>=1&&i<cSegs.length-1){
+        const ns=cSegs[i+1];
+        arrow(x2,y2,ns.tx-sg2.fx,ns.ty-sg2.fy,'rgba(255,215,64,0.3)');
+      }
+    }
+  }
+
+  const osx=sx(0),osy=sy(0);
+  cx.save();cx.beginPath();cx.arc(osx,osy,Math.max(0.5,6),0,Math.PI*2);
+  cx.fillStyle='rgba(255,107,53,0.12)';cx.fill();
+  cx.beginPath();cx.arc(osx,osy,Math.max(0.5,3.5),0,Math.PI*2);
+  cx.fillStyle='#ff6b35';cx.shadowColor='#ff6b35';cx.shadowBlur=10;cx.fill();
+  cx.restore();
+
+  pts.forEach(p=>{
+    const psx2=sx(p.x),psy2=sy(p.y),isH=hPt===p.l,inR=route.includes(p.l);
+    cx.save();
+    if(inR){cx.beginPath();cx.arc(psx2,psy2,Math.max(0.5,isH?11:8),0,Math.PI*2);cx.fillStyle='rgba(0,230,118,0.06)';cx.fill();cx.strokeStyle='rgba(0,230,118,0.15)';cx.lineWidth=.8;cx.stroke()}
+    cx.beginPath();cx.arc(psx2,psy2,Math.max(0.5,isH?4.5:3),0,Math.PI*2);
+    cx.fillStyle='#00e676';cx.shadowColor='#00e676';cx.shadowBlur=isH?12:5;cx.fill();
+    cx.restore();
+    cx.font='bold 10px "Space Grotesk"';cx.fillStyle=isH?'#e2e8f0':'rgba(203,213,225,0.75)';
+    cx.textAlign='left';cx.textBaseline='bottom';cx.fillText(p.l,psx2+7,psy2-3);
+    cx.font='8px "JetBrains Mono"';cx.fillStyle='rgba(148,163,184,0.4)';
+    cx.textBaseline='top';cx.fillText(`(${fm(p.x)}, ${fm(p.y)})`,psx2+7,psy2+2);
+  });
+
+  if(cState==='playing'&&cSegs.length){
+    let ccx,ccy;
+    if(cIdx<cSegs.length){
+      const sg2=cSegs[cIdx];
+      ccx=sx(sg2.fx+(sg2.tx-sg2.fx)*cProg);
+      ccy=sy(sg2.fy+(sg2.ty-sg2.fy)*cProg);
+    }else{const ls=cSegs[cSegs.length-1];ccx=sx(ls.tx);ccy=sy(ls.ty)}
+    cx.save();
+    cx.beginPath();cx.arc(ccx,ccy,Math.max(0.5,12),0,Math.PI*2);cx.fillStyle='rgba(255,23,68,0.06)';cx.fill();
+    cx.beginPath();cx.arc(ccx,ccy,Math.max(0.5,7),0,Math.PI*2);cx.fillStyle='rgba(255,23,68,0.12)';cx.fill();
+    cx.beginPath();cx.arc(ccx,ccy,Math.max(0.5,4),0,Math.PI*2);
+    cx.fillStyle='#ff1744';cx.shadowColor='#ff1744';cx.shadowBlur=14;cx.fill();
+    cx.restore();
+  }
+
+  if(mo&&!pan&&cState!=='playing'){
+    cx.save();cx.setLineDash([2,3]);cx.strokeStyle='rgba(148,163,184,0.1)';cx.lineWidth=.5;
+    cx.beginPath();cx.moveTo(ms.x,0);cx.lineTo(ms.x,h);cx.stroke();
+    cx.beginPath();cx.moveTo(0,ms.y);cx.lineTo(w,ms.y);cx.stroke();
+    cx.restore();
+  }
+}
+
+function arrow(ax,ay,dx,dy,col){
+  const len=Math.sqrt(dx*dx+dy*dy);if(len<.01)return;
+  const nx=dx/len,ny=-dy/len,sz=5;
+  cx.save();cx.fillStyle=col;cx.beginPath();
+  cx.moveTo(ax,ay);
+  cx.lineTo(ax-sz*nx+sz*.4*ny,ay-sz*ny-sz*.4*nx);
+  cx.lineTo(ax-sz*nx-sz*.4*ny,ay-sz*ny+sz*.4*nx);
+  cx.closePath();cx.fill();cx.restore();
+}
+
+/* ===================== CINE ===================== */
+function toggleCine(){cState==='idle'?startC():stopC()}
+
+function startC(){
+  if(!cSegs.length)return;
+  cState='playing';cIdx=0;cProg=0;cLast=0;
+  const b=document.getElementById('btn-cine');
+  b.innerHTML='<i class="fa-solid fa-stop text-[8px]"></i> Detener';
+  b.classList.add('!border-cr','!text-cr','!bg-red-500/10');
+  document.getElementById('s4').textContent='Reproduciendo';document.getElementById('s4').className='text-cr';
+  cAnim=requestAnimationFrame(cFrame);
+}
+
+function stopC(){
+  cState='idle';if(cAnim)cancelAnimationFrame(cAnim);cAnim=null;
+  const b=document.getElementById('btn-cine');
+  b.innerHTML='<i class="fa-solid fa-play text-[8px]"></i> Cine';
+  b.classList.remove('!border-cr','!text-cr','!bg-red-500/10');
+  document.getElementById('s4').textContent='Inactivo';document.getElementById('s4').className='';
+  document.querySelectorAll('.step-a').forEach(e=>e.classList.remove('step-a'));
+  draw();
+}
+
+function cFrame(t){
+  if(cState!=='playing')return;
+  if(!cLast)cLast=t;
+  const dt=(t-cLast)/1000;cLast=t;
+  if(cIdx>=cSegs.length){draw();hlStep(cSegs[cSegs.length-1].si);stopC();toast('Recorrido completado','success');return}
+  const sg2=cSegs[cIdx];
+  const sLen=Math.sqrt((sg2.tx-sg2.fx)**2+(sg2.ty-sg2.fy)**2)*sc;
+  cProg+=dt/Math.max(.04,sLen/cSpd);
+  if(cProg>=1){cProg=0;cIdx++;
+    if(cIdx>=cSegs.length){draw();hlStep(sg2.si);stopC();toast('Recorrido completado','success');return}
+  }
+  hlStep(sg2.si);dOff+=dt*18;draw();cAnim=requestAnimationFrame(cFrame);
+}
+
+function hlStep(i){
+  document.querySelectorAll('.sc').forEach(e=>e.classList.remove('step-a'));
+  const e=document.getElementById('st-'+i);
+  if(e){e.classList.add('step-a');e.scrollIntoView({behavior:'smooth',block:'nearest'})}
+}
+
+/* ===================== UI ===================== */
+function upSt(){
+  document.getElementById('s1').textContent=pts.length;
+  document.getElementById('s2').textContent=steps.length;
+  document.getElementById('s3').textContent=fm(steps.reduce((a,s)=>a+s.d,0),2);
+  document.getElementById('btn-cine').disabled=!steps.length;
+}
+
+function resetV(){sc=8;px=0;py=0;document.getElementById('z-info').textContent='8.0 px/cm';draw()}
+
+/* ===================== RESIZE HANDLES ===================== */
+function initResize(){
+  const mainW=()=>document.getElementById('main-area').getBoundingClientRect().width;
+  const pL=()=>document.getElementById('pnl-l');
+  const pR=()=>document.getElementById('pnl-r');
+  const rhL=document.getElementById('rh-l');
+  const rhR=document.getElementById('rh-r');
+
+  function onDown(type,e){
+    e.preventDefault();e.stopPropagation();
+    const el=type==='left'?pL():pR();
+    rzState={type, startX:e.clientX, startW:el.getBoundingClientRect().width};
+    (type==='left'?rhL:rhR).classList.add('active');
+    document.body.classList.add('rz-active');
+  }
+
+  rhL.addEventListener('mousedown',e=>onDown('left',e));
+  rhR.addEventListener('mousedown',e=>onDown('right',e));
+
+  /* Touch support */
+  rhL.addEventListener('touchstart',e=>{if(e.touches.length===1)onDown('left',{clientX:e.touches[0].clientX,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()})},{passive:false});
+  rhR.addEventListener('touchstart',e=>{if(e.touches.length===1)onDown('right',{clientX:e.touches[0].clientX,preventDefault:()=>e.preventDefault(),stopPropagation:()=>e.stopPropagation()})},{passive:false});
+
+  function onMove(cx2){
+    if(!rzState)return;
+    const dx=cx2-rzState.startX;
+    const mw=mainW();
+    if(rzState.type==='left'){
+      let nw=rzState.startW+dx;
+      const rw=pR().getBoundingClientRect().width;
+      nw=Math.max(MIN_L,Math.min(nw,mw-MIN_R-MIN_C-10));
+      pL().style.width=nw+'px';
+    }else{
+      let nw=rzState.startW-dx;
+      const lw=pL().getBoundingClientRect().width;
+      nw=Math.max(MIN_R,Math.min(nw,mw-lw-MIN_C-10));
+      pR().style.width=nw+'px';
+    }
+    rsz();
+  }
+
+  window.addEventListener('mousemove',e=>onMove(e.clientX));
+  window.addEventListener('touchmove',e=>{if(rzState&&e.touches.length===1)onMove(e.touches[0].clientX)},{passive:true});
+
+  function onUp(){
+    if(!rzState)return;
+    (rzState.type==='left'?rhL:rhR).classList.remove('active');
+    document.body.classList.remove('rz-active');
+    rzState=null;
+  }
+  window.addEventListener('mouseup',onUp);
+  window.addEventListener('touchend',onUp);
+
+  /* Doble click para colapsar/expandir */
+  rhL.addEventListener('dblclick',()=>{
+    const el=pL(),isMin=el.getBoundingClientRect().width<=MIN_L+5;
+    el.style.width=isMin?'260px':MIN_L+'px';
+    rsz();
+  });
+  rhR.addEventListener('dblclick',()=>{
+    const el=pR(),isMin=el.getBoundingClientRect().width<=MIN_R+5;
+    el.style.width=isMin?'295px':MIN_R+'px';
+    rsz();
+  });
+}
+
+/* ===================== EVENTOS CANVAS ===================== */
+function initEv(){
+  cv.addEventListener('mousedown',e=>{if(e.button!==0||rzState)return;pan=true;psx=e.clientX;psy=e.clientY;ppx=px;ppy=py});
+  window.addEventListener('mousemove',e=>{
+    if(rzState)return;
+    const r=cv.getBoundingClientRect();
+    ms.x=e.clientX-r.left;ms.y=e.clientY-r.top;
+    mw.x=wx(ms.x);mw.y=wy(ms.y);
+    mo=ms.x>=0&&ms.x<=W&&ms.y>=0&&ms.y<=H;
+    document.getElementById('m-coord').textContent=`X: ${fm(mw.x)}  Y: ${fm(mw.y)}`;
+    if(pan){px=ppx+(e.clientX-psx);py=ppy+(e.clientY-psy)}
+    if(cState!=='playing')draw();
+  });
+  window.addEventListener('mouseup',()=>{pan=false});
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();const r=cv.getBoundingClientRect();
+    const mx=e.clientX-r.left,my=e.clientY-r.top;
+    const wb=wx(mx),wby=wy(my);
+    const f=e.deltaY<0?1.12:1/1.12;
+    sc=Math.max(2,Math.min(50,sc*f));
+    px=mx-W/2-wb*sc;py=my-H/2+wby*sc;
+    document.getElementById('z-info').textContent=fm(sc)+' px/cm';draw();
+  },{passive:false});
+  cv.addEventListener('mouseleave',()=>{mo=false;if(cState!=='playing')draw()});
+  cv.addEventListener('mouseenter',()=>{mo=true});
+}
+
+/* ===================== RESIZE ===================== */
+function rsz(){
+  const r=wr.getBoundingClientRect(),d=window.devicePixelRatio||1;
+  W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  cx.setTransform(d,0,0,d,0,0);draw();
+}
+
+/* ===================== INIT ===================== */
+function init(){
+  cv=document.getElementById('plane');cx=cv.getContext('2d');wr=document.getElementById('cw');
+  rsz();window.addEventListener('resize',rsz);initEv();initResize();
+
+  const sl=document.getElementById('spd-sl'),sv=document.getElementById('spd-v');
+  sl.addEventListener('input',()=>{cSpd=parseInt(sl.value);sv.textContent=cSpd});
+
+  ['iL','iX','iY'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')addPt()}));
+  document.getElementById('iR').addEventListener('keydown',e=>{if(e.key==='Enter')genRoute()});
+
+  [{l:'A',x:15,y:10},{l:'B',x:32,y:26},{l:'C',x:18,y:42},{l:'D',x:44,y:34},{l:'E',x:50,y:12}].forEach(p=>{pts.push(p)});
+  nLI=5;rPts();upSt();
+  document.getElementById('iR').value='A,B,C,D,E';genRoute();
+
+  (function loop(){if(cState!=='playing'){dOff+=.25;draw()}requestAnimationFrame(loop)})();
+}
+
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>

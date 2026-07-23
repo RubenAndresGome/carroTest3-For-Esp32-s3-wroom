@@ -1,0 +1,154 @@
+/**
+ * PROPUESTA DE ARQUITECTURA SÍNCRONA (SUPER-LOOP)
+ * Archivo: GeminiMainCandidate.cpp.disabled
+ * 
+ * Basada exactamente en el diseño ganador de `test_lazo_cerrado_mpu_encoders_aprobado.cpp`.
+ * 
+ * POR QUÉ ESTO ES MEJOR (Adiós al "teléfono descompuesto"):
+ * 1. Adiós a las colas (QueueHandle_t): La Cinemática lee los sensores en el MISMO
+ *    milisegundo que calcula el PID y dispara los motores.
+ * 2. Cero Jitter: El ciclo principal corre nativamente en loop() cada 10ms garantizado.
+ * 3. Menos abstracciones: Seguridad, Cinemática y Motores comparten la misma foto 
+ *    instantánea de la realidad. Si el motor se atasca, Seguridad lo sabe al instante,
+ *    no 2 ciclos después.
+ * 4. FreeRTOS sigue existiendo, pero se limita al Core 0 para aislar el Wi-Fi y 
+ *    WebSockets, así jamás interfieren con el control físico en tiempo real (Core 1).
+ */
+
+#include <Arduino.h>
+#include "Config.h"
+#include "Estado.h"
+#include "Motores.h"
+#include "Sensores.h"
+#include "Cinematica.h"
+#include "Red.h"
+#include "Debug.h"
+#include "Comandos.h"
+#include "PoseEstimator.h"
+#include "Seguridad.h"
+#include "Eventos.h"
+#include "DiagnosticoRTOS.h"
+
+// Manejador para aislar la web
+TaskHandle_t TaskWebHandle;
+
+QueueHandle_t colaComandos;
+QueueHandle_t buzonManual;
+volatile bool flag_ESTOP_ISR = false;
+static char active_test_id[33] = {};
+
+// ... (Las funciones procesarComandos() y ejecutarAutoevaluacion() 
+// permanecerían casi idénticas, se omiten para enfocar en la arquitectura) ...
+void procesarComandos() {
+    // Igual que el main.cpp actual
+}
+
+// -----------------------------------------------------------------------------
+// CORE 0: RED Y TELEMETRÍA (Totalmente aislado del control físico)
+// -----------------------------------------------------------------------------
+void Task_Web(void *pvParameters) {
+    LOG_CORE("Task_Web iniciada en Core 0. Manejando Wi-Fi aislado.");
+    for (;;) {
+        registrarStackLibre(TareaDiagnosticada::WEB, uxTaskGetStackHighWaterMark(nullptr));
+        procesarWebSockets();
+        pushTelemetria(); // Lee los globales atómicamente sin pausar motores
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// SETUP INICIAL
+// -----------------------------------------------------------------------------
+void setup() {
+    setup_MotorPinsLow();
+    Serial.begin(115200);
+    delay(300);
+
+    Serial.println("\n[BOOT] Iniciando arquitectura Super-Loop (Inspirado en Test)...");
+    
+    colaComandos = xQueueCreate(10, sizeof(ComandoRed));
+    buzonManual = xQueueCreate(1, sizeof(ComandoRed));
+    colaEventosRed = xQueueCreate(8, sizeof(EventoRed));
+
+    PoseGlobal.inicializar(WHEEL_DIAMETER_CM, ENCODER_PPR);
+
+    setup_Motores();
+    setup_Red();
+    setup_Sensores(); // Configura I2C y PCNT, pero ya no lanza un Task interno.
+
+    // AISLAMIENTO CLAVE: La web se va al Core 0.
+    xTaskCreatePinnedToCore(Task_Web, "Red", TASK_WEB_STACK_BYTES, NULL, 1, &TaskWebHandle, 0);
+
+    // NOTA DE REFACTORIZACIÓN: ¡Ya no creamos Task_Sensors ni Task_Motor!
+    // Todo el control físico correrá directamente en el loop() nativo del Core 1
+    // que tiene mayor prioridad física y no sufre de overhead del OS.
+    Serial.println("Sistema listo. Core 1 asume el control directo.");
+}
+
+// -----------------------------------------------------------------------------
+// SÚPER-CICLO DE CONTROL (CORE 1 NATIVO)
+// Frecuencia estricta de 100Hz (10 ms).
+// El flujo es lineal: Leer -> Calcular -> Accionar. (Cero colas).
+// -----------------------------------------------------------------------------
+void loop() {
+    static uint32_t ultimoTickMs = 0;
+    const uint32_t ahoraMs = millis();
+
+    // Mantener un ritmo estricto de 10ms (100Hz)
+    if (ahoraMs - ultimoTickMs < 10) {
+        return; 
+    }
+    ultimoTickMs = ahoraMs;
+
+    // 1. LEER EL MUNDO FÍSICO (Síncrono)
+    // Lee MPU y PCNT en este exacto microsegundo.
+    // (Nota: requeriría crear una función leerSensoresSincrono() en Sensores.cpp 
+    // que simplemente junte los datos y devuelva el struct, en vez de usar xQueueSend).
+    SensorSnapshot snap; // = leerSensoresSincrono(); // <- SE CREARÍA EN SENSORES.CPP
+
+    // 2. PROCESAR ÓRDENES
+    procesarComandos();
+
+    // 3. ACTUALIZAR ESTIMACIÓN (Odometría e IMU)
+    PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR, estadoActual);
+    if (snap.mpu_present && !snap.mpu_stale) {
+        PoseGlobal.actualizarOrientacion(snap.imu_deltaZ_rad);
+    } else if (!snap.mpu_present && (estadoActual == AVANZANDO || estadoActual == GIRANDO)) {
+        abortarMovimientoPorSeguridad("mpu_lost");
+        estadoActual = FAULT_SENSOR;
+    }
+
+    // 4. AUDITORÍA DE SEGURIDAD (Stalls, etc)
+    WatchdogSeguridad.auditarSalud(snap, pwm_aplicado_L, pwm_aplicado_R);
+
+    // 5. CÁLCULO CINEMÁTICO Y EJECUCIÓN (Máquina de Estados)
+    // Al pasar 'snap' como referencia, Cinematica no tiene que buscar datos viejos
+    // en variables globales; usa la realidad exacta de este ciclo.
+    if (estadoActual == GIRANDO || estadoActual == RECOVERING) {
+        // controlarGiro(snap);  <- Pasaría a usar la foto instantánea
+    } else if (estadoActual == CALIBRATING) {
+        // controlarCalibracion(snap);
+    } else if (estadoActual == ESPERANDO_ESTABILIZACION) {
+        if (millis() - tiempoEspera >= 500) {
+            resetOrientacionIMU();
+            tiempoInicioAvance = millis();
+            estadoActual = AVANZANDO;
+        }
+    } else if (estadoActual == AVANZANDO) {
+        // controlarAvance(snap);
+    } else if (estadoActual == TESTING) {
+        if (millis() - tiempoTestingInicio > duracionTesting) {
+            frenarMotores();
+            estadoActual = IDLE;
+        } else {
+            aplicarVelocidades(pwm_target_l, pwm_target_r);
+        }
+    }
+
+    // 6. TELEMETRÍA DE PROGRESO
+    static unsigned long lastProgress = 0;
+    if (comandoActivoId[0] && millis() - lastProgress >= 500) {
+        lastProgress = millis();
+        encolarEvento(EVT_PROGRESS, comandoActivoId, "motion_progress", progresoComando);
+    }
+}

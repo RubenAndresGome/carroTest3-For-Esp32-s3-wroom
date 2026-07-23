@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Robot S3 - IU externa V2</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="panel">
+    <p class="eyebrow">ESP32-S3 · IU local V2</p>
+    <h1>Conexión con el carrito</h1>
+
+    <section class="status-card" aria-live="polite">
+      <span id="connection-dot" class="status-dot"></span>
+      <div>
+        <strong id="connection-title">Carrito desconectado</strong>
+        <p id="connection-detail">Intentando conectar con 192.168.4.1…</p>
+      </div>
+    </section>
+
+    <form id="robot-config" class="config-form">
+      <label for="robot-ip">IP o nombre del ESP32</label>
+      <div class="input-row">
+        <input id="robot-ip" name="robot-ip" value="192.168.4.1"
+               inputmode="decimal" autocomplete="off" spellcheck="false">
+        <button type="submit">Guardar y conectar</button>
+      </div>
+      <small>La dirección queda guardada solamente en este navegador.</small>
+    </form>
+
+    <section class="instructions">
+      <h2>Para conectarse</h2>
+      <ol>
+        <li>Enciende el carrito.</li>
+        <li>Conecta Windows a la red Wi-Fi creada por el ESP32.</li>
+        <li>Esta página intentará abrir <code id="socket-url">ws://192.168.4.1/ws</code>.</li>
+      </ol>
+    </section>
+  </main>
+
+  <script src="/js/connection.js"></script>
+</body>
+</html>

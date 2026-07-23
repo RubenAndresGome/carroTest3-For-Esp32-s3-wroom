@@ -1,0 +1,5 @@
+#pragma once
+
+// TODO V2: declarar mensajes versionados hello, heartbeat, command,
+// telemetry, command_ack, command_done y error.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

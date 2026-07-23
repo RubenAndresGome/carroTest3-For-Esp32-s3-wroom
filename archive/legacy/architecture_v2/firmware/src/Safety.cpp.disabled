@@ -1,0 +1,3 @@
+// TODO V2: watchdog de heartbeat, limites de comandos y E-STOP enclavado.
+// La perdida de comunicacion durante movimiento debe detener los motores.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

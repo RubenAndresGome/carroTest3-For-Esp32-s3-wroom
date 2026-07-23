@@ -1,0 +1,1495 @@
+// Test autonomo de lazo cerrado para el chasis ESP32-S3.
+// MPU6050: autoridad de rumbo. Encoders PCNT: distancia, velocidad y fallos.
+// Los motores permanecen detenidos hasta una orden explicita desde la miniweb
+// o el monitor serie. La calibracion de giro debe ejecutarse sobre piso libre.
+
+#include <Arduino.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <ESPAsyncWebServer.h>
+#include <WiFi.h>
+#include <Wire.h>
+#include "driver/gpio.h"
+#include "driver/pcnt.h"
+#include "Config.h"
+
+namespace {
+
+constexpr char RED_AP[] = "PRUEBA_LAZO_CERRADO";
+constexpr char CLAVE_AP[] = "lazo1234";
+
+constexpr uint32_t PERIODO_SENSOR_MS = 10;
+constexpr uint32_t PERIODO_CONTROL_MS = 20;
+constexpr uint32_t PERIODO_SERIAL_MS = 250;
+constexpr uint32_t TIMEOUT_IMU_MS = 100;
+constexpr uint32_t TIMEOUT_SIN_PULSOS_MS = 2500;
+constexpr uint32_t TIMEOUT_WEB_MS = 2500;
+constexpr uint32_t CUENTA_REGRESIVA_MS = 5000;
+constexpr uint32_t ESTABILIZACION_MS = 500;
+constexpr uint32_t PAUSA_ENTRE_BLOQUES_MS = 7000;
+constexpr uint32_t TIMEOUT_GIRO_NORMAL_MS = 12000;
+constexpr uint32_t TIMEOUT_GIRO_360_MS = 20000;
+constexpr uint32_t TIMEOUT_BASE_RECTO_MS = 8000;
+constexpr uint32_t TIMEOUT_POR_CM_MS = 250;
+
+constexpr uint8_t RESOLUCION_PWM_BITS = 10;
+constexpr int PWM_MAX = (1 << RESOLUCION_PWM_BITS) - 1;
+constexpr float ESCALA_PWM_DESDE_8_BITS = static_cast<float>(PWM_MAX) / 255.0f;
+constexpr int pwmDesde8Bits(int valor) {
+    return (valor * PWM_MAX + 127) / 255;
+}
+
+constexpr int POLARIDAD_AVANCE = -1;
+constexpr int PWM_RECTO_CRUCERO = PWM_MAX;
+constexpr int PWM_RECTO_APROXIMACION = pwmDesde8Bits(225);
+constexpr int PWM_RECTO_MINIMO = pwmDesde8Bits(175);
+constexpr float FACTOR_PWM_DERECHO_RECTO = 0.95f;
+constexpr float FACTOR_PWM_DERECHO_MIN = 0.80f;
+constexpr float FACTOR_PWM_DERECHO_MAX = 1.00f;
+constexpr float FACTOR_PWM_DERECHO_PASO = 0.01f;
+constexpr int PWM_CORRECCION_RUMBO_MAX = pwmDesde8Bits(80);
+constexpr int PWM_CORRECCION_ENCODER_MAX = pwmDesde8Bits(15);
+constexpr float KP_RUMBO_PWM_POR_GRADO = 4.0f * ESCALA_PWM_DESDE_8_BITS;
+constexpr float KD_RUMBO_PWM_POR_RAD_S = 12.0f * ESCALA_PWM_DESDE_8_BITS;
+constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * ESCALA_PWM_DESDE_8_BITS;
+constexpr float ERROR_RUMBO_ENCODER_MAX_DEG = 2.0f;
+constexpr float ERROR_RUMBO_RECUPERAR_DEG = 12.0f;
+constexpr uint32_t ERROR_RUMBO_RECUPERAR_MS = 300;
+
+constexpr int PWM_CAL_INICIAL = pwmDesde8Bits(140);
+constexpr int PWM_CAL_PASO = pwmDesde8Bits(5);
+constexpr int PWM_CAL_MARGEN = pwmDesde8Bits(10);
+constexpr uint32_t PWM_CAL_INTERVALO_MS = 250;
+constexpr float GZ_MOVIMIENTO_RAD_S = 0.12f;
+constexpr uint32_t GZ_MOVIMIENTO_SOSTENIDO_MS = 100;
+constexpr int64_t TICKS_MOVIMIENTO_CAL = 2;
+constexpr int PWM_GIRO_MARGEN_LEJOS = pwmDesde8Bits(25);
+constexpr int PWM_GIRO_MARGEN_CERCA = pwmDesde8Bits(8);
+constexpr int PWM_GIRO_SLEW_POR_CICLO = pwmDesde8Bits(2);
+constexpr int PWM_GIRO_ARRANQUE = (PWM_MAX * 90 + 50) / 100;
+constexpr int PWM_GIRO_SLEW_ARRANQUE = pwmDesde8Bits(10);
+constexpr uint8_t INTENTOS_TORQUE_MAX = 7;
+constexpr uint32_t PAUSA_REINTENTO_TORQUE_MS = 750;
+constexpr float ZONA_FRENADO_GIRO_DEG = 25.0f;
+constexpr float TOLERANCIA_GIRO_DEG = 2.0f;
+constexpr float TOLERANCIA_REACTIVACION_DEG = 3.0f;
+constexpr float GZ_REPOSO_GIRO_RAD_S = 0.05f;
+constexpr uint32_t GIRO_ESTABLE_MS = 250;
+
+constexpr float CM_POR_TICK = (PI * WHEEL_DIAMETER_CM) / ENCODER_PPR;
+constexpr int64_t TICKS_MINIMOS_AUDITORIA = 20;
+constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
+constexpr float DESACUERDO_MAXIMO_LADOS = 0.40f;
+constexpr uint32_t DESACUERDO_LADOS_MS = 1000;
+constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
+constexpr uint32_t PAUSA_REEVALUACION_MS = 500;
+constexpr float ERROR_MAX_CLASIFICAR_ENCODERS_DEG = 3.0f;
+constexpr float ERROR_MAX_REANUDAR_DEG = 3.0f;
+constexpr float GIRO_RECUPERACION_MAX_DEG = 25.0f;
+constexpr uint8_t INTENTOS_RECUPERACION_MAX = 3;
+constexpr uint32_t GRACIA_FILTRO_ENCODER_MS = 200;
+
+constexpr int CANAL_BL_FWD = 0;
+constexpr int CANAL_BL_REV = 1;
+constexpr int CANAL_BR_FWD = 2;
+constexpr int CANAL_BR_REV = 3;
+constexpr int CANAL_FL_FWD = 4;
+constexpr int CANAL_FL_REV = 5;
+constexpr int CANAL_FR_FWD = 6;
+constexpr int CANAL_FR_REV = 7;
+constexpr uint32_t FRECUENCIA_PWM = 5000;
+
+enum class EstadoPrueba : uint8_t {
+    ESPERANDO,
+    CUENTA_CALIBRACION,
+    CALIBRANDO_A,
+    PAUSA_CALIBRACION,
+    CALIBRANDO_B,
+    PAUSA_RETORNO_CALIBRACION,
+    LISTO,
+    CUENTA_SECUENCIA,
+    RECTO,
+    PAUSA_REEVALUACION_ENCODERS,
+    RECUPERANDO_RUMBO,
+    GIRANDO,
+    PAUSA_REINTENTO_GIRO,
+    ESTABILIZANDO,
+    PAUSA_BLOQUES,
+    COMPLETADO,
+    ESTOP,
+    FALLO,
+};
+
+enum class TipoAccion : uint8_t { RECTO, GIRO, PAUSA, FIN };
+enum class PropositoGiro : uint8_t { SECUENCIA, MANUAL, RECUPERACION, RETORNO_CALIBRACION };
+
+struct AccionSecuencia {
+    TipoAccion tipo;
+    float valor;
+    float rumbo_deg;
+    const char* nombre;
+};
+
+constexpr AccionSecuencia SECUENCIA[] = {
+    {TipoAccion::RECTO, 100.0f,   0.0f, "Ida de 1 m"},
+    {TipoAccion::GIRO,  180.0f,   0.0f, "Giro izquierdo +180"},
+    {TipoAccion::RECTO, 100.0f, 180.0f, "Regreso de 1 m"},
+    {TipoAccion::GIRO, -180.0f,   0.0f, "Reorientacion derecha -180"},
+    {TipoAccion::PAUSA, 7000.0f,  0.0f, "Pausa entre bloques"},
+    {TipoAccion::RECTO, 200.0f,   0.0f, "Ida de 2 m"},
+    {TipoAccion::GIRO, -180.0f,   0.0f, "Giro derecho -180"},
+    {TipoAccion::RECTO, 200.0f,-180.0f, "Regreso de 2 m"},
+    {TipoAccion::GIRO,  180.0f,   0.0f, "Orientacion final +180"},
+    {TipoAccion::FIN,     0.0f,   0.0f, "Secuencia terminada"},
+};
+
+template <size_t N> class PromedioMovil {
+public:
+    float agregar(float valor) {
+        if (cantidad_ < N) {
+            valores_[indice_] = valor;
+            suma_ += valor;
+            ++cantidad_;
+        } else {
+            suma_ -= valores_[indice_];
+            valores_[indice_] = valor;
+            suma_ += valor;
+        }
+        indice_ = (indice_ + 1) % N;
+        return suma_ / static_cast<float>(cantidad_);
+    }
+    void limpiar() {
+        for (float& valor : valores_) valor = 0.0f;
+        indice_ = 0;
+        cantidad_ = 0;
+        suma_ = 0.0f;
+    }
+private:
+    float valores_[N] = {};
+    size_t indice_ = 0;
+    size_t cantidad_ = 0;
+    float suma_ = 0.0f;
+};
+
+struct DatosSensores {
+    int64_t ticks[4] = {};
+    float delta_filtrado[4] = {};
+    float velocidad_cm_s[4] = {};
+    float yaw_deg = 0.0f;
+    float gz_rad_s = 0.0f;
+    float offset_gz_rad_s = 0.0f;
+    uint32_t ultima_imu_ms = 0;
+    uint32_t secuencia = 0;
+    bool mpu_presente = false;
+    bool mpu_calibrado = false;
+    bool mpu_obsoleto = true;
+};
+
+enum class SaludEncoder : uint8_t { OK, SOSPECHOSO, EXCLUIDO };
+
+Adafruit_MPU6050 mpu;
+AsyncWebServer servidor(80);
+portMUX_TYPE mux_sensores = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE mux_estado = portMUX_INITIALIZER_UNLOCKED;
+DatosSensores datos_compartidos;
+PromedioMovil<ENCODER_AVG_WINDOW> filtros_encoder[4];
+PromedioMovil<IMU_GYRO_AVG_WINDOW> filtro_gyro;
+
+const pcnt_unit_t UNIDADES_PCNT[4] = {PCNT_UNIT_0, PCNT_UNIT_1, PCNT_UNIT_2, PCNT_UNIT_3};
+const int PINES_ENCODER[4] = {PIN_ENC_FL, PIN_ENC_FR, PIN_ENC_BL, PIN_ENC_BR};
+const char* NOMBRES_ENCODER[4] = {"FL", "FR", "BL", "BR"};
+
+EstadoPrueba estado = EstadoPrueba::ESPERANDO;
+const char* detalle_estado = "Inicializando sensores.";
+uint32_t inicio_estado_ms = 0;
+uint32_t ultimo_control_ms = 0;
+uint32_t ultimo_serial_ms = 0;
+uint32_t ultimo_heartbeat_web_ms = 0;
+int pwm_izquierdo = 0;
+int pwm_derecho = 0;
+float factor_pwm_derecho_recto = FACTOR_PWM_DERECHO_RECTO;
+int pwm_base_recto_actual = 0;
+int pwm_base_derecho_compensado = 0;
+float correccion_rumbo_pwm_actual = 0.0f;
+float correccion_encoder_pwm_actual = 0.0f;
+int reduccion_dinamica_izquierda = 0;
+int reduccion_dinamica_derecha = 0;
+
+bool calibracion_giro_ok = false;
+int pwm_min_giro_positivo = 0;
+int pwm_min_giro_negativo = 0;
+int candidato_giro_positivo = 0;
+int candidato_giro_negativo = 0;
+int candidato_calibracion = 1;
+int pwm_calibracion = PWM_CAL_INICIAL;
+uint32_t ultimo_escalon_cal_ms = 0;
+uint32_t inicio_movimiento_cal_ms = 0;
+int64_t ticks_base_cal[4] = {};
+float yaw_inicio_calibracion_deg = 0.0f;
+float angulo_retorno_calibracion_deg = 0.0f;
+uint8_t intento_calibracion_actual = 1;
+uint32_t inicio_pausa_reintento_cal_ms = 0;
+
+bool secuencia_activa = false;
+size_t indice_secuencia = 0;
+float yaw_cero_secuencia_deg = 0.0f;
+float yaw_relativo_deg = 0.0f;
+float rumbo_objetivo_deg = 0.0f;
+float error_rumbo_deg = 0.0f;
+float distancia_objetivo_cm = 0.0f;
+float distancia_actual_cm = 0.0f;
+float distancia_acumulada_tramo_cm = 0.0f;
+float distancia_restante_recuperacion_cm = 0.0f;
+float rumbo_recuperacion_deg = 0.0f;
+int64_t ticks_base_recto[4] = {};
+int64_t ticks_base_giro[4] = {};
+int64_t ticks_pausa_clasificacion[4] = {};
+uint32_t inicio_movimiento_ms = 0;
+int64_t ticks_lado_recto_anteriores[2] = {};
+uint32_t ultimo_pulso_recto_lado_ms[2] = {};
+float ticks_mediana_robusta = 0.0f;
+bool encoder_confiable[4] = {true, true, true, true};
+SaludEncoder salud_encoder[4] = {SaludEncoder::OK, SaludEncoder::OK, SaludEncoder::OK, SaludEncoder::OK};
+uint32_t inicio_outlier_ms[4] = {};
+bool modo_degradado = false;
+uint32_t pausas_reevaluacion = 0;
+uint8_t intentos_recuperacion = 0;
+const char* estimador_distancia = "recortado";
+char mensaje_fusion[160] = "Sin reevaluaciones; los cuatro encoders estan habilitados.";
+int64_t ticks_lado_giro_anteriores[2] = {};
+uint32_t ultimo_pulso_lado_ms[2] = {};
+uint32_t inicio_error_rumbo_ms = 0;
+uint32_t inicio_desacuerdo_lados_ms = 0;
+float error_rumbo_anterior_abs = 0.0f;
+float error_rumbo_max_tramo_deg = 0.0f;
+
+PropositoGiro proposito_giro = PropositoGiro::MANUAL;
+float yaw_inicio_giro_deg = 0.0f;
+float angulo_objetivo_giro_deg = 0.0f;
+float progreso_giro_deg = 0.0f;
+float error_giro_deg = 0.0f;
+int pwm_giro_actual = 0;
+int signo_giro_aplicado = 0;
+uint32_t inicio_estable_giro_ms = 0;
+bool movimiento_giro_confirmado = false;
+uint8_t intento_giro_actual = 1;
+float angulo_reintento_giro_deg = 0.0f;
+
+volatile bool solicitud_calibrar = false;
+volatile bool solicitud_iniciar = false;
+volatile bool solicitud_estop = false;
+volatile bool solicitud_rearmar = false;
+volatile bool solicitud_giro = false;
+volatile int angulo_giro_solicitado = 0;
+volatile bool solicitud_compensacion = false;
+volatile float factor_compensacion_solicitado = FACTOR_PWM_DERECHO_RECTO;
+volatile bool solicitud_limpiar_filtros_encoder = false;
+bool requiere_heartbeat_web = true;
+
+const char* nombreEstado(EstadoPrueba valor) {
+    switch (valor) {
+        case EstadoPrueba::ESPERANDO: return "ESPERANDO";
+        case EstadoPrueba::CUENTA_CALIBRACION: return "CUENTA_CALIBRACION";
+        case EstadoPrueba::CALIBRANDO_A: return "CALIBRANDO_A";
+        case EstadoPrueba::PAUSA_CALIBRACION: return "PAUSA_CALIBRACION";
+        case EstadoPrueba::CALIBRANDO_B: return "CALIBRANDO_B";
+        case EstadoPrueba::PAUSA_RETORNO_CALIBRACION: return "PAUSA_RETORNO_CALIBRACION";
+        case EstadoPrueba::LISTO: return "LISTO";
+        case EstadoPrueba::CUENTA_SECUENCIA: return "CUENTA_SECUENCIA";
+        case EstadoPrueba::RECTO: return "RECTO";
+        case EstadoPrueba::PAUSA_REEVALUACION_ENCODERS: return "PAUSA_REEVALUACION_ENCODERS";
+        case EstadoPrueba::RECUPERANDO_RUMBO: return "RECUPERANDO_RUMBO";
+        case EstadoPrueba::GIRANDO: return "GIRANDO";
+        case EstadoPrueba::PAUSA_REINTENTO_GIRO: return "PAUSA_REINTENTO_GIRO";
+        case EstadoPrueba::ESTABILIZANDO: return "ESTABILIZANDO";
+        case EstadoPrueba::PAUSA_BLOQUES: return "PAUSA_BLOQUES";
+        case EstadoPrueba::COMPLETADO: return "COMPLETADO";
+        case EstadoPrueba::ESTOP: return "ESTOP";
+        case EstadoPrueba::FALLO: return "FALLO";
+    }
+    return "DESCONOCIDO";
+}
+
+const char* nombreSaludEncoder(SaludEncoder valor) {
+    switch (valor) {
+        case SaludEncoder::OK: return "OK";
+        case SaludEncoder::SOSPECHOSO: return "SOSPECHOSO";
+        case SaludEncoder::EXCLUIDO: return "EXCLUIDO";
+    }
+    return "DESCONOCIDO";
+}
+
+DatosSensores copiarSensores() {
+    DatosSensores copia;
+    portENTER_CRITICAL(&mux_sensores);
+    copia = datos_compartidos;
+    portEXIT_CRITICAL(&mux_sensores);
+    return copia;
+}
+
+float normalizar180(float angulo) {
+    while (angulo > 180.0f) angulo -= 360.0f;
+    while (angulo <= -180.0f) angulo += 360.0f;
+    return angulo;
+}
+
+int aproximarEntero(float valor) {
+    return static_cast<int>(lroundf(valor));
+}
+
+bool factorCompensacionValido(float factor) {
+    return isfinite(factor) && factor >= FACTOR_PWM_DERECHO_MIN && factor <= FACTOR_PWM_DERECHO_MAX;
+}
+
+float cuantizarFactorCompensacion(float factor) {
+    const float pasos = roundf((factor - FACTOR_PWM_DERECHO_MIN) / FACTOR_PWM_DERECHO_PASO);
+    return constrain(FACTOR_PWM_DERECHO_MIN + pasos * FACTOR_PWM_DERECHO_PASO,
+                     FACTOR_PWM_DERECHO_MIN, FACTOR_PWM_DERECHO_MAX);
+}
+
+int calcularPwmDerechoCompensado(int pwm_base, float factor) {
+    return constrain(aproximarEntero(pwm_base * factor), 0, PWM_MAX);
+}
+
+void limpiarTelemetriaRecto() {
+    pwm_base_recto_actual = 0;
+    pwm_base_derecho_compensado = 0;
+    correccion_rumbo_pwm_actual = 0.0f;
+    correccion_encoder_pwm_actual = 0.0f;
+    reduccion_dinamica_izquierda = 0;
+    reduccion_dinamica_derecha = 0;
+}
+
+void escribirPuente(int canal_fwd, int canal_rev, int pwm) {
+    pwm = constrain(pwm, -PWM_MAX, PWM_MAX);
+    if (pwm > 0) {
+        ledcWrite(canal_fwd, pwm);
+        ledcWrite(canal_rev, 0);
+    } else if (pwm < 0) {
+        ledcWrite(canal_fwd, 0);
+        ledcWrite(canal_rev, -pwm);
+    } else {
+        ledcWrite(canal_fwd, 0);
+        ledcWrite(canal_rev, 0);
+    }
+}
+
+void aplicarMotores(int izquierda, int derecha) {
+    izquierda = constrain(izquierda, -PWM_MAX, PWM_MAX);
+    derecha = constrain(derecha, -PWM_MAX, PWM_MAX);
+    pwm_izquierdo = izquierda;
+    pwm_derecho = derecha;
+    escribirPuente(CANAL_FL_FWD, CANAL_FL_REV, izquierda);
+    escribirPuente(CANAL_BL_FWD, CANAL_BL_REV, izquierda);
+    escribirPuente(CANAL_FR_FWD, CANAL_FR_REV, derecha);
+    escribirPuente(CANAL_BR_FWD, CANAL_BR_REV, derecha);
+}
+
+void detenerMotores() {
+    aplicarMotores(0, 0);
+    limpiarTelemetriaRecto();
+}
+
+void configurarMotores() {
+    const int pines[] = {PIN_BL_FWD, PIN_BL_REV, PIN_BR_FWD, PIN_BR_REV,
+                         PIN_FL_FWD, PIN_FL_REV, PIN_FR_FWD, PIN_FR_REV};
+    for (int canal = 0; canal < 8; ++canal) {
+        ledcSetup(canal, FRECUENCIA_PWM, RESOLUCION_PWM_BITS);
+        ledcAttachPin(pines[canal], canal);
+    }
+    detenerMotores();
+}
+
+void cambiarEstado(EstadoPrueba nuevo, const char* detalle) {
+    portENTER_CRITICAL(&mux_estado);
+    estado = nuevo;
+    detalle_estado = detalle;
+    inicio_estado_ms = millis();
+    portEXIT_CRITICAL(&mux_estado);
+    Serial.printf("[CONTROL] estado=%s | %s\n", nombreEstado(nuevo), detalle);
+}
+
+void provocarFallo(const char* motivo) {
+    detenerMotores();
+    secuencia_activa = false;
+    cambiarEstado(EstadoPrueba::FALLO, motivo);
+}
+
+bool estadoConMovimiento() {
+    return estado == EstadoPrueba::CALIBRANDO_A || estado == EstadoPrueba::CALIBRANDO_B ||
+           estado == EstadoPrueba::RECTO || estado == EstadoPrueba::RECUPERANDO_RUMBO ||
+           estado == EstadoPrueba::GIRANDO;
+}
+
+void configurarPcnt(int pin, pcnt_unit_t unidad) {
+    pcnt_config_t cfg = {};
+    cfg.pulse_gpio_num = pin;
+    cfg.ctrl_gpio_num = PCNT_PIN_NOT_USED;
+    cfg.lctrl_mode = PCNT_MODE_KEEP;
+    cfg.hctrl_mode = PCNT_MODE_KEEP;
+    cfg.pos_mode = PCNT_COUNT_INC;
+    cfg.neg_mode = PCNT_COUNT_DIS;
+    cfg.counter_h_lim = 32767;
+    cfg.counter_l_lim = -32768;
+    cfg.unit = unidad;
+    cfg.channel = PCNT_CHANNEL_0;
+    pcnt_unit_config(&cfg);
+    pcnt_set_filter_value(unidad, 100);
+    pcnt_filter_enable(unidad);
+    pcnt_counter_pause(unidad);
+    pcnt_counter_clear(unidad);
+    pcnt_counter_resume(unidad);
+}
+
+bool inicializarMpu() {
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    gpio_pullup_en(static_cast<gpio_num_t>(PIN_I2C_SDA));
+    gpio_pullup_en(static_cast<gpio_num_t>(PIN_I2C_SCL));
+    Wire.setClock(100000);
+    Wire.setTimeout(20);
+    if (!mpu.begin(0x68, &Wire)) {
+        Serial.println("[MPU] ERROR: no se detecto un MPU6050 en 0x68.");
+        return false;
+    }
+    mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+    delay(200);
+    Serial.println("[MPU] Calibrando offset: no mueva el robot.");
+    float suma = 0.0f;
+    uint16_t validas = 0;
+    for (uint16_t i = 0; i < IMU_CALIBRATION_SAMPLES; ++i) {
+        sensors_event_t a, g, t;
+        if (mpu.getEvent(&a, &g, &t)) {
+            suma += g.gyro.z;
+            ++validas;
+        }
+        delay(2);
+    }
+    if (validas < IMU_CALIBRATION_SAMPLES * 3U / 4U) {
+        Serial.printf("[MPU] ERROR: calibracion insuficiente (%u/%u).\n", validas, IMU_CALIBRATION_SAMPLES);
+        return false;
+    }
+    datos_compartidos.offset_gz_rad_s = suma / static_cast<float>(validas);
+    datos_compartidos.mpu_presente = true;
+    datos_compartidos.mpu_calibrado = true;
+    datos_compartidos.mpu_obsoleto = false;
+    datos_compartidos.ultima_imu_ms = millis();
+    Serial.printf("[MPU] Listo en 0x68. Offset GZ=%.7f rad/s.\n", datos_compartidos.offset_gz_rad_s);
+    return true;
+}
+
+void Task_Sensores(void*) {
+    Serial.printf("[TASK] Sensores en Core %d a 100 Hz.\n", xPortGetCoreID());
+    DatosSensores local = copiarSensores();
+    uint32_t tiempo_anterior_us = micros();
+    TickType_t ultimo_despertar = xTaskGetTickCount();
+    const TickType_t periodo = pdMS_TO_TICKS(PERIODO_SENSOR_MS);
+    for (;;) {
+        if (solicitud_limpiar_filtros_encoder) {
+            for (PromedioMovil<ENCODER_AVG_WINDOW>& filtro : filtros_encoder) filtro.limpiar();
+            for (int i = 0; i < 4; ++i) {
+                local.delta_filtrado[i] = 0.0f;
+                local.velocidad_cm_s[i] = 0.0f;
+            }
+            solicitud_limpiar_filtros_encoder = false;
+        }
+        for (int i = 0; i < 4; ++i) {
+            int16_t actual = 0;
+            pcnt_counter_pause(UNIDADES_PCNT[i]);
+            pcnt_get_counter_value(UNIDADES_PCNT[i], &actual);
+            pcnt_counter_clear(UNIDADES_PCNT[i]);
+            pcnt_counter_resume(UNIDADES_PCNT[i]);
+            local.ticks[i] += actual;
+            local.delta_filtrado[i] = filtros_encoder[i].agregar(static_cast<float>(actual));
+            local.velocidad_cm_s[i] = local.delta_filtrado[i] * CM_POR_TICK * (1000.0f / PERIODO_SENSOR_MS);
+        }
+
+        if (local.mpu_presente && local.mpu_calibrado) {
+            sensors_event_t a, g, t;
+            if (mpu.getEvent(&a, &g, &t)) {
+                const uint32_t ahora_us = micros();
+                const float dt = (ahora_us - tiempo_anterior_us) / 1000000.0f;
+                tiempo_anterior_us = ahora_us;
+                float gz = filtro_gyro.agregar(g.gyro.z - local.offset_gz_rad_s);
+                if (fabsf(gz) < IMU_GYRO_DEADBAND_RAD_S) gz = 0.0f;
+                local.gz_rad_s = gz;
+                if (dt > 0.0f && dt <= 0.2f) local.yaw_deg += gz * dt * RAD_TO_DEG;
+                local.ultima_imu_ms = millis();
+                local.mpu_obsoleto = false;
+            } else {
+                local.mpu_obsoleto = millis() - local.ultima_imu_ms > TIMEOUT_IMU_MS;
+            }
+        }
+        ++local.secuencia;
+        portENTER_CRITICAL(&mux_sensores);
+        datos_compartidos = local;
+        portEXIT_CRITICAL(&mux_sensores);
+        vTaskDelayUntil(&ultimo_despertar, periodo);
+    }
+}
+
+float ticksLado(const int64_t ticks[4], bool izquierdo) {
+    return izquierdo ? 0.5f * (ticks[0] + ticks[2]) : 0.5f * (ticks[1] + ticks[3]);
+}
+
+float deltaLado(const DatosSensores& d, bool izquierdo) {
+    return izquierdo ? 0.5f * (d.delta_filtrado[0] + d.delta_filtrado[2])
+                      : 0.5f * (d.delta_filtrado[1] + d.delta_filtrado[3]);
+}
+
+float deltaConfiablesLado(const DatosSensores& d, bool izquierdo) {
+    const int indices[2] = {izquierdo ? 0 : 1, izquierdo ? 2 : 3};
+    float suma = 0.0f;
+    int cantidad = 0;
+    for (const int indice : indices) {
+        if (encoder_confiable[indice]) {
+            suma += d.delta_filtrado[indice];
+            ++cantidad;
+        }
+    }
+    return cantidad > 0 ? suma / cantidad : 0.0f;
+}
+
+float mediaRecortadaTicks(const int64_t ticks[4]) {
+    int64_t ordenados[4] = {ticks[0], ticks[1], ticks[2], ticks[3]};
+    for (int i = 1; i < 4; ++i) {
+        const int64_t valor = ordenados[i];
+        int j = i - 1;
+        while (j >= 0 && ordenados[j] > valor) {
+            ordenados[j + 1] = ordenados[j];
+            --j;
+        }
+        ordenados[j + 1] = valor;
+    }
+    return 0.5f * static_cast<float>(ordenados[1] + ordenados[2]);
+}
+
+void clasificarMuestraEncoders(const int64_t ticks[4], bool confiables[4]) {
+    const float mediana = mediaRecortadaTicks(ticks);
+    const float denominador = max(1.0f, fabsf(mediana));
+    for (int i = 0; i < 4; ++i) {
+        confiables[i] = fabsf(static_cast<float>(ticks[i]) - mediana) / denominador <= DESACUERDO_MAXIMO_PAR;
+    }
+}
+
+bool hayConfiablePorCadaLado(const bool confiables[4]) {
+    return (confiables[0] || confiables[2]) && (confiables[1] || confiables[3]);
+}
+
+void reiniciarConfiabilidadEncoders() {
+    modo_degradado = false;
+    estimador_distancia = "recortado";
+    ticks_mediana_robusta = 0.0f;
+    snprintf(mensaje_fusion, sizeof(mensaje_fusion),
+             "Nuevo tramo: los cuatro encoders se reevaluan desde cero.");
+    for (int i = 0; i < 4; ++i) {
+        encoder_confiable[i] = true;
+        salud_encoder[i] = SaludEncoder::OK;
+        inicio_outlier_ms[i] = 0;
+    }
+}
+
+float promedioConfiablesLado(const int64_t ticks[4], bool izquierdo) {
+    const int indices[2] = {izquierdo ? 0 : 1, izquierdo ? 2 : 3};
+    float suma = 0.0f;
+    int cantidad = 0;
+    for (const int indice : indices) {
+        if (encoder_confiable[indice]) {
+            suma += static_cast<float>(ticks[indice]);
+            ++cantidad;
+        }
+    }
+    return cantidad > 0 ? suma / cantidad : 0.0f;
+}
+
+float estimarTicksRectos(const int64_t ticks[4]) {
+    ticks_mediana_robusta = mediaRecortadaTicks(ticks);
+    if (!modo_degradado) {
+        estimador_distancia = "recortado";
+        return ticks_mediana_robusta;
+    }
+    if (!hayConfiablePorCadaLado(encoder_confiable)) {
+        estimador_distancia = "sin_estimacion";
+        return 0.0f;
+    }
+    estimador_distancia = "fusion_lados";
+    return 0.5f * (promedioConfiablesLado(ticks, true) + promedioConfiablesLado(ticks, false));
+}
+
+float aplicarTicksADistancia(float distancia_confirmada_cm, float ticks_estimados, bool contar_ticks) {
+    return contar_ticks ? distancia_confirmada_cm + ticks_estimados * CM_POR_TICK : distancia_confirmada_cm;
+}
+
+bool ejecutarPruebasFusion() {
+    const int64_t captura[4] = {141, 30, 54, 52};
+    bool confiables[4];
+    clasificarMuestraEncoders(captura, confiables);
+    const bool caso_captura = fabsf(mediaRecortadaTicks(captura) - 53.0f) < 0.01f &&
+                              !confiables[0] && !confiables[1] && confiables[2] && confiables[3];
+    const int64_t normales[4] = {54, 52, 55, 53};
+    clasificarMuestraEncoders(normales, confiables);
+    const bool caso_normal = confiables[0] && confiables[1] && confiables[2] && confiables[3];
+    const int64_t un_outlier[4] = {100, 52, 54, 53};
+    clasificarMuestraEncoders(un_outlier, confiables);
+    const bool caso_outlier = !confiables[0] && confiables[1] && confiables[2] && confiables[3];
+    const int64_t sin_derecha[4] = {52, 0, 53, 0};
+    clasificarMuestraEncoders(sin_derecha, confiables);
+    const bool caso_sin_lado = !hayConfiablePorCadaLado(confiables);
+    const bool pausa_ignora_ticks = fabsf(aplicarTicksADistancia(37.5f, 800.0f, false) - 37.5f) < 0.001f;
+    const bool giro_ignora_ticks = fabsf(aplicarTicksADistancia(82.0f, 1200.0f, false) - 82.0f) < 0.001f;
+    const bool compensacion_crucero = calcularPwmDerechoCompensado(PWM_RECTO_CRUCERO, 0.95f) == 972;
+    const bool compensacion_aproximacion = calcularPwmDerechoCompensado(PWM_RECTO_APROXIMACION, 0.95f) == 858;
+    const bool ok = caso_captura && caso_normal && caso_outlier && caso_sin_lado &&
+                    pausa_ignora_ticks && giro_ignora_ticks && compensacion_crucero && compensacion_aproximacion;
+    Serial.printf("[SELFTEST] fusion: captura=%s normal=%s outlier=%s sin_lado=%s pausa=%s giro=%s pwm1023=%s pwm903=%s resultado=%s\n",
+                  caso_captura ? "OK" : "FALLO", caso_normal ? "OK" : "FALLO",
+                  caso_outlier ? "OK" : "FALLO", caso_sin_lado ? "OK" : "FALLO",
+                  pausa_ignora_ticks ? "OK" : "FALLO", giro_ignora_ticks ? "OK" : "FALLO",
+                  compensacion_crucero ? "OK" : "FALLO", compensacion_aproximacion ? "OK" : "FALLO",
+                  ok ? "OK" : "FALLO");
+    return ok;
+}
+
+void copiarBaseTicks(int64_t destino[4], const DatosSensores& d) {
+    for (int i = 0; i < 4; ++i) destino[i] = d.ticks[i];
+}
+
+void ticksDesdeBase(const int64_t base[4], const DatosSensores& d, int64_t salida[4]) {
+    for (int i = 0; i < 4; ++i) salida[i] = d.ticks[i] - base[i];
+}
+
+void aplicarCandidatoPivot(int candidato, int pwm) {
+    // Candidato +1: lado izquierdo en reversa y derecho hacia el frente real.
+    if (candidato > 0) aplicarMotores(pwm, -pwm);
+    else aplicarMotores(-pwm, pwm);
+}
+
+void iniciarCalibracionCandidato(EstadoPrueba nuevo, int candidato) {
+    const DatosSensores d = copiarSensores();
+    candidato_calibracion = candidato;
+    pwm_calibracion = PWM_CAL_INICIAL;
+    ultimo_escalon_cal_ms = millis();
+    inicio_movimiento_cal_ms = 0;
+    intento_calibracion_actual = 1;
+    inicio_pausa_reintento_cal_ms = 0;
+    copiarBaseTicks(ticks_base_cal, d);
+    cambiarEstado(nuevo, candidato > 0 ? "Calibrando primera polaridad de giro." : "Calibrando polaridad opuesta de giro.");
+}
+
+void iniciarCalibracion() {
+    const DatosSensores d = copiarSensores();
+    if (!d.mpu_presente || !d.mpu_calibrado || d.mpu_obsoleto) {
+        provocarFallo("No se puede calibrar: MPU ausente, sin calibrar u obsoleto.");
+        return;
+    }
+    calibracion_giro_ok = false;
+    pwm_min_giro_positivo = 0;
+    pwm_min_giro_negativo = 0;
+    candidato_giro_positivo = 0;
+    candidato_giro_negativo = 0;
+    yaw_inicio_calibracion_deg = d.yaw_deg;
+    angulo_retorno_calibracion_deg = 0.0f;
+    detenerMotores();
+    cambiarEstado(EstadoPrueba::CUENTA_CALIBRACION,
+                  "Calibracion inicia en 5 s. Piso libre: el robot girara brevemente en ambos sentidos.");
+}
+
+void registrarCalibracionDetectada(const DatosSensores& d) {
+    const int minimo_con_margen = min(PWM_MAX, pwm_calibracion + PWM_CAL_MARGEN);
+    const int signo = d.gz_rad_s >= 0.0f ? 1 : -1;
+    if (signo > 0) {
+        pwm_min_giro_positivo = minimo_con_margen;
+        candidato_giro_positivo = candidato_calibracion;
+    } else {
+        pwm_min_giro_negativo = minimo_con_margen;
+        candidato_giro_negativo = candidato_calibracion;
+    }
+    detenerMotores();
+    Serial.printf("[CAL] candidato=%d signo=%+d detectado=%d guardado=%d GZ=%.3f\n",
+                  candidato_calibracion, signo, pwm_calibracion, minimo_con_margen, d.gz_rad_s);
+    if (estado == EstadoPrueba::CALIBRANDO_A) {
+        cambiarEstado(EstadoPrueba::PAUSA_CALIBRACION, "Primera polaridad detectada; pausa antes del sentido opuesto.");
+    } else {
+        if (pwm_min_giro_positivo == 0 || pwm_min_giro_negativo == 0 ||
+            candidato_giro_positivo == candidato_giro_negativo) {
+            provocarFallo("La calibracion no distinguio ambos sentidos de giro.");
+            return;
+        }
+        calibracion_giro_ok = true;
+        angulo_retorno_calibracion_deg = normalizar180(yaw_inicio_calibracion_deg - d.yaw_deg);
+        cambiarEstado(EstadoPrueba::PAUSA_RETORNO_CALIBRACION,
+                      "Calibracion completa; pausa antes de regresar al yaw inicial con el MPU.");
+        Serial.printf("[CAL] giro +: PWM %d candidato %d | giro -: PWM %d candidato %d\n",
+                      pwm_min_giro_positivo, candidato_giro_positivo,
+                      pwm_min_giro_negativo, candidato_giro_negativo);
+        Serial.printf("[CAL] yaw inicial=%+.2f actual=%+.2f retorno=%+.2f deg\n",
+                      yaw_inicio_calibracion_deg, d.yaw_deg, angulo_retorno_calibracion_deg);
+    }
+}
+
+void controlarCalibracion() {
+    if (inicio_pausa_reintento_cal_ms != 0) {
+        detenerMotores();
+        if (millis() - inicio_pausa_reintento_cal_ms < PAUSA_REINTENTO_TORQUE_MS) return;
+        const DatosSensores reinicio = copiarSensores();
+        copiarBaseTicks(ticks_base_cal, reinicio);
+        pwm_calibracion = PWM_GIRO_ARRANQUE;
+        ultimo_escalon_cal_ms = millis();
+        inicio_movimiento_cal_ms = 0;
+        inicio_pausa_reintento_cal_ms = 0;
+        Serial.printf("[CAL] reintento=%u candidato=%d impulso inicial=%d/1023\n",
+                      intento_calibracion_actual, candidato_calibracion, pwm_calibracion);
+    }
+    const DatosSensores d = copiarSensores();
+    int64_t delta[4];
+    ticksDesdeBase(ticks_base_cal, d, delta);
+    const bool ticks_ok = ticksLado(delta, true) >= TICKS_MOVIMIENTO_CAL &&
+                          ticksLado(delta, false) >= TICKS_MOVIMIENTO_CAL;
+    const bool gyro_ok = fabsf(d.gz_rad_s) >= GZ_MOVIMIENTO_RAD_S;
+    aplicarCandidatoPivot(candidato_calibracion, pwm_calibracion);
+
+    if (ticks_ok && gyro_ok) {
+        if (inicio_movimiento_cal_ms == 0) inicio_movimiento_cal_ms = millis();
+        if (millis() - inicio_movimiento_cal_ms >= GZ_MOVIMIENTO_SOSTENIDO_MS) {
+            registrarCalibracionDetectada(d);
+            return;
+        }
+    } else {
+        inicio_movimiento_cal_ms = 0;
+    }
+
+    if (millis() - ultimo_escalon_cal_ms >= PWM_CAL_INTERVALO_MS) {
+        ultimo_escalon_cal_ms = millis();
+        if (pwm_calibracion >= PWM_MAX) {
+            if (intento_calibracion_actual >= INTENTOS_TORQUE_MAX) {
+                provocarFallo("Calibracion sin torque despues de tres intentos; revise motores, drivers y bateria.");
+                return;
+            }
+            ++intento_calibracion_actual;
+            detenerMotores();
+            inicio_pausa_reintento_cal_ms = millis();
+            cambiarEstado(estado, "Pausa de torque: se reintentara la misma polaridad de calibracion.");
+            Serial.printf("[CAL] sin movimiento; pausa antes del intento %u/%u.\n",
+                          intento_calibracion_actual, INTENTOS_TORQUE_MAX);
+            return;
+        }
+        pwm_calibracion = min(PWM_MAX, pwm_calibracion + PWM_CAL_PASO);
+        Serial.printf("[CAL] candidato=%d PWM=%d GZ=%.3f ticks L/R=%.1f/%.1f\n",
+                      candidato_calibracion, pwm_calibracion, d.gz_rad_s,
+                      ticksLado(delta, true), ticksLado(delta, false));
+    }
+}
+
+void aplicarPivotPorSigno(int signo, int pwm) {
+    const int candidato = signo > 0 ? candidato_giro_positivo : candidato_giro_negativo;
+    aplicarCandidatoPivot(candidato, pwm);
+}
+
+void iniciarGiro(float angulo_deg, PropositoGiro proposito, bool conservar_intento = false) {
+    const DatosSensores d = copiarSensores();
+    if (!calibracion_giro_ok) {
+        provocarFallo("Giro rechazado: primero ejecute CALIBRAR.");
+        return;
+    }
+    proposito_giro = proposito;
+    yaw_inicio_giro_deg = d.yaw_deg;
+    angulo_objetivo_giro_deg = angulo_deg;
+    progreso_giro_deg = 0.0f;
+    error_giro_deg = angulo_deg;
+    pwm_giro_actual = 0;
+    signo_giro_aplicado = 0;
+    inicio_estable_giro_ms = 0;
+    movimiento_giro_confirmado = false;
+    if (!conservar_intento) intento_giro_actual = 1;
+    inicio_movimiento_ms = millis();
+    copiarBaseTicks(ticks_base_giro, d);
+    ticks_lado_giro_anteriores[0] = 0;
+    ticks_lado_giro_anteriores[1] = 0;
+    ultimo_pulso_lado_ms[0] = millis();
+    ultimo_pulso_lado_ms[1] = millis();
+    const bool recuperando = proposito == PropositoGiro::RECUPERACION;
+    cambiarEstado(recuperando ? EstadoPrueba::RECUPERANDO_RUMBO : EstadoPrueba::GIRANDO,
+                  recuperando ? "Corrigiendo rumbo antes de continuar el tramo." :
+                  (proposito == PropositoGiro::RETORNO_CALIBRACION ? "Regresando al yaw inicial de calibracion." :
+                                                                    "Giro relativo en lazo cerrado."));
+    Serial.printf("[GIRO] objetivo relativo=%+.1f deg intento=%u/%u\n",
+                  angulo_deg, intento_giro_actual, INTENTOS_TORQUE_MAX);
+}
+
+void iniciarRecto(float distancia_cm, float rumbo_deg, bool conservar_acumulado = false) {
+    const DatosSensores d = copiarSensores();
+    if (!conservar_acumulado) {
+        distancia_acumulada_tramo_cm = 0.0f;
+        error_rumbo_max_tramo_deg = 0.0f;
+        intentos_recuperacion = 0;
+        reiniciarConfiabilidadEncoders();
+    }
+    if (!conservar_acumulado) distancia_objetivo_cm = distancia_cm;
+    distancia_actual_cm = distancia_acumulada_tramo_cm;
+    rumbo_objetivo_deg = rumbo_deg;
+    copiarBaseTicks(ticks_base_recto, d);
+    inicio_movimiento_ms = millis();
+    ticks_lado_recto_anteriores[0] = 0;
+    ticks_lado_recto_anteriores[1] = 0;
+    ultimo_pulso_recto_lado_ms[0] = millis();
+    ultimo_pulso_recto_lado_ms[1] = millis();
+    inicio_error_rumbo_ms = 0;
+    inicio_desacuerdo_lados_ms = 0;
+    error_rumbo_anterior_abs = 0.0f;
+    solicitud_limpiar_filtros_encoder = true;
+    cambiarEstado(EstadoPrueba::RECTO, "Avance rectilineo con MPU principal y ajuste secundario de encoders.");
+}
+
+void iniciarAccionSecuencia();
+
+void completarAccion() {
+    detenerMotores();
+    if (!secuencia_activa) {
+        cambiarEstado(EstadoPrueba::LISTO, "Movimiento individual terminado.");
+        return;
+    }
+    ++indice_secuencia;
+    cambiarEstado(EstadoPrueba::ESTABILIZANDO, "Motores detenidos para estabilizar antes de la siguiente accion.");
+}
+
+void programarReintentoGiro(const char* motivo) {
+    detenerMotores();
+    if (intento_giro_actual >= INTENTOS_TORQUE_MAX) {
+        provocarFallo("Giro sin torque o sin progreso despues de tres intentos.");
+        return;
+    }
+    const DatosSensores d = copiarSensores();
+    angulo_reintento_giro_deg = proposito_giro == PropositoGiro::RETORNO_CALIBRACION
+                                    ? normalizar180(yaw_inicio_calibracion_deg - d.yaw_deg)
+                                    : error_giro_deg;
+    ++intento_giro_actual;
+    cambiarEstado(EstadoPrueba::PAUSA_REINTENTO_GIRO,
+                  "Motores detenidos 750 ms antes de reintentar el giro pendiente.");
+    Serial.printf("[GIRO] %s; pausa, intento=%u/%u pendiente=%+.2f deg\n",
+                  motivo, intento_giro_actual, INTENTOS_TORQUE_MAX, angulo_reintento_giro_deg);
+}
+
+void completarGiro() {
+    detenerMotores();
+    Serial.printf("[GIRO] terminado objetivo=%+.1f progreso=%+.2f error=%+.2f\n",
+                  angulo_objetivo_giro_deg, progreso_giro_deg, error_giro_deg);
+    if (proposito_giro == PropositoGiro::RETORNO_CALIBRACION) {
+        const DatosSensores d = copiarSensores();
+        const float error_retorno = normalizar180(yaw_inicio_calibracion_deg - d.yaw_deg);
+        if (fabsf(error_retorno) > TOLERANCIA_GIRO_DEG) {
+            error_giro_deg = error_retorno;
+            programarReintentoGiro("yaw inicial aun no recuperado");
+            return;
+        }
+        cambiarEstado(EstadoPrueba::LISTO,
+                      "Calibracion completa y yaw inicial recuperado. Puede iniciar la secuencia.");
+        Serial.printf("[CAL] retorno terminado: yaw inicial=%+.2f actual=%+.2f error=%+.2f deg\n",
+                      yaw_inicio_calibracion_deg, d.yaw_deg, error_retorno);
+    } else if (proposito_giro == PropositoGiro::RECUPERACION) {
+        const DatosSensores d = copiarSensores();
+        const float rumbo_actual = d.yaw_deg - yaw_cero_secuencia_deg;
+        const float error_residual = normalizar180(rumbo_recuperacion_deg - rumbo_actual);
+        if (fabsf(error_residual) > ERROR_MAX_REANUDAR_DEG) {
+            if (intentos_recuperacion >= INTENTOS_RECUPERACION_MAX) {
+                provocarFallo("RUMBO_NO_RECUPERADO despues de tres intentos.");
+                return;
+            }
+            ++intentos_recuperacion;
+            const float correccion = constrain(error_residual, -GIRO_RECUPERACION_MAX_DEG, GIRO_RECUPERACION_MAX_DEG);
+            Serial.printf("[RUMBO] error residual=%+.2f deg; intento=%u correccion=%+.2f deg\n",
+                          error_residual, intentos_recuperacion, correccion);
+            iniciarGiro(correccion, PropositoGiro::RECUPERACION);
+        } else {
+            Serial.printf("[RUMBO] recuperado con error=%+.2f deg; reanudando sin contar ticks del giro.\n", error_residual);
+            iniciarRecto(distancia_objetivo_cm, rumbo_recuperacion_deg, true);
+        }
+    } else if (proposito_giro == PropositoGiro::MANUAL) {
+        cambiarEstado(EstadoPrueba::LISTO, "Giro individual terminado.");
+    } else {
+        completarAccion();
+    }
+}
+
+void controlarGiro() {
+    const DatosSensores d = copiarSensores();
+    int64_t ticks[4];
+    ticksDesdeBase(ticks_base_giro, d, ticks);
+    const int64_t ticks_lados[2] = {
+        static_cast<int64_t>(ticksLado(ticks, true)), static_cast<int64_t>(ticksLado(ticks, false))
+    };
+    for (int lado = 0; lado < 2; ++lado) {
+        if (ticks_lados[lado] != ticks_lado_giro_anteriores[lado]) {
+            ticks_lado_giro_anteriores[lado] = ticks_lados[lado];
+            ultimo_pulso_lado_ms[lado] = millis();
+        } else if (pwm_giro_actual > 0 && millis() - ultimo_pulso_lado_ms[lado] > TIMEOUT_SIN_PULSOS_MS) {
+            provocarFallo(lado == 0 ? "Sin actividad de encoders izquierdos durante el giro."
+                                   : "Sin actividad de encoders derechos durante el giro.");
+            return;
+        }
+    }
+    progreso_giro_deg = d.yaw_deg - yaw_inicio_giro_deg;
+    error_giro_deg = angulo_objetivo_giro_deg - progreso_giro_deg;
+    const float error_abs = fabsf(error_giro_deg);
+    const uint32_t timeout = fabsf(angulo_objetivo_giro_deg) > 180.0f ? TIMEOUT_GIRO_360_MS : TIMEOUT_GIRO_NORMAL_MS;
+    if (millis() - inicio_movimiento_ms > timeout) {
+        provocarFallo("Timeout de giro: no se alcanzo el angulo solicitado.");
+        return;
+    }
+
+    if (error_abs <= TOLERANCIA_GIRO_DEG) {
+        detenerMotores();
+        pwm_giro_actual = 0;
+        signo_giro_aplicado = 0;
+        if (fabsf(d.gz_rad_s) <= GZ_REPOSO_GIRO_RAD_S) {
+            if (inicio_estable_giro_ms == 0) inicio_estable_giro_ms = millis();
+            if (millis() - inicio_estable_giro_ms >= GIRO_ESTABLE_MS) completarGiro();
+        } else {
+            inicio_estable_giro_ms = 0;
+        }
+        return;
+    }
+    if (inicio_estable_giro_ms != 0 && error_abs <= TOLERANCIA_REACTIVACION_DEG) {
+        detenerMotores();
+        return;
+    }
+    inicio_estable_giro_ms = 0;
+
+    const int signo_deseado = error_giro_deg > 0.0f ? 1 : -1;
+    const int minimo = signo_deseado > 0 ? pwm_min_giro_positivo : pwm_min_giro_negativo;
+    const int pwm_lejos = min(PWM_MAX, minimo + PWM_GIRO_MARGEN_LEJOS);
+    const int pwm_cerca = min(PWM_MAX, minimo + PWM_GIRO_MARGEN_CERCA);
+    int objetivo_pwm = pwm_lejos;
+    if (error_abs < ZONA_FRENADO_GIRO_DEG) {
+        objetivo_pwm = pwm_cerca + aproximarEntero((pwm_lejos - pwm_cerca) * error_abs / ZONA_FRENADO_GIRO_DEG);
+    }
+
+    if (signo_giro_aplicado != 0 && signo_deseado != signo_giro_aplicado && pwm_giro_actual > 0) {
+        pwm_giro_actual = max(0, pwm_giro_actual - PWM_GIRO_SLEW_POR_CICLO);
+        if (pwm_giro_actual == 0) signo_giro_aplicado = 0;
+    } else {
+        if (signo_giro_aplicado == 0) signo_giro_aplicado = signo_deseado;
+        if (pwm_giro_actual < objetivo_pwm) pwm_giro_actual = min(objetivo_pwm, pwm_giro_actual + PWM_GIRO_SLEW_POR_CICLO);
+        else pwm_giro_actual = max(objetivo_pwm, pwm_giro_actual - PWM_GIRO_SLEW_POR_CICLO);
+    }
+    if (signo_giro_aplicado != 0 && pwm_giro_actual > 0) aplicarPivotPorSigno(signo_giro_aplicado, pwm_giro_actual);
+    else detenerMotores();
+}
+
+void iniciarPausaReevaluacion(const int64_t ticks[4]) {
+    detenerMotores();
+    distancia_acumulada_tramo_cm = distancia_actual_cm;
+    for (int i = 0; i < 4; ++i) ticks_pausa_clasificacion[i] = ticks[i];
+    ++pausas_reevaluacion;
+    snprintf(mensaje_fusion, sizeof(mensaje_fusion),
+             "Pausa %lu: clasificando FL/FR/BL/BR; distancia congelada en %.2f cm.",
+             static_cast<unsigned long>(pausas_reevaluacion), distancia_acumulada_tramo_cm);
+    cambiarEstado(EstadoPrueba::PAUSA_REEVALUACION_ENCODERS,
+                  "Pausa de 500 ms: distancia congelada y ticks de desaceleracion ignorados.");
+    Serial.printf("[FUSION] pausa=%lu ticks FL/FR/BL/BR=%lld/%lld/%lld/%lld mediana=%.2f distancia_conservada=%.2f cm\n",
+                  static_cast<unsigned long>(pausas_reevaluacion),
+                  static_cast<long long>(ticks[0]), static_cast<long long>(ticks[1]),
+                  static_cast<long long>(ticks[2]), static_cast<long long>(ticks[3]),
+                  ticks_mediana_robusta, distancia_acumulada_tramo_cm);
+}
+
+void completarPausaReevaluacion() {
+    bool nuevos_confiables[4];
+    clasificarMuestraEncoders(ticks_pausa_clasificacion, nuevos_confiables);
+    modo_degradado = false;
+    for (int i = 0; i < 4; ++i) {
+        encoder_confiable[i] = nuevos_confiables[i];
+        salud_encoder[i] = nuevos_confiables[i] ? SaludEncoder::OK : SaludEncoder::EXCLUIDO;
+        modo_degradado |= !nuevos_confiables[i];
+        inicio_outlier_ms[i] = 0;
+    }
+    if (!hayConfiablePorCadaLado(encoder_confiable)) {
+        estimador_distancia = "sin_estimacion";
+        provocarFallo("FUSION_SIN_ESTIMACION: no queda un encoder confiable por cada lado.");
+        return;
+    }
+    estimador_distancia = modo_degradado ? "fusion_lados" : "recortado";
+    snprintf(mensaje_fusion, sizeof(mensaje_fusion),
+             "Clasificacion: FL=%s FR=%s BL=%s BR=%s; fuente=%s.",
+             nombreSaludEncoder(salud_encoder[0]), nombreSaludEncoder(salud_encoder[1]),
+             nombreSaludEncoder(salud_encoder[2]), nombreSaludEncoder(salud_encoder[3]), estimador_distancia);
+    Serial.printf("[FUSION] resultado FL=%s FR=%s BL=%s BR=%s fuente=%s\n",
+                  nombreSaludEncoder(salud_encoder[0]), nombreSaludEncoder(salud_encoder[1]),
+                  nombreSaludEncoder(salud_encoder[2]), nombreSaludEncoder(salud_encoder[3]), estimador_distancia);
+
+    const DatosSensores d = copiarSensores();
+    yaw_relativo_deg = d.yaw_deg - yaw_cero_secuencia_deg;
+    error_rumbo_deg = normalizar180(rumbo_objetivo_deg - yaw_relativo_deg);
+    rumbo_recuperacion_deg = rumbo_objetivo_deg;
+    if (fabsf(error_rumbo_deg) <= ERROR_MAX_REANUDAR_DEG) {
+        Serial.printf("[RUMBO] error=%+.2f deg; no se requiere giro.\n", error_rumbo_deg);
+        snprintf(mensaje_fusion, sizeof(mensaje_fusion),
+                 "Reevaluacion terminada: error de rumbo %+.2f deg; no se requiere giro.", error_rumbo_deg);
+        iniciarRecto(distancia_objetivo_cm, rumbo_objetivo_deg, true);
+        return;
+    }
+    if (intentos_recuperacion >= INTENTOS_RECUPERACION_MAX) {
+        provocarFallo("RUMBO_NO_RECUPERADO despues de tres intentos.");
+        return;
+    }
+    ++intentos_recuperacion;
+    const float correccion = constrain(error_rumbo_deg, -GIRO_RECUPERACION_MAX_DEG, GIRO_RECUPERACION_MAX_DEG);
+    snprintf(mensaje_fusion, sizeof(mensaje_fusion),
+             "Reevaluacion terminada: error %+.2f deg; correccion MPU %+.2f deg (intento %u/3).",
+             error_rumbo_deg, correccion, intentos_recuperacion);
+    Serial.printf("[RUMBO] error=%+.2f deg; intento=%u giro limitado=%+.2f deg\n",
+                  error_rumbo_deg, intentos_recuperacion, correccion);
+    iniciarGiro(correccion, PropositoGiro::RECUPERACION);
+}
+
+bool detectarOutliersPersistentes(const int64_t ticks[4]) {
+    if (modo_degradado || fabsf(error_rumbo_deg) > ERROR_MAX_CLASIFICAR_ENCODERS_DEG ||
+        ticks_mediana_robusta < TICKS_MINIMOS_AUDITORIA) {
+        for (int i = 0; i < 4; ++i) {
+            inicio_outlier_ms[i] = 0;
+            if (salud_encoder[i] != SaludEncoder::EXCLUIDO) salud_encoder[i] = SaludEncoder::OK;
+        }
+        return false;
+    }
+    const float denominador = max(1.0f, fabsf(ticks_mediana_robusta));
+    bool persistente = false;
+    for (int i = 0; i < 4; ++i) {
+        const float diferencia = fabsf(static_cast<float>(ticks[i]) - ticks_mediana_robusta) / denominador;
+        if (diferencia > DESACUERDO_MAXIMO_PAR) {
+            salud_encoder[i] = SaludEncoder::SOSPECHOSO;
+            if (inicio_outlier_ms[i] == 0) inicio_outlier_ms[i] = millis();
+            persistente |= millis() - inicio_outlier_ms[i] >= DESACUERDO_ENCODER_PERSISTENTE_MS;
+        } else {
+            inicio_outlier_ms[i] = 0;
+            salud_encoder[i] = SaludEncoder::OK;
+        }
+    }
+    return persistente;
+}
+
+void controlarRecto() {
+    const DatosSensores d = copiarSensores();
+    int64_t ticks[4];
+    ticksDesdeBase(ticks_base_recto, d, ticks);
+    const float ticks_estimados = estimarTicksRectos(ticks);
+    distancia_actual_cm = aplicarTicksADistancia(distancia_acumulada_tramo_cm, ticks_estimados, true);
+    const float restante = max(0.0f, distancia_objetivo_cm - distancia_actual_cm);
+    yaw_relativo_deg = d.yaw_deg - yaw_cero_secuencia_deg;
+    error_rumbo_deg = normalizar180(rumbo_objetivo_deg - yaw_relativo_deg);
+    error_rumbo_max_tramo_deg = max(error_rumbo_max_tramo_deg, fabsf(error_rumbo_deg));
+
+    if (detectarOutliersPersistentes(ticks)) {
+        iniciarPausaReevaluacion(ticks);
+        return;
+    }
+
+    const int64_t ticks_lados_confiables[2] = {
+        (encoder_confiable[0] ? ticks[0] : 0) + (encoder_confiable[2] ? ticks[2] : 0),
+        (encoder_confiable[1] ? ticks[1] : 0) + (encoder_confiable[3] ? ticks[3] : 0)
+    };
+    for (int lado = 0; lado < 2; ++lado) {
+        if (ticks_lados_confiables[lado] != ticks_lado_recto_anteriores[lado]) {
+            ticks_lado_recto_anteriores[lado] = ticks_lados_confiables[lado];
+            ultimo_pulso_recto_lado_ms[lado] = millis();
+        } else if (millis() - ultimo_pulso_recto_lado_ms[lado] > TIMEOUT_SIN_PULSOS_MS) {
+            provocarFallo(lado == 0 ? "Sin pulsos confiables del lado izquierdo durante 2.5 s."
+                                    : "Sin pulsos confiables del lado derecho durante 2.5 s.");
+            return;
+        }
+    }
+
+    const uint32_t timeout = TIMEOUT_BASE_RECTO_MS + static_cast<uint32_t>(distancia_objetivo_cm * TIMEOUT_POR_CM_MS);
+    if (millis() - inicio_movimiento_ms > timeout) {
+        provocarFallo("Timeout del tramo rectilineo.");
+        return;
+    }
+
+    if (distancia_actual_cm >= distancia_objetivo_cm) {
+        Serial.printf("[RECTO] objetivo=%.1f cm medido=%.2f cm error_final=%+.2f deg error_max=%.2f deg ticks=%lld,%lld,%lld,%lld\n",
+                      distancia_objetivo_cm, distancia_actual_cm, error_rumbo_deg,
+                      error_rumbo_max_tramo_deg, static_cast<long long>(ticks[0]), static_cast<long long>(ticks[1]),
+                      static_cast<long long>(ticks[2]), static_cast<long long>(ticks[3]));
+        completarAccion();
+        return;
+    }
+
+    const float error_abs = fabsf(error_rumbo_deg);
+    if (error_abs > ERROR_RUMBO_RECUPERAR_DEG) {
+        if (inicio_error_rumbo_ms == 0) inicio_error_rumbo_ms = millis();
+        if (millis() - inicio_error_rumbo_ms >= ERROR_RUMBO_RECUPERAR_MS) {
+            detenerMotores();
+            distancia_acumulada_tramo_cm = distancia_actual_cm;
+            distancia_restante_recuperacion_cm = restante;
+            rumbo_recuperacion_deg = rumbo_objetivo_deg;
+            if (intentos_recuperacion >= INTENTOS_RECUPERACION_MAX) {
+                provocarFallo("RUMBO_NO_RECUPERADO despues de tres intentos.");
+                return;
+            }
+            ++intentos_recuperacion;
+            iniciarGiro(constrain(error_rumbo_deg, -GIRO_RECUPERACION_MAX_DEG, GIRO_RECUPERACION_MAX_DEG),
+                        PropositoGiro::RECUPERACION);
+            return;
+        }
+    } else {
+        inicio_error_rumbo_ms = 0;
+    }
+
+    error_rumbo_anterior_abs = error_abs;
+
+    int pwm_base = PWM_RECTO_CRUCERO;
+    if (restante < 20.0f) {
+        pwm_base = PWM_RECTO_APROXIMACION + aproximarEntero((PWM_RECTO_CRUCERO - PWM_RECTO_APROXIMACION) * restante / 20.0f);
+    }
+    if (millis() - inicio_movimiento_ms < 250) pwm_base = PWM_RECTO_CRUCERO;
+
+    float control_rumbo = KP_RUMBO_PWM_POR_GRADO * error_rumbo_deg - KD_RUMBO_PWM_POR_RAD_S * d.gz_rad_s;
+    control_rumbo = constrain(control_rumbo, -static_cast<float>(PWM_CORRECCION_RUMBO_MAX),
+                              static_cast<float>(PWM_CORRECCION_RUMBO_MAX));
+    float control_encoder = 0.0f;
+    if (error_abs <= ERROR_RUMBO_ENCODER_MAX_DEG && millis() - inicio_movimiento_ms >= GRACIA_FILTRO_ENCODER_MS) {
+        control_encoder = KP_ENCODER_PWM_POR_TICK *
+                          (deltaConfiablesLado(d, true) - deltaConfiablesLado(d, false));
+        control_encoder = constrain(control_encoder, -static_cast<float>(PWM_CORRECCION_ENCODER_MAX),
+                                    static_cast<float>(PWM_CORRECCION_ENCODER_MAX));
+    }
+
+    int reduccion_l = 0;
+    int reduccion_r = 0;
+    if (control_rumbo != 0.0f) {
+        const int candidato = control_rumbo > 0.0f ? candidato_giro_positivo : candidato_giro_negativo;
+        // La calibracion decide que lado debe frenarse para inducir cada signo
+        // de yaw; asi el lazo no depende del cableado particular del chasis.
+        if (candidato > 0) reduccion_l += aproximarEntero(fabsf(control_rumbo));
+        else reduccion_r += aproximarEntero(fabsf(control_rumbo));
+    }
+    if (control_encoder > 0.0f) reduccion_l += aproximarEntero(control_encoder);
+    else reduccion_r += aproximarEntero(-control_encoder);
+    const int pwm_base_derecho = calcularPwmDerechoCompensado(pwm_base, factor_pwm_derecho_recto);
+    const int magnitud_l = constrain(pwm_base - reduccion_l, PWM_RECTO_MINIMO, PWM_MAX);
+    const int magnitud_r = constrain(pwm_base_derecho - reduccion_r, PWM_RECTO_MINIMO, PWM_MAX);
+    pwm_base_recto_actual = pwm_base;
+    pwm_base_derecho_compensado = pwm_base_derecho;
+    correccion_rumbo_pwm_actual = control_rumbo;
+    correccion_encoder_pwm_actual = control_encoder;
+    reduccion_dinamica_izquierda = reduccion_l;
+    reduccion_dinamica_derecha = reduccion_r;
+    aplicarMotores(POLARIDAD_AVANCE * magnitud_l, POLARIDAD_AVANCE * magnitud_r);
+}
+
+void iniciarAccionSecuencia() {
+    if (indice_secuencia >= sizeof(SECUENCIA) / sizeof(SECUENCIA[0])) {
+        provocarFallo("Indice de secuencia fuera de rango.");
+        return;
+    }
+    const AccionSecuencia& accion = SECUENCIA[indice_secuencia];
+    Serial.printf("[SECUENCIA] paso=%u %s\n", static_cast<unsigned>(indice_secuencia + 1), accion.nombre);
+    if (accion.tipo == TipoAccion::RECTO) iniciarRecto(accion.valor, accion.rumbo_deg);
+    else if (accion.tipo == TipoAccion::GIRO) iniciarGiro(accion.valor, PropositoGiro::SECUENCIA);
+    else if (accion.tipo == TipoAccion::PAUSA) cambiarEstado(EstadoPrueba::PAUSA_BLOQUES, accion.nombre);
+    else {
+        detenerMotores();
+        secuencia_activa = false;
+        const DatosSensores d = copiarSensores();
+        const float rumbo_final = normalizar180(d.yaw_deg - yaw_cero_secuencia_deg);
+        Serial.printf("[RESULTADO] SECUENCIA COMPLETA | rumbo_final=%+.2f deg | ticks_sesion=%lld,%lld,%lld,%lld\n",
+                      rumbo_final, static_cast<long long>(d.ticks[0]), static_cast<long long>(d.ticks[1]),
+                      static_cast<long long>(d.ticks[2]), static_cast<long long>(d.ticks[3]));
+        cambiarEstado(EstadoPrueba::COMPLETADO, "Secuencia 1 m + 2 m terminada; posicion y rumbo iniciales esperados.");
+    }
+}
+
+void iniciarSecuencia() {
+    if (!calibracion_giro_ok) {
+        provocarFallo("Secuencia rechazada: primero ejecute CALIBRAR.");
+        return;
+    }
+    secuencia_activa = true;
+    indice_secuencia = 0;
+    detenerMotores();
+    cambiarEstado(EstadoPrueba::CUENTA_SECUENCIA, "Secuencia inicia en 5 s; alinee el robot con el rumbo inicial.");
+}
+
+bool anguloPermitido(int angulo) {
+    return angulo == -360 || angulo == -180 || angulo == -90 ||
+           angulo == 90 || angulo == 180 || angulo == 360;
+}
+
+void auditarSeguridad() {
+    if (!estadoConMovimiento()) return;
+    const DatosSensores d = copiarSensores();
+    if (!d.mpu_presente || !d.mpu_calibrado || d.mpu_obsoleto || millis() - d.ultima_imu_ms > TIMEOUT_IMU_MS) {
+        provocarFallo("MPU ausente, sin calibrar o sin lectura fresca por mas de 100 ms.");
+        return;
+    }
+    if (requiere_heartbeat_web && millis() - ultimo_heartbeat_web_ms > TIMEOUT_WEB_MS) {
+        provocarFallo("Miniweb sin heartbeat por mas de 2.5 s; movimiento detenido.");
+    }
+}
+
+void atenderSolicitudes() {
+    if (solicitud_compensacion) {
+        solicitud_compensacion = false;
+        const float solicitado = factor_compensacion_solicitado;
+        if (factorCompensacionValido(solicitado)) {
+            factor_pwm_derecho_recto = cuantizarFactorCompensacion(solicitado);
+            Serial.printf("[COMPENSACION] factor derecho recto=%.2f; no afecta calibracion ni giros.\n",
+                          factor_pwm_derecho_recto);
+        } else {
+            Serial.printf("[COMPENSACION] rechazado %.3f; rango permitido %.2f..%.2f.\n",
+                          solicitado, FACTOR_PWM_DERECHO_MIN, FACTOR_PWM_DERECHO_MAX);
+        }
+    }
+    if (solicitud_estop) {
+        solicitud_estop = false;
+        detenerMotores();
+        secuencia_activa = false;
+        cambiarEstado(EstadoPrueba::ESTOP, "E-STOP enclavado; use REARMAR.");
+    }
+    if (solicitud_rearmar) {
+        solicitud_rearmar = false;
+        detenerMotores();
+        secuencia_activa = false;
+        if (estado == EstadoPrueba::ESTOP || estado == EstadoPrueba::FALLO || estado == EstadoPrueba::COMPLETADO) {
+            cambiarEstado(calibracion_giro_ok ? EstadoPrueba::LISTO : EstadoPrueba::ESPERANDO,
+                          calibracion_giro_ok ? "Rearmado; calibracion conservada." : "Rearmado; falta calibrar giros.");
+        }
+    }
+    if (estado == EstadoPrueba::ESTOP || estado == EstadoPrueba::FALLO) return;
+    if (solicitud_calibrar) {
+        solicitud_calibrar = false;
+        if (!estadoConMovimiento() && estado != EstadoPrueba::CUENTA_SECUENCIA) iniciarCalibracion();
+    }
+    if (solicitud_iniciar) {
+        solicitud_iniciar = false;
+        if (estado == EstadoPrueba::LISTO || estado == EstadoPrueba::COMPLETADO) iniciarSecuencia();
+    }
+    if (solicitud_giro) {
+        solicitud_giro = false;
+        const int angulo = angulo_giro_solicitado;
+        if ((estado == EstadoPrueba::LISTO || estado == EstadoPrueba::COMPLETADO) && anguloPermitido(angulo)) {
+            secuencia_activa = false;
+            iniciarGiro(static_cast<float>(angulo), PropositoGiro::MANUAL);
+        }
+    }
+}
+
+void ejecutarMaquinaEstados() {
+    const uint32_t en_estado = millis() - inicio_estado_ms;
+    if (estado == EstadoPrueba::CUENTA_CALIBRACION && en_estado >= CUENTA_REGRESIVA_MS) {
+        iniciarCalibracionCandidato(EstadoPrueba::CALIBRANDO_A, 1);
+    } else if (estado == EstadoPrueba::CALIBRANDO_A || estado == EstadoPrueba::CALIBRANDO_B) {
+        controlarCalibracion();
+    } else if (estado == EstadoPrueba::PAUSA_CALIBRACION && en_estado >= 1000) {
+        iniciarCalibracionCandidato(EstadoPrueba::CALIBRANDO_B, -1);
+    } else if (estado == EstadoPrueba::CUENTA_SECUENCIA && en_estado >= CUENTA_REGRESIVA_MS) {
+        const DatosSensores d = copiarSensores();
+        yaw_cero_secuencia_deg = d.yaw_deg;
+        iniciarAccionSecuencia();
+    } else if (estado == EstadoPrueba::RECTO) {
+        controlarRecto();
+    } else if (estado == EstadoPrueba::PAUSA_REEVALUACION_ENCODERS &&
+               en_estado >= PAUSA_REEVALUACION_MS) {
+        completarPausaReevaluacion();
+    } else if (estado == EstadoPrueba::GIRANDO || estado == EstadoPrueba::RECUPERANDO_RUMBO) {
+        controlarGiro();
+    } else if (estado == EstadoPrueba::ESTABILIZANDO && en_estado >= ESTABILIZACION_MS) {
+        iniciarAccionSecuencia();
+    } else if (estado == EstadoPrueba::PAUSA_BLOQUES && en_estado >= PAUSA_ENTRE_BLOQUES_MS) {
+        ++indice_secuencia;
+        iniciarAccionSecuencia();
+    }
+}
+
+const char PAGINA[] PROGMEM = R"HTML(
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lazo cerrado</title><style>
+:root{color-scheme:dark;--bg:#07111f;--panel:#101d31;--line:#294565;--ok:#2dd4bf;--warn:#fbbf24;--bad:#fb7185;--muted:#9fb2cc;color:#e7eef8;font-family:system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg)}main{width:min(1100px,96vw);margin:16px auto}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}h1,h2{margin:0 0 12px}.estado{font-size:1.35rem;font-weight:900;color:var(--warn)}.detalle{color:var(--muted)}.aviso{margin-top:12px;padding:10px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-weight:800}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px}.card{border:1px solid var(--line);border-radius:9px;padding:10px}.valor{display:block;font-size:1.15rem;font-weight:800;margin-top:4px}.acciones{display:flex;flex-wrap:wrap;gap:7px}.acciones button{border:0;border-radius:8px;padding:11px 13px;font-weight:800;cursor:pointer}.go{background:var(--ok)}.cal{background:var(--warn)}.stop{background:var(--bad)}.neutral{background:#b8c8dd}.giros button{min-width:72px}canvas{width:100%;height:220px;background:#07111f;border-radius:8px}.ok{color:var(--ok)}.bad{color:var(--bad)}small{color:var(--muted)}</style></head><body><main>
+<section class="panel"><h1>Control MPU + encoders</h1><div id="estado" class="estado">CONECTANDO</div><p id="detalle" class="detalle">Esperando datos…</p><div class="acciones"><button class="cal" onclick="accion('/api/calibrar',true)">CALIBRAR EN PISO</button><button class="go" onclick="accion('/api/iniciar',true)">INICIAR 1 m + 2 m</button><button class="stop" onclick="accion('/api/estop')">E-STOP</button><button class="neutral" onclick="accion('/api/rearmar')">REARMAR</button></div><div id="degradado" class="aviso" hidden>MODO DEGRADADO: se excluyeron encoders incoherentes; el robot continúa con al menos uno confiable por lado.</div></section>
+<section class="panel"><h2>Compensación recta del lado derecho</h2><div class="acciones"><button onclick="ajustarComp(-.01)">−1%</button><button class="neutral" onclick="fijarComp(.95)">95% PREDETERMINADO</button><button onclick="ajustarComp(.01)">+1%</button><button onclick="fijarComp(1)">SIN COMPENSACIÓN</button></div><p class="detalle">PWM LEDC de 10 bits. Ajustable entre 80% y 100%; solo afecta avances rectos.</p></section>
+<section class="panel"><h2>Diagnóstico físico antes de añadir baterías</h2><p class="aviso">No conecte un tercer pack Li-ion directamente en paralelo.</p><small>Con el carro apagado: separe y compare el voltaje de los dos packs; no los reúna si difieren más de 0.05 V. Compruebe rozamiento de ruedas, conectores, soldaduras y VMOT/GND. Intercambie las salidas de los DRV8833: si la debilidad cambia de lado, revise el puente/cableado; si permanece, revise motorreductores y mecánica. Detenga la prueba si un puente se calienta rápidamente.</small></section>
+<section class="panel"><h2>Giros individuales</h2><div class="acciones giros"><button onclick="giro(-360)">−360°</button><button onclick="giro(-180)">−180°</button><button onclick="giro(-90)">−90°</button><button onclick="giro(90)">+90°</button><button onclick="giro(180)">+180°</button><button onclick="giro(360)">+360°</button></div><small>Derecha negativa; izquierda positiva. Requiere calibración.</small></section>
+<section class="panel"><p id="fusionmsg" class="detalle">Sin reevaluaciones.</p><div class="grid"><div class="card">Paso<span id="paso" class="valor">--</span></div><div class="card">Distancia robusta<span id="dist" class="valor">0 cm</span></div><div class="card">Objetivo<span id="objdist" class="valor">0 cm</span></div><div class="card">Factor derecho<span id="factor" class="valor">95%</span></div><div class="card">PWM base L / R compensado<span id="pwmbase" class="valor">0 / 0</span></div><div class="card">Control rumbo / encoder<span id="controles" class="valor">0 / 0</span></div><div class="card">Reducción dinámica L / R<span id="reducciones" class="valor">0 / 0</span></div><div class="card">Estimador<span id="estimador" class="valor">recortado</span></div><div class="card">Mediana robusta<span id="mediana" class="valor">0 ticks</span></div><div class="card">Ticks aceptados<span id="usados" class="valor">FL=0 FR=0 BL=0 BR=0</span></div><div class="card">Ticks descartados<span id="descartados" class="valor">ninguno</span></div><div class="card">Estado FL/FR/BL/BR<span id="salud" class="valor">OK / OK / OK / OK</span></div><div class="card">Pausas / intentos<span id="recuperacion" class="valor">0 / 0</span></div><div class="card">Yaw relativo<span id="yaw" class="valor">0°</span></div><div class="card">Rumbo objetivo<span id="rumbo" class="valor">0°</span></div><div class="card">Error rumbo/giro<span id="error" class="valor">0°</span></div><div class="card">Gyro Z<span id="gz" class="valor">0 rad/s</span></div><div class="card">PWM final L / R<span id="pwm" class="valor">0 / 0</span></div><div class="card">PWM giro + / −<span id="calpwm" class="valor">-- / --</span></div><div class="card">Ticks totales FL / FR<span id="ticks1" class="valor">0 / 0</span></div><div class="card">Ticks totales BL / BR<span id="ticks2" class="valor">0 / 0</span></div><div class="card">Velocidad lados<span id="vel" class="valor">0 / 0 cm/s</span></div></div></section>
+<section class="panel"><h2>Historial breve</h2><canvas id="grafica" width="1000" height="220"></canvas><small>Verde: yaw relativo · amarillo: error · azul: distancia/2</small></section>
+</main><script>
+const $=id=>document.getElementById(id),hist={yaw:[],err:[],dist:[]},nombres=['FL','FR','BL','BR'];let factorActual=.95;
+async function accion(url,confirmar=false){if(confirmar&&!confirm('Despeje el piso y supervise el robot. ¿Continuar?'))return;await fetch(url,{method:'POST'})}
+async function fijarComp(f){f=Math.max(.80,Math.min(1,Math.round(f*100)/100));await accion('/api/compensacion?factor='+f.toFixed(2))}function ajustarComp(delta){fijarComp(factorActual+delta)}
+function giro(a){if(confirm(`El robot girará ${a}°. ¿Piso libre?`))accion('/api/giro?angulo='+a)}function fmt(n,d=1){return Number(n).toFixed(d)}
+function draw(){const c=$('grafica'),x=c.getContext('2d'),n=hist.yaw.length;x.clearRect(0,0,c.width,c.height);x.strokeStyle='#294565';x.beginPath();x.moveTo(0,c.height/2);x.lineTo(c.width,c.height/2);x.stroke();for(const [arr,color,scale] of [[hist.yaw,'#2dd4bf',.45],[hist.err,'#fbbf24',1.5],[hist.dist,'#60a5fa',.5]]){x.strokeStyle=color;x.beginPath();arr.forEach((v,i)=>{const px=n<2?0:i*c.width/(n-1),py=c.height/2-v*scale;i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()}}
+async function update(){try{const r=await fetch('/api/estado',{cache:'no-store'}),d=await r.json();factorActual=d.factor_pwm_derecho_recto;const aceptados=nombres.filter((_,i)=>d.encoder_confiable[i]).map(n=>n+'='+d.ticks_fusion[nombres.indexOf(n)]);const descartados=nombres.filter((_,i)=>!d.encoder_confiable[i]).map(n=>n+'='+d.ticks_fusion[nombres.indexOf(n)]);$('estado').textContent=d.estado;$('estado').className='estado '+(d.estado==='FALLO'||d.estado==='ESTOP'?'bad':d.estado==='LISTO'||d.estado==='COMPLETADO'?'ok':'');$('detalle').textContent=d.detalle;$('fusionmsg').textContent=d.mensaje_fusion;$('paso').textContent=d.paso;$('dist').textContent=fmt(d.distancia_robusta_cm,2)+' cm';$('objdist').textContent=fmt(d.objetivo_cm,1)+' cm';$('factor').textContent=fmt(100*d.factor_pwm_derecho_recto,0)+'%';$('pwmbase').textContent=d.pwm_base_recto+' / '+d.pwm_base_derecho_compensado;$('controles').textContent=fmt(d.correccion_rumbo_pwm,1)+' / '+fmt(d.correccion_encoder_pwm,1);$('reducciones').textContent=d.reduccion_dinamica_l+' / '+d.reduccion_dinamica_r;$('estimador').textContent=d.estimador_distancia;$('mediana').textContent=fmt(d.ticks_mediana_robusta,1)+' ticks';$('usados').textContent=aceptados.join(' · ')||'ninguno';$('descartados').textContent=descartados.join(' · ')||'ninguno';$('salud').textContent=d.estado_encoder.join(' / ');$('recuperacion').textContent=d.pausas_reevaluacion+' / '+d.intentos_recuperacion;$('degradado').hidden=!d.modo_degradado;$('yaw').textContent=fmt(d.yaw_relativo_deg,2)+'°';$('rumbo').textContent=fmt(d.rumbo_objetivo_deg,1)+'°';$('error').textContent=fmt(d.error_deg,2)+'°';$('gz').textContent=fmt(d.gz_rad_s,4)+' rad/s';$('pwm').textContent=d.pwm_l+' / '+d.pwm_r;$('calpwm').textContent=(d.pwm_giro_positivo||'--')+' / '+(d.pwm_giro_negativo||'--');$('ticks1').textContent=d.ticks[0]+' / '+d.ticks[1];$('ticks2').textContent=d.ticks[2]+' / '+d.ticks[3];$('vel').textContent=fmt(d.vel_l_cm_s,1)+' / '+fmt(d.vel_r_cm_s,1)+' cm/s';hist.yaw.push(d.yaw_relativo_deg);hist.err.push(d.error_deg);hist.dist.push(d.distancia_robusta_cm/2);if(hist.yaw.length>200){hist.yaw.shift();hist.err.shift();hist.dist.shift()}draw()}catch(e){$('estado').textContent='SIN RESPUESTA';$('estado').className='estado bad'}}update();setInterval(update,200);
+</script></body></html>
+)HTML";
+
+void responderEstado(AsyncWebServerRequest* request) {
+    ultimo_heartbeat_web_ms = millis();
+    const DatosSensores d = copiarSensores();
+    EstadoPrueba estado_copia;
+    const char* detalle_copia;
+    portENTER_CRITICAL(&mux_estado);
+    estado_copia = estado;
+    detalle_copia = detalle_estado;
+    portEXIT_CRITICAL(&mux_estado);
+    int64_t ticks_fusion[4] = {};
+    if (estado_copia == EstadoPrueba::RECTO) {
+        ticksDesdeBase(ticks_base_recto, d, ticks_fusion);
+    } else if (estado_copia == EstadoPrueba::PAUSA_REEVALUACION_ENCODERS) {
+        for (int i = 0; i < 4; ++i) ticks_fusion[i] = ticks_pausa_clasificacion[i];
+    }
+    const float vel_l = 0.5f * (d.velocidad_cm_s[0] + d.velocidad_cm_s[2]);
+    const float vel_r = 0.5f * (d.velocidad_cm_s[1] + d.velocidad_cm_s[3]);
+    const float error_visible = estado_copia == EstadoPrueba::GIRANDO || estado_copia == EstadoPrueba::RECUPERANDO_RUMBO
+                                    ? error_giro_deg : error_rumbo_deg;
+    const char* paso = secuencia_activa && indice_secuencia < sizeof(SECUENCIA) / sizeof(SECUENCIA[0])
+                           ? SECUENCIA[indice_secuencia].nombre : (estado_copia == EstadoPrueba::GIRANDO ? "Giro individual" : "--");
+    AsyncResponseStream* r = request->beginResponseStream("application/json");
+    r->addHeader("Cache-Control", "no-store");
+    r->printf("{\"estado\":\"%s\",\"detalle\":\"%s\",\"paso\":\"%s\",", nombreEstado(estado_copia), detalle_copia, paso);
+    r->printf("\"distancia_cm\":%.4f,\"objetivo_cm\":%.2f,\"yaw_relativo_deg\":%.4f,\"yaw_total_deg\":%.4f,\"rumbo_objetivo_deg\":%.3f,\"error_deg\":%.4f,\"gz_rad_s\":%.6f,",
+              distancia_actual_cm, distancia_objetivo_cm, d.yaw_deg - yaw_cero_secuencia_deg, d.yaw_deg,
+              rumbo_objetivo_deg, error_visible, d.gz_rad_s);
+    r->printf("\"pwm_l\":%d,\"pwm_r\":%d,\"pwm_giro_positivo\":%d,\"pwm_giro_negativo\":%d,\"calibrado\":%s,",
+              pwm_izquierdo, pwm_derecho, pwm_min_giro_positivo, pwm_min_giro_negativo, calibracion_giro_ok ? "true" : "false");
+    r->printf("\"factor_pwm_derecho_recto\":%.2f,\"pwm_base_recto\":%d,\"pwm_base_derecho_compensado\":%d,",
+              factor_pwm_derecho_recto, pwm_base_recto_actual, pwm_base_derecho_compensado);
+    r->printf("\"resolucion_pwm_bits\":%u,\"pwm_max\":%d,",
+              static_cast<unsigned>(RESOLUCION_PWM_BITS), PWM_MAX);
+    r->printf("\"correccion_rumbo_pwm\":%.3f,\"correccion_encoder_pwm\":%.3f,\"reduccion_dinamica_l\":%d,\"reduccion_dinamica_r\":%d,",
+              correccion_rumbo_pwm_actual, correccion_encoder_pwm_actual,
+              reduccion_dinamica_izquierda, reduccion_dinamica_derecha);
+    r->printf("\"distancia_robusta_cm\":%.4f,\"estimador_distancia\":\"%s\",\"ticks_mediana_robusta\":%.3f,",
+              distancia_actual_cm, estimador_distancia, ticks_mediana_robusta);
+    r->printf("\"encoder_confiable\":[%s,%s,%s,%s],\"estado_encoder\":[\"%s\",\"%s\",\"%s\",\"%s\"],",
+              encoder_confiable[0] ? "true" : "false", encoder_confiable[1] ? "true" : "false",
+              encoder_confiable[2] ? "true" : "false", encoder_confiable[3] ? "true" : "false",
+              nombreSaludEncoder(salud_encoder[0]), nombreSaludEncoder(salud_encoder[1]),
+              nombreSaludEncoder(salud_encoder[2]), nombreSaludEncoder(salud_encoder[3]));
+    r->printf("\"pausas_reevaluacion\":%lu,\"intentos_recuperacion\":%u,\"modo_degradado\":%s,",
+              static_cast<unsigned long>(pausas_reevaluacion), intentos_recuperacion,
+              modo_degradado ? "true" : "false");
+    r->printf("\"mensaje_fusion\":\"%s\",\"ticks_fusion\":[%lld,%lld,%lld,%lld],",
+              mensaje_fusion, static_cast<long long>(ticks_fusion[0]), static_cast<long long>(ticks_fusion[1]),
+              static_cast<long long>(ticks_fusion[2]), static_cast<long long>(ticks_fusion[3]));
+    r->printf("\"ticks\":[%lld,%lld,%lld,%lld],\"vel_l_cm_s\":%.4f,\"vel_r_cm_s\":%.4f,\"mpu_obsoleto\":%s}",
+              static_cast<long long>(d.ticks[0]), static_cast<long long>(d.ticks[1]),
+              static_cast<long long>(d.ticks[2]), static_cast<long long>(d.ticks[3]),
+              vel_l, vel_r, d.mpu_obsoleto ? "true" : "false");
+    request->send(r);
+}
+
+void iniciarWeb() {
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(RED_AP, CLAVE_AP, 6, false, 2);
+    servidor.on("/", HTTP_GET, [](AsyncWebServerRequest* q) { q->send(200, "text/html; charset=utf-8", PAGINA); });
+    servidor.on("/api/estado", HTTP_GET, responderEstado);
+    servidor.on("/api/calibrar", HTTP_POST, [](AsyncWebServerRequest* q) { ultimo_heartbeat_web_ms = millis(); requiere_heartbeat_web = true; solicitud_calibrar = true; q->send(202); });
+    servidor.on("/api/iniciar", HTTP_POST, [](AsyncWebServerRequest* q) { ultimo_heartbeat_web_ms = millis(); requiere_heartbeat_web = true; solicitud_iniciar = true; q->send(202); });
+    servidor.on("/api/estop", HTTP_POST, [](AsyncWebServerRequest* q) { solicitud_estop = true; q->send(202); });
+    servidor.on("/api/rearmar", HTTP_POST, [](AsyncWebServerRequest* q) { ultimo_heartbeat_web_ms = millis(); solicitud_rearmar = true; q->send(202); });
+    servidor.on("/api/compensacion", HTTP_POST, [](AsyncWebServerRequest* q) {
+        ultimo_heartbeat_web_ms = millis();
+        if (!q->hasParam("factor")) {
+            q->send(400, "application/json", "{\"error\":\"falta_factor\"}");
+            return;
+        }
+        const float factor = q->getParam("factor")->value().toFloat();
+        if (!factorCompensacionValido(factor)) {
+            q->send(400, "application/json", "{\"error\":\"factor_fuera_de_rango\",\"min\":0.80,\"max\":1.00}");
+            return;
+        }
+        factor_compensacion_solicitado = cuantizarFactorCompensacion(factor);
+        solicitud_compensacion = true;
+        q->send(202, "application/json", "{\"aceptado\":true}");
+    });
+    servidor.on("/api/giro", HTTP_POST, [](AsyncWebServerRequest* q) {
+        ultimo_heartbeat_web_ms = millis();
+        if (!q->hasParam("angulo")) { q->send(400, "application/json", "{\"error\":\"falta_angulo\"}"); return; }
+        const int angulo = q->getParam("angulo")->value().toInt();
+        if (!anguloPermitido(angulo)) { q->send(400, "application/json", "{\"error\":\"angulo_no_permitido\"}"); return; }
+        angulo_giro_solicitado = angulo;
+        requiere_heartbeat_web = true;
+        solicitud_giro = true;
+        q->send(202);
+    });
+    servidor.onNotFound([](AsyncWebServerRequest* q) { q->redirect("/"); });
+    servidor.begin();
+    ultimo_heartbeat_web_ms = millis();
+    Serial.printf("[WEB] Core AsyncTCP configurado en 0 | red=%s clave=%s http://%s/\n",
+                  RED_AP, CLAVE_AP, WiFi.softAPIP().toString().c_str());
+}
+
+void atenderSerial() {
+    if (!Serial.available()) return;
+    String comando = Serial.readStringUntil('\n');
+    comando.trim();
+    comando.toUpperCase();
+    if (comando == "CALIBRAR") { requiere_heartbeat_web = false; solicitud_calibrar = true; }
+    else if (comando == "INICIAR") { requiere_heartbeat_web = false; solicitud_iniciar = true; }
+    else if (comando == "ESTOP" || comando == "STOP") solicitud_estop = true;
+    else if (comando == "REARMAR") solicitud_rearmar = true;
+    else if (comando.startsWith("COMPENSACION ")) {
+        const float factor = comando.substring(13).toFloat();
+        if (factorCompensacionValido(factor)) {
+            factor_compensacion_solicitado = cuantizarFactorCompensacion(factor);
+            solicitud_compensacion = true;
+        } else Serial.println("[SERIAL] COMPENSACION requiere un factor entre 0.80 y 1.00.");
+    }
+    else if (comando.startsWith("GIRO ")) {
+        const int angulo = comando.substring(5).toInt();
+        if (anguloPermitido(angulo)) {
+            requiere_heartbeat_web = false;
+            angulo_giro_solicitado = angulo;
+            solicitud_giro = true;
+        } else Serial.println("[SERIAL] Angulo permitido: -360, -180, -90, 90, 180, 360.");
+    } else Serial.println("[SERIAL] Comandos: CALIBRAR, INICIAR, GIRO <angulo>, COMPENSACION <0.80..1.00>, ESTOP, REARMAR.");
+}
+
+void reportarSerial() {
+    if (millis() - ultimo_serial_ms < PERIODO_SERIAL_MS) return;
+    ultimo_serial_ms = millis();
+    const DatosSensores d = copiarSensores();
+    const float error = estado == EstadoPrueba::GIRANDO || estado == EstadoPrueba::RECUPERANDO_RUMBO ? error_giro_deg : error_rumbo_deg;
+    Serial.printf("[LIVE] estado=%s paso=%u dist=%.2f/%.1fcm fuente=%s mediana=%.1f encFL/FR/BL/BR=%d/%d/%d/%d yawRel=%+.2f obj=%+.1f err=%+.2f GZ=%+.3f factorR=%.2f base=%d/%d ctrl=%.1f/%.1f red=%d/%d PWMfinal=%d/%d ticks=%lld,%lld,%lld,%lld\n",
+                  nombreEstado(estado), static_cast<unsigned>(indice_secuencia + 1), distancia_actual_cm, distancia_objetivo_cm,
+                  estimador_distancia, ticks_mediana_robusta,
+                  encoder_confiable[0], encoder_confiable[1], encoder_confiable[2], encoder_confiable[3],
+                  d.yaw_deg - yaw_cero_secuencia_deg, rumbo_objetivo_deg, error, d.gz_rad_s,
+                  factor_pwm_derecho_recto, pwm_base_recto_actual, pwm_base_derecho_compensado,
+                  correccion_rumbo_pwm_actual, correccion_encoder_pwm_actual,
+                  reduccion_dinamica_izquierda, reduccion_dinamica_derecha,
+                  pwm_izquierdo, pwm_derecho, static_cast<long long>(d.ticks[0]), static_cast<long long>(d.ticks[1]),
+                  static_cast<long long>(d.ticks[2]), static_cast<long long>(d.ticks[3]));
+}
+
+}  // namespace
+
+void setup() {
+    Serial.begin(115200);
+    delay(400);
+    Serial.println("\n=== TEST LAZO CERRADO MPU + 4 ENCODERS ===");
+    configurarMotores();
+    for (int i = 0; i < 4; ++i) configurarPcnt(PINES_ENCODER[i], UNIDADES_PCNT[i]);
+    const bool mpu_ok = inicializarMpu();
+    const bool fusion_ok = ejecutarPruebasFusion();
+    iniciarWeb();
+    xTaskCreatePinnedToCore(Task_Sensores, "Task_Sensores", 6144, nullptr, 8, nullptr, 1);
+    ultimo_control_ms = millis();
+    if (mpu_ok && fusion_ok) cambiarEstado(EstadoPrueba::ESPERANDO, "MPU, PCNT y fusion robusta listos. Ejecute CALIBRAR sobre piso libre.");
+    else if (!mpu_ok) provocarFallo("MPU6050 no disponible en 0x68; movimiento bloqueado.");
+    else provocarFallo("SELFTEST_FUSION_FALLIDO: movimiento bloqueado.");
+    Serial.printf("[TASK] Control Arduino en Core %d a 50 Hz. Motores detenidos.\n", xPortGetCoreID());
+    Serial.printf("[CONFIG] SDA=%d SCL=%d CM/tick=%.5f avance_polaridad=%d PWM=%u bits max=%d factor_derecho=%.2f\n",
+                  PIN_I2C_SDA, PIN_I2C_SCL, CM_POR_TICK, POLARIDAD_AVANCE,
+                  static_cast<unsigned>(RESOLUCION_PWM_BITS), PWM_MAX, factor_pwm_derecho_recto);
+    Serial.println("[SERIAL] CALIBRAR, INICIAR, GIRO -90|90|-180|180|-360|360, COMPENSACION 0.80..1.00, ESTOP, REARMAR.");
+}
+
+void loop() {
+    atenderSerial();
+    atenderSolicitudes();
+    if (millis() - ultimo_control_ms >= PERIODO_CONTROL_MS) {
+        ultimo_control_ms = millis();
+        auditarSeguridad();
+        if (estado != EstadoPrueba::FALLO && estado != EstadoPrueba::ESTOP) ejecutarMaquinaEstados();
+    }
+    reportarSerial();
+    delay(2);
+}

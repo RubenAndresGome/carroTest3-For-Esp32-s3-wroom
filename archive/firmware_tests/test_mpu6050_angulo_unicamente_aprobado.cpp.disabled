@@ -1,0 +1,707 @@
+// Diagnostico guiado y aislado del angulo Z (yaw) del MPU6050.
+// No usa encoders ni acciona motores. El ESP32 crea una miniweb local y
+// mantiene las ocho entradas de los DRV8833 permanentemente en LOW.
+// Sin magnetometro, el yaw integrado acumulara deriva lentamente.
+
+#include <Arduino.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <ESPAsyncWebServer.h>
+#include <WiFi.h>
+#include <Wire.h>
+#include "driver/gpio.h"
+#include "Config.h"
+
+namespace {
+
+constexpr char RED_AP[] = "PRUEBA_ANGULO_MPU";
+constexpr char CLAVE_AP[] = "angulo6050";
+constexpr uint32_t PERIODO_IMU_MS = 10;
+constexpr uint32_t PERIODO_SERIAL_MS = 500;
+constexpr uint32_t EDAD_MAXIMA_LECTURA_MS = 100;
+constexpr uint32_t DURACION_VERIFICACION_MS = 500;
+constexpr uint32_t DURACION_ESTABILIDAD_MS = 2000;
+constexpr uint32_t DURACION_PRUEBA_GIRO_MS = 10000;
+constexpr uint32_t MIN_MUESTRAS_CALIBRACION = IMU_CALIBRATION_SAMPLES * 3U / 4U;
+constexpr float MAX_GZ_REPOSO_RAD_S = 0.03f;
+constexpr float MAX_DERIVA_REPOSO_DEG = 3.0f;
+constexpr float MIN_GIRO_PRUEBA_DEG = 30.0f;
+constexpr float MIN_GZ_PICO_RAD_S = 0.15f;
+
+enum class EtapaDiagnostico : uint8_t {
+    NO_PROBADO,
+    ESCANEANDO,
+    CALIBRANDO,
+    VERIFICANDO_LECTURAS,
+    VERIFICANDO_ESTABILIDAD,
+    ESPERANDO_GIRO,
+    FINALIZADO,
+    FALLA,
+};
+
+enum class CodigoResultado : uint8_t {
+    NO_PROBADO,
+    PROBANDO,
+    APROBADO,
+    SENSOR_FUNCIONAL_ORIENTACION_INVERTIDA,
+    BUS_BLOQUEADO,
+    MPU_NO_DETECTADO,
+    AD0_INCORRECTO,
+    IDENTIDAD_INVALIDA,
+    CALIBRACION_FALLIDA,
+    LECTURAS_OBSOLETAS,
+    INESTABLE_EN_REPOSO,
+    SIN_RESPUESTA_AL_GIRO,
+};
+
+template <size_t N> class PromedioMovil {
+public:
+    float agregar(float valor) {
+        if (cantidad_ < N) {
+            valores_[indice_] = valor;
+            suma_ += valor;
+            ++cantidad_;
+        } else {
+            suma_ -= valores_[indice_];
+            valores_[indice_] = valor;
+            suma_ += valor;
+        }
+        indice_ = (indice_ + 1) % N;
+        return suma_ / static_cast<float>(cantidad_);
+    }
+    void limpiar() {
+        for (size_t i = 0; i < N; ++i) valores_[i] = 0.0f;
+        indice_ = 0;
+        cantidad_ = 0;
+        suma_ = 0.0f;
+    }
+private:
+    float valores_[N] = {};
+    size_t indice_ = 0;
+    size_t cantidad_ = 0;
+    float suma_ = 0.0f;
+};
+
+constexpr int PINES_MOTOR[] = {
+    PIN_FL_FWD, PIN_FL_REV, PIN_FR_FWD, PIN_FR_REV,
+    PIN_BL_FWD, PIN_BL_REV, PIN_BR_FWD, PIN_BR_REV,
+};
+
+Adafruit_MPU6050 mpu;
+AsyncWebServer servidor(80);
+PromedioMovil<IMU_GYRO_AVG_WINDOW> filtro_gz;
+portMUX_TYPE mux_datos = portMUX_INITIALIZER_UNLOCKED;
+
+EtapaDiagnostico etapa = EtapaDiagnostico::NO_PROBADO;
+CodigoResultado codigo_resultado = CodigoResultado::NO_PROBADO;
+const char* detalle = "Pulse INICIAR PRUEBA COMPLETA.";
+bool mpu_presente = false;
+bool calibrado = false;
+bool calibrando = false;
+bool lectura_obsoleta = true;
+bool bus_ok = false;
+bool identidad_ok = false;
+bool calibracion_ok = false;
+bool estabilidad_ok = false;
+bool movimiento_ok = false;
+bool lectura_registros_ok = false;
+float offset_gz_rad_s = 0.0f;
+float gz_filtrado_rad_s = 0.0f;
+float angulo_z_acumulado_deg = 0.0f;
+float angulo_z_normalizado_deg = 0.0f;
+float yaw_inicio_prueba_deg = 0.0f;
+float delta_prueba_deg = 0.0f;
+float gz_pico_rad_s = 0.0f;
+float yaw_inicio_estabilidad_deg = 0.0f;
+float deriva_reposo_max_deg = 0.0f;
+float gz_reposo_max_rad_s = 0.0f;
+uint32_t muestras_calibracion_validas = 0;
+uint32_t muestras_totales = 0;
+uint32_t fallos_lectura = 0;
+uint32_t ultima_muestra_ms = 0;
+uint32_t tiempo_anterior_us = 0;
+uint32_t ultimo_reporte_serial_ms = 0;
+uint32_t inicio_etapa_ms = 0;
+uint32_t muestras_inicio_etapa = 0;
+uint32_t fallos_inicio_etapa = 0;
+uint8_t direccion_mpu = 0;
+uint8_t ultimo_error_i2c = 0;
+uint8_t who_am_i = 0;
+uint8_t pwr_mgmt_1 = 0;
+uint8_t config_reg = 0;
+uint8_t smplrt_div = 0;
+uint8_t gyro_config = 0;
+uint8_t accel_config = 0;
+uint32_t dispositivos_i2c = 0;
+
+volatile bool solicitar_cero = false;
+volatile bool solicitar_recalibracion = false;
+volatile bool solicitar_reescaneo = false;
+volatile bool solicitar_prueba_completa = false;
+
+const char* nombreEtapa(EtapaDiagnostico valor) {
+    switch (valor) {
+        case EtapaDiagnostico::NO_PROBADO: return "NO_PROBADO";
+        case EtapaDiagnostico::ESCANEANDO: return "ESCANEANDO";
+        case EtapaDiagnostico::CALIBRANDO: return "CALIBRANDO";
+        case EtapaDiagnostico::VERIFICANDO_LECTURAS: return "VERIFICANDO_LECTURAS";
+        case EtapaDiagnostico::VERIFICANDO_ESTABILIDAD: return "VERIFICANDO_ESTABILIDAD";
+        case EtapaDiagnostico::ESPERANDO_GIRO: return "ESPERANDO_GIRO";
+        case EtapaDiagnostico::FINALIZADO: return "FINALIZADO";
+        case EtapaDiagnostico::FALLA: return "FALLA";
+    }
+    return "DESCONOCIDA";
+}
+
+const char* nombreCodigo(CodigoResultado valor) {
+    switch (valor) {
+        case CodigoResultado::NO_PROBADO: return "NO_PROBADO";
+        case CodigoResultado::PROBANDO: return "PROBANDO";
+        case CodigoResultado::APROBADO: return "APROBADO";
+        case CodigoResultado::SENSOR_FUNCIONAL_ORIENTACION_INVERTIDA: return "SENSOR_FUNCIONAL_ORIENTACION_INVERTIDA";
+        case CodigoResultado::BUS_BLOQUEADO: return "BUS_BLOQUEADO";
+        case CodigoResultado::MPU_NO_DETECTADO: return "MPU_NO_DETECTADO";
+        case CodigoResultado::AD0_INCORRECTO: return "AD0_INCORRECTO";
+        case CodigoResultado::IDENTIDAD_INVALIDA: return "IDENTIDAD_INVALIDA";
+        case CodigoResultado::CALIBRACION_FALLIDA: return "CALIBRACION_FALLIDA";
+        case CodigoResultado::LECTURAS_OBSOLETAS: return "LECTURAS_OBSOLETAS";
+        case CodigoResultado::INESTABLE_EN_REPOSO: return "INESTABLE_EN_REPOSO";
+        case CodigoResultado::SIN_RESPUESTA_AL_GIRO: return "SIN_RESPUESTA_AL_GIRO";
+    }
+    return "DESCONOCIDO";
+}
+
+const char* nombreVeredicto(CodigoResultado valor) {
+    if (valor == CodigoResultado::APROBADO) return "APROBADO";
+    if (valor == CodigoResultado::SENSOR_FUNCIONAL_ORIENTACION_INVERTIDA) return "FUNCIONAL_CON_ADVERTENCIA";
+    if (valor == CodigoResultado::PROBANDO) return "PROBANDO";
+    if (valor == CodigoResultado::NO_PROBADO) return "NO_PROBADO";
+    return "FALLO";
+}
+
+const char PAGINA[] PROGMEM = R"HTML(
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico MPU6050</title><style>
+:root{color-scheme:dark;--bg:#07111f;--panel:#101d31;--line:#294565;--ok:#2dd4bf;--warn:#fbbf24;--bad:#fb7185;--muted:#9fb2cc;color:#e7eef8;font-family:system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg)}main{width:min(980px,94vw);margin:20px auto}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px}.center{text-align:center}h1,h2{margin-top:0}.semaforo{display:inline-block;border:2px solid var(--line);border-radius:999px;padding:8px 18px;font-weight:900;letter-spacing:.05em}.angulo{font-size:clamp(3.5rem,15vw,7rem);font-weight:800;color:var(--ok);line-height:1;margin:18px 0}.unidad{font-size:1.8rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.card,.paso{border:1px solid var(--line);border-radius:10px;padding:12px}.valor{font-size:1.15rem;font-weight:700;overflow-wrap:anywhere}.acciones{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}button{border:0;border-radius:9px;padding:12px 15px;font-weight:800;cursor:pointer}.principal{background:var(--ok)}.secundario{background:var(--warn)}.neutral{background:#b8c8dd}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.muted{color:var(--muted)}.pasos{display:grid;gap:8px}.paso strong{float:right}.detalle{font-size:1.05rem}.cuenta{font-size:1.5rem;font-weight:800}</style></head><body><main>
+<section class="panel center"><h1>MPU6050 · diagnóstico completo</h1><div id="semaforo" class="semaforo warn">NO PROBADO</div><p id="instruccion" class="detalle">Conectando…</p><div id="cuenta" class="cuenta"></div><div class="angulo"><span id="angulo">0.0</span><span class="unidad">°</span></div><div class="acciones"><button class="principal" onclick="accion('/api/prueba/iniciar')">INICIAR PRUEBA COMPLETA</button><button class="secundario" onclick="accion('/api/reescanear')">REPETIR ESCANEO</button><button class="secundario" onclick="accion('/api/recalibrar')">RECALIBRAR</button><button class="neutral" onclick="accion('/api/cero')">PONER EN CERO</button></div></section>
+<section class="panel"><h2>Etapas</h2><div class="pasos"><div class="paso">Bus I²C <strong id="paso-bus">PENDIENTE</strong></div><div class="paso">Identidad MPU6050 <strong id="paso-identidad">PENDIENTE</strong></div><div class="paso">Calibración <strong id="paso-calibracion">PENDIENTE</strong></div><div class="paso">Estabilidad en reposo <strong id="paso-estabilidad">PENDIENTE</strong></div><div class="paso">Respuesta al giro <strong id="paso-movimiento">PENDIENTE</strong></div></div></section>
+<section class="panel"><h2>Datos en vivo</h2><div class="grid"><div class="card">Etapa<div id="etapa" class="valor">--</div></div><div class="card">Código<div id="codigo" class="valor">--</div></div><div class="card">Velocidad Z<div id="gz" class="valor">--</div></div><div class="card">Dirección I²C<div id="direccion" class="valor">--</div></div><div class="card">WHO_AM_I<div id="who" class="valor">--</div></div><div class="card">SDA / SCL<div id="niveles" class="valor">--</div></div><div class="card">Muestras totales<div id="muestras" class="valor">0</div></div><div class="card">Edad de lectura<div id="edad" class="valor">--</div></div><div class="card">Fallos de lectura<div id="fallos" class="valor">0</div></div><div class="card">Delta de prueba<div id="delta" class="valor">0°</div></div><div class="card">Pico gyro Z<div id="pico" class="valor">0 rad/s</div></div><div class="card">Offset<div id="offset" class="valor">0 rad/s</div></div></div></section>
+</main><script>
+const $=id=>document.getElementById(id);function estadoPaso(ok,activo){return ok?'APROBADO':activo?'EN CURSO':'PENDIENTE'}
+async function accion(ruta){if(ruta==='/api/recalibrar'&&!confirm('Mantenga el carro inmóvil durante la calibración. ¿Continuar?'))return;try{await fetch(ruta,{method:'POST'})}catch(e){$('instruccion').textContent='No fue posible enviar la acción al ESP32.'}}
+async function actualizar(){try{const r=await fetch('/api/angulo',{cache:'no-store'});if(!r.ok)throw Error();const d=await r.json();
+$('angulo').textContent=Number(d.angulo_normalizado_deg).toFixed(1);$('gz').textContent=Number(d.gz_filtrado_rad_s).toFixed(5)+' rad/s';$('direccion').textContent=d.direccion_i2c||'ninguna';$('who').textContent=d.who_am_i;$('niveles').textContent=`SDA=${d.sda_nivel} · SCL=${d.scl_nivel}`;$('muestras').textContent=d.muestras_totales;$('edad').textContent=d.edad_lectura_ms<0?'sin muestras':d.edad_lectura_ms+' ms';$('fallos').textContent=d.fallos_lectura;$('delta').textContent=Number(d.delta_prueba_deg).toFixed(1)+'°';$('pico').textContent=Number(d.gz_pico_rad_s).toFixed(3)+' rad/s';$('offset').textContent=Number(d.offset_gz_rad_s).toFixed(6)+' rad/s';$('etapa').textContent=d.etapa;$('codigo').textContent=d.codigo_resultado;$('instruccion').textContent=d.detalle;
+const probando=d.veredicto==='PROBANDO',aprobado=d.veredicto==='APROBADO',advertencia=d.veredicto==='FUNCIONAL_CON_ADVERTENCIA';$('semaforo').textContent=d.veredicto.replaceAll('_',' ');$('semaforo').className='semaforo '+(aprobado?'ok':advertencia||probando||d.veredicto==='NO_PROBADO'?'warn':'bad');
+$('paso-bus').textContent=estadoPaso(d.resultados.bus,d.etapa==='ESCANEANDO');$('paso-identidad').textContent=estadoPaso(d.resultados.identidad,d.etapa==='ESCANEANDO');$('paso-calibracion').textContent=estadoPaso(d.resultados.calibracion,d.etapa==='CALIBRANDO'||d.etapa==='VERIFICANDO_LECTURAS');$('paso-estabilidad').textContent=estadoPaso(d.resultados.estabilidad,d.etapa==='VERIFICANDO_ESTABILIDAD');$('paso-movimiento').textContent=estadoPaso(d.resultados.movimiento,d.etapa==='ESPERANDO_GIRO');
+for(const id of ['paso-bus','paso-identidad','paso-calibracion','paso-estabilidad','paso-movimiento']){$(id).className=$(id).textContent==='APROBADO'?'ok':$(id).textContent==='EN CURSO'?'warn':'muted'}
+$('cuenta').textContent=d.segundos_restantes>0?(d.etapa==='VERIFICANDO_ESTABILIDAD'?'Mantenga quieto: ':'Tiempo para girar: ')+d.segundos_restantes+' s':'';
+}catch(e){$('semaforo').textContent='SIN RESPUESTA';$('semaforo').className='semaforo bad';$('instruccion').textContent='La miniweb no recibe datos del ESP32.'}}
+actualizar();setInterval(actualizar,100);
+</script></body></html>
+)HTML";
+
+void bloquearMotores() {
+    for (const int pin : PINES_MOTOR) {
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, LOW);
+    }
+}
+
+float normalizarAngulo(float angulo) {
+    while (angulo > 180.0f) angulo -= 360.0f;
+    while (angulo <= -180.0f) angulo += 360.0f;
+    return angulo;
+}
+
+void anunciarEstado() {
+    Serial.printf("[MPU] etapa=%s | resultado=%s | %s\n", nombreEtapa(etapa), nombreCodigo(codigo_resultado), detalle);
+}
+
+void cambiarEstado(EtapaDiagnostico nueva_etapa, CodigoResultado nuevo_codigo, const char* nuevo_detalle) {
+    portENTER_CRITICAL(&mux_datos);
+    etapa = nueva_etapa;
+    codigo_resultado = nuevo_codigo;
+    detalle = nuevo_detalle;
+    inicio_etapa_ms = millis();
+    portEXIT_CRITICAL(&mux_datos);
+    anunciarEstado();
+}
+
+void fallar(CodigoResultado codigo, const char* causa) {
+    cambiarEstado(EtapaDiagnostico::FALLA, codigo, causa);
+}
+
+void ponerAnguloEnCero() {
+    portENTER_CRITICAL(&mux_datos);
+    angulo_z_acumulado_deg = 0.0f;
+    angulo_z_normalizado_deg = 0.0f;
+    gz_filtrado_rad_s = 0.0f;
+    portEXIT_CRITICAL(&mux_datos);
+    filtro_gz.limpiar();
+    tiempo_anterior_us = micros();
+    Serial.println("[MPU] Angulo Z puesto en cero.");
+}
+
+bool leerRegistroMpu(uint8_t registro, uint8_t& valor) {
+    if (!direccion_mpu) return false;
+    Wire.beginTransmission(direccion_mpu);
+    Wire.write(registro);
+    const uint8_t error = Wire.endTransmission(false);
+    if (error != 0) {
+        ultimo_error_i2c = error;
+        ++fallos_lectura;
+        return false;
+    }
+    if (Wire.requestFrom(static_cast<int>(direccion_mpu), 1) != 1) {
+        ultimo_error_i2c = 5;
+        ++fallos_lectura;
+        return false;
+    }
+    valor = Wire.read();
+    ultimo_error_i2c = 0;
+    return true;
+}
+
+bool diagnosticarRegistros() {
+    bool ok = true;
+    ok &= leerRegistroMpu(0x75, who_am_i);
+    ok &= leerRegistroMpu(0x6B, pwr_mgmt_1);
+    ok &= leerRegistroMpu(0x19, smplrt_div);
+    ok &= leerRegistroMpu(0x1A, config_reg);
+    ok &= leerRegistroMpu(0x1B, gyro_config);
+    ok &= leerRegistroMpu(0x1C, accel_config);
+    lectura_registros_ok = ok;
+    Serial.printf("[MPU] Registros: WHO=0x%02X PWR=0x%02X DIV=0x%02X CONFIG=0x%02X GYRO=0x%02X ACCEL=0x%02X error=%u\n",
+                  who_am_i, pwr_mgmt_1, smplrt_div, config_reg, gyro_config, accel_config, ultimo_error_i2c);
+    return ok;
+}
+
+uint8_t probarDireccion(uint8_t direccion) {
+    Wire.beginTransmission(direccion);
+    return Wire.endTransmission();
+}
+
+void limpiarDeteccion() {
+    mpu_presente = false;
+    calibrado = false;
+    lectura_obsoleta = true;
+    bus_ok = false;
+    identidad_ok = false;
+    calibracion_ok = false;
+    estabilidad_ok = false;
+    movimiento_ok = false;
+    lectura_registros_ok = false;
+    direccion_mpu = 0;
+    who_am_i = 0;
+    pwr_mgmt_1 = 0;
+    config_reg = 0;
+    smplrt_div = 0;
+    gyro_config = 0;
+    accel_config = 0;
+    dispositivos_i2c = 0;
+    ultimo_error_i2c = 0;
+    ultima_muestra_ms = 0;
+    muestras_calibracion_validas = 0;
+    offset_gz_rad_s = 0.0f;
+    gz_filtrado_rad_s = 0.0f;
+    angulo_z_acumulado_deg = 0.0f;
+    angulo_z_normalizado_deg = 0.0f;
+    filtro_gz.limpiar();
+}
+
+bool detectarMpu() {
+    limpiarDeteccion();
+    cambiarEstado(EtapaDiagnostico::ESCANEANDO, CodigoResultado::PROBANDO,
+                  "Comprobando niveles y buscando el MPU6050 en GPIO1/GPIO2.");
+    delay(2);
+    const int sda = digitalRead(PIN_I2C_SDA);
+    const int scl = digitalRead(PIN_I2C_SCL);
+    Serial.printf("[MPU] I2C SDA=%d SCL=%d, escaneo a 100 kHz.\n", sda, scl);
+    if (sda == 0 || scl == 0) {
+        fallar(CodigoResultado::BUS_BLOQUEADO,
+               "SDA o SCL está en LOW: revise cortocircuitos, tierra y resistencias pull-up a 3.3 V.");
+        return false;
+    }
+
+    bool responde_68 = false;
+    bool responde_69 = false;
+    for (uint8_t direccion = 1; direccion < 127; ++direccion) {
+        const uint8_t error = probarDireccion(direccion);
+        ultimo_error_i2c = error;
+        if (error == 0) {
+            ++dispositivos_i2c;
+            Serial.printf("[MPU] Dispositivo I2C encontrado: 0x%02X\n", direccion);
+            responde_68 |= direccion == 0x68;
+            responde_69 |= direccion == 0x69;
+        }
+    }
+    bus_ok = true;
+    if (!responde_68) {
+        if (responde_69) {
+            direccion_mpu = 0x69;
+            fallar(CodigoResultado::AD0_INCORRECTO,
+                   "El MPU responde en 0x69: conecte AD0 firmemente a GND para usar 0x68.");
+        } else {
+            fallar(CodigoResultado::MPU_NO_DETECTADO,
+                   "No hay respuesta en 0x68: revise VCC, GND, SDA, SCL y las pull-up físicas.");
+        }
+        return false;
+    }
+
+    direccion_mpu = 0x68;
+    ultimo_error_i2c = 0;
+    if (!diagnosticarRegistros() || who_am_i != 0x68) {
+        fallar(CodigoResultado::IDENTIDAD_INVALIDA,
+               "Hay respuesta I2C, pero WHO_AM_I no es 0x68 o los registros no se leen correctamente.");
+        return false;
+    }
+    identidad_ok = true;
+    if (!mpu.begin(0x68, &Wire)) {
+        identidad_ok = false;
+        fallar(CodigoResultado::IDENTIDAD_INVALIDA,
+               "WHO_AM_I respondió, pero la biblioteca no pudo inicializar el MPU6050.");
+        return false;
+    }
+    mpu_presente = true;
+    mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+    delay(100);
+    return true;
+}
+
+bool calibrarGiroscopio() {
+    if (!mpu_presente) {
+        fallar(CodigoResultado::MPU_NO_DETECTADO, "No se puede calibrar: primero repita el escaneo I2C.");
+        return false;
+    }
+    cambiarEstado(EtapaDiagnostico::CALIBRANDO, CodigoResultado::PROBANDO,
+                  "Mantenga el carro completamente inmóvil durante la calibración.");
+    calibrando = true;
+    calibrado = false;
+    calibracion_ok = false;
+    bloquearMotores();
+    float suma = 0.0f;
+    uint32_t validas = 0;
+    for (uint32_t i = 0; i < IMU_CALIBRATION_SAMPLES; ++i) {
+        sensors_event_t a, g, t;
+        if (mpu.getEvent(&a, &g, &t)) {
+            suma += g.gyro.z;
+            ++validas;
+            ++muestras_totales;
+        } else {
+            ++fallos_lectura;
+        }
+        bloquearMotores();
+        delay(2);
+    }
+    muestras_calibracion_validas = validas;
+    calibrando = false;
+    if (validas < MIN_MUESTRAS_CALIBRACION) {
+        lectura_obsoleta = true;
+        fallar(CodigoResultado::CALIBRACION_FALLIDA,
+               "No se obtuvieron al menos 192 de 256 muestras válidas; revise alimentación y bus I2C.");
+        return false;
+    }
+    offset_gz_rad_s = suma / static_cast<float>(validas);
+    calibrado = true;
+    calibracion_ok = true;
+    ponerAnguloEnCero();
+    Serial.printf("[MPU] Calibracion OK: offset=%.7f rad/s, muestras=%lu/%u.\n",
+                  offset_gz_rad_s, static_cast<unsigned long>(validas), IMU_CALIBRATION_SAMPLES);
+    return true;
+}
+
+bool actualizarImu() {
+    if (!mpu_presente || !calibrado || calibrando) return false;
+    sensors_event_t a, g, t;
+    if (!mpu.getEvent(&a, &g, &t)) {
+        ++fallos_lectura;
+        ultimo_error_i2c = 5;
+        lectura_obsoleta = ultima_muestra_ms == 0 || millis() - ultima_muestra_ms > EDAD_MAXIMA_LECTURA_MS;
+        return false;
+    }
+    const uint32_t ahora_us = micros();
+    const float dt = (ahora_us - tiempo_anterior_us) / 1000000.0f;
+    tiempo_anterior_us = ahora_us;
+    ++muestras_totales;
+    ultima_muestra_ms = millis();
+    lectura_obsoleta = false;
+    ultimo_error_i2c = 0;
+    if (dt <= 0.0f || dt > 0.2f) return true;
+    float gz = filtro_gz.agregar(g.gyro.z - offset_gz_rad_s);
+    if (fabsf(gz) < IMU_GYRO_DEADBAND_RAD_S) gz = 0.0f;
+    portENTER_CRITICAL(&mux_datos);
+    gz_filtrado_rad_s = gz;
+    angulo_z_acumulado_deg += gz * dt * RAD_TO_DEG;
+    angulo_z_normalizado_deg = normalizarAngulo(angulo_z_acumulado_deg);
+    portEXIT_CRITICAL(&mux_datos);
+    return true;
+}
+
+void iniciarVerificacionLecturas() {
+    muestras_inicio_etapa = muestras_totales;
+    fallos_inicio_etapa = fallos_lectura;
+    cambiarEstado(EtapaDiagnostico::VERIFICANDO_LECTURAS, CodigoResultado::PROBANDO,
+                  "Verificando que el MPU entregue muestras continuas y recientes.");
+}
+
+void iniciarEstabilidad() {
+    ponerAnguloEnCero();
+    yaw_inicio_estabilidad_deg = angulo_z_acumulado_deg;
+    deriva_reposo_max_deg = 0.0f;
+    gz_reposo_max_rad_s = 0.0f;
+    fallos_inicio_etapa = fallos_lectura;
+    cambiarEstado(EtapaDiagnostico::VERIFICANDO_ESTABILIDAD, CodigoResultado::PROBANDO,
+                  "Mantenga el carro quieto durante 2 segundos.");
+}
+
+void iniciarPruebaGiro() {
+    ponerAnguloEnCero();
+    yaw_inicio_prueba_deg = angulo_z_acumulado_deg;
+    delta_prueba_deg = 0.0f;
+    gz_pico_rad_s = 0.0f;
+    fallos_inicio_etapa = fallos_lectura;
+    cambiarEstado(EtapaDiagnostico::ESPERANDO_GIRO, CodigoResultado::PROBANDO,
+                  "Gire el carro manualmente unos 45 grados en sentido antihorario antes de 10 segundos.");
+}
+
+void procesarMaquinaDiagnostico() {
+    const uint32_t ahora = millis();
+    const uint32_t edad = ultima_muestra_ms == 0 ? UINT32_MAX : ahora - ultima_muestra_ms;
+
+    if ((etapa == EtapaDiagnostico::VERIFICANDO_LECTURAS ||
+         etapa == EtapaDiagnostico::VERIFICANDO_ESTABILIDAD ||
+         etapa == EtapaDiagnostico::ESPERANDO_GIRO) &&
+        edad > EDAD_MAXIMA_LECTURA_MS) {
+        lectura_obsoleta = true;
+        fallar(CodigoResultado::LECTURAS_OBSOLETAS,
+               "El MPU dejó de entregar muestras durante más de 100 ms; revise alimentación y conexiones I2C.");
+        return;
+    }
+
+    if (etapa == EtapaDiagnostico::VERIFICANDO_LECTURAS && ahora - inicio_etapa_ms >= DURACION_VERIFICACION_MS) {
+        const uint32_t nuevas = muestras_totales - muestras_inicio_etapa;
+        if (nuevas < 20 || fallos_lectura != fallos_inicio_etapa) {
+            fallar(CodigoResultado::LECTURAS_OBSOLETAS,
+                   "Las muestras no son continuas o aparecieron errores I2C durante la verificación.");
+            return;
+        }
+        iniciarEstabilidad();
+        return;
+    }
+
+    if (etapa == EtapaDiagnostico::VERIFICANDO_ESTABILIDAD) {
+        gz_reposo_max_rad_s = max(gz_reposo_max_rad_s, fabsf(gz_filtrado_rad_s));
+        deriva_reposo_max_deg = max(deriva_reposo_max_deg, fabsf(angulo_z_acumulado_deg - yaw_inicio_estabilidad_deg));
+        if (ahora - inicio_etapa_ms >= DURACION_ESTABILIDAD_MS) {
+            if (fallos_lectura != fallos_inicio_etapa || gz_reposo_max_rad_s > MAX_GZ_REPOSO_RAD_S ||
+                deriva_reposo_max_deg > MAX_DERIVA_REPOSO_DEG) {
+                fallar(CodigoResultado::INESTABLE_EN_REPOSO,
+                       "El MPU presenta demasiado movimiento o deriva en reposo; inmovilice el carro y repita la calibración.");
+                return;
+            }
+            estabilidad_ok = true;
+            iniciarPruebaGiro();
+        }
+        return;
+    }
+
+    if (etapa == EtapaDiagnostico::ESPERANDO_GIRO) {
+        delta_prueba_deg = angulo_z_acumulado_deg - yaw_inicio_prueba_deg;
+        gz_pico_rad_s = max(gz_pico_rad_s, fabsf(gz_filtrado_rad_s));
+        if (ahora - inicio_etapa_ms >= DURACION_PRUEBA_GIRO_MS) {
+            const bool magnitud_ok = fabsf(delta_prueba_deg) >= MIN_GIRO_PRUEBA_DEG && gz_pico_rad_s >= MIN_GZ_PICO_RAD_S;
+            if (fallos_lectura != fallos_inicio_etapa) {
+                fallar(CodigoResultado::LECTURAS_OBSOLETAS,
+                       "Aparecieron errores de lectura I2C durante el giro manual.");
+            } else if (!magnitud_ok) {
+                fallar(CodigoResultado::SIN_RESPUESTA_AL_GIRO,
+                       "No se midió un giro suficiente: repita y gire al menos 45 grados en sentido antihorario.");
+            } else if (delta_prueba_deg < 0.0f) {
+                movimiento_ok = true;
+                cambiarEstado(EtapaDiagnostico::FINALIZADO, CodigoResultado::SENSOR_FUNCIONAL_ORIENTACION_INVERTIDA,
+                              "El sensor mide correctamente, pero el signo está invertido; monte el eje +Z hacia arriba.");
+            } else {
+                movimiento_ok = true;
+                cambiarEstado(EtapaDiagnostico::FINALIZADO, CodigoResultado::APROBADO,
+                              "MPU6050 aprobado: I2C, identidad, calibración, estabilidad, movimiento y sentido son correctos.");
+            }
+        }
+    }
+}
+
+void iniciarPruebaCompleta() {
+    // Los contadores del veredicto pertenecen a esta ejecucion, no a intentos
+    // anteriores que el usuario ya corrigio con un cambio de cableado.
+    muestras_totales = 0;
+    fallos_lectura = 0;
+    estabilidad_ok = false;
+    movimiento_ok = false;
+    delta_prueba_deg = 0.0f;
+    gz_pico_rad_s = 0.0f;
+    if (!detectarMpu()) return;
+    if (!calibrarGiroscopio()) return;
+    iniciarVerificacionLecturas();
+}
+
+void reescanear() {
+    if (detectarMpu()) {
+        cambiarEstado(EtapaDiagnostico::NO_PROBADO, CodigoResultado::NO_PROBADO,
+                      "MPU6050 encontrado e identificado. Pulse INICIAR PRUEBA COMPLETA.");
+    }
+}
+
+void recalibrar() {
+    if (calibrarGiroscopio()) {
+        cambiarEstado(EtapaDiagnostico::NO_PROBADO, CodigoResultado::NO_PROBADO,
+                      "Calibración correcta. Pulse INICIAR PRUEBA COMPLETA para validar estabilidad y movimiento.");
+    }
+}
+
+void responderAngulo(AsyncWebServerRequest* request) {
+    EtapaDiagnostico etapa_copia;
+    CodigoResultado codigo_copia;
+    const char* detalle_copia;
+    float offset, gz, acumulado, normalizado, yaw_inicio, delta, pico;
+    bool presente, cal, calibrando_copia, obsoleto;
+    portENTER_CRITICAL(&mux_datos);
+    etapa_copia = etapa;
+    codigo_copia = codigo_resultado;
+    detalle_copia = detalle;
+    presente = mpu_presente;
+    cal = calibrado;
+    calibrando_copia = calibrando;
+    obsoleto = lectura_obsoleta;
+    offset = offset_gz_rad_s;
+    gz = gz_filtrado_rad_s;
+    acumulado = angulo_z_acumulado_deg;
+    normalizado = angulo_z_normalizado_deg;
+    yaw_inicio = yaw_inicio_prueba_deg;
+    delta = delta_prueba_deg;
+    pico = gz_pico_rad_s;
+    portEXIT_CRITICAL(&mux_datos);
+
+    const int32_t edad = ultima_muestra_ms == 0 ? -1 : static_cast<int32_t>(millis() - ultima_muestra_ms);
+    uint32_t restantes = 0;
+    if (etapa_copia == EtapaDiagnostico::VERIFICANDO_ESTABILIDAD) {
+        const uint32_t transcurrido = millis() - inicio_etapa_ms;
+        restantes = transcurrido >= DURACION_ESTABILIDAD_MS ? 0 : (DURACION_ESTABILIDAD_MS - transcurrido + 999) / 1000;
+    } else if (etapa_copia == EtapaDiagnostico::ESPERANDO_GIRO) {
+        const uint32_t transcurrido = millis() - inicio_etapa_ms;
+        restantes = transcurrido >= DURACION_PRUEBA_GIRO_MS ? 0 : (DURACION_PRUEBA_GIRO_MS - transcurrido + 999) / 1000;
+    }
+
+    AsyncResponseStream* r = request->beginResponseStream("application/json");
+    r->addHeader("Cache-Control", "no-store");
+    r->printf("{\"mpu_presente\":%s,\"calibrado\":%s,\"calibrando\":%s,\"obsoleto\":%s,",
+              presente ? "true" : "false", cal ? "true" : "false", calibrando_copia ? "true" : "false", obsoleto ? "true" : "false");
+    r->printf("\"etapa\":\"%s\",\"veredicto\":\"%s\",\"codigo_resultado\":\"%s\",\"detalle\":\"%s\",",
+              nombreEtapa(etapa_copia), nombreVeredicto(codigo_copia), nombreCodigo(codigo_copia), detalle_copia);
+    r->printf("\"direccion_i2c\":\"%s\",\"offset_gz_rad_s\":%.8f,\"gz_filtrado_rad_s\":%.8f,\"angulo_acumulado_deg\":%.5f,\"angulo_normalizado_deg\":%.5f,",
+              direccion_mpu == 0x68 ? "0x68" : direccion_mpu == 0x69 ? "0x69" : "", offset, gz, acumulado, normalizado);
+    r->printf("\"muestras_calibracion\":%lu,\"muestras_totales\":%lu,\"fallos_lectura\":%lu,\"edad_lectura_ms\":%ld,\"segundos_restantes\":%lu,",
+              static_cast<unsigned long>(muestras_calibracion_validas), static_cast<unsigned long>(muestras_totales),
+              static_cast<unsigned long>(fallos_lectura), static_cast<long>(edad), static_cast<unsigned long>(restantes));
+    r->printf("\"yaw_inicio_prueba_deg\":%.5f,\"delta_prueba_deg\":%.5f,\"gz_pico_rad_s\":%.8f,", yaw_inicio, delta, pico);
+    r->printf("\"theta_error_config_deg\":%.3f,\"sda_nivel\":%d,\"scl_nivel\":%d,\"dispositivos_i2c\":%lu,\"error_i2c\":%u,",
+              THETA_ERROR_DEG, digitalRead(PIN_I2C_SDA), digitalRead(PIN_I2C_SCL), static_cast<unsigned long>(dispositivos_i2c), ultimo_error_i2c);
+    r->printf("\"who_am_i\":\"0x%02X\",\"pwr_mgmt_1\":\"0x%02X\",\"config_reg\":\"0x%02X\",\"smplrt_div\":\"0x%02X\",\"gyro_config\":\"0x%02X\",\"accel_config\":\"0x%02X\",\"registros_ok\":%s,",
+              who_am_i, pwr_mgmt_1, config_reg, smplrt_div, gyro_config, accel_config, lectura_registros_ok ? "true" : "false");
+    r->printf("\"resultados\":{\"bus\":%s,\"identidad\":%s,\"calibracion\":%s,\"estabilidad\":%s,\"movimiento\":%s}}",
+              bus_ok ? "true" : "false", identidad_ok ? "true" : "false", calibracion_ok ? "true" : "false",
+              estabilidad_ok ? "true" : "false", movimiento_ok ? "true" : "false");
+    request->send(r);
+}
+
+void iniciarMiniapp() {
+    servidor.on("/", HTTP_GET, [](AsyncWebServerRequest* q) { q->send(200, "text/html; charset=utf-8", PAGINA); });
+    servidor.on("/api/angulo", HTTP_GET, responderAngulo);
+    servidor.on("/api/cero", HTTP_POST, [](AsyncWebServerRequest* q) { solicitar_cero = true; q->send(202); });
+    servidor.on("/api/recalibrar", HTTP_POST, [](AsyncWebServerRequest* q) { solicitar_recalibracion = true; q->send(202); });
+    servidor.on("/api/reescanear", HTTP_POST, [](AsyncWebServerRequest* q) { solicitar_reescaneo = true; q->send(202); });
+    servidor.on("/api/prueba/iniciar", HTTP_POST, [](AsyncWebServerRequest* q) { solicitar_prueba_completa = true; q->send(202); });
+    servidor.onNotFound([](AsyncWebServerRequest* q) { q->redirect("/"); });
+
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    WiFi.mode(WIFI_AP);
+    const IPAddress ip(192, 168, 4, 1), gateway(192, 168, 4, 1), mascara(255, 255, 255, 0);
+    WiFi.softAPConfig(ip, gateway, mascara);
+    bool iniciado = false;
+    for (uint8_t intento = 1; intento <= 3 && !iniciado; ++intento) {
+        iniciado = WiFi.softAP(RED_AP, CLAVE_AP, 6, false, 2);
+        Serial.printf("[WEB] Intento Wi-Fi AP %u: %s\n", intento, iniciado ? "OK" : "FALLO");
+        if (!iniciado) delay(300);
+    }
+    if (!iniciado) {
+        Serial.println("[WEB] ERROR: no se pudo iniciar el punto de acceso Wi-Fi.");
+        return;
+    }
+    servidor.begin();
+    Serial.printf("[WEB] Red: %s | clave: %s | http://%s/ | canal 6\n",
+                  RED_AP, CLAVE_AP, WiFi.softAPIP().toString().c_str());
+}
+
+void atenderSolicitudes() {
+    if (solicitar_prueba_completa) {
+        solicitar_prueba_completa = false;
+        iniciarPruebaCompleta();
+    } else if (solicitar_reescaneo) {
+        solicitar_reescaneo = false;
+        reescanear();
+    } else if (solicitar_recalibracion) {
+        solicitar_recalibracion = false;
+        recalibrar();
+    } else if (solicitar_cero) {
+        solicitar_cero = false;
+        ponerAnguloEnCero();
+    }
+}
+
+void reportarSerial() {
+    const uint32_t ahora = millis();
+    if (ahora - ultimo_reporte_serial_ms < PERIODO_SERIAL_MS) return;
+    ultimo_reporte_serial_ms = ahora;
+    if (mpu_presente && calibrado && ultima_muestra_ms != 0) {
+        Serial.printf("[MPU] etapa=%s | yaw=%8.2f deg | GZ=% .6f rad/s | edad=%lu ms | fallos=%lu\n",
+                      nombreEtapa(etapa), angulo_z_normalizado_deg, gz_filtrado_rad_s,
+                      static_cast<unsigned long>(ahora - ultima_muestra_ms), static_cast<unsigned long>(fallos_lectura));
+    } else {
+        Serial.printf("[MPU] etapa=%s | resultado=%s | SDA=%d SCL=%d | direccion=%s | %s\n",
+                      nombreEtapa(etapa), nombreCodigo(codigo_resultado), digitalRead(PIN_I2C_SDA), digitalRead(PIN_I2C_SCL),
+                      direccion_mpu == 0x68 ? "0x68" : direccion_mpu == 0x69 ? "0x69" : "ninguna", detalle);
+    }
+}
+
+}  // namespace
+
+void setup() {
+    bloquearMotores();
+    Serial.begin(115200);
+    delay(500);
+    Serial.println("\n=== DIAGNOSTICO GUIADO MPU6050 ===");
+    Serial.printf("I2C configurado: SDA=GPIO%d, SCL=GPIO%d, 100 kHz. Motores bloqueados en LOW.\n", PIN_I2C_SDA, PIN_I2C_SCL);
+    iniciarMiniapp();
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    gpio_pullup_en(static_cast<gpio_num_t>(PIN_I2C_SDA));
+    gpio_pullup_en(static_cast<gpio_num_t>(PIN_I2C_SCL));
+    gpio_pulldown_dis(static_cast<gpio_num_t>(PIN_I2C_SDA));
+    gpio_pulldown_dis(static_cast<gpio_num_t>(PIN_I2C_SCL));
+    Wire.setClock(100000);
+    Wire.setTimeout(30);
+    reescanear();
+}
+
+void loop() {
+    bloquearMotores();
+    atenderSolicitudes();
+    const uint32_t ahora = millis();
+    static uint32_t ultima_lectura = 0;
+    if (ahora - ultima_lectura >= PERIODO_IMU_MS) {
+        ultima_lectura = ahora;
+        actualizarImu();
+    }
+    procesarMaquinaDiagnostico();
+    reportarSerial();
+    delay(2);
+}

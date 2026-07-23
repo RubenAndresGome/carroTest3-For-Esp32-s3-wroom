@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Robot S3 HMI</string>
+    <string name="backend_channel_name">Control del Robot S3</string>
+    <string name="backend_notification_title">Robot S3 activo</string>
+    <string name="backend_notification_text">HMI, misiones y WebSocket disponibles en la tablet</string>
+    <string name="backend_notification_stop">Detener</string>
+    <string name="loading_backend">Iniciando Python, Flask y SQLite…</string>
+    <string name="backend_start_error">Flask no inició en 30 segundos. Cierra la app y revisa Logcat con la etiqueta RobotBackendService.</string>
+</resources>

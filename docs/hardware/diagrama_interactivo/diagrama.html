@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama de Ensamble — Arquitectura Hardware V3.0</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-400-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-700-normal.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0b0b14;
+            color: #e2e8f0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .toolbar {
+            height: 41px;
+            background: #0f0f1e;
+            border-bottom: 1px solid #3d3d5c;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 8px;
+            z-index: 100;
+        }
+        .toolbar-logo {
+            font-weight: 700;
+            font-size: 14px;
+            color: #60a5fa;
+            letter-spacing: 0.05em;
+            margin-right: 12px;
+        }
+        .toolbar-btn {
+            background: #1e1e38;
+            border: 1px solid #3d3d5c;
+            color: #cbd5e1;
+            padding: 5px 12px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        .toolbar-btn:hover { background: #2e2e54; border-color: #60a5fa; color: #fff; }
+        .toolbar-btn.active {
+            background: #2563eb;
+            border-color: #3b82f6;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+        }
+        .toolbar-sep { width: 1px; height: 16px; background: #3d3d5c; margin: 0 4px; }
+        .toolbar-info { margin-left: auto; font-size: 10px; color: #64748b; }
+        .filter-group {
+            display: flex;
+            gap: 4px;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid #3d3d5c;
+        }
+        .filter-btn {
+            background: #1e1e38;
+            border: 1px solid #3d3d5c;
+            color: #94a3b8;
+            padding: 4px 8px;
+            font-size: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { background: #2e2e54; color: #fff; }
+        .filter-btn.active { background: #1e3a2e; border-color: #22c55e; color: #4ade80; }
+        .filter-btn.inactive { opacity: 0.5; text-decoration: line-through; }
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background: #08080f;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .schematic-canvas {
+            position: relative;
+            width: 3200px;
+            height: 1800px;
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
+        }
+        .zone {
+            position: absolute;
+            border: 1px dashed rgba(100, 116, 139, 0.25);
+            border-radius: 8px;
+            background: rgba(30, 30, 56, 0.15);
+            pointer-events: none;
+            z-index: 1;
+        }
+        .zone-label {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .wires-layer, .buses-layer, .labels-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .wires-layer { z-index: 10; }
+        .buses-layer { z-index: 8; }
+        .labels-layer { z-index: 12; }
+        .wire {
+            stroke-dasharray: 2000;
+            stroke-dashoffset: 2000;
+            animation: drawWire 1.8s ease-out forwards;
+            transition: stroke-width 0.2s, filter 0.2s, opacity 0.2s;
+            pointer-events: stroke;
+            cursor: pointer;
+        }
+        @keyframes drawWire { to { stroke-dashoffset: 0; } }
+        .wire.dimmed { opacity: 0.05 !important; }
+        .wire.highlighted {
+            stroke-width: 5px !important;
+            filter: drop-shadow(0 0 6px currentColor);
+            opacity: 1 !important;
+        }
+        .wire-shadow { transition: stroke-width 0.2s, opacity 0.2s; }
+        .wire-shadow.highlighted { stroke-width: 10px !important; opacity: 0.35 !important; }
+        .wire-shadow.dimmed { opacity: 0.01 !important; }
+        .wire-junction { transition: r 0.2s, filter 0.2s, opacity 0.2s; }
+        .wire-junction.highlighted {
+            r: 6px;
+            filter: drop-shadow(0 0 4px currentColor);
+            opacity: 1 !important;
+        }
+        .wire-junction.dimmed { opacity: 0.05 !important; }
+        .bus-line {
+            stroke-width: 7px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.85;
+            transition: opacity 0.3s, stroke-width 0.3s, filter 0.3s;
+            cursor: pointer;
+            pointer-events: stroke;
+        }
+        .bus-line:hover { stroke-width: 9px; filter: drop-shadow(0 0 8px currentColor); opacity: 1; }
+        .bus-line.dimmed { opacity: 0.08 !important; }
+        .bus-line.highlighted {
+            stroke-width: 9px !important;
+            filter: drop-shadow(0 0 10px currentColor);
+            opacity: 1 !important;
+        }
+        .bus-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            fill: currentColor;
+            pointer-events: none;
+            text-anchor: middle;
+            opacity: 0.95;
+        }
+        .bus-stub { stroke-width: 2.5px; stroke-dasharray: 4 2; opacity: 0.75; }
+        .component {
+            position: absolute;
+            background: #111122;
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border: 1px solid #2e2e4e;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            z-index: 20;
+        }
+        .component:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 4px 25px rgba(79, 70, 229, 0.25);
+        }
+        .component.highlight {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.5) !important;
+        }
+        .comp-body {
+            position: relative;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-top: 4px solid;
+            border-radius: 5px 5px 0 0;
+            height: 100%;
+        }
+        .comp-label {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-align: center;
+        }
+        .comp-value {
+            font-size: 9px;
+            color: #64748b;
+            margin-top: 3px;
+            text-align: center;
+        }
+        .comp-pin {
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            background: #111122;
+            border: 2px solid;
+            border-radius: 50%;
+            z-index: 30;
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .comp-pin:hover { transform: scale(1.5); background: #fff !important; }
+        .comp-pin.pin-glow {
+            background: #fff !important;
+            box-shadow: 0 0 12px currentColor;
+            transform: scale(1.4);
+        }
+        .comp-pin-label {
+            position: absolute;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            color: #475569;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .net-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 3px 8px;
+            position: absolute;
+            z-index: 35;
+            display: none;
+            pointer-events: auto;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
+            user-select: none;
+        }
+        .net-tag.visible { display: inline-flex; }
+        .net-tag.tag-left {
+            padding-left: 12px;
+            clip-path: polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%);
+        }
+        .net-tag.tag-right {
+            padding-right: 12px;
+            clip-path: polygon(0% 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 0% 100%);
+        }
+        .net-tag.tag-bottom {
+            padding-bottom: 10px;
+            clip-path: polygon(0% 0%, 100% 0%, 100% calc(100% - 8px), 50% 100%, 0% calc(100% - 8px));
+        }
+        .net-tag-input { background: rgba(16, 185, 129, 0.25); color: #4ade80; }
+        .net-tag-output { background: rgba(59, 130, 246, 0.25); color: #60a5fa; }
+        .net-tag-power { background: rgba(239, 68, 68, 0.25); color: #f87171; }
+        .net-tag-gnd { background: rgba(100, 116, 139, 0.35); color: #cbd5e1; }
+        .net-tag-bus { background: rgba(168, 85, 247, 0.25); color: #c084fc; }
+        .net-tag-pwm { background: rgba(249, 115, 22, 0.25); color: #fb923c; }
+        .net-tag:hover { box-shadow: 0 0 10px currentColor; }
+        .net-tag.tag-left:hover { transform: translate(-100%, -50%) scale(1.08); }
+        .net-tag.tag-right:hover { transform: translate(0, -50%) scale(1.08); }
+        .net-tag.tag-bottom:hover { transform: translate(-50%, 0) scale(1.08); }
+        .net-tag.glow {
+            background-color: currentColor !important;
+            color: #0b0b14 !important;
+            box-shadow: 0 0 16px currentColor;
+            font-weight: 800;
+        }
+        .net-tag.tag-left.glow { transform: translate(-100%, -50%) scale(1.05); }
+        .net-tag.tag-right.glow { transform: translate(0, -50%) scale(1.05); }
+        .net-tag.tag-bottom.glow { transform: translate(-50%, 0) scale(1.05); }
+        .design-note {
+            position: absolute;
+            background: rgba(15, 15, 30, 0.95);
+            border: 1px solid #3d3d5c;
+            border-left: 3px solid #eab308;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 10px;
+            color: #cbd5e1;
+            z-index: 40;
+            max-width: 240px;
+            pointer-events: auto;
+            cursor: help;
+            backdrop-filter: blur(4px);
+            transition: transform 0.2s, box-shadow 0.2s;
+            line-height: 1.5;
+        }
+        .design-note:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .design-note.warning { border-left-color: #ef4444; }
+        .design-note.info { border-left-color: #3b82f6; }
+        .design-note.success { border-left-color: #22c55e; }
+        .design-note-icon { display: inline-block; margin-right: 4px; font-size: 11px; }
+        .title-block {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            background: rgba(15, 15, 30, 0.95);
+            border: 1px solid #3d3d5c;
+            border-radius: 4px;
+            padding: 10px 14px;
+            z-index: 40;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .title-block-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(61, 61, 92, 0.3);
+        }
+        .title-block-row:last-child { border-bottom: none; }
+        .title-block-label { color: #64748b; }
+        .title-block-value { color: #cbd5e1; font-weight: 600; }
+        .title-block-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #60a5fa;
+            text-align: center;
+            padding: 4px 0;
+            border-bottom: 1px solid #3d3d5c;
+            margin-bottom: 4px;
+        }
+        .side-panel {
+            position: fixed;
+            right: 0;
+            top: 41px;
+            width: 380px;
+            height: calc(100vh - 41px - 24px);
+            background: #0f0f1e;
+            border-left: 1px solid #3d3d5c;
+            overflow-y: auto;
+            z-index: 50;
+            transform: translateX(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-panel.collapsed { transform: translateX(100%); }
+        .panel-section { padding: 14px; border-bottom: 1px solid #2e2e4e; }
+        .panel-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .pin-table-header {
+            display: grid;
+            grid-template-columns: 8px 1fr 55px 65px;
+            gap: 6px;
+            padding: 4px 6px;
+            font-size: 9px;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom: 1px solid #2e2e4e;
+            margin-bottom: 4px;
+        }
+        .pin-row {
+            display: grid;
+            grid-template-columns: 8px 1fr 55px 65px;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 10px;
+        }
+        .pin-row:hover { background: #1a1a3a; }
+        .pin-row.highlighted { background: #25254d; box-shadow: inset 2px 0 0 #3b82f6; }
+        .pin-row.dimmed { opacity: 0.4; }
+        .pin-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .pin-name { color: #cbd5e1; font-size: 10px; }
+        .pin-gpio {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: #64748b;
+            font-weight: bold;
+        }
+        .pin-bus {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8px;
+            color: #a78bfa;
+            background: rgba(167, 139, 250, 0.1);
+            padding: 1px 4px;
+            border-radius: 2px;
+            text-align: center;
+        }
+        .legend {
+            position: fixed;
+            bottom: 36px;
+            left: 16px;
+            background: rgba(15, 15, 30, 0.95);
+            border: 1px solid #3d3d5c;
+            border-radius: 6px;
+            padding: 10px;
+            z-index: 40;
+            font-size: 9px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+            width: 360px;
+            transition: opacity 0.3s, transform 0.3s;
+            backdrop-filter: blur(8px);
+        }
+        .legend.collapsed { opacity: 0; transform: translateY(20px); pointer-events: none; }
+        .legend-title {
+            grid-column: span 2;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-line { width: 16px; height: 3px; border-radius: 1px; }
+        .legend-bus { width: 16px; height: 6px; border-radius: 2px; }
+        .zoom-controls {
+            position: fixed;
+            bottom: 40px;
+            right: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 50;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .zoom-controls.shifted { right: 20px; }
+        .zoom-btn {
+            width: 30px;
+            height: 30px;
+            background: #1e1e38;
+            border: 1px solid #3d3d5c;
+            color: #cbd5e1;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .zoom-btn:hover { background: #2e2e54; border-color: #60a5fa; color: #fff; }
+        .status-bar {
+            height: 24px;
+            background: #0f0f1e;
+            border-top: 1px solid #3d3d5c;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+            font-size: 10px;
+            color: #64748b;
+            z-index: 100;
+        }
+        .status-item { display: flex; align-items: center; gap: 6px; }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #10b981;
+        }
+        .tooltip {
+            position: fixed;
+            background: rgba(15, 15, 30, 0.97);
+            border: 1px solid #3d3d5c;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 10px;
+            pointer-events: none;
+            display: none;
+            z-index: 200;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-width: 300px;
+            backdrop-filter: blur(4px);
+            line-height: 1.5;
+        }
+        .tooltip-title { font-weight: 700; color: #60a5fa; margin-bottom: 2px; }
+        .tooltip-detail { color: #cbd5e1; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .gnd-star-visual {
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, rgba(15, 15, 30, 0.95) 70%);
+            border: 2px solid #ef4444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+        .gnd-star-visual .star-icon { font-size: 24px; }
+        .gnd-star-visual .star-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            color: #f87171;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="toolbar-logo">EDA Viewer V3.0</div>
+        <button data-mode="wires" class="toolbar-btn active">Cables Físicos</button>
+        <button data-mode="buses" class="toolbar-btn">Buses + Labels</button>
+        <button data-mode="labels" class="toolbar-btn">Esquema Puro</button>
+        <div class="toolbar-sep"></div>
+        <div class="filter-group">
+            <button class="filter-btn active" data-filter="power" onclick="toggleFilter('power')">PWR</button>
+            <button class="filter-btn active" data-filter="gnd" onclick="toggleFilter('gnd')">GND</button>
+            <button class="filter-btn active" data-filter="signal" onclick="toggleFilter('signal')">Señal</button>
+            <button class="filter-btn active" data-filter="motor" onclick="toggleFilter('motor')">Motor</button>
+        </div>
+        <div class="toolbar-sep"></div>
+        <button id="btnTogglePanel" class="toolbar-btn" onclick="togglePanel()">Tabla</button>
+        <div class="toolbar-info mono">Hardware V3.0 · pinout canónico Config.h · WebSocket/JSON V1 · 2026</div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+        <div class="schematic-canvas" id="schematicCanvas">
+            
+            <!-- ZONAS -->
+            <div class="zone" style="left:60px; top:40px; width:380px; height:1720px;">
+                <div class="zone-label">⚡ ZONA POTENCIA + TIERRA ESTRELLA</div>
+            </div>
+            <div class="zone" style="left:500px; top:40px; width:460px; height:820px;">
+                <div class="zone-label">🧠 CEREBRO — ESP32-S3 WROOM</div>
+            </div>
+            <div class="zone" style="left:1020px; top:40px; width:620px; height:420px;">
+                <div class="zone-label">📡 MÓDULO AISLADO MPU (Mini Protoboard)</div>
+            </div>
+            <div class="zone" style="left:1020px; top:500px; width:620px; height:500px;">
+                <div class="zone-label">🔢 ODOMETRÍA LAZO CERRADO</div>
+            </div>
+            <div class="zone" style="left:500px; top:900px; width:1140px; height:860px;">
+                <div class="zone-label">⚙️ TRACCIÓN Y RUIDO (DRV8833 + Motores)</div>
+            </div>
+            <div class="zone" style="left:1700px; top:40px; width:620px; height:1720px;">
+                <div class="zone-label">📋 REGLAS CRÍTICAS · CONVENCIÓN · FLUJO</div>
+            </div>
+
+            <!-- SVG LAYERS -->
+            <svg class="buses-layer" id="busesLayer" viewBox="0 0 3200 1800" preserveAspectRatio="xMinYMin meet"></svg>
+            <svg class="wires-layer" id="wiresLayer" viewBox="0 0 3200 1800" preserveAspectRatio="xMinYMin meet"></svg>
+            <svg class="labels-layer" id="labelsLayer" viewBox="0 0 3200 1800" preserveAspectRatio="xMinYMin meet"></svg>
+
+            <!-- DESIGN NOTES -->
+            <div class="design-note warning" style="left:1730px; top:60px;">
+                <span class="design-note-icon">⚠️</span>
+                <strong>ENEMIGO #1: Ruido Magnético</strong><br>
+                Los motorreductores amarillos generan ruido que destruye lecturas I2C (MPU6050) y contadores PCNT.
+            </div>
+            <div class="design-note info" style="left:1730px; top:170px;">
+                <span class="design-note-icon">🔋</span>
+                <strong>Capacitores de Bypass</strong><br>
+                100µF + 0.1µF en PARALELO en VMOT de CADA DRV8833. El 100µF absorbe caídas de torque, el 0.1µF mata ruido PWM.
+            </div>
+            <div class="design-note success" style="left:1730px; top:280px;">
+                <span class="design-note-icon">🛡️</span>
+                <strong>Aislamiento MPU6050</strong><br>
+                MPU6050 + TXS0108E en mini-protoboard AISLADA. Lejos de cables de potencia. Alimentado por B2 (4.8V).
+            </div>
+            <div class="design-note warning" style="left:1730px; top:390px;">
+                <span class="design-note-icon">⭐</span>
+                <strong>TIERRA EN ESTRELLA (OBLIGATORIO)</strong><br>
+                NUNCA GND en cadena. Todos los GND (ESP32, 3 baterías, DRV8833, LM393) van a UN SOLO punto central.
+            </div>
+            <div class="design-note info" style="left:1730px; top:510px;">
+                <span class="design-note-icon">🎨</span>
+                <strong>Convención de Colores</strong><br>
+                🔴 Rojo: VCC (3.3V / 4.8V / 7.7V)<br>
+                ⚫ Negro: GND → Tierra Estrella<br>
+                🟠 Naranja: Señales lógicas
+            </div>
+            <div class="design-note success" style="left:1730px; top:630px;">
+                <span class="design-note-icon">📏</span>
+                <strong>Cableado "A Ras"</strong><br>
+                Alambre telefónico recortado exacto. Sin antenas. Cables largos de LM393 = pulsos fantasma al PCNT.
+            </div>
+            <div class="design-note info" style="left:1730px; top:740px;">
+                <span class="design-note-icon">🔄</span>
+                <strong>FreeRTOS Dual-Core</strong><br>
+                Core 0: WebSocket/JSON & WiFi<br>
+                Core 1: Super-ciclo síncrono MPU → PWM (100 Hz)<br>
+                Sin cuelgues si el hardware está blindado.
+            </div>
+
+            <!-- TITLE BLOCK -->
+            <div class="title-block">
+                <div class="title-block-title">DIAGRAMA DE ENSAMBLE V3.0</div>
+                <div class="title-block-row">
+                    <span class="title-block-label">Proyecto:</span>
+                    <span class="title-block-value">Robot Autónomo Blindado</span>
+                </div>
+                <div class="title-block-row">
+                    <span class="title-block-label">MCU:</span>
+                    <span class="title-block-value">ESP32-S3 WROOM</span>
+                </div>
+                <div class="title-block-row">
+                    <span class="title-block-label">Arquitectura:</span>
+                    <span class="title-block-value">FreeRTOS + PCNT + PID</span>
+                </div>
+                <div class="title-block-row">
+                    <span class="title-block-label">Rev:</span>
+                    <span class="title-block-value">2.0</span>
+                </div>
+                <div class="title-block-row">
+                    <span class="title-block-label">Fecha:</span>
+                    <span class="title-block-value">Verano 2026</span>
+                </div>
+                <div class="title-block-row">
+                    <span class="title-block-label">Autor:</span>
+                    <span class="title-block-value">ITESS · VeranoInve</span>
+                </div>
+                <div class="title-block-row">
+                    <span class="title-block-label">Sheet:</span>
+                    <span class="title-block-value">1 / 1</span>
+                </div>
+            </div>
+
+            <!-- ═══════════ ZONA POTENCIA ═══════════ -->
+            
+            <!-- Batería 1: ESP32 3.3V -->
+            <div class="component" id="comp-b1" style="left:100px; top:100px;" data-name="Batería ESP32 3.3V (B1)" data-info="Alimentación EXCLUSIVA del ESP32-S3. 3.3V regulados. NO conectar sensores ni motores aquí.">
+                <div class="comp-body" style="width:220px; height:110px; border-color:#ef4444;">
+                    <div class="comp-label" style="color:#f87171;">B1 · ESP32 3.3V</div>
+                    <div class="comp-value">Batería regulada</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #422006; border-radius:2px; width:80%;">
+                        <div style="display:flex; justify-content:space-between; font-size:8px; color:#94a3b8;">
+                            <span>3.3V</span><span>ESP32 ONLY</span>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="right:-5px; top:30px; border-color:#ef4444;" data-pin="b1_vcc" data-net="VCC_3V3"></div>
+                    <div class="comp-pin-label" style="right:10px; top:28px; color:#ef4444;">+3.3V</div>
+                    <div class="comp-pin" style="right:-5px; top:70px; border-color:#64748b;" data-pin="b1_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="right:10px; top:68px;">GND</div>
+                </div>
+            </div>
+
+            <!-- Batería 2: Sensores 4.8V -->
+            <div class="component" id="comp-b2" style="left:100px; top:280px;" data-name="Batería Sensores 4.8V (B2)" data-info="Alimenta MPU6050, TXS0108E I2C, TXS0108E Encoders y 4x LM393. Aislada del ESP32 para evitar ruido.">
+                <div class="comp-body" style="width:220px; height:110px; border-color:#f97316;">
+                    <div class="comp-label" style="color:#fb923c;">B2 · Sensores 4.8V</div>
+                    <div class="comp-value">MPU6050 + Encoders</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #422006; border-radius:2px; width:80%;">
+                        <div style="display:flex; justify-content:space-between; font-size:8px; color:#94a3b8;">
+                            <span>4.8V</span><span>SENSORES</span>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="right:-5px; top:30px; border-color:#f97316;" data-pin="b2_vcc" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:28px; color:#f97316;">+4.8V</div>
+                    <div class="comp-pin" style="right:-5px; top:70px; border-color:#64748b;" data-pin="b2_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="right:10px; top:68px;">GND</div>
+                </div>
+            </div>
+
+            <!-- Batería 3: Motores 7.7V -->
+            <div class="component" id="comp-b3" style="left:100px; top:460px;" data-name="Batería Motores 7.7V (B3)" data-info="Alimenta DRV8833 Izq/Der y motorreductores. 7.7V (2S LiPo) para máximo torque. Fuente de ruido principal.">
+                <div class="comp-body" style="width:220px; height:110px; border-color:#dc2626;">
+                    <div class="comp-label" style="color:#ef4444;">B3 · Motores 7.7V</div>
+                    <div class="comp-value">DRV8833 + Motores</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #422006; border-radius:2px; width:80%;">
+                        <div style="display:flex; justify-content:space-between; font-size:8px; color:#94a3b8;">
+                            <span>7.7V</span><span>TRACCIÓN</span>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="right:-5px; top:30px; border-color:#dc2626;" data-pin="b3_vcc" data-net="VCC_7V7"></div>
+                    <div class="comp-pin-label" style="right:10px; top:28px; color:#dc2626;">+7.7V</div>
+                    <div class="comp-pin" style="right:-5px; top:70px; border-color:#64748b;" data-pin="b3_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="right:10px; top:68px;">GND</div>
+                </div>
+            </div>
+
+            <!-- TIERRA ESTRELLA -->
+            <div class="component" id="comp-gnd-star" style="left:150px; top:700px;" data-name="Tierra Estrella (GND Star)" data-info="PUNTO ÚNICO de conexión GND. TODOS los GND (ESP32, 3 baterías, DRV8833, LM393, MPU) convergen aquí. Previene Ground Loops.">
+                <div class="gnd-star-visual">
+                    <div class="star-icon">⭐</div>
+                    <div class="star-label">GND STAR</div>
+                </div>
+            </div>
+
+            <!-- ═══════════ CEREBRO ESP32-S3 ═══════════ -->
+            <div class="component" id="comp-esp32" style="left:540px; top:100px;" data-name="ESP32-S3 WROOM" data-info="Microcontrolador dual-core. Core 0: AP WiFi y WebSocket/JSON V1. Core 1: súper-ciclo síncrono de 100 Hz, desde MPU6050/PCNT hasta PWM sin colas intermedias. Lógica 3.3V. Fuente canónica: include/Config.h.">
+                <div class="comp-body" style="width:380px; height:700px; border-color:#3b82f6;">
+                    <div class="comp-label" style="color:#60a5fa; font-size:16px;">ESP32-S3 WROOM</div>
+                    <div class="comp-value">Microcontrolador Dual-Core (3.3V)</div>
+                    <div style="margin-top:10px; padding:6px; border:1px solid #1f2937; border-radius:3px; background:#0b0f19; width:90%;">
+                        <div style="font-size:9px; color:#60a5fa; text-align:center; font-weight:bold;">WROOM MODULE</div>
+                        <div style="width:60px; height:60px; margin:8px auto; border:2px solid #334155; border-radius:3px; background:#111827;"></div>
+                    </div>
+                    <!-- Core labels -->
+                    <div style="display:flex; gap:8px; margin-top:12px; width:90%;">
+                        <div style="flex:1; padding:6px; border:1px solid #3b82f6; border-radius:3px; background:rgba(59,130,246,0.08); text-align:center;">
+                            <div style="font-size:9px; color:#60a5fa; font-weight:bold;">CORE 0</div>
+                            <div style="font-size:7px; color:#94a3b8;">WiFi & Web</div>
+                        </div>
+                        <div style="flex:1; padding:6px; border:1px solid #e94560; border-radius:3px; background:rgba(233,69,96,0.08); text-align:center;">
+                            <div style="font-size:9px; color:#e94560; font-weight:bold;">CORE 1</div>
+                            <div style="font-size:7px; color:#94a3b8;">PID & PCNT</div>
+                        </div>
+                    </div>
+                    <div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:50px; height:16px; background:#1f2937; border:1px solid #374151; border-radius:2px;">
+                        <div style="font-size:7px; text-align:center; color:#9ca3af; line-height:16px;">USB-C</div>
+                    </div>
+                    
+                    <!-- Left Pins (Entradas: Encoders, I2C) -->
+                    <div class="comp-pin" style="left:-5px; top:60px; border-color:#f97316;" data-pin="vcc_esp" data-net="VCC_3V3"></div>
+                    <div class="comp-pin-label" style="left:12px; top:58px; color:#f97316;">3.3V</div>
+                    <div class="comp-pin" style="left:-5px; top:95px; border-color:#64748b;" data-pin="gnd_esp" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:12px; top:93px;">GND</div>
+                    <div class="comp-pin" style="left:-5px; top:150px; border-color:#22c55e;" data-pin="gp10" data-net="ENC_FL"></div>
+                    <div class="comp-pin-label" style="left:12px; top:148px;">GPIO10 (ENC FL)</div>
+                    <div class="comp-pin" style="left:-5px; top:185px; border-color:#22c55e;" data-pin="gp11" data-net="ENC_FR"></div>
+                    <div class="comp-pin-label" style="left:12px; top:183px;">GPIO11 (ENC FR)</div>
+                    <div class="comp-pin" style="left:-5px; top:220px; border-color:#22c55e;" data-pin="gp12" data-net="ENC_BL"></div>
+                    <div class="comp-pin-label" style="left:12px; top:218px;">GPIO12 (ENC BL)</div>
+                    <div class="comp-pin" style="left:-5px; top:255px; border-color:#22c55e;" data-pin="gp13" data-net="ENC_BR"></div>
+                    <div class="comp-pin-label" style="left:12px; top:253px;">GPIO13 (ENC BR)</div>
+                    <div class="comp-pin" style="left:-5px; top:310px; border-color:#22c55e;" data-pin="gp8" data-net="SDA_3V3"></div>
+                    <div class="comp-pin-label" style="left:12px; top:308px;">GPIO8 (SDA)</div>
+                    <div class="comp-pin" style="left:-5px; top:345px; border-color:#3b82f6;" data-pin="gp9" data-net="SCL_3V3"></div>
+                    <div class="comp-pin-label" style="left:12px; top:343px;">GPIO9 (SCL)</div>
+                    
+                    <!-- Right Pins (Salidas: PWM a DRV8833) -->
+                    <div class="comp-pin" style="right:-5px; top:150px; border-color:#f97316;" data-pin="gp6" data-net="PWM_FL"></div>
+                    <div class="comp-pin-label" style="right:12px; top:148px;">GPIO6 (FL FWD)</div>
+                    <div class="comp-pin" style="right:-5px; top:185px; border-color:#f97316;" data-pin="gp7" data-net="PWM_FL2"></div>
+                    <div class="comp-pin-label" style="right:12px; top:183px;">GPIO7 (FL REV)</div>
+                    <div class="comp-pin" style="right:-5px; top:220px; border-color:#f97316;" data-pin="gp4" data-net="PWM_BL"></div>
+                    <div class="comp-pin-label" style="right:12px; top:218px;">GPIO4 (BL FWD)</div>
+                    <div class="comp-pin" style="right:-5px; top:255px; border-color:#f97316;" data-pin="gp5" data-net="PWM_BL2"></div>
+                    <div class="comp-pin-label" style="right:12px; top:253px;">GPIO5 (BL REV)</div>
+                    <div class="comp-pin" style="right:-5px; top:310px; border-color:#06b6d4;" data-pin="gp17" data-net="PWM_FR"></div>
+                    <div class="comp-pin-label" style="right:12px; top:308px;">GPIO17 (FR FWD)</div>
+                    <div class="comp-pin" style="right:-5px; top:345px; border-color:#06b6d4;" data-pin="gp18" data-net="PWM_FR2"></div>
+                    <div class="comp-pin-label" style="right:12px; top:343px;">GPIO18 (FR REV)</div>
+                    <div class="comp-pin" style="right:-5px; top:400px; border-color:#06b6d4;" data-pin="gp15" data-net="PWM_BR"></div>
+                    <div class="comp-pin-label" style="right:12px; top:398px;">GPIO15 (BR FWD)</div>
+                    <div class="comp-pin" style="right:-5px; top:435px; border-color:#06b6d4;" data-pin="gp16" data-net="PWM_BR2"></div>
+                    <div class="comp-pin-label" style="right:12px; top:433px;">GPIO16 (BR REV)</div>
+                </div>
+            </div>
+
+            <!-- ═══════════ MÓDULO MPU AISLADO ═══════════ -->
+            <div class="component" id="comp-mpu6050" style="left:1080px; top:100px;" data-name="MPU6050 (Aislado)" data-info="Giroscopio/Acelerómetro 6-DOF. Aislado en mini-protoboard LEJOS de cables de potencia. Alimentado por B2 (4.8V). I2C @ 400kHz.">
+                <div class="comp-body" style="width:200px; height:200px; border-color:#22c55e;">
+                    <div class="comp-label" style="color:#4ade80; font-size:14px;">MPU6050</div>
+                    <div class="comp-value">IMU 6-DOF · I2C 400kHz</div>
+                    <div style="margin-top:10px; padding:8px; background:#0b0f19; border:1px solid #1f2937; border-radius:3px;">
+                        <div style="width:30px; height:30px; margin:0 auto; border:2px solid #334155; background:#111827; border-radius:3px;"></div>
+                        <div style="font-size:7px; color:#4ade80; text-align:center; margin-top:4px;">MEMS · MINI-PROTO</div>
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:40px; border-color:#f97316;" data-pin="mpu_vcc" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:38px; color:#f97316;">VCC 4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:75px; border-color:#64748b;" data-pin="mpu_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:73px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:110px; border-color:#f97316;" data-pin="mpu_sda" data-net="SDA_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:108px;">SDA (4.8V)</div>
+                    <div class="comp-pin" style="right:-5px; top:145px; border-color:#f97316;" data-pin="mpu_scl" data-net="SCL_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:143px;">SCL (4.8V)</div>
+                </div>
+            </div>
+
+            <div class="component" id="comp-txs-i2c" style="left:1380px; top:100px;" data-name="TXS0108E I2C (Level Shifter)" data-info="Conversor de nivel lógico BIDIRECCIONAL. 4.8V (lado MPU) ↔ 3.3V (lado ESP32). VCCB=4.8V, VCCA=3.3V.">
+                <div class="comp-body" style="width:200px; height:200px; border-color:#f97316;">
+                    <div class="comp-label" style="color:#fb923c; font-size:13px;">TXS0108E</div>
+                    <div class="comp-value">I2C Level Shifter</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #422006; border-radius:3px; font-size:8px; color:#94a3b8; text-align:center;">
+                        4.8V ↔ 3.3V<br>Bidireccional
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:40px; border-color:#f97316;" data-pin="txs_vccb" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:38px; color:#f97316;">VCCB 4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:75px; border-color:#f97316;" data-pin="txs_sda_h" data-net="SDA_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:73px;">SDA_A (4.8V)</div>
+                    <div class="comp-pin" style="left:-5px; top:110px; border-color:#f97316;" data-pin="txs_scl_h" data-net="SCL_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:108px;">SCL_A (4.8V)</div>
+                    <div class="comp-pin" style="left:-5px; top:155px; border-color:#64748b;" data-pin="txs_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:153px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:40px; border-color:#ef4444;" data-pin="txs_vcca" data-net="VCC_3V3"></div>
+                    <div class="comp-pin-label" style="right:10px; top:38px; color:#ef4444;">VCCA 3.3V</div>
+                    <div class="comp-pin" style="right:-5px; top:75px; border-color:#f97316;" data-pin="txs_sda_l" data-net="SDA_3V3"></div>
+                    <div class="comp-pin-label" style="right:10px; top:73px;">SDA_B→GP8</div>
+                    <div class="comp-pin" style="right:-5px; top:110px; border-color:#f97316;" data-pin="txs_scl_l" data-net="SCL_3V3"></div>
+                    <div class="comp-pin-label" style="right:10px; top:108px;">SCL_B→GP9</div>
+                </div>
+            </div>
+
+            <!-- ═══════════ ODOMETRÍA ═══════════ -->
+            <div class="component" id="comp-txs-enc" style="left:1080px; top:560px;" data-name="TXS0108E Encoders (Level Shifter)" data-info="Conversor de nivel para pulsos de encoders. 4.8V (LM393) → 3.3V (ESP32 PCNT). Crítico para PCNT estable.">
+                <div class="comp-body" style="width:200px; height:240px; border-color:#f97316;">
+                    <div class="comp-label" style="color:#fb923c; font-size:13px;">TXS0108E</div>
+                    <div class="comp-value">Encoder Level Shifter</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #422006; border-radius:3px; font-size:8px; color:#94a3b8; text-align:center;">
+                        4.8V → 3.3V<br>4 canales PCNT
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:50px; border-color:#f97316;" data-pin="txse_vccb" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:48px; color:#f97316;">VCCB 4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:85px; border-color:#f97316;" data-pin="txse_fl" data-net="ENC_FL_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:83px;">FL IN (4.8V)</div>
+                    <div class="comp-pin" style="left:-5px; top:115px; border-color:#f97316;" data-pin="txse_fr" data-net="ENC_FR_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:113px;">FR IN (4.8V)</div>
+                    <div class="comp-pin" style="left:-5px; top:145px; border-color:#f97316;" data-pin="txse_bl" data-net="ENC_BL_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:143px;">BL IN (4.8V)</div>
+                    <div class="comp-pin" style="left:-5px; top:175px; border-color:#f97316;" data-pin="txse_br" data-net="ENC_BR_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:173px;">BR IN (4.8V)</div>
+                    <div class="comp-pin" style="left:-5px; top:210px; border-color:#64748b;" data-pin="txse_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:208px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:50px; border-color:#ef4444;" data-pin="txse_vcca" data-net="VCC_3V3"></div>
+                    <div class="comp-pin-label" style="right:10px; top:48px; color:#ef4444;">VCCA 3.3V</div>
+                    <div class="comp-pin" style="right:-5px; top:85px; border-color:#f97316;" data-pin="txse_fl_out" data-net="ENC_FL"></div>
+                    <div class="comp-pin-label" style="right:10px; top:83px;">FL→GPIO10</div>
+                    <div class="comp-pin" style="right:-5px; top:115px; border-color:#f97316;" data-pin="txse_fr_out" data-net="ENC_FR"></div>
+                    <div class="comp-pin-label" style="right:10px; top:113px;">FR→GPIO11</div>
+                    <div class="comp-pin" style="right:-5px; top:145px; border-color:#f97316;" data-pin="txse_bl_out" data-net="ENC_BL"></div>
+                    <div class="comp-pin-label" style="right:10px; top:143px;">BL→GPIO12</div>
+                    <div class="comp-pin" style="right:-5px; top:175px; border-color:#f97316;" data-pin="txse_br_out" data-net="ENC_BR"></div>
+                    <div class="comp-pin-label" style="right:10px; top:173px;">BR→GPIO13</div>
+                </div>
+            </div>
+
+            <!-- 4 Encoders LM393 -->
+            <div class="component" id="comp-enc-fl" style="left:1380px; top:560px;" data-name="LM393 FL (Encoder Frontal Izquierdo)" data-info="Sensor encoder óptico rueda delantera izquierda. Salida 4.8V pulsos. Alimenta desde B2.">
+                <div class="comp-body" style="width:200px; height:80px; border-color:#a855f7;">
+                    <div class="comp-label" style="color:#c084fc;">LM393 · FL</div>
+                    <div class="comp-value">Frontal Izquierdo</div>
+                    <div class="comp-pin" style="left:-5px; top:25px; border-color:#f97316;" data-pin="encfl_vcc" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:23px; color:#f97316;">4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:55px; border-color:#64748b;" data-pin="encfl_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:53px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:40px; border-color:#f97316;" data-pin="encfl_out" data-net="ENC_FL_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:38px;">DOUT</div>
+                </div>
+            </div>
+            <div class="component" id="comp-enc-fr" style="left:1380px; top:660px;" data-name="LM393 FR (Encoder Frontal Derecho)" data-info="Sensor encoder óptico rueda delantera derecha.">
+                <div class="comp-body" style="width:200px; height:80px; border-color:#a855f7;">
+                    <div class="comp-label" style="color:#c084fc;">LM393 · FR</div>
+                    <div class="comp-value">Frontal Derecho</div>
+                    <div class="comp-pin" style="left:-5px; top:25px; border-color:#f97316;" data-pin="encfr_vcc" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:23px; color:#f97316;">4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:55px; border-color:#64748b;" data-pin="encfr_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:53px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:40px; border-color:#f97316;" data-pin="encfr_out" data-net="ENC_FR_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:38px;">DOUT</div>
+                </div>
+            </div>
+            <div class="component" id="comp-enc-bl" style="left:1380px; top:760px;" data-name="LM393 BL (Encoder Trasero Izquierdo)" data-info="Sensor encoder óptico rueda trasera izquierda.">
+                <div class="comp-body" style="width:200px; height:80px; border-color:#a855f7;">
+                    <div class="comp-label" style="color:#c084fc;">LM393 · BL</div>
+                    <div class="comp-value">Trasero Izquierdo</div>
+                    <div class="comp-pin" style="left:-5px; top:25px; border-color:#f97316;" data-pin="encbl_vcc" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:23px; color:#f97316;">4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:55px; border-color:#64748b;" data-pin="encbl_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:53px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:40px; border-color:#f97316;" data-pin="encbl_out" data-net="ENC_BL_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:38px;">DOUT</div>
+                </div>
+            </div>
+            <div class="component" id="comp-enc-br" style="left:1380px; top:860px;" data-name="LM393 BR (Encoder Trasero Derecho)" data-info="Sensor encoder óptico rueda trasera derecha.">
+                <div class="comp-body" style="width:200px; height:80px; border-color:#a855f7;">
+                    <div class="comp-label" style="color:#c084fc;">LM393 · BR</div>
+                    <div class="comp-value">Trasero Derecho</div>
+                    <div class="comp-pin" style="left:-5px; top:25px; border-color:#f97316;" data-pin="encbr_vcc" data-net="VCC_4V8"></div>
+                    <div class="comp-pin-label" style="left:10px; top:23px; color:#f97316;">4.8V</div>
+                    <div class="comp-pin" style="left:-5px; top:55px; border-color:#64748b;" data-pin="encbr_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:53px;">GND</div>
+                    <div class="comp-pin" style="right:-5px; top:40px; border-color:#f97316;" data-pin="encbr_out" data-net="ENC_BR_4V8"></div>
+                    <div class="comp-pin-label" style="right:10px; top:38px;">DOUT</div>
+                </div>
+            </div>
+
+            <!-- ═══════════ TRACCIÓN ═══════════ -->
+            <div class="component" id="comp-drv1" style="left:560px; top:980px;" data-name="DRV8833 Izquierdo" data-info="Puente H dual para motores izquierdos (FL + BL). VMOT=7.7V con capacitores 100µF+0.1µF. Entradas GPIO6,7,4,5.">
+                <div class="comp-body" style="width:260px; height:340px; border-color:#3b82f6;">
+                    <div class="comp-label" style="color:#60a5fa; font-size:14px;">DRV8833</div>
+                    <div class="comp-value">Puente H Dual · IZQUIERDO</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #1f2937; border-radius:3px; font-size:8px; color:#94a3b8; text-align:center; width:90%;">
+                        FL (GPIO6,7) + BL (GPIO4,5)
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:60px; border-color:#dc2626;" data-pin="drv1_vmot" data-net="VCC_7V7"></div>
+                    <div class="comp-pin-label" style="left:10px; top:58px; color:#dc2626;">VMOT 7.7V</div>
+                    <div class="comp-pin" style="left:-5px; top:95px; border-color:#64748b;" data-pin="drv1_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:93px;">GND</div>
+                    <div class="comp-pin" style="left:-5px; top:140px; border-color:#f97316;" data-pin="drv1_in1" data-net="PWM_FL"></div>
+                    <div class="comp-pin-label" style="left:10px; top:138px;">IN1 (GPIO6 · FL FWD)</div>
+                    <div class="comp-pin" style="left:-5px; top:170px; border-color:#f97316;" data-pin="drv1_in2" data-net="PWM_FL2"></div>
+                    <div class="comp-pin-label" style="left:10px; top:168px;">IN2 (GPIO7 · FL REV)</div>
+                    <div class="comp-pin" style="left:-5px; top:210px; border-color:#f97316;" data-pin="drv1_in3" data-net="PWM_BL"></div>
+                    <div class="comp-pin-label" style="left:10px; top:208px;">IN3 (GPIO4 · BL FWD)</div>
+                    <div class="comp-pin" style="left:-5px; top:240px; border-color:#f97316;" data-pin="drv1_in4" data-net="PWM_BL2"></div>
+                    <div class="comp-pin-label" style="left:10px; top:238px;">IN4 (GPIO5 · BL REV)</div>
+                    <div class="comp-pin" style="right:-5px; top:140px; border-color:#fbbf24;" data-pin="drv1_out1" data-net="MOT_FL_A"></div>
+                    <div class="comp-pin-label" style="right:10px; top:138px;">OUT1→FL-A</div>
+                    <div class="comp-pin" style="right:-5px; top:170px; border-color:#fbbf24;" data-pin="drv1_out2" data-net="MOT_FL_B"></div>
+                    <div class="comp-pin-label" style="right:10px; top:168px;">OUT2→FL-B</div>
+                    <div class="comp-pin" style="right:-5px; top:210px; border-color:#fbbf24;" data-pin="drv1_out3" data-net="MOT_BL_A"></div>
+                    <div class="comp-pin-label" style="right:10px; top:208px;">OUT3→BL-A</div>
+                    <div class="comp-pin" style="right:-5px; top:240px; border-color:#fbbf24;" data-pin="drv1_out4" data-net="MOT_BL_B"></div>
+                    <div class="comp-pin-label" style="right:10px; top:238px;">OUT4→BL-B</div>
+                    <div class="comp-pin" style="left:80px; bottom:-5px; border-color:#22c55e;" data-pin="drv1_cap" data-net="CAP_DRV1"></div>
+                    <div class="comp-pin-label" style="left:60px; bottom:14px; font-size:7px; color:#22c55e;">CAP 100µF+0.1µF</div>
+                </div>
+            </div>
+
+            <div class="component" id="comp-drv2" style="left:920px; top:980px;" data-name="DRV8833 Derecho" data-info="Puente H dual para motores derechos (FR + BR). VMOT=7.7V con capacitores 100µF+0.1µF. Entradas GPIO17,18,15,16.">
+                <div class="comp-body" style="width:260px; height:340px; border-color:#3b82f6;">
+                    <div class="comp-label" style="color:#60a5fa; font-size:14px;">DRV8833</div>
+                    <div class="comp-value">Puente H Dual · DERECHO</div>
+                    <div style="margin-top:8px; padding:6px; background:#0b0f19; border:1px solid #1f2937; border-radius:3px; font-size:8px; color:#94a3b8; text-align:center; width:90%;">
+                        FR (GPIO17,18) + BR (GPIO15,16)
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:60px; border-color:#dc2626;" data-pin="drv2_vmot" data-net="VCC_7V7"></div>
+                    <div class="comp-pin-label" style="left:10px; top:58px; color:#dc2626;">VMOT 7.7V</div>
+                    <div class="comp-pin" style="left:-5px; top:95px; border-color:#64748b;" data-pin="drv2_gnd" data-net="GND_STAR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:93px;">GND</div>
+                    <div class="comp-pin" style="left:-5px; top:140px; border-color:#f97316;" data-pin="drv2_in1" data-net="PWM_FR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:138px;">IN1 (GPIO17 · FR FWD)</div>
+                    <div class="comp-pin" style="left:-5px; top:170px; border-color:#f97316;" data-pin="drv2_in2" data-net="PWM_FR2"></div>
+                    <div class="comp-pin-label" style="left:10px; top:168px;">IN2 (GPIO18 · FR REV)</div>
+                    <div class="comp-pin" style="left:-5px; top:210px; border-color:#f97316;" data-pin="drv2_in3" data-net="PWM_BR"></div>
+                    <div class="comp-pin-label" style="left:10px; top:208px;">IN3 (GPIO15 · BR FWD)</div>
+                    <div class="comp-pin" style="left:-5px; top:240px; border-color:#f97316;" data-pin="drv2_in4" data-net="PWM_BR2"></div>
+                    <div class="comp-pin-label" style="left:10px; top:238px;">IN4 (GPIO16 · BR REV)</div>
+                    <div class="comp-pin" style="right:-5px; top:140px; border-color:#fbbf24;" data-pin="drv2_out1" data-net="MOT_FR_A"></div>
+                    <div class="comp-pin-label" style="right:10px; top:138px;">OUT1→FR-A</div>
+                    <div class="comp-pin" style="right:-5px; top:170px; border-color:#fbbf24;" data-pin="drv2_out2" data-net="MOT_FR_B"></div>
+                    <div class="comp-pin-label" style="right:10px; top:168px;">OUT2→FR-B</div>
+                    <div class="comp-pin" style="right:-5px; top:210px; border-color:#fbbf24;" data-pin="drv2_out3" data-net="MOT_BR_A"></div>
+                    <div class="comp-pin-label" style="right:10px; top:208px;">OUT3→BR-A</div>
+                    <div class="comp-pin" style="right:-5px; top:240px; border-color:#fbbf24;" data-pin="drv2_out4" data-net="MOT_BR_B"></div>
+                    <div class="comp-pin-label" style="right:10px; top:238px;">OUT4→BR-B</div>
+                    <div class="comp-pin" style="left:80px; bottom:-5px; border-color:#22c55e;" data-pin="drv2_cap" data-net="CAP_DRV2"></div>
+                    <div class="comp-pin-label" style="left:60px; bottom:14px; font-size:7px; color:#22c55e;">CAP 100µF+0.1µF</div>
+                </div>
+            </div>
+
+            <!-- Capacitores -->
+            <div class="component" id="comp-cap1" style="left:600px; top:1380px;" data-name="Capacitores Bypass DRV1" data-info="100µF Electrolítico + 0.1µF Cerámico EN PARALELO. 100µF absorbe caídas de torque (polaridad!). 0.1µF mata ruido PWM alta frecuencia.">
+                <div class="comp-body" style="width:180px; height:100px; border-color:#22c55e;">
+                    <div class="comp-label" style="color:#4ade80;">CAP1 · DRV1</div>
+                    <div class="comp-value">100µF + 0.1µF</div>
+                    <div style="display:flex; gap:10px; margin-top:8px;">
+                        <div style="width:30px; height:50px; background:linear-gradient(180deg,#1f2937,#0b0f19); border:1px solid #22c55e; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:7px; color:#4ade80;">100µF</div>
+                        <div style="width:20px; height:20px; background:#f97316; border-radius:50%; margin-top:15px; display:flex; align-items:center; justify-content:center; font-size:6px; color:#000;">0.1µF</div>
+                    </div>
+                </div>
+            </div>
+            <div class="component" id="comp-cap2" style="left:960px; top:1380px;" data-name="Capacitores Bypass DRV2" data-info="100µF Electrolítico + 0.1µF Cerámico en paralelo para el driver derecho.">
+                <div class="comp-body" style="width:180px; height:100px; border-color:#22c55e;">
+                    <div class="comp-label" style="color:#4ade80;">CAP2 · DRV2</div>
+                    <div class="comp-value">100µF + 0.1µF</div>
+                    <div style="display:flex; gap:10px; margin-top:8px;">
+                        <div style="width:30px; height:50px; background:linear-gradient(180deg,#1f2937,#0b0f19); border:1px solid #22c55e; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:7px; color:#4ade80;">100µF</div>
+                        <div style="width:20px; height:20px; background:#f97316; border-radius:50%; margin-top:15px; display:flex; align-items:center; justify-content:center; font-size:6px; color:#000;">0.1µF</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4 Motores -->
+            <div class="component" id="comp-mot-fl" style="left:1300px; top:1000px;" data-name="Motorreductor Amarillo FL" data-info="Motor DC con reductora. Rueda delantera izquierda. Recomendado: capacitor 0.1µF entre bornes de cobre.">
+                <div class="comp-body" style="width:130px; height:130px; border-color:#fbbf24;">
+                    <div class="comp-label" style="color:#fde68a; font-size:13px;">Motor FL</div>
+                    <div class="comp-value">Frontal Izquierdo</div>
+                    <div style="margin-top:6px;">
+                        <div style="width:50px; height:50px; border:3px solid #fbbf24; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#0b0f19;">
+                            <div style="width:14px; height:14px; background:#fbbf24; border-radius:50%;"></div>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:45px; border-color:#fbbf24;" data-pin="mfl_a" data-net="MOT_FL_A"></div>
+                    <div class="comp-pin" style="left:-5px; top:80px; border-color:#fbbf24;" data-pin="mfl_b" data-net="MOT_FL_B"></div>
+                </div>
+            </div>
+            <div class="component" id="comp-mot-bl" style="left:1300px; top:1180px;" data-name="Motorreductor Amarillo BL" data-info="Motor DC con reductora. Rueda trasera izquierda.">
+                <div class="comp-body" style="width:130px; height:130px; border-color:#fbbf24;">
+                    <div class="comp-label" style="color:#fde68a; font-size:13px;">Motor BL</div>
+                    <div class="comp-value">Trasero Izquierdo</div>
+                    <div style="margin-top:6px;">
+                        <div style="width:50px; height:50px; border:3px solid #fbbf24; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#0b0f19;">
+                            <div style="width:14px; height:14px; background:#fbbf24; border-radius:50%;"></div>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:45px; border-color:#fbbf24;" data-pin="mbl_a" data-net="MOT_BL_A"></div>
+                    <div class="comp-pin" style="left:-5px; top:80px; border-color:#fbbf24;" data-pin="mbl_b" data-net="MOT_BL_B"></div>
+                </div>
+            </div>
+            <div class="component" id="comp-mot-fr" style="left:1500px; top:1000px;" data-name="Motorreductor Amarillo FR" data-info="Motor DC con reductora. Rueda delantera derecha.">
+                <div class="comp-body" style="width:130px; height:130px; border-color:#22d3ee;">
+                    <div class="comp-label" style="color:#67e8f9; font-size:13px;">Motor FR</div>
+                    <div class="comp-value">Frontal Derecho</div>
+                    <div style="margin-top:6px;">
+                        <div style="width:50px; height:50px; border:3px solid #22d3ee; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#0b0f19;">
+                            <div style="width:14px; height:14px; background:#22d3ee; border-radius:50%;"></div>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:45px; border-color:#22d3ee;" data-pin="mfr_a" data-net="MOT_FR_A"></div>
+                    <div class="comp-pin" style="left:-5px; top:80px; border-color:#22d3ee;" data-pin="mfr_b" data-net="MOT_FR_B"></div>
+                </div>
+            </div>
+            <div class="component" id="comp-mot-br" style="left:1500px; top:1180px;" data-name="Motorreductor Amarillo BR" data-info="Motor DC con reductora. Rueda trasera derecha.">
+                <div class="comp-body" style="width:130px; height:130px; border-color:#22d3ee;">
+                    <div class="comp-label" style="color:#67e8f9; font-size:13px;">Motor BR</div>
+                    <div class="comp-value">Trasero Derecho</div>
+                    <div style="margin-top:6px;">
+                        <div style="width:50px; height:50px; border:3px solid #22d3ee; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#0b0f19;">
+                            <div style="width:14px; height:14px; background:#22d3ee; border-radius:50%;"></div>
+                        </div>
+                    </div>
+                    <div class="comp-pin" style="left:-5px; top:45px; border-color:#22d3ee;" data-pin="mbr_a" data-net="MOT_BR_A"></div>
+                    <div class="comp-pin" style="left:-5px; top:80px; border-color:#22d3ee;" data-pin="mbr_b" data-net="MOT_BR_B"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-section">
+            <div class="panel-title">Tabla de Conexiones</div>
+            <div class="pin-table-header">
+                <div></div>
+                <div>Función</div>
+                <div>GPIO/Pin</div>
+                <div>Bus</div>
+            </div>
+            <div id="pinTable">
+                <div class="pin-row" onclick="highlightWire('b1_vcc')"><div class="pin-dot" style="background:#ef4444;"></div><span class="pin-name">B1 → ESP32 3.3V</span><span class="pin-gpio">VCC</span><span class="pin-bus">PWR_3V3</span></div>
+                <div class="pin-row" onclick="highlightWire('b2_vcc')"><div class="pin-dot" style="background:#f97316;"></div><span class="pin-name">B2 → Sensores 4.8V</span><span class="pin-gpio">VCC</span><span class="pin-bus">PWR_4V8</span></div>
+                <div class="pin-row" onclick="highlightWire('b3_vcc')"><div class="pin-dot" style="background:#dc2626;"></div><span class="pin-name">B3 → Motores 7.7V</span><span class="pin-gpio">VCC</span><span class="pin-bus">PWR_7V7</span></div>
+                <div class="pin-row" onclick="highlightWire('gnd_star')"><div class="pin-dot" style="background:#475569;"></div><span class="pin-name">Tierra Estrella GND</span><span class="pin-gpio">GND</span><span class="pin-bus">GND</span></div>
+                <div class="pin-row" onclick="highlightWire('gp10')"><div class="pin-dot" style="background:#22c55e;"></div><span class="pin-name">Encoder FL → PCNT0 (rojo)</span><span class="pin-gpio">GPIO10</span><span class="pin-bus">ENC</span></div>
+                <div class="pin-row" onclick="highlightWire('gp11')"><div class="pin-dot" style="background:#22c55e;"></div><span class="pin-name">Encoder FR → PCNT1 (café)</span><span class="pin-gpio">GPIO11</span><span class="pin-bus">ENC</span></div>
+                <div class="pin-row" onclick="highlightWire('gp12')"><div class="pin-dot" style="background:#22c55e;"></div><span class="pin-name">Encoder BL → PCNT2 (negro)</span><span class="pin-gpio">GPIO12</span><span class="pin-bus">ENC</span></div>
+                <div class="pin-row" onclick="highlightWire('gp13')"><div class="pin-dot" style="background:#22c55e;"></div><span class="pin-name">Encoder BR → PCNT3 (blanco)</span><span class="pin-gpio">GPIO13</span><span class="pin-bus">ENC</span></div>
+                <div class="pin-row" onclick="highlightWire('gp8')"><div class="pin-dot" style="background:#22c55e;"></div><span class="pin-name">SDA (I2C MPU6050)</span><span class="pin-gpio">GPIO8</span><span class="pin-bus">I2C</span></div>
+                <div class="pin-row" onclick="highlightWire('gp9')"><div class="pin-dot" style="background:#3b82f6;"></div><span class="pin-name">SCL (I2C MPU6050)</span><span class="pin-gpio">GPIO9</span><span class="pin-bus">I2C</span></div>
+                <div class="pin-row" onclick="highlightWire('gp6')"><div class="pin-dot" style="background:#f97316;"></div><span class="pin-name">Motor FL · FWD</span><span class="pin-gpio">GPIO6</span><span class="pin-bus">PWM_L</span></div>
+                <div class="pin-row" onclick="highlightWire('gp7')"><div class="pin-dot" style="background:#f97316;"></div><span class="pin-name">Motor FL · REV</span><span class="pin-gpio">GPIO7</span><span class="pin-bus">PWM_L</span></div>
+                <div class="pin-row" onclick="highlightWire('gp4')"><div class="pin-dot" style="background:#f97316;"></div><span class="pin-name">Motor BL · FWD</span><span class="pin-gpio">GPIO4</span><span class="pin-bus">PWM_L</span></div>
+                <div class="pin-row" onclick="highlightWire('gp5')"><div class="pin-dot" style="background:#f97316;"></div><span class="pin-name">Motor BL · REV</span><span class="pin-gpio">GPIO5</span><span class="pin-bus">PWM_L</span></div>
+                <div class="pin-row" onclick="highlightWire('gp17')"><div class="pin-dot" style="background:#06b6d4;"></div><span class="pin-name">Motor FR · FWD</span><span class="pin-gpio">GPIO17</span><span class="pin-bus">PWM_R</span></div>
+                <div class="pin-row" onclick="highlightWire('gp18')"><div class="pin-dot" style="background:#06b6d4;"></div><span class="pin-name">Motor FR · REV</span><span class="pin-gpio">GPIO18</span><span class="pin-bus">PWM_R</span></div>
+                <div class="pin-row" onclick="highlightWire('gp15')"><div class="pin-dot" style="background:#06b6d4;"></div><span class="pin-name">Motor BR · FWD</span><span class="pin-gpio">GPIO15</span><span class="pin-bus">PWM_R</span></div>
+                <div class="pin-row" onclick="highlightWire('gp16')"><div class="pin-dot" style="background:#06b6d4;"></div><span class="pin-name">Motor BR · REV</span><span class="pin-gpio">GPIO16</span><span class="pin-bus">PWM_R</span></div>
+                <div class="pin-row" onclick="highlightWire('drv1_vmot')"><div class="pin-dot" style="background:#dc2626;"></div><span class="pin-name">DRV1 VMOT (7.7V)</span><span class="pin-gpio">VMOT</span><span class="pin-bus">PWR_7V7</span></div>
+                <div class="pin-row" onclick="highlightWire('drv2_vmot')"><div class="pin-dot" style="background:#dc2626;"></div><span class="pin-name">DRV2 VMOT (7.7V)</span><span class="pin-gpio">VMOT</span><span class="pin-bus">PWR_7V7</span></div>
+            </div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-title">Información del Canal</div>
+            <div id="infoPanel" style="font-size:11px; color:#64748b;">
+                <p>Haga clic en un componente, cable o bus para ver detalles.</p>
+            </div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-title">Reglas críticas V3.0</div>
+            <div style="font-size:10px; display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; align-items:center; gap:6px; padding:4px; background:rgba(239,68,68,0.08); border-radius:4px; border-left:2px solid #ef4444;">
+                    <span style="color:#ef4444;">⚠️</span><span style="color:#cbd5e1;">Capacitores 100µF+0.1µF en cada DRV8833</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; padding:4px; background:rgba(59,130,246,0.08); border-radius:4px; border-left:2px solid #3b82f6;">
+                    <span style="color:#3b82f6;">🛡️</span><span style="color:#cbd5e1;">MPU6050 aislado en mini-protoboard</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; padding:4px; background:rgba(239,68,68,0.08); border-radius:4px; border-left:2px solid #ef4444;">
+                    <span style="color:#ef4444;">⭐</span><span style="color:#cbd5e1;">GND en ESTRELLA (nunca cadena)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; padding:4px; background:rgba(249,115,22,0.08); border-radius:4px; border-left:2px solid #f97316;">
+                    <span style="color:#f97316;">📏</span><span style="color:#cbd5e1;">Cables a ras, sin antenas</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; padding:4px; background:rgba(34,197,94,0.08); border-radius:4px; border-left:2px solid #22c55e;">
+                    <span style="color:#22c55e;">✓</span><span style="color:#cbd5e1;">FreeRTOS + PCNT + PID blindado</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="legend" id="legend">
+        <div class="legend-title">Leyenda de Conexiones</div>
+        <div class="legend-item"><div class="legend-line" style="background:#ef4444;"></div><span style="color:#64748b;">VCC 3.3V (ESP32)</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#f97316;"></div><span style="color:#64748b;">VCC 4.8V (Sensores)</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#dc2626;"></div><span style="color:#64748b;">VCC 7.7V (Motores)</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#475569; border:1px dashed #888;"></div><span style="color:#64748b;">GND (Tierra Estrella)</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#22c55e;"></div><span style="color:#64748b;">Señales I2C/Encoders</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#f97316;"></div><span style="color:#64748b;">PWM (a DRV8833)</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#fbbf24;"></div><span style="color:#64748b;">Salida Motores (izq)</span></div>
+        <div class="legend-item"><div class="legend-line" style="background:#22d3ee;"></div><span style="color:#64748b;">Salida Motores (der)</span></div>
+        <div class="legend-title" style="margin-top:4px;">Buses Principales</div>
+        <div class="legend-item"><div class="legend-bus" style="background:#22c55e;"></div><span style="color:#64748b;">BUS_ENC (GPIO10-13)</span></div>
+        <div class="legend-item"><div class="legend-bus" style="background:#3b82f6;"></div><span style="color:#64748b;">BUS_I2C (GPIO8-9)</span></div>
+        <div class="legend-item"><div class="legend-bus" style="background:#f97316;"></div><span style="color:#64748b;">BUS_PWM_L (GPIO4,5,6,7)</span></div>
+        <div class="legend-item"><div class="legend-bus" style="background:#06b6d4;"></div><span style="color:#64748b;">BUS_PWM_R (GPIO15,16,17,18)</span></div>
+        <div class="legend-item"><div class="legend-bus" style="background:#dc2626;"></div><span style="color:#64748b;">BUS_PWR (3.3V/4.8V/7.7V)</span></div>
+        <div class="legend-item"><div class="legend-bus" style="background:#475569;"></div><span style="color:#64748b;">BUS_GND (Tierra Estrella)</span></div>
+    </div>
+
+    <!-- ZOOM CONTROLS -->
+    <div class="zoom-controls" id="zoomControls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">-</button>
+        <button class="zoom-btn" onclick="resetView()">⟲</button>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+        <div class="status-item"><div class="status-dot"></div> Estado: Nominal</div>
+        <div class="status-item">Componentes: 16</div>
+        <div class="status-item">Baterías: 3</div>
+        <div class="status-item">Conexiones: 42</div>
+        <div class="status-item" id="coordDisplay">X: 0 Y: 0</div>
+        <div class="status-item" style="margin-left:auto;">Modo: <span id="modeDisplay">Cables Físicos</span></div>
+        <div class="status-item">Zoom: <span id="zoomLevel">100%</span></div>
+    </div>
+
+    <!-- TOOLTIP -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title" id="tooltipTitle"></div>
+        <div class="tooltip-detail" id="tooltipDetail"></div>
+    </div>
+
+    <script>
+        (() => {
+            'use strict';
+            const state = {
+                viewMode: 'wires',
+                activeNet: null,
+                activeBus: null,
+                netTags: [],
+                pinElements: [],
+                currentZoom: 1,
+                sidebarCollapsed: false,
+                filters: { power: true, gnd: true, signal: true, motor: true }
+            };
+
+            const NETS = {
+                VCC_3V3:      { color: 'net-tag-power',  type: 'power',  label: '3.3V',       gpio: 0,   bus: 'PWR_3V3' },
+                VCC_4V8:      { color: 'net-tag-power',  type: 'power',  label: '4.8V',       gpio: 0,   bus: 'PWR_4V8' },
+                VCC_7V7:      { color: 'net-tag-power',  type: 'power',  label: '7.7V',       gpio: 0,   bus: 'PWR_7V7' },
+                GND_STAR:     { color: 'net-tag-gnd',    type: 'ground', label: 'GND STAR',   gpio: 0,   bus: 'GND' },
+                ENC_FL:       { color: 'net-tag-input',  type: 'input',  label: 'ENC FL · PCNT0', gpio: 10, bus: 'ENC' },
+                ENC_FR:       { color: 'net-tag-input',  type: 'input',  label: 'ENC FR · PCNT1', gpio: 11, bus: 'ENC' },
+                ENC_BL:       { color: 'net-tag-input',  type: 'input',  label: 'ENC BL · PCNT2', gpio: 12, bus: 'ENC' },
+                ENC_BR:       { color: 'net-tag-input',  type: 'input',  label: 'ENC BR · PCNT3', gpio: 13, bus: 'ENC' },
+                SDA_3V3:      { color: 'net-tag-bus',    type: 'bidir',  label: 'SDA 3.3V',   gpio: 8,   bus: 'I2C' },
+                SCL_3V3:      { color: 'net-tag-bus',    type: 'bidir',  label: 'SCL 3.3V',   gpio: 9,   bus: 'I2C' },
+                SDA_4V8:      { color: 'net-tag-bus',    type: 'bidir',  label: 'SDA 4.8V',   gpio: 0,   bus: 'I2C_H' },
+                SCL_4V8:      { color: 'net-tag-bus',    type: 'bidir',  label: 'SCL 4.8V',   gpio: 0,   bus: 'I2C_H' },
+                PWM_FL:       { color: 'net-tag-pwm',    type: 'output', label: 'FL FWD',     gpio: 6,   bus: 'PWM_L' },
+                PWM_FL2:      { color: 'net-tag-pwm',    type: 'output', label: 'FL REV',     gpio: 7,   bus: 'PWM_L' },
+                PWM_BL:       { color: 'net-tag-pwm',    type: 'output', label: 'BL FWD',     gpio: 4,   bus: 'PWM_L' },
+                PWM_BL2:      { color: 'net-tag-pwm',    type: 'output', label: 'BL REV',     gpio: 5,   bus: 'PWM_L' },
+                PWM_FR:       { color: 'net-tag-pwm',    type: 'output', label: 'FR FWD',     gpio: 17,  bus: 'PWM_R' },
+                PWM_FR2:      { color: 'net-tag-pwm',    type: 'output', label: 'FR REV',     gpio: 18,  bus: 'PWM_R' },
+                PWM_BR:       { color: 'net-tag-pwm',    type: 'output', label: 'BR FWD',     gpio: 15,  bus: 'PWM_R' },
+                PWM_BR2:      { color: 'net-tag-pwm',    type: 'output', label: 'BR REV',     gpio: 16,  bus: 'PWM_R' },
+                ENC_FL_4V8:   { color: 'net-tag-input',  type: 'input',  label: 'ENC FL 4.8V',gpio: 0,   bus: 'ENC_H' },
+                ENC_FR_4V8:   { color: 'net-tag-input',  type: 'input',  label: 'ENC FR 4.8V',gpio: 0,   bus: 'ENC_H' },
+                ENC_BL_4V8:   { color: 'net-tag-input',  type: 'input',  label: 'ENC BL 4.8V',gpio: 0,   bus: 'ENC_H' },
+                ENC_BR_4V8:   { color: 'net-tag-input',  type: 'input',  label: 'ENC BR 4.8V',gpio: 0,   bus: 'ENC_H' },
+                MOT_FL_A:     { color: 'net-tag-output', type: 'power',  label: 'MOT FL A',   gpio: 0,   bus: 'MOT_L' },
+                MOT_FL_B:     { color: 'net-tag-output', type: 'power',  label: 'MOT FL B',   gpio: 0,   bus: 'MOT_L' },
+                MOT_BL_A:     { color: 'net-tag-output', type: 'power',  label: 'MOT BL A',   gpio: 0,   bus: 'MOT_L' },
+                MOT_BL_B:     { color: 'net-tag-output', type: 'power',  label: 'MOT BL B',   gpio: 0,   bus: 'MOT_L' },
+                MOT_FR_A:     { color: 'net-tag-output', type: 'power',  label: 'MOT FR A',   gpio: 0,   bus: 'MOT_R' },
+                MOT_FR_B:     { color: 'net-tag-output', type: 'power',  label: 'MOT FR B',   gpio: 0,   bus: 'MOT_R' },
+                MOT_BR_A:     { color: 'net-tag-output', type: 'power',  label: 'MOT BR A',   gpio: 0,   bus: 'MOT_R' },
+                MOT_BR_B:     { color: 'net-tag-output', type: 'power',  label: 'MOT BR B',   gpio: 0,   bus: 'MOT_R' },
+                CAP_DRV1:     { color: 'net-tag-bus',    type: 'power',  label: 'CAP DRV1',   gpio: 0,   bus: 'BYPASS' },
+                CAP_DRV2:     { color: 'net-tag-bus',    type: 'power',  label: 'CAP DRV2',   gpio: 0,   bus: 'BYPASS' }
+            };
+
+            const BUSES = {
+                ENC: {
+                    color: '#22c55e', label: 'BUS_ENC',
+                    signals: ['ENC_FL', 'ENC_FR', 'ENC_BL', 'ENC_BR'],
+                    path: [[940, 250], [990, 250], [990, 700], [1300, 700]],
+                    stubs: []
+                },
+                I2C: {
+                    color: '#3b82f6', label: 'BUS_I2C',
+                    signals: ['SDA_3V3', 'SCL_3V3'],
+                    path: [[940, 410], [1000, 410], [1000, 210], [1300, 210]],
+                    stubs: []
+                },
+                PWM_L: {
+                    color: '#f97316', label: 'BUS_PWM_L',
+                    signals: ['PWM_FL', 'PWM_BL', 'PWM_FL2', 'PWM_BL2'],
+                    path: [[940, 250], [1000, 250], [1000, 1100], [560, 1100]],
+                    stubs: []
+                },
+                PWM_R: {
+                    color: '#06b6d4', label: 'BUS_PWM_R',
+                    signals: ['PWM_FR', 'PWM_BR', 'PWM_FR2', 'PWM_BR2'],
+                    path: [[940, 345], [1010, 345], [1010, 1150], [920, 1150]],
+                    stubs: []
+                },
+                PWR_7V7: {
+                    color: '#dc2626', label: 'BUS_7V7',
+                    signals: ['VCC_7V7'],
+                    path: [[340, 490], [420, 490], [420, 1040], [560, 1040]],
+                    stubs: []
+                },
+                GND: {
+                    color: '#475569', label: 'BUS_GND_STAR',
+                    signals: ['GND_STAR'],
+                    path: [[260, 755], [400, 755], [400, 1500], [1500, 1500]],
+                    stubs: []
+                }
+            };
+
+            const wires = [
+                // Baterías → Tierra Estrella (GND)
+                { id: 'b1_gnd', color: '#475569', label: 'B1 GND → Tierra Estrella', bus: 'GND', type: 'gnd',
+                  path: [[340, 170], [400, 170], [400, 755], [260, 755]] },
+                { id: 'b2_gnd', color: '#475569', label: 'B2 GND → Tierra Estrella', bus: 'GND', type: 'gnd',
+                  path: [[340, 350], [410, 350], [410, 755], [260, 755]] },
+                { id: 'b3_gnd', color: '#475569', label: 'B3 GND → Tierra Estrella', bus: 'GND', type: 'gnd',
+                  path: [[340, 530], [420, 530], [420, 755], [260, 755]] },
+                
+                // ESP32 GND → Tierra Estrella
+                { id: 'esp_gnd', color: '#475569', label: 'ESP32 GND → Tierra Estrella', bus: 'GND', type: 'gnd',
+                  path: [[540, 195], [450, 195], [450, 755], [260, 755]] },
+                
+                // B1 → ESP32 3.3V
+                { id: 'b1_vcc', color: '#ef4444', label: 'B1 3.3V → ESP32 VCC', bus: 'PWR_3V3', type: 'power',
+                  path: [[340, 130], [460, 130], [460, 160], [540, 160]] },
+                
+                // B2 → MPU6050 4.8V
+                { id: 'b2_mpu', color: '#f97316', label: 'B2 4.8V → MPU6050 VCC', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [480, 310], [480, 140], [1080, 140]] },
+                // B2 → TXS0108E I2C VCCB
+                { id: 'b2_txs_i2c', color: '#f97316', label: 'B2 4.8V → TXS0108E I2C VCCB', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [490, 310], [490, 180], [1380, 180]] },
+                // B2 → TXS0108E Encoders VCCB
+                { id: 'b2_txs_enc', color: '#f97316', label: 'B2 4.8V → TXS0108E Enc VCCB', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [500, 310], [500, 610], [1080, 610]] },
+                // B2 → 4x LM393
+                { id: 'b2_enc_fl', color: '#f97316', label: 'B2 4.8V → LM393 FL', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [510, 310], [510, 585], [1380, 585]] },
+                { id: 'b2_enc_fr', color: '#f97316', label: 'B2 4.8V → LM393 FR', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [520, 310], [520, 685], [1380, 685]] },
+                { id: 'b2_enc_bl', color: '#f97316', label: 'B2 4.8V → LM393 BL', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [530, 310], [530, 785], [1380, 785]] },
+                { id: 'b2_enc_br', color: '#f97316', label: 'B2 4.8V → LM393 BR', bus: 'PWR_4V8', type: 'power',
+                  path: [[340, 310], [540, 310], [540, 885], [1380, 885]] },
+                
+                // MPU6050 → TXS0108E I2C (4.8V side)
+                { id: 'mpu_sda', color: '#f97316', label: 'MPU6050 SDA → TXS0108E SDA_A', bus: 'I2C_H', type: 'signal',
+                  path: [[1300, 210], [1340, 210], [1340, 210], [1380, 210]] },
+                { id: 'mpu_scl', color: '#f97316', label: 'MPU6050 SCL → TXS0108E SCL_A', bus: 'I2C_H', type: 'signal',
+                  path: [[1300, 245], [1350, 245], [1350, 245], [1380, 245]] },
+                
+                // TXS0108E I2C → ESP32 (3.3V side)
+                { id: 'txs_sda', color: '#22c55e', label: 'TXS0108E SDA_B → ESP32 GPIO8', bus: 'I2C', type: 'signal',
+                  path: [[1600, 210], [1650, 210], [1650, 410], [540, 410]] },
+                { id: 'txs_scl', color: '#3b82f6', label: 'TXS0108E SCL_B → ESP32 GPIO9', bus: 'I2C', type: 'signal',
+                  path: [[1600, 245], [1660, 245], [1660, 445], [540, 445]] },
+                
+                // TXS0108E I2C VCCA → ESP32 3.3V
+                { id: 'txs_i2c_vcca', color: '#ef4444', label: 'TXS0108E I2C VCCA → 3.3V', bus: 'PWR_3V3', type: 'power',
+                  path: [[1600, 140], [1670, 140], [1670, 160], [540, 160]] },
+                
+                // 4x LM393 → TXS0108E Encoders (4.8V side)
+                { id: 'enc_fl_in', color: '#f97316', label: 'LM393 FL DOUT → TXS0108E FL IN', bus: 'ENC_H', type: 'signal',
+                  path: [[1600, 600], [1680, 600], [1680, 645], [1080, 645]] },
+                { id: 'enc_fr_in', color: '#f97316', label: 'LM393 FR DOUT → TXS0108E FR IN', bus: 'ENC_H', type: 'signal',
+                  path: [[1600, 700], [1690, 700], [1690, 675], [1080, 675]] },
+                { id: 'enc_bl_in', color: '#f97316', label: 'LM393 BL DOUT → TXS0108E BL IN', bus: 'ENC_H', type: 'signal',
+                  path: [[1600, 800], [1700, 800], [1700, 705], [1080, 705]] },
+                { id: 'enc_br_in', color: '#f97316', label: 'LM393 BR DOUT → TXS0108E BR IN', bus: 'ENC_H', type: 'signal',
+                  path: [[1600, 900], [1710, 900], [1710, 735], [1080, 735]] },
+                
+                // TXS0108E Encoders → ESP32 (3.3V side, PCNT)
+                { id: 'enc_fl_out', color: '#22c55e', label: 'TXS0108E FL → ESP32 GPIO10 · PCNT0', bus: 'ENC', type: 'signal',
+                  path: [[1300, 645], [1330, 645], [1330, 250], [540, 250]] },
+                { id: 'enc_fr_out', color: '#22c55e', label: 'TXS0108E FR → ESP32 GPIO11 · PCNT1', bus: 'ENC', type: 'signal',
+                  path: [[1300, 675], [1340, 675], [1340, 285], [540, 285]] },
+                { id: 'enc_bl_out', color: '#22c55e', label: 'TXS0108E BL → ESP32 GPIO12 · PCNT2', bus: 'ENC', type: 'signal',
+                  path: [[1300, 705], [1350, 705], [1350, 320], [540, 320]] },
+                { id: 'enc_br_out', color: '#22c55e', label: 'TXS0108E BR → ESP32 GPIO13 · PCNT3', bus: 'ENC', type: 'signal',
+                  path: [[1300, 735], [1360, 735], [1360, 355], [540, 355]] },
+                
+                // ESP32 PWM → DRV8833 Izquierdo
+                { id: 'pwm_fl', color: '#f97316', label: 'ESP32 GPIO6 → DRV1 IN1 · FL FWD', bus: 'PWM_L', type: 'signal',
+                  path: [[940, 250], [980, 250], [980, 1120], [560, 1120]] },
+                { id: 'pwm_fl2', color: '#f97316', label: 'ESP32 GPIO7 → DRV1 IN2 · FL REV', bus: 'PWM_L', type: 'signal',
+                  path: [[940, 285], [990, 285], [990, 1150], [560, 1150]] },
+                { id: 'pwm_bl', color: '#f97316', label: 'ESP32 GPIO4 → DRV1 IN3 · BL FWD', bus: 'PWM_L', type: 'signal',
+                  path: [[940, 320], [1000, 320], [1000, 1190], [560, 1190]] },
+                { id: 'pwm_bl2', color: '#f97316', label: 'ESP32 GPIO5 → DRV1 IN4 · BL REV', bus: 'PWM_L', type: 'signal',
+                  path: [[940, 355], [1010, 355], [1010, 1220], [560, 1220]] },
+                
+                // ESP32 PWM → DRV8833 Derecho
+                { id: 'pwm_fr', color: '#06b6d4', label: 'ESP32 GPIO17 → DRV2 IN1 · FR FWD', bus: 'PWM_R', type: 'signal',
+                  path: [[940, 410], [1020, 410], [1020, 1120], [920, 1120]] },
+                { id: 'pwm_fr2', color: '#06b6d4', label: 'ESP32 GPIO18 → DRV2 IN2 · FR REV', bus: 'PWM_R', type: 'signal',
+                  path: [[940, 445], [1030, 445], [1030, 1150], [920, 1150]] },
+                { id: 'pwm_br', color: '#06b6d4', label: 'ESP32 GPIO15 → DRV2 IN3 · BR FWD', bus: 'PWM_R', type: 'signal',
+                  path: [[940, 500], [1040, 500], [1040, 1190], [920, 1190]] },
+                { id: 'pwm_br2', color: '#06b6d4', label: 'ESP32 GPIO16 → DRV2 IN4 · BR REV', bus: 'PWM_R', type: 'signal',
+                  path: [[940, 535], [1050, 535], [1050, 1220], [920, 1220]] },
+                
+                // B3 → DRV8833 VMOT (7.7V)
+                { id: 'b3_drv1', color: '#dc2626', label: 'B3 7.7V → DRV1 VMOT', bus: 'PWR_7V7', type: 'power',
+                  path: [[340, 490], [430, 490], [430, 1040], [560, 1040]] },
+                { id: 'b3_drv2', color: '#dc2626', label: 'B3 7.7V → DRV2 VMOT', bus: 'PWR_7V7', type: 'power',
+                  path: [[340, 490], [440, 490], [440, 1040], [920, 1040]] },
+                
+                // DRV8833 GND → Tierra Estrella
+                { id: 'drv1_gnd', color: '#475569', label: 'DRV1 GND → Tierra Estrella', bus: 'GND', type: 'gnd',
+                  path: [[560, 1075], [460, 1075], [460, 1500], [260, 1500], [260, 755]] },
+                { id: 'drv2_gnd', color: '#475569', label: 'DRV2 GND → Tierra Estrella', bus: 'GND', type: 'gnd',
+                  path: [[920, 1075], [470, 1075], [470, 1500], [260, 1500], [260, 755]] },
+                
+                // DRV1 → Motores Izquierdos
+                { id: 'drv1_mfl', color: '#fbbf24', label: 'DRV1 OUT1-2 → Motor FL', bus: 'MOT_L', type: 'motor',
+                  path: [[840, 1120], [1100, 1120], [1100, 1045], [1300, 1045]] },
+                { id: 'drv1_mbl', color: '#fbbf24', label: 'DRV1 OUT3-4 → Motor BL', bus: 'MOT_L', type: 'motor',
+                  path: [[840, 1190], [1110, 1190], [1110, 1225], [1300, 1225]] },
+                
+                // DRV2 → Motores Derechos
+                { id: 'drv2_mfr', color: '#22d3ee', label: 'DRV2 OUT1-2 → Motor FR', bus: 'MOT_R', type: 'motor',
+                  path: [[1200, 1120], [1400, 1120], [1400, 1045], [1500, 1045]] },
+                { id: 'drv2_mbr', color: '#22d3ee', label: 'DRV2 OUT3-4 → Motor BR', bus: 'MOT_R', type: 'motor',
+                  path: [[1200, 1190], [1410, 1190], [1410, 1225], [1500, 1225]] },
+                
+                // Capacitores → DRV8833
+                { id: 'cap1_drv1', color: '#22c55e', label: 'CAP1 → DRV1 VMOT', bus: 'BYPASS', type: 'signal',
+                  path: [[690, 1380], [690, 1320]] },
+                { id: 'cap2_drv2', color: '#22c55e', label: 'CAP2 → DRV2 VMOT', bus: 'BYPASS', type: 'signal',
+                  path: [[1050, 1380], [1050, 1320]] }
+            ];
+
+            function init() {
+                drawWires();
+                drawBuses();
+                buildNetTags();
+                setViewMode(state.viewMode);
+                bindEvents();
+            }
+
+            function getLogicalCoords(pin) {
+                const canvas = document.getElementById('schematicCanvas');
+                let x = 0, y = 0, curr = pin;
+                while (curr && curr !== canvas) {
+                    x += curr.offsetLeft;
+                    y += curr.offsetTop;
+                    curr = curr.offsetParent;
+                }
+                return { x: x + pin.offsetWidth / 2, y: y + pin.offsetHeight / 2 };
+            }
+
+            function drawWires() {
+                const svg = document.getElementById('wiresLayer');
+                if (!svg) return;
+                svg.innerHTML = '';
+                wires.forEach(wire => {
+                    if (wire.type === 'power' && !state.filters.power) return;
+                    if (wire.type === 'gnd' && !state.filters.gnd) return;
+                    if (wire.type === 'signal' && !state.filters.signal) return;
+                    if (wire.type === 'motor' && !state.filters.motor) return;
+
+                    const pathData = wire.path.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
+
+                    const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    shadow.setAttribute('d', pathData);
+                    shadow.setAttribute('fill', 'none');
+                    shadow.setAttribute('stroke', wire.color);
+                    shadow.setAttribute('stroke-width', '6');
+                    shadow.setAttribute('stroke-linecap', 'round');
+                    shadow.setAttribute('stroke-linejoin', 'round');
+                    shadow.setAttribute('opacity', '0.15');
+                    shadow.setAttribute('class', 'wire-shadow');
+                    shadow.setAttribute('data-wire-id', wire.id);
+                    shadow.setAttribute('data-bus', wire.bus);
+                    svg.appendChild(shadow);
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', pathData);
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('stroke', wire.color);
+                    path.setAttribute('stroke-width', '2.5');
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.setAttribute('stroke-linejoin', 'round');
+                    path.setAttribute('class', 'wire');
+                    path.setAttribute('data-wire-id', wire.id);
+                    path.setAttribute('data-bus', wire.bus);
+                    path.setAttribute('data-label', wire.label);
+                    path.style.pointerEvents = 'stroke';
+                    path.style.cursor = 'pointer';
+
+                    path.addEventListener('mouseenter', (e) => showTooltip(e, wire.label, `Bus: ${wire.bus} · ID: ${wire.id.toUpperCase()}`));
+                    path.addEventListener('mousemove', moveTooltip);
+                    path.addEventListener('mouseleave', hideTooltip);
+                    path.addEventListener('click', (e) => { e.stopPropagation(); highlightWire(wire.id); });
+
+                    svg.appendChild(path);
+
+                    wire.path.forEach((p, i) => {
+                        if (i > 0 && i < wire.path.length - 1) {
+                            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                            circle.setAttribute('cx', p[0]);
+                            circle.setAttribute('cy', p[1]);
+                            circle.setAttribute('r', '3');
+                            circle.setAttribute('fill', wire.color);
+                            circle.setAttribute('class', 'wire-junction');
+                            circle.setAttribute('data-wire-id', wire.id);
+                            circle.setAttribute('data-bus', wire.bus);
+                            svg.appendChild(circle);
+                        }
+                    });
+                });
+            }
+
+            function drawBuses() {
+                const svg = document.getElementById('busesLayer');
+                if (!svg) return;
+                svg.innerHTML = '';
+                Object.entries(BUSES).forEach(([busName, bus]) => {
+                    const pathData = bus.path.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
+                    const busLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    busLine.setAttribute('d', pathData);
+                    busLine.setAttribute('fill', 'none');
+                    busLine.setAttribute('stroke', bus.color);
+                    busLine.setAttribute('class', 'bus-line');
+                    busLine.setAttribute('data-bus-name', busName);
+                    busLine.style.pointerEvents = 'stroke';
+                    busLine.style.cursor = 'pointer';
+                    busLine.addEventListener('mouseenter', (e) => showTooltip(e, bus.label, `Señales: ${bus.signals.join(', ')}`));
+                    busLine.addEventListener('mousemove', moveTooltip);
+                    busLine.addEventListener('mouseleave', hideTooltip);
+                    busLine.addEventListener('click', (e) => { e.stopPropagation(); highlightBus(busName); });
+                    svg.appendChild(busLine);
+
+                    const midPoint = bus.path[Math.floor(bus.path.length / 2)];
+                    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    label.setAttribute('x', midPoint[0]);
+                    label.setAttribute('y', midPoint[1] - 12);
+                    label.setAttribute('class', 'bus-label');
+                    label.setAttribute('fill', bus.color);
+                    label.textContent = bus.label;
+                    svg.appendChild(label);
+                });
+            }
+
+            function buildNetTags() {
+                const canvas = document.getElementById('schematicCanvas');
+                if (!canvas) return;
+                const pins = document.querySelectorAll('[data-net]');
+                state.pinElements = pins;
+                pins.forEach(pin => {
+                    const netName = pin.dataset.net;
+                    const netDef = NETS[netName];
+                    if (!netDef) return;
+                    const coords = getLogicalCoords(pin);
+                    const isLeft = pin.style.left !== '' && parseFloat(pin.style.left) < 10;
+                    const isRight = pin.style.right !== '' && parseFloat(pin.style.right) < 10;
+                    const isBottom = pin.style.bottom !== '' && parseFloat(pin.style.bottom) < 10;
+
+                    const tag = document.createElement('span');
+                    tag.className = `net-tag ${netDef.color}`;
+                    tag.dataset.net = netName;
+                    tag.dataset.bus = netDef.bus;
+                    tag.textContent = `${netDef.label} [${netDef.bus}]`;
+                    tag.style.top = coords.y + 'px';
+                    if (isLeft) {
+                        tag.style.left = (coords.x - 10) + 'px';
+                        tag.style.transform = 'translate(-100%, -50%)';
+                        tag.classList.add('tag-left');
+                    } else if (isRight) {
+                        tag.style.left = (coords.x + 10) + 'px';
+                        tag.style.transform = 'translate(0, -50%)';
+                        tag.classList.add('tag-right');
+                    } else if (isBottom) {
+                        tag.style.left = coords.x + 'px';
+                        tag.style.top = (coords.y + 10) + 'px';
+                        tag.style.transform = 'translate(-50%, 0)';
+                        tag.classList.add('tag-bottom');
+                    } else {
+                        tag.style.left = (coords.x + 10) + 'px';
+                        tag.style.transform = 'translate(0, -50%)';
+                        tag.classList.add('tag-right');
+                    }
+
+                    tag.addEventListener('mouseenter', (e) => {
+                        showTooltip(e, `Red: ${netDef.label}`, `Bus: ${netDef.bus} · Tipo: ${netDef.type.toUpperCase()} · Pin: ${pin.dataset.pin.toUpperCase()}`);
+                    });
+                    tag.addEventListener('mousemove', moveTooltip);
+                    tag.addEventListener('mouseleave', hideTooltip);
+                    tag.addEventListener('click', (e) => { e.stopPropagation(); highlightNet(netName); });
+
+                    canvas.appendChild(tag);
+                    state.netTags.push(tag);
+                });
+            }
+
+            function highlightBus(busName) {
+                if (state.activeBus === busName) { resetHighlights(); return; }
+                state.activeBus = busName;
+                state.activeNet = null;
+                document.querySelectorAll('.bus-line').forEach(el => {
+                    if (el.getAttribute('data-bus-name') === busName) {
+                        el.classList.add('highlighted'); el.classList.remove('dimmed');
+                    } else {
+                        el.classList.add('dimmed'); el.classList.remove('highlighted');
+                    }
+                });
+                document.querySelectorAll('.wire, .wire-shadow, .wire-junction').forEach(w => {
+                    if (w.getAttribute('data-bus') === busName) {
+                        w.classList.add('highlighted'); w.classList.remove('dimmed');
+                    } else {
+                        w.classList.add('dimmed'); w.classList.remove('highlighted');
+                    }
+                });
+                state.netTags.forEach(t => t.classList.toggle('glow', t.dataset.bus === busName));
+                document.querySelectorAll('.pin-row').forEach(row => {
+                    const busCell = row.querySelector('.pin-bus');
+                    if (busCell && busCell.textContent === busName) {
+                        row.classList.add('highlighted'); row.classList.remove('dimmed');
+                    } else {
+                        row.classList.remove('highlighted'); row.classList.add('dimmed');
+                    }
+                });
+                const bus = BUSES[busName];
+                if (bus) {
+                    document.getElementById('infoPanel').innerHTML = `
+                        <div style="border-left: 4px solid ${bus.color}; padding-left: 8px;">
+                            <h4 style="color:${bus.color}; margin-bottom:4px; font-size:12px;">BUS: ${bus.label}</h4>
+                            <p><strong>Señales:</strong> ${bus.signals.join(', ')}</p>
+                            <p style="margin-top:6px; font-size:10px; color:#64748b;">${bus.signals.length} señales agrupadas.</p>
+                        </div>`;
+                }
+            }
+
+            function highlightNet(netName) {
+                if (state.activeNet === netName) { resetHighlights(); return; }
+                state.activeNet = netName;
+                state.activeBus = null;
+                state.netTags.forEach(t => t.classList.toggle('glow', t.dataset.net === netName));
+                state.pinElements.forEach(p => p.classList.toggle('pin-glow', p.dataset.net === netName));
+                const allWires = document.querySelectorAll('.wire, .wire-shadow, .wire-junction');
+                allWires.forEach(w => {
+                    const wireId = w.getAttribute('data-wire-id');
+                    const matchingWire = wires.find(item => item.id === wireId);
+                    if (matchingWire && getNetFromWireId(matchingWire.id) === netName) {
+                        w.classList.add('highlighted'); w.classList.remove('dimmed');
+                    } else {
+                        w.classList.add('dimmed'); w.classList.remove('highlighted');
+                    }
+                });
+                const net = NETS[netName];
+                if (net) {
+                    document.getElementById('infoPanel').innerHTML = `
+                        <div style="border-left: 4px solid #3b82f6; padding-left: 8px;">
+                            <h4 style="color:#60a5fa; margin-bottom:4px; font-size:12px;">NET: ${netName}</h4>
+                            <p><strong>Función:</strong> ${net.label}</p>
+                            <p><strong>Bus:</strong> ${net.bus}</p>
+                            <p><strong>Tipo:</strong> ${net.type.toUpperCase()}</p>
+                            <p><strong>GPIO:</strong> ${net.gpio ? 'GP' + net.gpio : 'N/A'}</p>
+                        </div>`;
+                }
+            }
+
+            function highlightWire(wireId) {
+                const allWires = document.querySelectorAll('.wire, .wire-shadow, .wire-junction');
+                allWires.forEach(w => {
+                    if (w.getAttribute('data-wire-id') === wireId) {
+                        w.classList.add('highlighted'); w.classList.remove('dimmed');
+                    } else {
+                        w.classList.add('dimmed'); w.classList.remove('highlighted');
+                    }
+                });
+                const netName = getNetFromWireId(wireId);
+                if (netName) {
+                    state.netTags.forEach(t => t.classList.toggle('glow', t.dataset.net === netName));
+                    state.pinElements.forEach(p => p.classList.toggle('pin-glow', p.dataset.net === netName));
+                }
+                document.querySelectorAll('.pin-row').forEach(row => {
+                    const clickAttr = row.getAttribute('onclick') || '';
+                    row.classList.toggle('highlighted', clickAttr.includes(`'${wireId}'`));
+                    row.classList.toggle('dimmed', !clickAttr.includes(`'${wireId}'`));
+                });
+                const wire = wires.find(w => w.id === wireId);
+                if (wire) {
+                    document.getElementById('infoPanel').innerHTML = `
+                        <div style="border-left: 4px solid ${wire.color}; padding-left: 8px;">
+                            <h4 style="color:${wire.color}; margin-bottom:4px; font-size:12px;">CONEXIÓN: ${wire.id.toUpperCase()}</h4>
+                            <p><strong>Línea:</strong> ${wire.label}</p>
+                            <p><strong>Bus:</strong> ${wire.bus}</p>
+                            <p><strong>Tipo:</strong> ${wire.type.toUpperCase()}</p>
+                            <p><strong>Color:</strong> <span style="display:inline-block; width:10px; height:10px; background:${wire.color}; border-radius:2px; vertical-align:middle;"></span> ${wire.color}</p>
+                        </div>`;
+                }
+            }
+
+            function getNetFromWireId(wireId) {
+                const map = {
+                    b1_vcc: 'VCC_3V3', b2_vcc: 'VCC_4V8', b3_vcc: 'VCC_7V7',
+                    b1_gnd: 'GND_STAR', b2_gnd: 'GND_STAR', b3_gnd: 'GND_STAR',
+                    esp_gnd: 'GND_STAR', drv1_gnd: 'GND_STAR', drv2_gnd: 'GND_STAR',
+                    gp4: 'ENC_FL', gp5: 'ENC_FR', gp6: 'ENC_BL', gp7: 'ENC_BR',
+                    gp8: 'SDA_3V3', gp9: 'SCL_3V3',
+                    gp10: 'PWM_FL', gp11: 'PWM_BL', gp12: 'PWM_FR', gp13: 'PWM_BR',
+                    gp14: 'PWM_FR2', gp15: 'PWM_BR2', gp16: 'PWM_FL2', gp17: 'PWM_BL2',
+                    mpu_sda: 'SDA_4V8', mpu_scl: 'SCL_4V8',
+                    txs_sda: 'SDA_3V3', txs_scl: 'SCL_3V3',
+                    enc_fl_out: 'ENC_FL', enc_fr_out: 'ENC_FR', enc_bl_out: 'ENC_BL', enc_br_out: 'ENC_BR',
+                    enc_fl_in: 'ENC_FL_4V8', enc_fr_in: 'ENC_FR_4V8', enc_bl_in: 'ENC_BL_4V8', enc_br_in: 'ENC_BR_4V8',
+                    drv1_vmot: 'VCC_7V7', drv2_vmot: 'VCC_7V7',
+                    b3_drv1: 'VCC_7V7', b3_drv2: 'VCC_7V7',
+                    pwm_fl: 'PWM_FL', pwm_fl2: 'PWM_FL2', pwm_bl: 'PWM_BL', pwm_bl2: 'PWM_BL2',
+                    pwm_fr: 'PWM_FR', pwm_fr2: 'PWM_FR2', pwm_br: 'PWM_BR', pwm_br2: 'PWM_BR2',
+                    drv1_mfl: 'MOT_FL_A', drv1_mbl: 'MOT_BL_A', drv2_mfr: 'MOT_FR_A', drv2_mbr: 'MOT_BR_A',
+                    cap1_drv1: 'CAP_DRV1', cap2_drv2: 'CAP_DRV2',
+                    b2_mpu: 'VCC_4V8', b2_txs_i2c: 'VCC_4V8', b2_txs_enc: 'VCC_4V8',
+                    b2_enc_fl: 'VCC_4V8', b2_enc_fr: 'VCC_4V8', b2_enc_bl: 'VCC_4V8', b2_enc_br: 'VCC_4V8',
+                    txs_i2c_vcca: 'VCC_3V3'
+                };
+                return map[wireId] || null;
+            }
+
+            function resetHighlights() {
+                state.activeNet = null;
+                state.activeBus = null;
+                state.netTags.forEach(t => t.classList.remove('glow'));
+                state.pinElements.forEach(p => p.classList.remove('pin-glow'));
+                document.querySelectorAll('.wire, .wire-shadow, .wire-junction, .bus-line').forEach(w => {
+                    w.classList.remove('dimmed', 'highlighted');
+                });
+                document.querySelectorAll('.pin-row').forEach(row => row.classList.remove('highlighted', 'dimmed'));
+            }
+
+            function toggleFilter(filterName) {
+                state.filters[filterName] = !state.filters[filterName];
+                const btn = document.querySelector(`.filter-btn[data-filter="${filterName}"]`);
+                if (btn) {
+                    btn.classList.toggle('active', state.filters[filterName]);
+                    btn.classList.toggle('inactive', !state.filters[filterName]);
+                }
+                drawWires();
+            }
+
+            function setViewMode(mode) {
+                state.viewMode = mode;
+                const wiresLayer = document.getElementById('wiresLayer');
+                const busesLayer = document.getElementById('busesLayer');
+                const isLabelsMode = (mode === 'labels');
+                const isBusesMode = (mode === 'buses');
+                if (wiresLayer) wiresLayer.style.display = isLabelsMode ? 'none' : 'block';
+                if (busesLayer) busesLayer.style.display = isLabelsMode ? 'none' : 'block';
+                state.netTags.forEach(tag => tag.classList.toggle('visible', isLabelsMode || isBusesMode));
+                document.querySelectorAll('.toolbar button[data-mode]').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === mode);
+                });
+                const modeNames = { wires: 'Cables Físicos', buses: 'Buses + Labels', labels: 'Esquema Puro' };
+                document.getElementById('modeDisplay').textContent = modeNames[mode] || mode;
+                resetHighlights();
+            }
+
+            function togglePanel() {
+                state.sidebarCollapsed = !state.sidebarCollapsed;
+                document.getElementById('sidePanel').classList.toggle('collapsed', state.sidebarCollapsed);
+                document.getElementById('legend').classList.toggle('collapsed', state.sidebarCollapsed);
+                document.getElementById('zoomControls').classList.toggle('shifted', state.sidebarCollapsed);
+                const btn = document.getElementById('btnTogglePanel');
+                if (btn) {
+                    btn.classList.toggle('active', state.sidebarCollapsed);
+                    btn.textContent = state.sidebarCollapsed ? 'Mostrar Panel' : 'Tabla';
+                }
+            }
+
+            function showTooltip(e, title, detail) {
+                const tooltip = document.getElementById('tooltip');
+                if (!tooltip) return;
+                document.getElementById('tooltipTitle').textContent = title;
+                document.getElementById('tooltipDetail').textContent = detail;
+                tooltip.style.display = 'block';
+                moveTooltip(e);
+            }
+            function moveTooltip(e) {
+                const tooltip = document.getElementById('tooltip');
+                if (!tooltip) return;
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top = (e.clientY - 12) + 'px';
+            }
+            function hideTooltip() {
+                const tooltip = document.getElementById('tooltip');
+                if (tooltip) tooltip.style.display = 'none';
+            }
+
+            function zoomIn() { state.currentZoom = Math.min(state.currentZoom + 0.15, 2.5); applyZoom(); }
+            function zoomOut() { state.currentZoom = Math.max(state.currentZoom - 0.15, 0.4); applyZoom(); }
+            function resetView() {
+                state.currentZoom = 1;
+                applyZoom();
+                const container = document.getElementById('canvasContainer');
+                if (container) container.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+            }
+            function applyZoom() {
+                const canvas = document.getElementById('schematicCanvas');
+                const zoomDisplay = document.getElementById('zoomLevel');
+                if (canvas) {
+                    canvas.style.transform = `scale(${state.currentZoom})`;
+                    canvas.style.transformOrigin = 'top left';
+                }
+                if (zoomDisplay) zoomDisplay.textContent = Math.round(state.currentZoom * 100) + '%';
+            }
+
+            function bindEvents() {
+                document.querySelectorAll('.toolbar button[data-mode]').forEach(btn => {
+                    btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+                });
+                window.zoomIn = zoomIn;
+                window.zoomOut = zoomOut;
+                window.resetView = resetView;
+                window.togglePanel = togglePanel;
+                window.highlightWire = highlightWire;
+                window.toggleFilter = toggleFilter;
+
+                document.querySelectorAll('.component').forEach(comp => {
+                    comp.addEventListener('mouseenter', (e) => showTooltip(e, comp.dataset.name, comp.dataset.info));
+                    comp.addEventListener('mousemove', moveTooltip);
+                    comp.addEventListener('mouseleave', hideTooltip);
+                    comp.addEventListener('click', (e) => {
+                        if (e.target.closest('.comp-pin') || e.target.closest('.net-tag')) return;
+                        e.stopPropagation();
+                        document.querySelectorAll('.component').forEach(c => c.classList.remove('highlight'));
+                        comp.classList.add('highlight');
+                        document.getElementById('infoPanel').innerHTML = `
+                            <div style="border-left: 4px solid #3b82f6; padding-left: 8px;">
+                                <h4 style="color:#60a5fa; margin-bottom:4px; font-size:12px;">${comp.dataset.name}</h4>
+                                <p>${comp.dataset.info}</p>
+                            </div>`;
+                    });
+                });
+
+                document.getElementById('schematicCanvas').addEventListener('click', (e) => {
+                    if (!e.target.closest('.component') && !e.target.closest('.wire') && !e.target.closest('.net-tag') && !e.target.closest('.bus-line')) {
+                        resetHighlights();
+                        document.querySelectorAll('.component').forEach(c => c.classList.remove('highlight'));
+                        document.getElementById('infoPanel').innerHTML = '<p>Haga clic en un componente, cable o bus para ver detalles.</p>';
+                    }
+                });
+
+                const container = document.getElementById('canvasContainer');
+                const coordDisplay = document.getElementById('coordDisplay');
+                if (container && coordDisplay) {
+                    container.addEventListener('mousemove', (e) => {
+                        const canvas = document.getElementById('schematicCanvas');
+                        const rect = canvas.getBoundingClientRect();
+                        const x = Math.round((e.clientX - rect.left) / state.currentZoom);
+                        const y = Math.round((e.clientY - rect.top) / state.currentZoom);
+                        if (x >= 0 && x <= 3200 && y >= 0 && y <= 1800) {
+                            coordDisplay.textContent = `X: ${x} Y: ${y}`;
+                        }
+                    });
+                }
+
+                let resizeTimer;
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(() => {
+                        state.netTags.forEach(t => t.remove());
+                        state.netTags = [];
+                        buildNetTags();
+                        setViewMode(state.viewMode);
+                    }, 250);
+                });
+            }
+
+            document.addEventListener('DOMContentLoaded', init);
+        })();
+    </script>
+</body>
+</html>

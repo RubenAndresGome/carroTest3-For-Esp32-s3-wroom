@@ -1,0 +1,5 @@
+#pragma once
+
+// TODO V2: declarar estados INIT, IDLE, MANUAL, EXECUTING, STOPPING,
+// ESTOP y FAULT, junto con snapshots inmutables de sensores y actuadores.
+// Este archivo esta deshabilitado y no forma parte del firmware actual.

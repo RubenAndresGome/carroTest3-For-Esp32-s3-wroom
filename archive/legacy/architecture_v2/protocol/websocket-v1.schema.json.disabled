@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "robot-s3-websocket-v1",
+  "title": "Protocolo WebSocket Robot S3 V1 (deshabilitado)",
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/command" },
+    { "$ref": "#/$defs/heartbeat" },
+    { "$ref": "#/$defs/telemetry" },
+    { "$ref": "#/$defs/result" }
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["v", "type"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "type": "string", "maxLength": 24 }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["v", "type", "id", "name", "payload"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "command" },
+        "id": { "type": ["string", "integer"], "maxLength": 40 },
+        "name": {
+          "enum": ["estop", "stop", "clear_route", "reset_pose", "clear_fault", "move", "manual", "test_pwm"]
+        },
+        "payload": { "type": "object", "maxProperties": 4 }
+      },
+      "additionalProperties": false
+    },
+    "hello": {
+      "type": "object",
+      "required": ["v", "type"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "enum": ["hello", "hello_ack"] },
+        "protocol": { "const": "robot-s3-json-v1" },
+        "role": { "enum": ["robot", "hmi"] }
+      },
+      "additionalProperties": false
+    },
+    "heartbeat": {
+      "type": "object",
+      "required": ["v", "type"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "enum": ["heartbeat", "heartbeat_ack"] },
+        "ts_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "telemetry": {
+      "type": "object",
+      "required": ["v", "type", "seq", "payload"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "const": "telemetry" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "payload": {
+          "type": "object",
+          "required": ["uptime_ms", "robot_id", "firmware_version", "state", "x_mm", "y_mm", "yaw_deg", "pfl", "pfr", "pbl", "pbr", "mpu_present", "mpu_stale", "i2c_ok"],
+          "properties": {
+            "uptime_ms": { "type": "integer", "minimum": 0 },
+            "robot_id": { "type": "string", "maxLength": 64 },
+            "firmware_version": { "type": "string", "maxLength": 32 },
+            "state": { "type": "string", "maxLength": 32 },
+            "x_mm": { "type": "number" },
+            "y_mm": { "type": "number" },
+            "yaw_deg": { "type": "number" },
+            "pfl": { "type": "integer" },
+            "pfr": { "type": "integer" },
+            "pbl": { "type": "integer" },
+            "pbr": { "type": "integer" },
+            "pwm_l": { "type": "integer", "minimum": -255, "maximum": 255 },
+            "pwm_r": { "type": "integer", "minimum": -255, "maximum": 255 },
+            "mpu_present": { "type": "boolean" },
+            "mpu_stale": { "type": "boolean" },
+            "mpu_calibrated": { "type": "boolean" },
+            "i2c_ok": { "type": "boolean" },
+            "gyro_z_filtered_rad_s": { "type": "number" },
+            "gyro_z_offset_rad_s": { "type": "number" },
+            "theta_error_deg": { "type": "number", "minimum": -360, "maximum": 360 },
+            "encoder_delta_avg": {
+              "type": "object",
+              "required": ["fl", "fr", "bl", "br"],
+              "properties": {
+                "fl": { "type": "number" }, "fr": { "type": "number" },
+                "bl": { "type": "number" }, "br": { "type": "number" }
+              },
+              "additionalProperties": false
+            },
+            "wheel_speed_cm_s": {
+              "type": "object",
+              "required": ["left", "right"],
+              "properties": { "left": { "type": "number" }, "right": { "type": "number" } },
+              "additionalProperties": false
+            },
+            "pin_state": { "type": "object", "additionalProperties": { "type": ["boolean", "integer"] } }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "required": ["v", "type"],
+      "properties": {
+        "v": { "const": 1 },
+        "type": { "enum": ["accepted", "queued", "completed", "rejected", "fault", "error"] },
+        "id": { "type": ["string", "integer"], "maxLength": 40 },
+        "cmd": { "type": "string", "maxLength": 24 },
+        "reason": { "type": "string", "maxLength": 96 },
+        "detail": { "type": "string", "maxLength": 96 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

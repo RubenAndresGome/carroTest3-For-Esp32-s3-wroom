@@ -1,0 +1,15 @@
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+body { margin: 0; min-width: 320px; background: radial-gradient(circle at 10% 0%, #132237, var(--bg) 38%); color: var(--text); font-family: var(--font); }
+button, input { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { color: inherit; }
+h1, h2, p { margin: 0; }
+h1 { font-size: clamp(1.45rem, 4vw, 2.2rem); letter-spacing: -.04em; }
+h2 { font-size: 1.05rem; }
+label { display: grid; gap: .45rem; color: var(--muted); font-size: .82rem; font-weight: 650; }
+input { min-height: 44px; width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 0 .8rem; background: #0c141f; color: var(--text); outline: none; }
+input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb(56 214 231 / 13%); }
+button:focus-visible, a:focus-visible { outline: 3px solid rgb(56 214 231 / 45%); outline-offset: 2px; }
+.eyebrow, .kicker { color: var(--cyan); font-size: .67rem; font-weight: 800; letter-spacing: .14em; }
+.muted { color: var(--muted); font-size: .8rem; line-height: 1.45; }

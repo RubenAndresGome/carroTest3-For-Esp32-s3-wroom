@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RobotS3" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">#07101C</item>
+        <item name="android:colorAccent">#00E5A8</item>
+        <item name="android:navigationBarColor">#07101C</item>
+        <item name="android:statusBarColor">#07101C</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
