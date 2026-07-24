@@ -10,7 +10,7 @@ public:
 
     void reset();
 
-    void actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, EstadoRobot estado);
+    void actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, bool avanzando);
 
     void actualizarOrientacion(float imu_delta_z);
     void iniciarMedicionTraslacionGiro();

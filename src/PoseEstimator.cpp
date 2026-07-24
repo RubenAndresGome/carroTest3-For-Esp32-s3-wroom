@@ -24,7 +24,7 @@ void PoseEstimator::reset() {
     iniciarMedicionTraslacionGiro();
 }
 
-void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, EstadoRobot estado) {
+void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, bool avanzando) {
     const int64_t deltas[4] = {
         pulsosFL - last_pulsos_FL, pulsosFR - last_pulsos_FR,
         pulsosBL - last_pulsos_BL, pulsosBR - last_pulsos_BR
@@ -52,20 +52,13 @@ void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int6
     distR *= ultimo_signo_r;
 
     // La IMU es la única fuente de rumbo para no integrar dos veces el mismo giro.
-    const bool navegando = estado == AVANZANDO || estado == GIRANDO || estado == RECOVERING;
+    const bool navegando = avanzando;
     if (navegando) {
         const float distCentro = (distL + distR) / 2.0f;
-        // Convencion fisica del robot/HMI: al arrancar apunta hacia +Y.
-        // yaw 0° = +Y, +90° = +X, -90° = -X y 180° = -Y.
         const float dx = distCentro * sin(theta_rad);
         const float dy = distCentro * cos(theta_rad);
         x_global += dx;
         y_global += dy;
-        if (estado == GIRANDO || estado == RECOVERING) {
-            arco_centro_giro_cm += fabsf(distCentro);
-            traslacion_giro_x_cm += dx;
-            traslacion_giro_y_cm += dy;
-        }
     }
 }
 

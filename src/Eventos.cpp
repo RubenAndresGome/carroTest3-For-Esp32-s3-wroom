@@ -3,32 +3,28 @@
 
 QueueHandle_t colaEventosRed = nullptr;
 
-void encolarEvento(TipoEvento tipo, const char* cmd_id, const char* detalle, float progreso) {
+void encolarEvento(TipoEvento tipo, int seq, const char* detalle, float progreso) {
     if (!colaEventosRed) return;
     EventoRed evt = {};
     evt.tipo = tipo;
+    evt.seq = seq;
     evt.progreso = progreso;
-    if (cmd_id) {
-        strncpy(evt.cmd_id, cmd_id, sizeof(evt.cmd_id) - 1);
-        evt.cmd_id[sizeof(evt.cmd_id) - 1] = '\0';
-    }
     if (detalle) {
         strncpy(evt.detalle, detalle, sizeof(evt.detalle) - 1);
         evt.detalle[sizeof(evt.detalle) - 1] = '\0';
-    } else {
-        evt.detalle[0] = '\0';
     }
-    if (tipo == EVT_COMPLETED || tipo == EVT_REJECTED || tipo == EVT_FAULT) {
-        strncpy(ultimoTerminalId, evt.cmd_id, sizeof(ultimoTerminalId) - 1);
-        ultimoTerminalId[sizeof(ultimoTerminalId) - 1] = '\0';
-        const char* terminal = tipo == EVT_COMPLETED ? "completed" : tipo == EVT_REJECTED ? "rejected" : "fault";
-        strncpy(ultimoTerminalTipo, terminal, sizeof(ultimoTerminalTipo) - 1);
-        ultimoTerminalTipo[sizeof(ultimoTerminalTipo) - 1] = '\0';
-        strncpy(ultimoTerminalDetalle, evt.detalle, sizeof(ultimoTerminalDetalle) - 1);
-        ultimoTerminalDetalle[sizeof(ultimoTerminalDetalle) - 1] = '\0';
-        if (evt.cmd_id[0] && !strncmp(comandoActivoId, evt.cmd_id, sizeof(comandoActivoId))) {
-            comandoActivoId[0] = '\0';
-            comandoActivoNombre[0] = '\0';
+    if (tipo == EVT_COMPLETED || tipo == EVT_FAULT) {
+        if (tipo == EVT_COMPLETED && seq > ultimoSeqCompletado) {
+            ultimoSeqCompletado = seq;
+        }
+        if (tipo == EVT_FAULT && detalle) {
+            strncpy(ultimoFalloDetalle, detalle, sizeof(ultimoFalloDetalle) - 1);
+            ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
+        }
+        if (seq == seqActivo) {
+            seqActivo = 0;
+            faseComando[0] = '\0';
+            progresoComando = 0.0f;
         }
     }
     xQueueSend(colaEventosRed, &evt, 0);

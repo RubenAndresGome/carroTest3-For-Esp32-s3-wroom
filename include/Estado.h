@@ -1,54 +1,42 @@
 #pragma once
 #include <Arduino.h>
 
-enum EstadoRobot {
-  UNCALIBRATED,
-  CALIBRATING,
-  IDLE,
-  GIRANDO,
-  ESPERANDO_ESTABILIZACION,
-  AVANZANDO,
-  MANUAL,
-  TESTING,
-  ESTOP_LATCHED,
-  SAFE_STOP_COMMS,
-  FAULT_SENSOR,
-  RECOVERING
+// Máquina de estados simplificada del robot de memoria corta.
+// El robot ejecuta UN paso a la vez y reporta el resultado con su seq.
+enum EstadoRobot : uint8_t {
+  DESARMADO,    // recién iniciado o sin sesión válida; requiere hello + calibrate
+  CALIBRANDO,   // búsqueda de torque + retorno a yaw inicial
+  LISTO,        // calibrado y esperando un paso
+  EJECUTANDO,   // ejecutando un paso (giro inicial, avance, giro final)
+  ESTOP,        // parada de emergencia enclavada; requiere clear_fault
+  FALLO         // fallo de sensor/motor; requiere clear_fault
 };
 
-// Odometría Cruda
-extern long pulsosIzquierdos;
-extern long pulsosDerechos;
+// Sesión gestionada por el backend. El robot solo conserva el identificador
+// y el último seq completado para soportar reconexiones.
+extern char sessionId[17];
+extern int ultimoSeqCompletado;
+extern int seqActivo;
+extern char faseComando[20];  // "cal", "giro_ini", "avance", "recup", "giro_fin"
 
-// Giroscopio
-extern float anguloZ;
-
-// Objetivos Autónomos
-extern float nuevoDestinoX;
-extern float nuevoDestinoY;
-
-// Testing y Manual
-extern int pwm_target_l;
-extern int pwm_target_r;
-extern unsigned long tiempoTestingInicio;
-extern unsigned long duracionTesting;
-
-// Máquina de estados
 extern EstadoRobot estadoActual;
-extern unsigned long tiempoEspera;
-extern unsigned long tiempoAnterior;
-extern unsigned long inicioGiro;
-
 extern bool robotCalibrado;
+extern float progresoComando;
+extern char ultimoFalloDetalle[40];
+
+// IMU: anguloZ es el yaw continuo en grados (integrado en Sensores.cpp).
+// heading360 es el yaw normalizado a [0, 360) para la lógica de pasos.
+extern float anguloZ;
+extern float heading360;
+
+// Encoders
 extern bool modoDegradado;
 extern bool encoderConfiableGlobal[4];
-extern float progresoComando;
-extern char comandoActivoId[33];
-extern char comandoActivoNombre[16];
-extern char ultimoTerminalId[33];
-extern char ultimoTerminalTipo[12];
-extern char ultimoTerminalDetalle[32];
 
-enum EstadoAutoevaluacion : uint8_t { SELF_TEST_NOT_RUN, SELF_TEST_RUNNING, SELF_TEST_PASSED, SELF_TEST_FAILED };
-extern EstadoAutoevaluacion estadoAutoevaluacion;
-extern char detalleAutoevaluacion[48];
+// Compensación de asimetría mecánica del lado derecho (del test aprobado).
+extern float factorCompensacionDer;
+
+// Objetivos del paso en curso (para telemetría)
+extern float pasoHeadingObjetivo;
+extern float pasoDistanciaObjetivoCm;
+extern float pasoDistanciaActualCm;

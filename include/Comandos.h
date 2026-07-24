@@ -1,48 +1,28 @@
 #pragma once
 #include <Arduino.h>
 
-enum TipoComando {
-    CMD_INVALID,
-    CMD_CALIBRATE,
-    CMD_ESTOP,
-    CMD_STOP,
-    CMD_CLEAR_ROUTE,
-    CMD_RESET_POSE,
-    CMD_CLEAR_FAULT,
-    CMD_MOVE_ABS,
-    CMD_DRIVE,
-    CMD_TURN,
-    CMD_MANUAL,
-    CMD_TEST_PWM,
-    CMD_SELF_TEST,
-    CMD_MISSION_START
-};
-
-enum class ModoGiroSolicitado : uint8_t {
-    AUTO = 0,
-    PIVOT,
-    ARC_LEFT_ACTIVE,
-    ARC_RIGHT_ACTIVE
+// Protocolo de comandos del robot de memoria corta.
+// Cada comando lleva un seq entero asignado por el backend; el robot ejecuta
+// un solo comando de movimiento a la vez y reporta accepted/completed/fault
+// con ese mismo seq para que el backend marque el paso en SQLite.
+enum TipoComando : uint8_t {
+    CMD_NINGUNO,
+    CMD_CALIBRATE,    // calibración de torque + retorno a yaw inicial
+    CMD_STEP,         // paso atómico: girar a heading, avanzar cm, volver a 0°
+    CMD_STOP,         // cancela el paso actual y queda LISTO
+    CMD_ESTOP,        // parada de emergencia enclavada
+    CMD_CLEAR_FAULT,  // rearma desde ESTOP o FALLO
+    CMD_SET_COMP,     // factor de compensación del lado derecho (0.80..1.00)
+    CMD_RESET_POSE    // pone x, y y yaw en cero
 };
 
 struct ComandoRed {
-    // UUID hexadecimal generado por Python (32 caracteres + terminador).
-    // Las colas FreeRTOS copian la estructura completa, por lo que el ID se
-    // conserva hasta accepted/completed/rejected.
-    char id[33];
     TipoComando tipo;
-    float arg_x;
-    float arg_y;
-    float distancia_mm;
-    float angulo_deg;
-    ModoGiroSolicitado modo_giro;
-    int pwm_l;
-    int pwm_r;
-    uint32_t tiempo_ms;
-    char mission_id[33];
-    uint32_t mission_revision;
+    int seq;
+    float heading;      // STEP: rumbo absoluto objetivo en grados [0, 360)
+    float distanciaCm;  // STEP: distancia a avanzar en cm (siempre positiva)
+    float factor;       // SET_COMP: factor de compensación
 };
 
 extern QueueHandle_t colaComandos;
-extern QueueHandle_t buzonManual;
 extern volatile bool flag_ESTOP_ISR;
