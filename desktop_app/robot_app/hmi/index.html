@@ -1278,7 +1278,16 @@
                 <button class="log-filter-btn lf-cmd active" data-filter="cmd">Cmd</button>
             </div>
             <button class="btn btn-sm" id="btn-download-log">TXT</button>
-            <button class="btn btn-sm" id="btn-clear-log">Limpiar</button>
+            <button class="btn btn-sm" id="btn-clear-log">Limpiar UI</button>
+            <div style="display:inline-flex; align-items:center; gap:4px; margin-left:8px;">
+                <select id="select-purge-days" style="font-size:11px; padding:2px 4px; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border); border-radius:4px; height:24px;">
+                    <option value="1">Más de 24h</option>
+                    <option value="7" selected>Más de 7 días</option>
+                    <option value="30">Más de 30 días</option>
+                    <option value="0">Todos los registros</option>
+                </select>
+                <button class="btn btn-sm" id="btn-purge-db-logs" style="background:var(--warn-dim); color:var(--warn); border:1px solid var(--warn); font-size:11px; padding:2px 6px;">🧹 Limpiar BD</button>
+            </div>
             <span class="log-count" id="log-count">0</span>
         </div>
         <div class="log-container" id="log-container" role="log" aria-live="polite">
@@ -2474,6 +2483,29 @@
         
         document.getElementById('btn-download-log').addEventListener('click',()=>LogSystem.downloadTXT());
         document.getElementById('btn-clear-log').addEventListener('click',()=>{LogSystem.clear();LogSystem.add('INFO','Log limpiado');});
+        document.getElementById('btn-purge-db-logs').addEventListener('click', async () => {
+            const select = document.getElementById('select-purge-days');
+            const days = parseInt(select.value, 10);
+            const label = select.options[select.selectedIndex].text;
+            if (!confirm(`¿Confirmas eliminar los registros de la Base de Datos con antigüedad: ${label}?`)) return;
+            try {
+                const token = document.querySelector('meta[name="app-token"]').content;
+                const res = await fetch('/api/v1/sessions/cleanup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-App-Token': token },
+                    body: JSON.stringify({ days })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    LogSystem.add('INFO', `Limpieza de Base de Datos exitosa: ${data.message}`);
+                    if (typeof ConnectionPanel !== 'undefined' && ConnectionPanel.loadHistory) ConnectionPanel.loadHistory();
+                } else {
+                    LogSystem.add('ERROR', `Error al limpiar BD: ${data.error || 'error desconocido'}`);
+                }
+            } catch (err) {
+                LogSystem.add('ERROR', `Error al conectar con backend para limpieza: ${err.message}`);
+            }
+        });
 
         WSControl.init();
     }

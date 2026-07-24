@@ -608,3 +608,7 @@ class RobotService:
             self._queue_current_mission_step(seq_override=mission_seq)
             return
         self._block_mission("robot_restarted_mid_step")
+
+    def purge_sessions(self, days: int) -> int:
+        return self.database.purge_sessions(days)
+

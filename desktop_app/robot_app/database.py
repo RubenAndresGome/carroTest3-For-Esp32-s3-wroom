@@ -167,3 +167,25 @@ class Database:
                 "SELECT id,kind,severity,payload_json,created_at FROM events WHERE session_id=? ORDER BY id",
                 (session_id,),
             ))
+
+    def purge_sessions(self, days: int) -> int:
+        with self.transaction() as connection:
+            if days <= 0:
+                target_ids = [row["id"] for row in connection.execute("SELECT id FROM sessions").fetchall()]
+            else:
+                target_ids = [
+                    row["id"]
+                    for row in connection.execute(
+                        "SELECT id FROM sessions WHERE started_at < datetime('now', '-' || ? || ' days')",
+                        (days,),
+                    ).fetchall()
+                ]
+            if not target_ids:
+                return 0
+            placeholders = ",".join("?" * len(target_ids))
+            connection.execute(f"DELETE FROM telemetry WHERE session_id IN ({placeholders})", target_ids)
+            connection.execute(f"DELETE FROM commands WHERE session_id IN ({placeholders})", target_ids)
+            connection.execute(f"DELETE FROM events WHERE session_id IN ({placeholders})", target_ids)
+            cursor = connection.execute(f"DELETE FROM sessions WHERE id IN ({placeholders})", target_ids)
+            return cursor.rowcount
+

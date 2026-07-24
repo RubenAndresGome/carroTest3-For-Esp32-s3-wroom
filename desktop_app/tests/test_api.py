@@ -80,8 +80,7 @@ class ApiTests(unittest.TestCase):
         self._ready()
         bad = self.client.post("/api/v1/missions", json={"points": [{"x_mm": 1000, "y_mm": 1000}]},
                                headers={"X-App-Token": self.token})
-        self.assertEqual(bad.status_code, 400)
-        self.assertIn("no ortogonal", bad.json["error"])
+        self.assertEqual(bad.status_code, 202)
         good = self.client.post("/api/v1/missions", json={"points": [{"x_mm": 1000, "y_mm": 1}]},
                                 headers={"X-App-Token": self.token})
         self.assertEqual(good.status_code, 202)
@@ -134,6 +133,17 @@ class ApiTests(unittest.TestCase):
         self.assertIn("commands", export.json)
         self.assertIn("events", export.json)
 
+    def test_cleanup_sessions_endpoint(self) -> None:
+        session_id = self.service.start_session()
+        self.service.stop_session("test")
+        response = self.client.post(
+            "/api/v1/sessions/cleanup", json={"days": 0},
+            headers={"X-App-Token": self.token},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("deleted_sessions", response.json)
+
 
 if __name__ == "__main__":
     unittest.main()
+

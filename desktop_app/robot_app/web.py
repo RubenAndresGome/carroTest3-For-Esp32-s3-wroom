@@ -138,6 +138,19 @@ def stop_session() -> Response:
     return jsonify({"session_id": _service().stop_session("manual"), "recording": False})
 
 
+@web.post("/api/v1/sessions/cleanup")
+@_require_token
+def cleanup_sessions() -> Response:
+    body = request.get_json(silent=True) or {}
+    try:
+        days = int(body.get("days", 7))
+    except (ValueError, TypeError):
+        days = 7
+    deleted_count = _service().purge_sessions(days)
+    return jsonify({"deleted_sessions": deleted_count, "message": f"Se eliminaron {deleted_count} registros de sesiones"})
+
+
+
 @web.get("/api/v1/sessions/<int:session_id>/telemetry.csv")
 def export_telemetry(session_id: int) -> Response:
     output = io.StringIO(newline="")
