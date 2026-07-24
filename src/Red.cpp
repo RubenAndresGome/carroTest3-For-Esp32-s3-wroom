@@ -26,17 +26,24 @@ static bool servidorIniciado = false;
 static unsigned long ultimaTelemetriaMs = 0;
 
 static bool apDisponible() {
-  return WiFi.getMode() == WIFI_AP && WiFi.softAPIP() != IPAddress(0,0,0,0);
+  return (WiFi.getMode() & WIFI_AP) && WiFi.softAPIP() != IPAddress(0,0,0,0);
 }
 
 static bool iniciarAP() {
   ultimoIntentoApMs = millis();
-  WiFi.setSleep(false);
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_OFF);
+  delay(50);
   if (!WiFi.mode(WIFI_AP)) { Serial.println("[RED] ERROR: modo AP fallo."); return false; }
-  if (!WiFi.softAP(ssid_AP, password_AP, 6, false, 2) || !apDisponible()) {
+  WiFi.setSleep(false);
+  IPAddress local_ip(192, 168, 4, 1);
+  IPAddress gateway(192, 168, 4, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  if (!WiFi.softAP(ssid_AP, password_AP, 1, 0, 4) || !apDisponible()) {
     Serial.printf("[RED] softAP '%s' fallo.\n", ssid_AP); return false;
   }
-  Serial.printf("[RED] AP: %s | IP: %s\n", ssid_AP, WiFi.softAPIP().toString().c_str());
+  Serial.printf("[RED] AP exitoso: %s | IP: %s\n", ssid_AP, WiFi.softAPIP().toString().c_str());
   return true;
 }
 

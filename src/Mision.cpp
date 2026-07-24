@@ -4,7 +4,9 @@
 #include "Estado.h"
 #include "Eventos.h"
 #include "Motores.h"
+#include "PoseEstimator.h"
 #include <Preferences.h>
+#include <cmath>
 
 namespace {
 PuntoMision puntos[MAX_MISSION_SEGMENTS] = {};
@@ -39,6 +41,18 @@ void crearIdPaso(size_t indice) {
     strncpy(commandIdPaso, puntos[indice].step_id, sizeof(commandIdPaso) - 1);
     commandIdPaso[32] = '\0';
 }
+
+bool calcularDestino(float targetX, float targetY, const char* stepId) {
+    if (estadoActual != LISTO) return false;
+    float dist = PoseGlobal.distanciaAlObjetivo(targetX, targetY);
+    float headingRad = PoseGlobal.anguloAlObjetivoRad(targetX, targetY);
+    float headingDeg = normalizar360(headingRad * 180.0f / M_PI);
+    int seqPaso = atoi(stepId);
+    if (seqPaso <= 0) {
+        seqPaso = static_cast<int>(indicePaso + 1);
+    }
+    return iniciarPaso(headingDeg, dist, seqPaso);
+}
 }
 
 void inicializarPersistenciaMision() {
@@ -71,7 +85,7 @@ bool misionAutonomaCoincide(const char* missionId, uint32_t revision,
 bool cargarMisionAutonoma(const char* missionId, uint32_t revision,
                           const PuntoMision* nuevos, size_t cantidad) {
     if (!missionId || strlen(missionId) != 32 || !nuevos || cantidad == 0 ||
-        cantidad > MAX_MISSION_SEGMENTS || activa || estadoActual != IDLE) return false;
+        cantidad > MAX_MISSION_SEGMENTS || activa || estadoActual != LISTO) return false;
     const bool reanudacion = !strcmp(missionIdActual, missionId) &&
                              revisionActual == revision && checkpointPaso <= cantidad;
     const size_t checkpointConservado = reanudacion ? checkpointPaso : 0;
@@ -100,7 +114,7 @@ bool cargarMisionAutonoma(const char* missionId, uint32_t revision,
 
 bool iniciarMisionAutonoma(const char* commandId, const char* missionId,
                            uint32_t revision) {
-    if (!misionAutonomaCargada() || activa || interrumpida || estadoActual != IDLE ||
+    if (!misionAutonomaCargada() || activa || interrumpida || estadoActual != LISTO ||
         !commandId || !missionId || strcmp(missionId, missionIdActual) ||
         revision != revisionActual) return false;
     strncpy(commandIdInicio, commandId, sizeof(commandIdInicio) - 1);
@@ -113,33 +127,36 @@ bool iniciarMisionAutonoma(const char* commandId, const char* missionId,
 
 void procesarMisionAutonoma() {
     if (!activa) return;
+    int seqInicio = atoi(commandIdInicio);
+    if (seqInicio <= 0) seqInicio = 1;
+
     if (pasoEnCurso) {
-        if (strcmp(ultimoTerminalId, commandIdPaso)) return;
-        if (!strcmp(ultimoTerminalTipo, "completed")) {
+        if (estadoActual == EJECUTANDO) return;
+        if (estadoActual == LISTO) {
             ++indicePaso;
             checkpointPaso = indicePaso;
             pasoEnCurso = false;
             pasoPersistido = 0;
             stepIdPersistido[0] = '\0';
             guardarCheckpoint();
-            encolarEvento(EVT_PROGRESS, commandIdInicio, "mission_checkpoint",
+            encolarEvento(EVT_PROGRESS, seqInicio, "mission_checkpoint",
                           static_cast<float>(checkpointPaso) / cantidadPuntos);
         } else {
             activa = false;
             pasoEnCurso = false;
             interrumpida = true;
             guardarCheckpoint();
-            encolarEvento(EVT_FAULT, commandIdInicio, ultimoTerminalDetalle);
+            encolarEvento(EVT_FAULT, seqInicio, ultimoFalloDetalle[0] ? ultimoFalloDetalle : "mission_step_failed");
         }
         return;
     }
-    if (estadoActual != IDLE) return;
+    if (estadoActual != LISTO) return;
     if (indicePaso >= cantidadPuntos) {
         activa = false;
         cantidadPuntos = 0;  // libera automáticamente los puntos; queda checkpoint mínimo.
         completada = true;
         guardarCheckpoint();
-        encolarEvento(EVT_COMPLETED, commandIdInicio, "mission_completed_zero_aligned");
+        encolarEvento(EVT_COMPLETED, seqInicio, "mission_completed_zero_aligned");
         return;
     }
     crearIdPaso(indicePaso);
@@ -152,7 +169,7 @@ void procesarMisionAutonoma() {
         pasoPersistido = 0;
         stepIdPersistido[0] = '\0';
         guardarCheckpoint();
-        encolarEvento(EVT_FAULT, commandIdInicio, motivoUltimoRechazoMovimiento());
+        encolarEvento(EVT_FAULT, seqInicio, "step_rejected");
         return;
     }
     pasoEnCurso = true;
@@ -201,3 +218,4 @@ const char* estadoMisionAutonoma() {
 }
 const char* idPasoMisionActual() { return stepIdPersistido; }
 bool misionAutonomaInterrumpida() { return interrumpida; }
+
