@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import queue
 import threading
 import time
@@ -98,6 +99,11 @@ class RobotService:
         self._last_terminal_id: str | None = None
         self._last_manual_recorded_at = 0.0
         self._tracked_command_ids: set[str] = set()
+        self._command_ids_by_seq: dict[int, str] = {}
+        saved_controller_session = str(database.get_setting("controller_session", "") or "")
+        self._controller_session = saved_controller_session if len(saved_controller_session) == 16 else uuid.uuid4().hex[:16]
+        self._next_seq = max(1, int(database.get_setting("next_command_seq", 1) or 1))
+        database.set_setting("controller_session", self._controller_session)
         self._mission_id: str | None = None
         self._mission_points: list[dict[str, float]] = []
         self._mission_index = 0
@@ -107,6 +113,8 @@ class RobotService:
         self._mission_blocked = False
         self._mission_revision = 1
         self._mission_stage = "idle"
+        self._mission_origin: dict[str, float] = {"x_mm": 0.0, "y_mm": 0.0}
+        self._mission_seq: int | None = None
         saved_mission = database.get_setting("active_mission", None)
         if isinstance(saved_mission, dict) and saved_mission.get("id") and isinstance(saved_mission.get("points"), list):
             self._mission_id = str(saved_mission["id"])
@@ -114,12 +122,17 @@ class RobotService:
             self._mission_index = int(saved_mission.get("current_index", 0))
             self._mission_revision = int(saved_mission.get("revision", 1))
             self._mission_stage = "reconnecting"
+            origin = saved_mission.get("origin", {})
+            if isinstance(origin, dict):
+                self._mission_origin = {"x_mm": float(origin.get("x_mm", 0)), "y_mm": float(origin.get("y_mm", 0))}
+            self._mission_seq = int(saved_mission.get("active_seq", 0) or 0) or None
         self._recorder = TelemetryRecorder(database)
         self.gateway = RobotGateway(
             host_getter=self.get_robot_host,
             on_message=self._on_robot_message,
             on_state=self._on_connection_state,
             on_sent=self._on_command_sent,
+            session_getter=lambda: self._controller_session,
             max_message_bytes=max_message_bytes,
         )
         if start_gateway:
@@ -196,6 +209,7 @@ class RobotService:
                 "error": self._mission_error,
                 "revision": self._mission_revision if self._mission_id else None,
                 "stage": self._mission_stage,
+                "active_seq": self._mission_seq,
             }
 
     def _persist_mission(self) -> None:
@@ -204,6 +218,7 @@ class RobotService:
                 "id": self._mission_id, "revision": self._mission_revision,
                 "points": self._mission_points, "current_index": self._mission_index,
                 "stage": self._mission_stage,
+                "origin": self._mission_origin, "active_seq": self._mission_seq,
             }
         self.database.set_setting("active_mission", value)
 
@@ -220,8 +235,8 @@ class RobotService:
         if not isinstance(points, list) or not points or len(points) > 32:
             raise ValueError("La misión requiere entre 1 y 32 puntos")
         connection = self.gateway.snapshot()
-        if connection["state"] != ConnectionState.CONNECTED.value or connection["protocol"] != "v1":
-            raise RuntimeError("El robot no está conectado con protocolo v1")
+        if connection["state"] != ConnectionState.CONNECTED.value or connection["protocol"] != "steps-v2":
+            raise RuntimeError("El robot no está conectado con protocolo robot-s3-steps-v2")
         with self._lock:
             if self._mission_blocked:
                 raise RuntimeError("La misión está bloqueada; bórrela antes de iniciar otra")
@@ -232,24 +247,30 @@ class RobotService:
                 raise RuntimeError("El robot debe estar conectado y con la MPU de arranque lista")
             if time.time() - telemetry.received_at > self.TELEMETRY_FRESHNESS_S:
                 raise RuntimeError("La telemetría del robot está obsoleta; reconecte antes de iniciar")
-            if telemetry.state.upper() != "IDLE":
-                raise RuntimeError(f"El robot debe estar en IDLE; estado actual: {telemetry.state}")
+            if telemetry.state.lower() != "listo":
+                raise RuntimeError(f"El robot debe estar LISTO; estado actual: {telemetry.state}")
             origin_x, origin_y = telemetry.x_mm, telemetry.y_mm
+            mission_origin = {"x_mm": origin_x, "y_mm": origin_y}
         segments: list[dict[str, float]] = []
         for waypoint_index, point in enumerate(points, start=1):
             if not isinstance(point, dict):
                 raise ValueError("Cada punto debe ser un objeto")
             validated = RobotCommand.create("move", point).payload
-            dx = validated["x_mm"] - origin_x
-            dy = validated["y_mm"] - origin_y
+            target_x, target_y = validated["x_mm"], validated["y_mm"]
+            dx = target_x - origin_x
+            dy = target_y - origin_y
             if abs(dx) > 1.0 and abs(dy) > 1.0:
                 raise ValueError(
                     f"Tramo no ortogonal en waypoint {waypoint_index}: "
                     f"cambian X ({dx:.1f} mm) e Y ({dy:.1f} mm)"
                 )
-            new_segments = split_segment_mm(origin_x, origin_y, validated["x_mm"], validated["y_mm"])
+            if abs(dx) <= 1.0:
+                target_x = origin_x
+            if abs(dy) <= 1.0:
+                target_y = origin_y
+            new_segments = split_segment_mm(origin_x, origin_y, target_x, target_y)
             segments.extend(new_segments)
-            origin_x, origin_y = validated["x_mm"], validated["y_mm"]
+            origin_x, origin_y = target_x, target_y
         if not segments:
             raise ValueError("La misión no contiene desplazamiento")
         if len(segments) > 32:
@@ -260,16 +281,13 @@ class RobotService:
             self._mission_index = 0
             self._mission_command_id = None
             self._mission_command_started_at = None
+            self._mission_origin = mission_origin
+            self._mission_seq = None
             self._mission_error = None
             self._mission_blocked = False
             self._mission_revision = 1
-            self._mission_stage = "uploading"
-            command = self.send_command("mission_upload", {
-                "mission_id": self._mission_id, "revision": self._mission_revision,
-                "points": self._mission_wire_points(),
-            })
-            self._mission_command_id = command.command_id
-            self._mission_command_started_at = None
+            self._mission_stage = "executing"
+        self._queue_current_mission_step()
         self._persist_mission()
         snapshot = self.mission_status()
         self.events.publish("mission", snapshot)
@@ -292,6 +310,7 @@ class RobotService:
             self._mission_index = 0
             self._mission_command_id = None
             self._mission_command_started_at = None
+            self._mission_seq = None
             self._mission_blocked = False
             self._mission_stage = "idle"
         self.gateway.cancel(active_command_id)
@@ -309,39 +328,51 @@ class RobotService:
         return snapshot
 
     def clear_robot_mission_memory(self) -> dict[str, Any]:
-        """Detiene la ejecución y borra ruta/checkpoint tanto en ESP32 como en SQLite."""
-        try:
-            command = self.send_command("mission_clear", {})
-            command_id = command.command_id
-        except RuntimeError:
-            command_id = None
-        with self._lock:
-            self._mission_id = None
-            self._mission_points = []
-            self._mission_index = 0
-            self._mission_command_id = None
-            self._mission_command_started_at = None
-            self._mission_error = None
-            self._mission_blocked = False
-            self._mission_stage = "idle"
-        self._persist_mission()
-        snapshot = self.mission_status()
-        snapshot["clear_command_id"] = command_id
-        self.events.publish("mission", snapshot)
+        """Detiene el paso y borra la misión que pertenece exclusivamente a Python."""
+        snapshot = self.stop_mission("operator_clear")
+        snapshot["clear_command_id"] = None
         return snapshot
 
     def _advance_mission(self) -> None:
-        # Compatibilidad interna: la ruta completa vive en el ESP32; Python ya
-        # no alimenta un waypoint por cada reconexión.
+        with self._lock:
+            if not self._mission_id or self._mission_blocked:
+                return
+            self._mission_index += 1
+            self._mission_command_id = None
+            self._mission_command_started_at = None
+            self._mission_seq = None
+            terminado = self._mission_index >= len(self._mission_points)
+            if terminado:
+                self._mission_stage = "completed"
+        if not terminado:
+            self._queue_current_mission_step()
+        self._persist_mission()
         self.events.publish("mission", self.mission_status())
+
+    def _queue_current_mission_step(self, seq_override: int | None = None) -> None:
+        with self._lock:
+            if not self._mission_id or self._mission_index >= len(self._mission_points):
+                return
+            start = self._mission_origin if self._mission_index == 0 else self._mission_points[self._mission_index - 1]
+            target = self._mission_points[self._mission_index]
+            dx = target["x_mm"] - start["x_mm"]
+            dy = target["y_mm"] - start["y_mm"]
+        heading = math.degrees(math.atan2(dx, dy)) % 360.0
+        distance_cm = math.hypot(dx, dy) / 10.0
+        command = self.send_command("step", {"heading": heading, "cm": distance_cm}, seq_override=seq_override)
+        with self._lock:
+            self._mission_command_id = command.command_id
+            self._mission_seq = command.seq
+            self._mission_command_started_at = None
+        self._persist_mission()
 
     def _expire_stalled_mission(self) -> None:
         with self._lock:
             started = self._mission_command_started_at
             running = self._mission_command_id is not None
-            # Durante EXECUTING manda el ESP32 y sus watchdogs físicos; Python
-            # nunca detiene una ruta sólo porque el WebSocket tardó o cayó.
-            expired = (self._mission_stage == "uploading" and running and started is not None
+            # Es un límite de coordinación; los watchdogs eléctricos siguen
+            # siendo responsabilidad del ESP32.
+            expired = (self._mission_stage == "executing" and running and started is not None
                        and time.monotonic() - started >= self.MISSION_SEGMENT_TIMEOUT_S)
         if expired:
             self._block_mission("mission_segment_timeout")
@@ -420,8 +451,14 @@ class RobotService:
             self._persist_mission()
             self.events.publish("mission", self.mission_status())
 
-    def send_command(self, name: object, payload: dict[str, Any] | None) -> RobotCommand:
-        command = RobotCommand.create(name, payload)
+    def send_command(self, name: object, payload: dict[str, Any] | None,
+                     seq_override: int | None = None) -> RobotCommand:
+        with self._lock:
+            seq = seq_override if seq_override is not None else self._next_seq
+            if seq_override is None:
+                self._next_seq += 1
+                self.database.set_setting("next_command_seq", self._next_seq)
+        command = RobotCommand.create(name, payload, seq=seq)
         with self._lock:
             session_id = self._session_id
         now = time.monotonic()
@@ -429,6 +466,7 @@ class RobotService:
         if persist:
             self.database.insert_command(command.command_id, session_id, command.name, command.payload, CommandStatus.QUEUED.value)
             self._tracked_command_ids.add(command.command_id)
+            self._command_ids_by_seq[command.seq] = command.command_id
             if command.name == "manual":
                 self._last_manual_recorded_at = now
         if not self.gateway.enqueue(command):
@@ -478,16 +516,13 @@ class RobotService:
             self.events.publish("command", {"id": command.command_id, "name": command.name, "status": "sent"})
 
     def _on_robot_message(self, message: dict[str, Any]) -> None:
-        kind = str(message.get("type", ""))
-        if kind in {"heartbeat_ack", "hello", "hello_ack"}:
-            # Mensajes de control del enlace: no llenar SQLite a 5 Hz.
-            if kind in {"hello", "hello_ack"}:
-                mission = message.get("mission")
-                if isinstance(mission, dict):
-                    self._reconcile_firmware_mission(mission)
-                self.events.publish("robot_event", message)
+        kind = str(message.get("evt", message.get("type", "")))
+        if kind in {"welcome", "hello_ack"}:
+            self.events.publish("robot_event", message)
+            if kind == "hello_ack":
+                self._reconcile_short_memory_hello(message)
             return
-        is_telemetry = kind == "telemetry" or any(key in message for key in ("s", "pfl", "x"))
+        is_telemetry = kind == "telemetry"
         if is_telemetry:
             self._telemetry_sequence += 1
             snapshot = TelemetrySnapshot.from_message(message, self._telemetry_sequence)
@@ -503,66 +538,58 @@ class RobotService:
             public_snapshot = snapshot.public_dict()
             public_snapshot["protocol"] = self.gateway.snapshot()["protocol"]
             self.events.publish("telemetry", public_snapshot)
-            terminal_id = str(snapshot.last_terminal.get("id", ""))
-            terminal_reconciled = False
-            if terminal_id and terminal_id != self._last_terminal_id:
-                self._last_terminal_id = terminal_id
-                reconciled = dict(snapshot.last_terminal)
-                reconciled["reconciled"] = True
-                self._on_robot_message(reconciled)
-                terminal_reconciled = True
-            if not terminal_reconciled:
-                self._reconcile_mission_snapshot(snapshot)
-                self._expire_stalled_mission()
+            self._expire_stalled_mission()
             if session_id is not None and snapshot.received_at - self._last_recorded_at >= 0.2:
                 self._last_recorded_at = snapshot.received_at
                 self._recorder.submit(session_id, snapshot)
             return
 
-        command_id = str(message.get("id", ""))
-        if str(message.get("cmd", "")) == "manual" and command_id not in self._tracked_command_ids:
-            return
+        seq = int(message.get("seq", 0) or 0)
+        command_id = self._command_ids_by_seq.get(seq, "")
         status_map = {
             "accepted": CommandStatus.ACKNOWLEDGED,
-            "queued": CommandStatus.ACKNOWLEDGED,
             "completed": CommandStatus.COMPLETED,
-            "done": CommandStatus.COMPLETED,
+            "already_done": CommandStatus.COMPLETED,
             "rejected": CommandStatus.REJECTED,
-            "error": CommandStatus.FAILED,
             "fault": CommandStatus.FAILED,
         }
         if command_id and kind in status_map:
             terminal_detail = str(message.get("reason") or message.get("detail") or "") or None
             self.database.update_command(command_id, status_map[kind].value, terminal_detail)
-            if kind in {"completed", "rejected", "error", "fault"}:
+            if kind in {"completed", "already_done", "rejected", "fault"}:
                 self._last_terminal_id = command_id
-            if kind in {"completed", "rejected", "error", "fault"} or str(message.get("cmd", "")) == "manual":
+            if kind in {"completed", "already_done", "rejected", "fault"}:
                 self._tracked_command_ids.discard(command_id)
-        severity = Severity.ERROR if kind in {"error", "fault"} else Severity.INFO
+                self._command_ids_by_seq.pop(seq, None)
+        severity = Severity.ERROR if kind == "fault" else Severity.INFO
         self.database.insert_event(self._session_id, kind or "message", severity.value, message)
-        self.events.publish("robot_event", message)
+        public_event = {**message, "type": kind, "id": command_id or None}
+        self.events.publish("robot_event", public_event)
         with self._lock:
             mission_match = bool(command_id and command_id == self._mission_command_id)
-        if mission_match and kind == "completed":
-            with self._lock:
-                stage = self._mission_stage
-                mission_id = self._mission_id
-                revision = self._mission_revision
-            if stage == "uploading" and mission_id:
-                command = self.send_command("mission_start", {"mission_id": mission_id, "revision": revision})
-                with self._lock:
-                    self._mission_stage = "executing"
-                    self._mission_command_id = command.command_id
-                    self._mission_command_started_at = None
-                self._persist_mission()
-                self.events.publish("mission", self.mission_status())
-            elif stage == "executing":
-                with self._lock:
-                    self._mission_index = len(self._mission_points)
-                    self._mission_stage = "completed"
-                    self._mission_command_id = None
-                    self._mission_command_started_at = None
-                self._persist_mission()
-                self.events.publish("mission", self.mission_status())
-        elif mission_match and kind in {"rejected", "fault", "error"}:
+        if mission_match and kind in {"completed", "already_done"}:
+            self._advance_mission()
+        elif mission_match and kind in {"rejected", "fault"}:
             self._block_mission(str(message.get("detail") or message.get("reason") or kind))
+
+    def _reconcile_short_memory_hello(self, message: dict[str, Any]) -> None:
+        last_seq = int(message.get("last_seq", 0) or 0)
+        state = str(message.get("state", "")).lower()
+        with self._lock:
+            mission_seq = self._mission_seq
+            has_mission = bool(self._mission_id and self._mission_index < len(self._mission_points))
+        if not has_mission or mission_seq is None:
+            return
+        if last_seq >= mission_seq:
+            with self._lock:
+                command_id = self._mission_command_id
+            if command_id:
+                self.database.update_command(command_id, CommandStatus.COMPLETED.value, "reconciled_last_seq")
+            self._advance_mission()
+            return
+        if state in {"ejecutando", "calibrando"}:
+            return
+        if state == "listo":
+            self._queue_current_mission_step(seq_override=mission_seq)
+            return
+        self._block_mission("robot_restarted_mid_step")

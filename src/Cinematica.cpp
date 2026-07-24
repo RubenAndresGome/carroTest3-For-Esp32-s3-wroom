@@ -13,7 +13,7 @@ namespace {
 
 enum class Fase : uint8_t {
   NINGUNA,
-  CAL_CUENTA, CAL_A, CAL_PAUSA, CAL_B, CAL_PAUSA_RETORNO, CAL_RETORNO,
+  CAL_CUENTA, CAL_A, CAL_VALIDAR_25, CAL_PAUSA, CAL_B, CAL_PAUSA_RETORNO, CAL_RETORNO,
   GIRO_INICIAL, AVANCE, GIRO_RECUPERACION, GIRO_FINAL,
   PAUSA_REEVALUACION
 };
@@ -72,6 +72,8 @@ uint32_t ultimoRampaCalMs = 0;
 uint32_t inicioMovCalMs = 0;
 uint32_t inicioPausaReintentoCalMs = 0;
 uint8_t intentoCal = 1;
+uint32_t ultimaAuditoriaMaxCalMs = 0;
+uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
 int64_t ticksBaseCal[4] = {};
 float yawInicioCalDeg = 0.0f;
@@ -87,6 +89,7 @@ void calCuenta() {
   yawInicioCalDeg = normalizar360(anguloZ);
   pwmMinGiroPos=0; pwmMinGiroNeg=0; candidatoGiroPos=0; candidatoGiroNeg=0;
   intentoCal=1; candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
+  ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
   copiarBase(ticksBaseCal, s);
   iniciarFaseCal(Fase::CAL_A);
   strncpy(faseComando, "cal_a", sizeof(faseComando));
@@ -98,28 +101,42 @@ void calTorque(bool primera) {
     frenarMotores();
     if (ahora - inicioPausaReintentoCalMs < CAL_RETRY_PAUSE_MS) return;
     inicioPausaReintentoCalMs = 0;
-    const SensorSnapshot s = sensar();
-    copiarBase(ticksBaseCal, s);
-    pwmCal = min(PWM_SAFE_HARD_LIMIT, CALIBRATION_PWM_START + (CALIBRATION_PWM_STEP * (CAL_MAX_ATTEMPTS/2)));
-    ultimoRampaCalMs = ahora; inicioMovCalMs = 0;
-    progresoComando = primera ? 0.15f : 0.65f;
-    return;
+    const SensorSnapshot reinicio = sensar();
+    copiarBase(ticksBaseCal, reinicio);
+    pwmCal = CALIBRATION_PWM_START;
+    ultimoRampaCalMs = ahora;
+    inicioMovCalMs = 0;
+    ultimaAuditoriaMaxCalMs = 0;
+    stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
   }
-
   const SensorSnapshot s = sensar();
   int64_t d[4]; deltas(ticksBaseCal, s, d);
-  bool ticksOk = (d[0]+d[2])/2 >= CAL_TICKS_MOVIMIENTO && (d[1]+d[3])/2 >= CAL_TICKS_MOVIMIENTO;
+  const bool ladoIzqOk = (d[0]+d[2])/2 >= CAL_TICKS_MOVIMIENTO;
+  const bool ladoDerOk = (d[1]+d[3])/2 >= CAL_TICKS_MOVIMIENTO;
+  bool ticksOk = ladoIzqOk && ladoDerOk;
   bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
   aplicarVelocidades(-candidatoCal * pwmCal, candidatoCal * pwmCal);
 
-  if (ticksOk && gyroOk && d[0]>=1 && d[1]>=1 && d[2]>=1 && d[3]>=1) {
+  if (ticksOk && gyroOk) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
       int guardado = min(PWM_SAFE_HARD_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
       if (s.gyro_z_filtrado_rad_s >= 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
       else { candidatoGiroNeg=candidatoCal; pwmMinGiroNeg=guardado; }
       frenarMotores();
-      if (primera) { iniciarFaseCal(Fase::CAL_PAUSA); progresoComando=0.55f; strncpy(faseComando,"cal_pausa",sizeof(faseComando)); }
+      if (primera) {
+        if (s.gyro_z_filtrado_rad_s < 0) {
+          // El primer cableado ensayado produjo yaw negativo: invertir sólo
+          // después del interlock y buscar de forma independiente el +25°.
+          candidatoCal = -candidatoCal;
+          inicioPausaReintentoCalMs = ahora;
+          inicioMovCalMs = 0;
+          return;
+        }
+        iniciarBaseGiro(normalizar360(yawInicioCalDeg + 25.0f), Fase::CAL_VALIDAR_25);
+        progresoComando=0.35f;
+        strncpy(faseComando,"cal_mas_25",sizeof(faseComando));
+      }
       else {
         if (candidatoGiroPos==candidatoGiroNeg) { fallo("cal_dir_failed"); return; }
         iniciarFaseCal(Fase::CAL_PAUSA_RETORNO); progresoComando=0.85f; strncpy(faseComando,"cal_retorno",sizeof(faseComando));
@@ -130,10 +147,18 @@ void calTorque(bool primera) {
   if (ahora - ultimoRampaCalMs >= CAL_RAMP_INTERVAL_MS) {
     ultimoRampaCalMs = ahora;
     pwmCal = min(PWM_SAFE_HARD_LIMIT, pwmCal + CALIBRATION_PWM_STEP);
-    if (pwmCal >= CALIBRATION_PWM_END) {
-      if (intentoCal >= CAL_MAX_ATTEMPTS) { fallo("cal_no_torque"); return; }
-      ++intentoCal; inicioPausaReintentoCalMs = ahora;
-    }
+  }
+
+  if (pwmCal >= CALIBRATION_PWM_END) {
+    if (!ultimaAuditoriaMaxCalMs) ultimaAuditoriaMaxCalMs = ahora;
+    const uint32_t lapso = ahora - ultimaAuditoriaMaxCalMs;
+    ultimaAuditoriaMaxCalMs = ahora;
+    if (!ladoIzqOk) stallMaxCalAcumMs[0] += lapso;
+    if (!ladoDerOk) stallMaxCalAcumMs[1] += lapso;
+    if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_left"); return; }
+    if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
+  } else {
+    ultimaAuditoriaMaxCalMs = 0;
   }
 }
 
@@ -145,9 +170,10 @@ void controlarCalibracion() {
   switch (fase) {
     case Fase::CAL_CUENTA: calCuenta(); break;
     case Fase::CAL_A: calTorque(true); break;
+    case Fase::CAL_VALIDAR_25: controlarGiro(); break;
     case Fase::CAL_PAUSA:
       frenarMotores();
-      if (millis()-inicioFaseMs >= PAUSA_CALIBRACION_MS) { candidatoCal=-1; pwmCal=CALIBRATION_PWM_START; intentoCal=1; inicioPausaReintentoCalMs=0; inicioMovCalMs=0; copiarBase(ticksBaseCal,s); ultimoRampaCalMs=millis(); iniciarFaseCal(Fase::CAL_B); strncpy(faseComando,"cal_b",sizeof(faseComando)); progresoComando=0.60f; }
+      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) { candidatoCal=-candidatoGiroPos; pwmCal=CALIBRATION_PWM_START; intentoCal=1; inicioPausaReintentoCalMs=0; inicioMovCalMs=0; ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0; copiarBase(ticksBaseCal,s); ultimoRampaCalMs=millis(); iniciarFaseCal(Fase::CAL_B); strncpy(faseComando,"cal_b",sizeof(faseComando)); progresoComando=0.60f; }
       break;
     case Fase::CAL_B: calTorque(false); break;
     case Fase::CAL_PAUSA_RETORNO:
@@ -170,6 +196,7 @@ Fase faseRetornoGiro = Fase::NINGUNA;
 int   pwmGiroAct = 0;
 int   signoGiroApl = 0;
 bool  movGiroConfirmado = false;
+bool  watchdogGiroArmado = false;
 bool  giroEnTol = false;
 uint8_t intentoGiro = 1;
 uint32_t inicioIntentoGiroMs = 0;
@@ -181,17 +208,21 @@ int64_t ticksBaseGiroLocal[4] = {};
 int64_t ticksLadoGiroAnt[2] = {};
 uint32_t ultimoPulsoLadoGiroMs[2] = {};
 uint32_t ultimoCtrlGiroMs = 0;
+uint32_t ultimoAumentoTorqueGiroMs = 0;
+int pwmBusquedaGiro = 0;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   const SensorSnapshot s = sensar();
   copiarBase(ticksBaseGiroLocal, s);
   giroObjetivo = objetivoDeg;
-  giroEnTol = false; pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false;
+  giroEnTol = false; pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false;
   intentoGiro=1; inicioIntentoGiroMs=millis(); inicioGiroTotalMs=millis();
   estableGiroDesdeMs=0; pausaReintentoGiroCal=false;
   ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
   ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=millis();
   ultimoCtrlGiroMs=0;
+  ultimoAumentoTorqueGiroMs=millis();
+  pwmBusquedaGiro=PWM_TURN_START;
   faseRetornoGiro = retorno;
   fase = retorno;  // fase global sigue al giro
   if (retorno == Fase::GIRO_INICIAL) strncpy(faseComando,"giro_ini",sizeof(faseComando));
@@ -201,7 +232,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
 }
 
 void reintentarGiro(const char* motivo) {
-  frenarMotores(); pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; giroEnTol=false;
+  frenarMotores(); pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false; giroEnTol=false;
   if (intentoGiro >= TURN_MAX_ATTEMPTS) { fallo(motivo); return; }
   ++intentoGiro;
   pausaReintentoGiroCal = true;
@@ -209,7 +240,7 @@ void reintentarGiro(const char* motivo) {
 }
 
 void controlarGiro() {
-  if (fase != Fase::GIRO_INICIAL && fase != Fase::GIRO_FINAL && fase != Fase::GIRO_RECUPERACION && fase != Fase::CAL_RETORNO) return;
+  if (fase != Fase::GIRO_INICIAL && fase != Fase::GIRO_FINAL && fase != Fase::GIRO_RECUPERACION && fase != Fase::CAL_VALIDAR_25 && fase != Fase::CAL_RETORNO) return;
   uint32_t ahora = millis();
   if (ahora - ultimoCtrlGiroMs < TURN_CONTROL_PERIOD_MS) return;
   ultimoCtrlGiroMs = ahora;
@@ -222,12 +253,21 @@ void controlarGiro() {
     copiarBase(ticksBaseGiroLocal, s);
     ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
     ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=ahora;
+    watchdogGiroArmado=false;
     inicioIntentoGiroMs = ahora;
+    ultimoAumentoTorqueGiroMs=ahora;
+    pwmBusquedaGiro=PWM_TURN_START;
   }
 
   const SensorSnapshot s = sensar();
   float error = errorAng360(giroObjetivo, heading360);
   float errorAbs = fabsf(error);
+  const int signoEsperado = error > 0 ? 1 : -1;
+  const int torqueCalibrado = signoEsperado > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
+  if (!watchdogGiroArmado && torqueCalibrado > 0 && pwmGiroAct >= torqueCalibrado) {
+    watchdogGiroArmado = true;
+    ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=ahora;
+  }
 
   if (abs(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S || (llabs(s.pulsosFL-ticksBaseGiroLocal[0])>=4 && llabs(s.pulsosFR-ticksBaseGiroLocal[1])>=4))
     movGiroConfirmado = true;
@@ -236,7 +276,7 @@ void controlarGiro() {
   int64_t ladoTicks[2] = {d[0]+d[2], d[1]+d[3]};
   for (int i=0; i<2; ++i) {
     if (ladoTicks[i] != ticksLadoGiroAnt[i]) { ticksLadoGiroAnt[i]=ladoTicks[i]; ultimoPulsoLadoGiroMs[i]=ahora; }
-    else if (pwmGiroAct>0 && ahora-ultimoPulsoLadoGiroMs[i] > TURN_STALL_MS) { reintentarGiro(i==0?"turn_stall_left":"turn_stall_right"); return; }
+    else if (watchdogGiroArmado && ahora-ultimoPulsoLadoGiroMs[i] > TURN_STALL_MS) { reintentarGiro(i==0?"turn_stall_left":"turn_stall_right"); return; }
   }
 
   if (ahora - inicioGiroTotalMs > TURN_TIMEOUT_MS) { fallo("turn_timeout_total"); return; }
@@ -268,9 +308,15 @@ void controlarGiro() {
   int pwmObj = pwmLejos;
   if (errorAbs < TURN_BRAKING_ZONE_DEG)
     pwmObj = pwmCerca + aproximar((pwmLejos-pwmCerca)*errorAbs/TURN_BRAKING_ZONE_DEG);
-  if (!movGiroConfirmado) pwmObj = max(pwmObj, PWM_TURN_START);
+  if (!movGiroConfirmado) {
+    if (ahora - ultimoAumentoTorqueGiroMs >= CAL_RAMP_INTERVAL_MS) {
+      ultimoAumentoTorqueGiroMs = ahora;
+      pwmBusquedaGiro = min(PWM_SAFE_HARD_LIMIT, pwmBusquedaGiro + CALIBRATION_PWM_STEP);
+    }
+    pwmObj = max(pwmObj, pwmBusquedaGiro);
+  }
 
-  // --- slew con proteccion de inversion (Motores.cpp anade 100ms extra) ---
+  // --- slew con protección de inversión (Motores.cpp añade 250 ms) ---
   if (signoGiroApl!=0 && signoDeseado!=signoGiroApl && pwmGiroAct>0) {
     pwmGiroAct = max(0, pwmGiroAct - PWM_TURN_SLEW_STEP);
     if (pwmGiroAct==0) signoGiroApl=0;
@@ -297,6 +343,11 @@ void completarGiro() {
   if (ret == Fase::GIRO_INICIAL) { iniciarAvance(false); }
   else if (ret == Fase::GIRO_RECUPERACION) { iniciarAvance(true); }
   else if (ret == Fase::GIRO_FINAL) { completarPaso(); }
+  else if (ret == Fase::CAL_VALIDAR_25) {
+    iniciarFaseCal(Fase::CAL_PAUSA);
+    progresoComando=0.55f;
+    strncpy(faseComando,"cal_pausa",sizeof(faseComando));
+  }
   else if (ret == Fase::CAL_RETORNO) {
     robotCalibrado = true; PoseGlobal.reset(); resetOrientacionIMU();
     fin(EVT_COMPLETED, "cal_ok");
@@ -456,7 +507,9 @@ bool controlarAvance() {
                               -float(PWM_CORRECCION_RUMBO_MAX), float(PWM_CORRECCION_RUMBO_MAX));
   float ctrlEnc = 0.0f;
   if (fabsf(err)<=2.0f) {
-    float diff = promedioLado(d,true)-promedioLado(d,false);
+    const float deltaIzq = 0.5f * (s.delta_pulsos_filtrado_FL + s.delta_pulsos_filtrado_BL);
+    const float deltaDer = 0.5f * (s.delta_pulsos_filtrado_FR + s.delta_pulsos_filtrado_BR);
+    float diff = deltaIzq - deltaDer;
     ctrlEnc = constrain(diff*KP_ENCODER_PWM_POR_TICK, -float(PWM_CORRECCION_ENCODER_MAX), float(PWM_CORRECCION_ENCODER_MAX));
   }
 
@@ -512,6 +565,7 @@ bool iniciarCalibracion(int seq) {
   fase = Fase::CAL_CUENTA; inicioFaseMs = millis();
   strncpy(faseComando, "cal", sizeof(faseComando));
   estadoActual = CALIBRANDO; progresoComando = 0.0f;
+  encolarEvento(EVT_ACCEPTED, seq, "accepted");
   return true;
 }
 
@@ -538,10 +592,11 @@ bool iniciarPaso(float heading, float distanciaCm, int seq) {
 }
 
 void cancelarMovimiento(const char* detalle) {
+  const int cancelado = seqActivo;
   frenarMotores(); fase = Fase::NINGUNA;
   estadoActual = robotCalibrado ? LISTO : DESARMADO;
   progresoComando = 0.0f;
-  encolarEvento(EVT_REJECTED, seqActivo, detalle ? detalle : "stopped");
+  if (cancelado != 0) encolarEvento(EVT_REJECTED, cancelado, detalle ? detalle : "stopped");
 }
 
 void controlarMovimiento() {

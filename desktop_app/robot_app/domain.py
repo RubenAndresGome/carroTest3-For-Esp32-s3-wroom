@@ -34,8 +34,7 @@ class Severity(StrEnum):
 
 
 ALLOWED_COMMANDS = frozenset(
-    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "move", "drive", "turn", "manual", "test_pwm", "self_test",
-     "mission_upload", "mission_start", "mission_clear"}
+    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "move"}
 )
 
 MAX_SEGMENT_MM = 2_000.0
@@ -60,60 +59,18 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
     if name not in ALLOWED_COMMANDS:
         raise ValueError("Comando no permitido")
     source = dict(payload or {})
-    if name == "mission_upload":
-        mission_id = str(source.get("mission_id", "")).strip().lower()
-        if len(mission_id) != 32 or any(character not in "0123456789abcdef" for character in mission_id):
-            raise ValueError("mission_id debe ser hexadecimal de 32 caracteres")
-        revision = int(_finite_number(source.get("revision", 1), "revision", 1, 2_147_483_647))
-        points = source.get("points")
-        if not isinstance(points, list) or not 1 <= len(points) <= 32:
-            raise ValueError("La misión cargada requiere entre 1 y 32 segmentos")
-        validated_points = []
-        for point in points:
-            validated = validate_command_payload("move", point)
-            step_id = str(point.get("step_id", "")).strip().lower() if isinstance(point, Mapping) else ""
-            if len(step_id) != 32 or any(character not in "0123456789abcdef" for character in step_id):
-                raise ValueError("Cada segmento requiere step_id hexadecimal de 32 caracteres")
-            validated["step_id"] = step_id
-            validated_points.append(validated)
-        if len({point["step_id"] for point in validated_points}) != len(validated_points):
-            raise ValueError("Los step_id de la misión deben ser únicos")
-        return {"mission_id": mission_id, "revision": revision, "points": validated_points}
-    if name == "mission_start":
-        mission_id = str(source.get("mission_id", "")).strip().lower()
-        if len(mission_id) != 32 or any(character not in "0123456789abcdef" for character in mission_id):
-            raise ValueError("mission_id debe ser hexadecimal de 32 caracteres")
-        return {
-            "mission_id": mission_id,
-            "revision": int(_finite_number(source.get("revision", 1), "revision", 1, 2_147_483_647)),
-        }
     if name == "move":
         return {
             "x_mm": _finite_number(source.get("x_mm"), "x_mm", -100_000, 100_000),
             "y_mm": _finite_number(source.get("y_mm"), "y_mm", -100_000, 100_000),
         }
-    if name == "drive":
-        distance = _finite_number(source.get("distance_mm"), "distance_mm", -MAX_SEGMENT_MM, MAX_SEGMENT_MM)
-        if distance == 0:
-            raise ValueError("distance_mm no puede ser cero")
-        return {"distance_mm": distance}
-    if name == "turn":
-        angle = _finite_number(source.get("angle_deg"), "angle_deg", -360, 360)
-        result = {"angle_deg": angle}
-        if "mode" in source:
-            mode = str(source.get("mode", "")).strip().lower()
-            if mode not in TURN_MODES:
-                raise ValueError("mode de giro no permitido")
-            result["mode"] = mode
-        return result
-    if name in {"manual", "test_pwm"}:
-        result: dict[str, Any] = {
-            "l": int(_finite_number(source.get("l"), "l", -PWM_SAFE_LIMIT, PWM_SAFE_LIMIT)),
-            "r": int(_finite_number(source.get("r"), "r", -PWM_SAFE_LIMIT, PWM_SAFE_LIMIT)),
+    if name == "step":
+        return {
+            "heading": _heading_degrees(source.get("heading")),
+            "cm": _finite_number(source.get("cm"), "cm", 0.5, MAX_SEGMENT_MM / 10.0),
         }
-        if name == "test_pwm":
-            result["dur_ms"] = int(_finite_number(source.get("dur_ms", 500), "dur_ms", 10, 1_500))
-        return result
+    if name == "set_comp":
+        return {"factor": _finite_number(source.get("factor"), "factor", 0.8, 1.0)}
     return {}
 
 
@@ -123,14 +80,19 @@ class RobotCommand:
     payload: dict[str, Any] = field(default_factory=dict)
     command_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     created_at: float = field(default_factory=time.time)
+    seq: int = 0
 
     @classmethod
-    def create(cls, name: object, payload: Mapping[str, Any] | None = None) -> "RobotCommand":
+    def create(cls, name: object, payload: Mapping[str, Any] | None = None, seq: int = 0) -> "RobotCommand":
         normalized_name = str(name or "").strip().lower()
-        return cls(name=normalized_name, payload=validate_command_payload(normalized_name, payload))
+        if seq < 0:
+            raise ValueError("seq no puede ser negativo")
+        return cls(name=normalized_name, payload=validate_command_payload(normalized_name, payload), seq=seq)
 
     def protocol_envelope(self) -> dict[str, Any]:
-        return {"v": 1, "type": "command", "id": self.command_id, "name": self.name, "payload": dict(self.payload)}
+        if self.name == "move":
+            raise ValueError("move es interno del backend y no se envía al ESP32")
+        return {"cmd": self.name, **dict(self.payload), "seq": self.seq}
 
 
 def split_segment_mm(
@@ -255,19 +217,46 @@ class TelemetrySnapshot:
         payload = message.get("payload") if message.get("type") == "telemetry" else message
         if not isinstance(payload, Mapping):
             raise ValueError("Telemetría sin objeto payload")
-        sequence = int(message.get("seq", payload.get("seq", fallback_sequence)))
+        sequence = fallback_sequence if message.get("evt") == "telemetry" else int(message.get("seq", payload.get("seq", fallback_sequence)))
+        enc = payload.get("enc", ())
+        enc_values = tuple(int(value) for value in enc[:4]) if isinstance(enc, (list, tuple)) else ()
+        enc_values = (enc_values + (0, 0, 0, 0))[:4]
+        active_seq = int(payload.get("seq", 0) or 0)
+        x_value = payload.get("x_mm") if "x_mm" in payload else float(payload.get("x", 0)) * 10.0
+        y_value = payload.get("y_mm") if "y_mm" in payload else float(payload.get("y", 0)) * 10.0
+        yaw_value = payload.get("yaw_deg", payload.get("yaw", payload.get("a", 0)))
+        rtos = {
+            "architecture": "Task_Web Core 0 + loop Core 1",
+            "reset_reason": payload.get("reset_reason", "unknown"),
+            "tasks_created_ok": bool(payload.get("tasks_ok", False)),
+            "stack_warning": bool(payload.get("stack_warning", False)),
+            "stack_min_acceptable_bytes": 1024,
+            "stack_min_free_bytes": {
+                "web": int(payload.get("stack_web", 0) or 0),
+                "control": int(payload.get("stack_control", 0) or 0),
+            },
+            "control_timing": {
+                "target_period_us": 10000,
+                "last_period_us": int(payload.get("control_period_us", 0) or 0),
+                "max_jitter_us": int(payload.get("control_jitter_max_us", 0) or 0),
+                "max_cycle_duration_us": int(payload.get("control_cycle_max_us", 0) or 0),
+                "max_sample_age_us": int(payload.get("control_sample_age_max_us", 0) or 0),
+                "missed_deadlines": int(payload.get("control_missed_deadlines", 0) or 0),
+                "sample_sequence": sequence,
+            },
+        }
         return cls(
             sequence=sequence,
             received_at=time.time(),
             uptime_ms=int(payload["uptime_ms"]) if "uptime_ms" in payload else None,
             state=str(payload.get("state", payload.get("s", "UNKNOWN")))[:32],
-            x_mm=_finite_number(payload.get("x_mm", payload.get("x", 0)), "x", -1e9, 1e9),
-            y_mm=_finite_number(payload.get("y_mm", payload.get("y", 0)), "y", -1e9, 1e9),
-            yaw_deg=_finite_number(payload.get("yaw_deg", payload.get("a", 0)), "yaw", -1e9, 1e9),
-            heading_deg=_heading_degrees(payload.get("heading_deg", payload.get("yaw_deg", 0))),
+            x_mm=_finite_number(x_value, "x", -1e9, 1e9),
+            y_mm=_finite_number(y_value, "y", -1e9, 1e9),
+            yaw_deg=_finite_number(yaw_value, "yaw", -1e9, 1e9),
+            heading_deg=_heading_degrees(payload.get("heading_deg", yaw_value)),
             imu_yaw_unwrapped_deg=_finite_number(payload.get("imu_yaw_unwrapped_deg", 0), "imu_yaw_unwrapped", -1e9, 1e9),
             imu_yaw_recenter_count=int(payload.get("imu_yaw_recenter_count", 0) or 0),
-            pulses=(int(payload.get("pfl", 0)), int(payload.get("pfr", 0)), int(payload.get("pbl", 0)), int(payload.get("pbr", 0))),
+            pulses=enc_values if "enc" in payload else (int(payload.get("pfl", 0)), int(payload.get("pfr", 0)), int(payload.get("pbl", 0)), int(payload.get("pbr", 0))),
             pwm=(int(payload.get("pwm_l", payload.get("pwmL", 0))), int(payload.get("pwm_r", payload.get("pwmR", 0)))),
             wheel_speed_cm_s=(
                 _finite_number(
@@ -297,12 +286,12 @@ class TelemetrySnapshot:
             mpu_calibrated=bool(payload["mpu_calibrated"]) if "mpu_calibrated" in payload else None,
             i2c_ok=bool(payload["i2c_ok"]) if "i2c_ok" in payload else None,
             robot_id=str(payload["robot_id"])[:64] if payload.get("robot_id") else None,
-            firmware_version=str(payload["firmware_version"])[:32] if payload.get("firmware_version") else None,
-            calibrated=bool(payload.get("calibrated", False)),
-            degraded_mode=bool(payload.get("degraded_mode", False)),
-            active_command_id=str(payload["active_command_id"])[:32] if payload.get("active_command_id") else None,
-            active_command_name=str(payload["active_command_name"])[:24] if payload.get("active_command_name") else None,
-            command_progress=_finite_number(payload.get("command_progress", 0), "command_progress", 0, 1),
+            firmware_version=str(payload.get("firmware_version", payload.get("firmware")))[:32] if payload.get("firmware_version", payload.get("firmware")) else None,
+            calibrated=bool(payload.get("calibrated", payload.get("cal", False))),
+            degraded_mode=bool(payload.get("degraded_mode", payload.get("degraded", False))),
+            active_command_id=str(payload.get("active_command_id", active_seq))[:32] if payload.get("active_command_id") or active_seq else None,
+            active_command_name=str(payload.get("active_command_name", payload.get("phase", "")))[:24] or None,
+            command_progress=_finite_number(payload.get("command_progress", payload.get("prog", 0)), "command_progress", 0, 1),
             turn_attempt=int(payload.get("turn_attempt", 0) or 0),
             turn_attempt_max=int(payload.get("turn_attempt_max", 0) or 0),
             retry_pause_remaining_ms=int(payload.get("retry_pause_remaining_ms", 0) or 0),
@@ -365,8 +354,8 @@ class TelemetrySnapshot:
                 if isinstance(payload.get("stall_accumulated_ms", {}), Mapping) else 0
                 for key in ("fl", "fr", "bl", "br")
             ),
-            rtos_diagnostics=dict(payload.get("rtos", {}))
-            if isinstance(payload.get("rtos", {}), Mapping) else {},
+            rtos_diagnostics=dict(payload["rtos"])
+            if isinstance(payload.get("rtos"), Mapping) else rtos,
             motor_control=dict(payload.get("motor_control", {}))
             if isinstance(payload.get("motor_control", {}), Mapping) else {},
             calibration_diagnostics=dict(payload.get("calibration_diagnostics", {}))

@@ -86,7 +86,8 @@ instalación de aplicaciones desconocidas para el gestor de archivos utilizado.
 2. Acepta permanecer conectado aunque la red no tenga Internet.
 3. Abre **Robot S3 HMI**.
 4. Conserva `192.168.4.1` y pulsa **Conectar**.
-5. Ejecuta la autoevaluación y recentra la pose igual que en Windows.
+5. Con ruedas elevadas y corriente limitada, ejecuta la calibración física de
+   torque, +25° y retorno a 0°, igual que en Windows.
 
 El servicio en primer plano mantiene CPU y Wi-Fi activos cuando la pantalla se
 apaga. Samsung puede aplicar optimización adicional: conviene configurar Robot

@@ -47,8 +47,9 @@ red local `ws://192.168.4.1/ws` y no requiere salida a Internet.
 
 La base se guarda en el directorio de datos de usuario de `RobotS3`, no dentro
 del repositorio. Cada conexión abre una sesión y registra telemetría. Después
-de cada encendido, la HMI bloquea los controles hasta completar la calibración
-física. Python divide rutas en segmentos de hasta 2 m y envía uno a la vez.
+de cada encendido, la HMI bloquea las rutas hasta completar, con ruedas elevadas
+y corriente limitada, la calibración física de +25° y retorno a 0°. Python
+divide rutas en pasos `robot-s3-steps-v2` de hasta 2 m y envía uno a la vez.
 
 ## Frontend futuro con Node
 

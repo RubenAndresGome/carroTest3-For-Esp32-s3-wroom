@@ -9,6 +9,7 @@
 #include "Eventos.h"
 #include "Seguridad.h"
 #include "Cinematica.h"
+#include "DiagnosticoRTOS.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
@@ -62,34 +63,64 @@ static void manejarHello(const JsonObject& o) {
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["last_seq"] = ultimoSeqCompletado;
   doc["calibrated"] = robotCalibrado;
+  doc["protocol"] = PROTOCOL_NAME;
   if (ultimoFalloDetalle[0]) doc["fault"] = ultimoFalloDetalle;
   enviarJSON(doc);
 }
 
 // ------ parseo de comandos (push a cola, excepto ESTOP inmediato) ------
-static float strToFloatSafe(const char* s) { if (!s||!s[0]) return 0.0f; return atof(s); }
+static bool leerFloatFinito(JsonVariantConst valor, float& destino) {
+  if (!valor.is<float>() && !valor.is<double>() && !valor.is<int>() && !valor.is<long>()) return false;
+  destino = valor.as<float>();
+  return isfinite(destino);
+}
+
+static void responderRechazado(int seq, const char* detalle) {
+  encolarEvento(EVT_REJECTED, seq, detalle);
+}
 
 static void parsearMensaje(const uint8_t* data, size_t len) {
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<768> doc;
   DeserializationError err = deserializeJson(doc, data, len);
-  if (err) return;
+  if (err || !doc.is<JsonObject>()) return;
   const char* cmd = doc["cmd"] | "";
   if (!cmd[0]) return;
 
   if (strcmp(cmd, "hello") == 0) { manejarHello(doc.as<JsonObject>()); return; }
 
-  if (strcmp(cmd, "estop") == 0) { flag_ESTOP_ISR = true; return; }
+  if (!sessionId[0]) { responderRechazado(0, "hello_required"); return; }
+  JsonVariantConst seqVar = doc["seq"];
+  if (!seqVar.is<int>() && !seqVar.is<long>()) { responderRechazado(0, "seq_invalid"); return; }
+  const int seq = seqVar.as<int>();
+  if (seq <= 0) { responderRechazado(seq, "seq_invalid"); return; }
+  if (seq <= ultimoSeqCompletado) { encolarEvento(EVT_ALREADY_DONE, seq, "already_done"); return; }
+  if (seqActivo == seq) { encolarEvento(EVT_ACCEPTED, seq, "already_active"); return; }
 
-  ComandoRed c = {}; c.seq = doc["seq"] | 0;
+  if (strcmp(cmd, "estop") == 0) {
+    seq_ESTOP_pendiente = seq;
+    flag_ESTOP_ISR = true;
+    encolarEvento(EVT_ACCEPTED, seq, "estop");
+    return;
+  }
+
+  ComandoRed c = {}; c.seq = seq;
   if (strcmp(cmd,"calibrate")==0)      { c.tipo=CMD_CALIBRATE; }
-  else if (strcmp(cmd,"step")==0)       { c.tipo=CMD_STEP; c.heading = strToFloatSafe(doc["heading"]|""); c.distanciaCm = strToFloatSafe(doc["cm"]|""); }
+  else if (strcmp(cmd,"step")==0) {
+    c.tipo=CMD_STEP;
+    if (!leerFloatFinito(doc["heading"], c.heading) || !leerFloatFinito(doc["cm"], c.distanciaCm)) {
+      responderRechazado(seq, "step_payload_invalid"); return;
+    }
+  }
   else if (strcmp(cmd,"stop")==0)       { c.tipo=CMD_STOP; }
   else if (strcmp(cmd,"clear_fault")==0){ c.tipo=CMD_CLEAR_FAULT; }
-  else if (strcmp(cmd,"set_comp")==0)   { c.tipo=CMD_SET_COMP; c.factor = strToFloatSafe(doc["factor"]|""); }
+  else if (strcmp(cmd,"set_comp")==0) {
+    c.tipo=CMD_SET_COMP;
+    if (!leerFloatFinito(doc["factor"], c.factor)) { responderRechazado(seq, "comp_invalid"); return; }
+  }
   else if (strcmp(cmd,"reset_pose")==0) { c.tipo=CMD_RESET_POSE; }
-  else return;  // comando desconocido
+  else { responderRechazado(seq, "unknown_command"); return; }
 
-  xQueueSend(colaComandos, &c, 0);
+  if (xQueueSend(colaComandos, &c, 0) != pdTRUE) responderRechazado(seq, "command_queue_full");
 }
 
 // ------ eventos WS ------
@@ -105,13 +136,19 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
         doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
         doc["last_seq"] = ultimoSeqCompletado;
         doc["calibrated"] = robotCalibrado;
+        doc["protocol"] = PROTOCOL_NAME;
         enviarJSON(doc);
       }
       break;
     case WS_EVT_DISCONNECT:
       if (clienteActivo == c) clienteActivo = nullptr;
       break;
-    case WS_EVT_DATA: parsearMensaje(data, len); break;
+    case WS_EVT_DATA: {
+      AwsFrameInfo* info = static_cast<AwsFrameInfo*>(arg);
+      if (info && info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT && len <= MAX_WS_MSG)
+        parsearMensaje(data, len);
+      break;
+    }
     default: break;
   }
 }
@@ -121,7 +158,7 @@ static void drenarEventos() {
   EventoRed evt;
   while (colaEventosRed && xQueueReceive(colaEventosRed, &evt, 0) == pdTRUE) {
     StaticJsonDocument<256> doc;
-    const char* tipo = evt.tipo==EVT_ACCEPTED?"accepted":evt.tipo==EVT_REJECTED?"rejected":evt.tipo==EVT_COMPLETED?"completed":evt.tipo==EVT_FAULT?"fault":"progress";
+    const char* tipo = evt.tipo==EVT_ACCEPTED?"accepted":evt.tipo==EVT_REJECTED?"rejected":evt.tipo==EVT_COMPLETED?"completed":evt.tipo==EVT_ALREADY_DONE?"already_done":evt.tipo==EVT_FAULT?"fault":"progress";
     doc["evt"] = tipo; doc["seq"] = evt.seq;
     if (evt.detalle[0]) doc["detail"] = evt.detalle;
     if (evt.tipo == EVT_PROGRESS) doc["pct"] = evt.progreso;
@@ -133,7 +170,7 @@ static void drenarEventos() {
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<1024> doc;
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
@@ -152,6 +189,18 @@ static void enviarTelemetria() {
   doc["prog"] = roundf(progresoComando*100)/100;
   doc["comp"] = roundf(factorCompensacionDer*100)/100;
   doc["cal"] = robotCalibrado;
+  doc["firmware"] = FIRMWARE_VERSION;
+  doc["protocol"] = PROTOCOL_NAME;
+  doc["reset_reason"] = motivoResetESP32;
+  doc["stack_web"] = stackMinimoWebBytes == UINT32_MAX ? 0 : stackMinimoWebBytes;
+  doc["stack_control"] = stackMinimoControlBytes == UINT32_MAX ? 0 : stackMinimoControlBytes;
+  doc["stack_warning"] = stackRTOSBajo();
+  doc["tasks_ok"] = creacionTareasOk;
+  doc["control_period_us"] = periodoControlUltimoUs;
+  doc["control_jitter_max_us"] = jitterControlMaxUs;
+  doc["control_cycle_max_us"] = duracionControlMaxUs;
+  doc["control_sample_age_max_us"] = antiguedadMuestraMaxUs;
+  doc["control_missed_deadlines"] = deadlinesControlPerdidos;
   enviarJSON(doc);
 }
 

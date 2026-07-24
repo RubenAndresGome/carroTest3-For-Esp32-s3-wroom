@@ -5,6 +5,7 @@ enum TipoEvento : uint8_t {
     EVT_ACCEPTED,
     EVT_REJECTED,
     EVT_COMPLETED,
+    EVT_ALREADY_DONE,
     EVT_FAULT,
     EVT_PROGRESS
 };

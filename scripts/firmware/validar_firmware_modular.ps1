@@ -6,6 +6,7 @@ $StageInclude = Join-Path $Stage "include"
 $PlatformIo = Join-Path $env:USERPROFILE ".platformio\penv\Scripts\platformio.exe"
 
 if (-not (Test-Path $PlatformIo)) { throw "No se encontro PlatformIO: $PlatformIo" }
+if (Test-Path $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $StageSrc, $StageInclude | Out-Null
 Copy-Item -Force (Join-Path $Root "platformio.ini") (Join-Path $Stage "platformio.ini")
 Copy-Item -Force (Join-Path $Root "partitions.csv") (Join-Path $Stage "partitions.csv")
@@ -17,7 +18,7 @@ if (-not (Test-Path (Join-Path $StageInclude "Secrets.h"))) {
 $Modules = @(
     "main.cpp", "Estado.cpp", "Eventos.cpp", "Motores.cpp", "Sensores.cpp",
     "Seguridad.cpp", "PoseEstimator.cpp", "Cinematica.cpp", "Red.cpp",
-    "DiagnosticoRTOS.cpp", "Mision.cpp"
+    "DiagnosticoRTOS.cpp"
 )
 foreach ($Module in $Modules) {
     $Source = Join-Path $Root ("src\" + $Module)

@@ -10,17 +10,22 @@
 #include "PoseEstimator.h"
 #include "Seguridad.h"
 #include "Eventos.h"
+#include "DiagnosticoRTOS.h"
+#include <esp_timer.h>
 
-TaskHandle_t TaskControlHandle;
 TaskHandle_t TaskWebHandle;
 QueueHandle_t colaComandos;
 volatile bool flag_ESTOP_ISR = false;
+volatile int seq_ESTOP_pendiente = 0;
 
 void procesarComandos() {
     if (flag_ESTOP_ISR) {
+        const int seq = seq_ESTOP_pendiente;
         flag_ESTOP_ISR = false;
+        seq_ESTOP_pendiente = 0;
         WatchdogSeguridad.forzarEStop();
         xQueueReset(colaComandos);
+        encolarEvento(EVT_FAULT, seq, "estop");
         return;
     }
     ComandoRed cmd;
@@ -36,12 +41,14 @@ void procesarComandos() {
                 break;
             case CMD_STOP:
                 cancelarMovimiento("stopped");
+                encolarEvento(EVT_COMPLETED, cmd.seq, "stop_ok");
                 break;
             case CMD_ESTOP:
                 WatchdogSeguridad.forzarEStop();
                 break;
             case CMD_CLEAR_FAULT:
                 WatchdogSeguridad.resetFallo();
+                encolarEvento(EVT_COMPLETED, cmd.seq, "fault_cleared");
                 break;
             case CMD_RESET_POSE:
                 if (estadoActual == LISTO || estadoActual == DESARMADO) {
@@ -67,53 +74,57 @@ void Task_Web(void*) {
         procesarWebSockets();
         pushTelemetria();
         LOG_THROTTLED("Heartbeat Web", 20);
-        static int c=0; if(++c>=20){LOG_MEMORY();c=0;}
+        static int c=0; if(++c>=20){
+            LOG_MEMORY(); c=0;
+            registrarStackLibre(TareaDiagnosticada::WEB,
+                uxTaskGetStackHighWaterMark(nullptr));
+        }
         vTaskDelay(100/portTICK_PERIOD_MS);
     }
 }
 
-void Task_Control(void*) {
-    LOG_CORE("Task_Control en Core 1 (100 Hz)");
-    TickType_t last = xTaskGetTickCount();
-    const TickType_t periodo = pdMS_TO_TICKS(10);
-    uint32_t lastSensorSeq = 0;
-    uint32_t lastProgress = 0;
-    for (;;) {
-        procesarComandos();
-        leerSensoresSincrono();
-        const SensorSnapshot& snap = snapshotSensoresControl();
-        bool fresco = snap.sequence != lastSensorSeq;
-        if (fresco) {
-            lastSensorSeq = snap.sequence;
-            heading360 = normalizar360(anguloZ);
-            PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
-                                           (estadoActual == EJECUTANDO && enFaseAvance()));
-            if (!snap.mpu_present || snap.mpu_stale) {
-                if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO) {
-                    frenarMotores();
-                    estadoActual = FALLO;
-                    LOG_CORE("FAULT: MPU ausente/obsoleto durante movimiento.");
-                    encolarEvento(EVT_FAULT, seqActivo, "mpu_lost");
-                }
+static void ejecutarCicloControl() {
+    static uint32_t ultimoSensorSeq = 0;
+    static uint32_t ultimoProgresoMs = 0;
+
+    procesarComandos();
+    leerSensoresSincrono();
+    const SensorSnapshot& snap = snapshotSensoresControl();
+    bool fresco = snap.sequence != ultimoSensorSeq;
+    if (fresco) {
+        ultimoSensorSeq = snap.sequence;
+        heading360 = normalizar360(anguloZ);
+        PoseGlobal.actualizarOrientacion(snap.imu_deltaZ_rad);
+        if (estadoActual == LISTO || estadoActual == DESARMADO) {
+            recentrarYawIMUEnReposo();
+        }
+        PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
+                                       (estadoActual == EJECUTANDO && enFaseAvance()));
+        if (!snap.mpu_present || snap.mpu_stale) {
+            if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO) {
+                frenarMotores();
+                estadoActual = FALLO;
+                LOG_CORE("FAULT: MPU ausente/obsoleto durante movimiento.");
+                encolarEvento(EVT_FAULT, seqActivo, "mpu_lost");
             }
-            WatchdogSeguridad.auditarSalud(snap, pwm_aplicado_L, pwm_aplicado_R);
         }
-        controlarMovimiento();
-        if (seqActivo && (estadoActual==EJECUTANDO||estadoActual==CALIBRANDO) && millis()-lastProgress>=500) {
-            lastProgress=millis();
-            encolarEvento(EVT_PROGRESS, seqActivo, faseComando, progresoComando);
-        }
-        static int cnt=0; if(++cnt>=100){LOG_THROTTLED("Heartbeat Control",100);cnt=0;}
-        vTaskDelayUntil(&last, periodo);
+        WatchdogSeguridad.auditarSalud(snap, pwm_aplicado_L, pwm_aplicado_R);
+    }
+    controlarMovimiento();
+    if (seqActivo && (estadoActual==EJECUTANDO||estadoActual==CALIBRANDO) && millis()-ultimoProgresoMs>=500) {
+        ultimoProgresoMs=millis();
+        encolarEvento(EVT_PROGRESS, seqActivo, faseComando, progresoComando);
     }
 }
 
 void setup() {
+    // Primera operación de hardware: entradas del DRV8833 desenergizadas.
+    setup_MotorPinsLow();
     Serial.begin(115200);
     delay(200);
-    Serial.printf("\n=== ROBOT S3 v2 | reset=%d ===\n", (int)esp_reset_reason());
+    inicializarDiagnosticoRTOS();
+    Serial.printf("\n=== ROBOT S3 v2 | reset=%s ===\n", motivoResetESP32);
 
-    setup_MotorPinsLow();
     colaComandos = xQueueCreate(4, sizeof(ComandoRed));
     colaEventosRed = xQueueCreate(8, sizeof(EventoRed));
     PoseGlobal.inicializar(WHEEL_DIAMETER_CM, ENCODER_PPR);
@@ -122,9 +133,42 @@ void setup() {
     setup_Sensores();
     Serial.println("Sistema listo. Iniciando FreeRTOS...");
 
-    xTaskCreatePinnedToCore(Task_Web,    "Web",    8192, NULL, 1, &TaskWebHandle, 0);
-    xTaskCreatePinnedToCore(Task_Control,"Control",8192, NULL,10, &TaskControlHandle, 1);
-    vTaskDelete(NULL);
+    const BaseType_t webOk = xTaskCreatePinnedToCore(
+        Task_Web, "Web", 8192, nullptr, 1, &TaskWebHandle, 0);
+    registrarResultadoArquitectura(webOk, xPortGetCoreID() == 1);
+    if (webOk != pdPASS) {
+        frenarMotores();
+        estadoActual = FALLO;
+        Serial.println("FALLO: no se pudo crear Task_Web.");
+    }
 }
 
-void loop() {}
+void loop() {
+    static TickType_t ultimoDespertar = xTaskGetTickCount();
+    static uint64_t inicioAnteriorUs = 0;
+    static uint32_t contadorDiagnostico = 0;
+    const uint64_t inicioUs = static_cast<uint64_t>(esp_timer_get_time());
+    const uint32_t periodoUs = inicioAnteriorUs == 0 ? CONTROL_LOOP_PERIOD_US
+        : static_cast<uint32_t>(inicioUs - inicioAnteriorUs);
+    inicioAnteriorUs = inicioUs;
+
+    ejecutarCicloControl();
+
+    const uint64_t finUs = static_cast<uint64_t>(esp_timer_get_time());
+    const SensorSnapshot& snap = snapshotSensoresControl();
+    const uint32_t duracionUs = static_cast<uint32_t>(finUs - inicioUs);
+    const uint32_t jitterUs = periodoUs > CONTROL_LOOP_PERIOD_US
+        ? periodoUs - CONTROL_LOOP_PERIOD_US : CONTROL_LOOP_PERIOD_US - periodoUs;
+    const uint32_t antiguedadUs = finUs >= snap.timestamp_us
+        ? static_cast<uint32_t>(finUs - snap.timestamp_us) : 0;
+    const uint32_t perdidos = periodoUs > CONTROL_LOOP_PERIOD_US * 2U
+        ? (periodoUs / CONTROL_LOOP_PERIOD_US) - 1U : 0U;
+    registrarCicloControl(periodoUs, jitterUs, duracionUs, antiguedadUs, perdidos);
+    if (++contadorDiagnostico >= 100) {
+        contadorDiagnostico = 0;
+        registrarStackLibre(TareaDiagnosticada::CONTROL,
+            uxTaskGetStackHighWaterMark(nullptr));
+        LOG_THROTTLED("Heartbeat Control", 100);
+    }
+    vTaskDelayUntil(&ultimoDespertar, pdMS_TO_TICKS(10));
+}

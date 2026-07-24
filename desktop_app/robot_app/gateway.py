@@ -40,12 +40,14 @@ class RobotGateway:
         on_message: Callable[[dict[str, Any]], None],
         on_state: Callable[[ConnectionState, str | None], None],
         on_sent: Callable[[RobotCommand], None],
+        session_getter: Callable[[], str] = lambda: "",
         max_message_bytes: int = 4096,
     ) -> None:
         self._host_getter = host_getter
         self._on_message = on_message
         self._on_state = on_state
         self._on_sent = on_sent
+        self._session_getter = session_getter
         self._max_message_bytes = max_message_bytes
         self._outgoing: queue.PriorityQueue[_Outgoing] = queue.PriorityQueue(maxsize=64)
         self._cancelled: set[str] = set()
@@ -105,8 +107,8 @@ class RobotGateway:
             return {
                 "state": self._state.value,
                 "detail": self._detail,
-                "protocol": "v1" if self._protocol_v1 else "negotiating",
-                "protocol_name": "robot-s3-json-v1",
+                "protocol": "steps-v2" if self._protocol_v1 else "negotiating",
+                "protocol_name": "robot-s3-steps-v2",
                 "heartbeat_age_ms": heartbeat_age_ms,
                 "connect_attempt": self._connect_attempt,
                 "connect_attempt_max": self.MAX_CONNECT_ATTEMPTS,
@@ -143,10 +145,9 @@ class RobotGateway:
                     self._connect_attempt = 0
                 self._set_state(ConnectionState.CONNECTED, url)
                 connection.send(json.dumps(
-                    {"v": 1, "type": "hello", "protocol": "robot-s3-json-v1", "role": "controller"},
+                    {"cmd": "hello", "session": self._session_getter(), "seq": 0},
                     separators=(",", ":"),
                 ))
-                last_heartbeat = time.monotonic()
                 while not self._stop.is_set() and not self._reconnect.is_set():
                     self._drain_one(connection)
                     try:
@@ -157,15 +158,7 @@ class RobotGateway:
                         pass
                     if not self._protocol_v1 and self._handshake_started is not None:
                         if time.monotonic() - self._handshake_started > 3.0:
-                            raise RuntimeError("El robot no confirmó robot-s3-json-v1")
-                    # 200 ms mantiene margen suficiente frente al watchdog de 400 ms
-                    # aun cuando el joystick conserve un PWM constante.
-                    if self._protocol_v1 and time.monotonic() - last_heartbeat >= 0.2:
-                        connection.send(json.dumps(
-                            {"v": 1, "type": "heartbeat", "ts_ms": int(time.time() * 1000)},
-                            separators=(",", ":"),
-                        ))
-                        last_heartbeat = time.monotonic()
+                            raise RuntimeError("El robot no confirmó robot-s3-steps-v2")
             except Exception as exc:  # frontera de E/S: se reporta sin derribar la app
                 logger.warning("Fallo del WebSocket hacia %s: %s", host, exc, exc_info=True)
                 if attempts >= self.MAX_CONNECT_ATTEMPTS:
@@ -235,13 +228,13 @@ class RobotGateway:
         message = json.loads(encoded.decode("utf-8"))
         if not isinstance(message, dict):
             raise ValueError("Mensaje del robot no es un objeto JSON")
-        kind = message.get("type")
-        if kind in {"hello", "hello_ack"}:
-            if message.get("v") != 1 or message.get("protocol") != "robot-s3-json-v1":
+        kind = message.get("evt")
+        if kind == "hello_ack":
+            if message.get("protocol") != "robot-s3-steps-v2":
                 raise ValueError("Protocolo del robot incompatible")
+            if message.get("session") != self._session_getter():
+                raise ValueError("El robot confirmó una sesión distinta")
             self._protocol_v1 = True
-        if message.get("type") == "heartbeat_ack":
-            self._last_heartbeat_ack = time.monotonic()
         if kind in {"rejected", "error", "fault"}:
             logger.error("Evento del robot %s: %s", kind, message)
         self._on_message(message)

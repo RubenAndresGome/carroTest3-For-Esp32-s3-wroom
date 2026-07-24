@@ -53,7 +53,7 @@ La base del diseño es la siguiente:
 ### 2. Flujo de control
 
 - El usuario controla la misión desde la interfaz gráfica.
-- El HMI genera comandos y los envía al robot a través del canal JSON V1.
+- El HMI genera pasos atómicos y los envía mediante `robot-s3-steps-v2`.
 - El ESP32-S3 procesa sensores, odometría, seguridad y cinemática en su bucle
   de control y responde con telemetry para seguimiento y diagnóstico.
 
@@ -74,7 +74,7 @@ Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
 ## Documentación adicional
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) para convenciones y validaciones
-- [docs/protocolo_json_v1_hmi_esp32.md](docs/protocolo_json_v1_hmi_esp32.md)
+- [docs/protocolo_json_steps_v2_hmi_esp32.md](docs/protocolo_json_steps_v2_hmi_esp32.md)
   para el canal HMI–robot
 - [desktop_app/README.md](desktop_app/README.md) para la instalación local
 - [android_app/README.md](android_app/README.md) para la versión tablet

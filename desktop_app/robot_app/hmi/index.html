@@ -831,7 +831,7 @@
         <button class="tab-btn active" data-tab="conexion" role="tab" aria-selected="true">Conexión</button>
         <button class="tab-btn" data-tab="mapa" role="tab" aria-selected="false">Mapa de Navegación</button>
         <button class="tab-btn" data-tab="testing" role="tab" aria-selected="false">Testing S3</button>
-        <button class="tab-btn" data-tab="touch" role="tab" aria-selected="false">Control Touch</button>
+        <button class="tab-btn" data-tab="touch" role="tab" aria-selected="false" disabled title="No disponible en robot-s3-steps-v2">Control Touch (no disponible)</button>
         <button class="tab-btn" data-tab="rutas" role="tab" aria-selected="false">Rutas (Ockham)</button>
     </nav>
 
@@ -844,8 +844,8 @@
                     <div class="calibration-note">Autoevaluación lógica: <strong id="self-test-state">NO EJECUTADA</strong></div>
                     <button type="button" class="btn" id="btn-self-test">Ejecutar autoevaluación segura</button>
                     <div class="calibration-state" id="calibration-state">ESPERANDO CONEXIÓN</div>
-                    <div class="calibration-note" id="calibration-detail">Al arrancar, la MPU se ajusta con el robot inmóvil y los controles quedan habilitados sin mover los motores. Este botón sólo recentra la pose y el rumbo.</div>
-                    <button type="button" class="btn btn-accent" id="btn-calibrate">Recentrar pose y rumbo</button>
+                    <div class="calibration-note" id="calibration-detail">Con ruedas elevadas y alimentación limitada, la calibración busca torque, valida +25°, reposa 2.5 s y vuelve a yaw 0°. La calibración moverá el robot.</div>
+                    <button type="button" class="btn btn-accent" id="btn-calibrate">Calibrar torque y giro</button>
                 </section>
                 <section class="card">
                     <div class="card-title">Enlace HMI → ESP32</div>
@@ -1217,7 +1217,7 @@
                 <button type="button" class="btn btn-accent" id="btn-route-start">▶ Iniciar Ruta</button>
                 <button type="button" class="btn btn-stop" id="btn-route-stop">⏹ Detener / Reset</button>
                 <button type="button" class="btn btn-reverse" id="btn-route-ockham">🏠 Regresar al Inicio (Ockham)</button>
-                <button type="button" class="btn" id="btn-route-clear-memory">🧹 Liberar memoria ESP32</button>
+                <button type="button" class="btn" id="btn-route-clear-memory">🧹 Borrar misión Python</button>
             </div>
             <div id="route-mission-safety" class="info-panel" style="margin-bottom:15px;">
                 Protección de pasos: lista. Cada segmento usa un ID único y no se repite automáticamente tras un reinicio.
@@ -1481,6 +1481,13 @@
             if (Math.abs(dx) > .05 || Math.abs(dy) > .05) this._orientacionEstimada = Math.atan2(dy,dx);
             this._lastPos = {x:telemX,y:telemY};
             const yaw = Number(raw.heading_deg ?? raw.yaw_deg ?? 0);
+            const firmwareState = String(raw.state || '').toLowerCase();
+            const activePhase = String(raw.active_command_name || '').toLowerCase();
+            const uiState = firmwareState === 'listo' ? 'IDLE'
+                : firmwareState === 'desarmado' ? 'INIT'
+                : firmwareState === 'calibrando' ? 'ESPERANDO'
+                : firmwareState === 'ejecutando' ? (activePhase.includes('avance') ? 'AVANZANDO' : 'GIRANDO')
+                : firmwareState === 'estop' ? 'ESTOP' : firmwareState === 'fallo' ? 'ESTOP' : 'INIT';
             const pulses = raw.pulses || {};
             const pwmRaw = raw.pwm || {};
             const stall = raw.stall_accumulated_ms || {}, fusion = raw.encoder_fusion || {};
@@ -1525,7 +1532,7 @@
             this.lastYawRecenterCount=yawRecenterCount;
             Telemetry._process({
                 distancia:totalDistance, angulo:yaw, posX:telemX, posY:telemY,
-                orientacion:yaw*Math.PI/180, estado:raw.state,
+                orientacion:yaw*Math.PI/180, estado:uiState,
                 pfl:Number(pulses.fl||0), pfr:Number(pulses.fr||0), pbl:Number(pulses.bl||0), pbr:Number(pulses.br||0),
                 pwmL:Number(pwm.left||0), pwmR:Number(pwm.right||0)
             });
@@ -1535,6 +1542,11 @@
         async send(obj) {
             if (!this.flaskMode) throw new Error('desktop_app no está disponible');
             const cmd = String(obj.cmd || '').toLowerCase();
+            const supported = new Set(['calibrate','step','stop','estop','clear_fault','set_comp','reset_pose']);
+            if (!supported.has(cmd)) {
+                LogSystem.add('WARN',`El protocolo robot-s3-steps-v2 no admite ${cmd}; usa pasos o rutas atómicas.`);
+                return null;
+            }
             const payload = {...obj}; delete payload.cmd;
             const endpoint = cmd === 'estop' ? '/api/v1/estop' : '/api/v1/commands';
             const body = cmd === 'estop' ? {} : {name:cmd,payload};
@@ -1551,30 +1563,23 @@
     };
 
     const Calibration = {
-        calibrated:false, commandId:null, selfTestCommandId:null, selfTestPassed:false,
+        calibrated:false, commandId:null, selfTestCommandId:null, selfTestPassed:true,
         lastTurnMode:'PIVOT_CONTINUOUS', lastRequestedTurnMode:'AUTO', lastPowerKey:'',
         lastRobotState:'', lastTerminalKey:'', lastBrakingPhase:'OFF', lastAlignmentStage:'OFF',
         lastDegradedMode:null, lastEncoderHealthKey:'',
         init() {
             document.body.classList.add('calibration-locked');
             document.getElementById('btn-calibrate').disabled=true;
-            document.getElementById('btn-self-test').addEventListener('click',async()=>{
-                if(!state.connected) return LogSystem.add('WARN','Conecta primero con el carrito.');
-                const result=await WSControl.send({cmd:'self_test'});
-                if(!result)return;
-                this.selfTestCommandId=result.id;
-                document.getElementById('self-test-state').textContent='EJECUTANDO';
-                document.getElementById('btn-self-test').disabled=true;
-                LogSystem.add('CMD','Autoevaluación lógica solicitada; los motores permanecen apagados.');
-            });
+            document.getElementById('btn-self-test').disabled=true;
+            document.getElementById('self-test-state').textContent='INTEGRADA EN FIRMWARE';
             document.getElementById('btn-calibrate').addEventListener('click',async()=>{
                 if(!state.connected) return LogSystem.add('WARN','Conecta primero con el carrito.');
-                if(!confirm('Mantén el carrito inmóvil. Se pondrán en cero la pose y el rumbo sin energizar motores. ¿Continuar?'))return;
+                if(!confirm('Ruedas elevadas y alimentación limitada. La calibración moverá el robot hasta +25°, reposará y volverá a 0°. ¿Continuar?'))return;
                 try {
                     const result=await WSControl.send({cmd:'calibrate'});
                     if(!result)return;
                     this.commandId=result.id;
-                    this.setState('RECENTRANDO POSE Y RUMBO',false);
+                    this.setState('CALIBRANDO TORQUE Y GIRO',false);
                 } catch(_) {}
             });
         },
@@ -1586,10 +1591,7 @@
             document.getElementById('btn-calibrate').disabled=!state.connected;
         },
         applyTelemetry(raw) {
-            const selfTest=raw.self_test||{}, selfStatus=String(selfTest.status||'NOT_RUN');
-            this.selfTestPassed=selfStatus==='PASSED';
-            document.getElementById('self-test-state').textContent=`${selfStatus}${selfTest.detail?` — ${selfTest.detail}`:''}`;
-            document.getElementById('btn-self-test').disabled=selfStatus==='RUNNING';
+            this.selfTestPassed=true;
             const intento=Number(raw.turn_attempt||0), max=Number(raw.turn_attempt_max||0);
             const requestedMode=String(raw.turn_requested_mode||'AUTO');
             const turnMode=String(raw.turn_mode||'PIVOT');
@@ -1627,19 +1629,19 @@
             }
             this.lastDegradedMode=degraded;
             this.lastEncoderHealthKey=encoderHealthKey;
-            const robotState=String(raw.state||'');
+            const robotState=String(raw.state||'').toUpperCase();
             const terminal=raw.last_terminal||{};
             const terminalReason=String(terminal.detail||terminal.reason||'sin causa reportada');
             const terminalKey=`${terminal.id||''}:${terminal.type||''}:${terminalReason}`;
-            if(['FAULT','SAFE_STOP','ESTOP'].includes(robotState) &&
+            if(['FAULT','FALLO','SAFE_STOP','ESTOP'].includes(robotState) &&
                (robotState!==this.lastRobotState || terminalKey!==this.lastTerminalKey)) {
                 LogSystem.add('ERROR',`Robot pasó a ${robotState}: ${terminalReason}. PWM físico detenido por seguridad.`);
                 this.lastTerminalKey=terminalKey;
             }
             this.lastRobotState=robotState;
             const intentoTexto=intento&&max?` — GIRO ${intento}/${max} · ${turnMode}`:'';
-            if(raw.calibrated) this.setState('LISTO — CONTROLES HABILITADOS',true);
-            else if(raw.state && raw.state.includes('CALIBR')) this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
+            if(raw.calibrated) this.setState('LISTO — RUTAS HABILITADAS',true);
+            else if(raw.state && String(raw.state).toLowerCase().includes('calibr')) this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
             else this.setState('ESPERANDO MPU DE ARRANQUE',false);
         },
         onRobotEvent(event) {
@@ -1656,7 +1658,7 @@
             if(event.id!==this.commandId)return;
             if(event.type==='completed'){
                 this.setState('LISTO — CONTROLES HABILITADOS',true);
-                LogSystem.add('INFO','Pose y rumbo recentrados; controles habilitados.');
+                LogSystem.add('INFO','Calibración física completada; rutas habilitadas.');
             }
             if(event.type==='fault'||event.type==='rejected'){
                 const reason=event.detail||event.reason||'recentrado rechazado';
@@ -1696,7 +1698,7 @@
             state.connected=this.state==='connected';
             const label={stopped:'DESCONECTADO',connecting:'CONECTANDO',connected:'CONECTADO',backoff:'REINTENTANDO'}[this.state]||this.state.toUpperCase();
             document.getElementById('connection-panel-state').textContent=label;
-            const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-json-v1 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
+            const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-steps-v2 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
             document.getElementById('connection-panel-detail').textContent=detail;
             document.getElementById('connection-panel-dot').classList.toggle('ok',state.connected);
             Telemetry._ui();
@@ -2192,7 +2194,7 @@
             if(mission.blocked&&mission.error){
                 const interrupted=mission.error==='robot_restarted_mid_mission';
                 safety.textContent=interrupted
-                    ? `MISIÓN INTERRUMPIDA en el paso ${this.currentStepIndex+1}. El ESP32 se reinició: el paso no será repetido. Libera memoria, recentra pose y decide una ruta nueva.`
+                    ? `MISIÓN INTERRUMPIDA en el paso ${this.currentStepIndex+1}. El ESP32 se reinició: el paso no será repetido. Borra la misión, recentra pose y decide una ruta nueva.`
                     : `Misión bloqueada: ${mission.error}`;
                 safety.style.color='var(--danger)';
                 return this.failRoute(interrupted?'robot_restarted_mid_mission: repetición automática bloqueada':mission.error);
@@ -2233,14 +2235,12 @@
             }
         },
         async clearRobotMemory() {
-            if (!confirm('¿Detener el robot y borrar la ruta y su checkpoint del ESP32?')) return;
+            if (!confirm('¿Detener el robot y borrar la misión y su checkpoint de Python?')) return;
             try {
                 const result=await WSControl.api('/api/v1/missions/robot-memory',{method:'DELETE'});
                 this.isRunning=false; this.waitingForMovement=false; this.activeCommandId=null;
                 this.unlockTabs();
-                LogSystem.add('INFO',result.clear_command_id
-                    ? 'Orden enviada: memoria de ruta y checkpoint liberados.'
-                    : 'SQLite fue limpiado; el ESP32 no estaba conectado para confirmar el borrado.');
+                LogSystem.add('INFO','Misión y checkpoint de Python eliminados; se solicitó STOP si había un paso activo.');
                 this.currentStepIndex=0; this.updateListUI(); this.drawPlan();
             } catch(error) { LogSystem.add('ERROR',`No se pudo liberar la memoria: ${error.message}`); }
         },
@@ -2267,7 +2267,7 @@
     const TabManager = {
         init() { document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click',()=>this.switch(b.dataset.tab))); },
         switch(id) {
-            if(!Calibration.calibrated && id!=='conexion')return LogSystem.add('WARN','Espera a que termine el ajuste estático de la MPU.');
+            if(!Calibration.calibrated && id!=='conexion')return LogSystem.add('WARN','Completa primero la calibración física de torque y giro.');
             if (typeof RouteManager !== 'undefined' && RouteManager.isRunning && id !== 'rutas') return;
             if (state.activeTab === 'touch' && id !== 'touch') Touch.end();
             state.activeTab=id;
@@ -2418,6 +2418,8 @@
         });
 
         // Testing: Aplicar PWM
+        document.getElementById('btn-apply-pwm').disabled = true;
+        document.getElementById('btn-apply-pwm').title = 'No disponible en robot-s3-steps-v2';
         document.getElementById('btn-apply-pwm').addEventListener('click', function() {
             const l = parseInt(document.getElementById('pwm-left').value);
             const r = parseInt(document.getElementById('pwm-right').value);
@@ -2447,15 +2449,13 @@
             this.classList.add('btn-flash'); setTimeout(()=>this.classList.remove('btn-flash'),250);
 
             if(c==='avance'){
-                WSControl.send({cmd:'drive',distance_mm:dist*10});
+                WSControl.send({cmd:'step',heading:0,cm:dist});
             } else if(c==='retroceso'){
-                WSControl.send({cmd:'drive',distance_mm:-dist*10});
+                WSControl.send({cmd:'step',heading:180,cm:dist});
             } else if(c==='giro-izq'){
-                WSControl.send({cmd:'turn',angle_deg:angle,mode:turnMode});
-                LogSystem.add('CMD',`Giro +${angle}° solicitado en modo ${turnMode}`);
+                LogSystem.add('WARN','El protocolo atómico no admite giro sin avance.');
             } else if(c==='giro-der'){
-                WSControl.send({cmd:'turn',angle_deg:-angle,mode:turnMode});
-                LogSystem.add('CMD',`Giro -${angle}° solicitado en modo ${turnMode}`);
+                LogSystem.add('WARN','El protocolo atómico no admite giro sin avance.');
             } else if(c==='parada'){
                 WSControl.send({cmd:"stop"});
                 LogSystem.add('CMD', 'Parada inmediata enviada');

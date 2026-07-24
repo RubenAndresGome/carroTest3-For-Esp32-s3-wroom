@@ -21,29 +21,34 @@ class GatewayTests(unittest.TestCase):
         self.gateway = RobotGateway(
             lambda: "192.168.4.1", self.received.append,
             lambda state, detail: None, lambda command: None,
+            session_getter=lambda: "0123456789abcdef",
         )
 
-    def test_commands_wait_for_v1_handshake(self) -> None:
+    def test_commands_wait_for_steps_v2_handshake(self) -> None:
         connection = _Connection()
-        command = RobotCommand.create("turn", {"angle_deg": 90})
+        command = RobotCommand.create("step", {"heading": 90, "cm": 50}, seq=3)
         self.assertTrue(self.gateway.enqueue(command))
         self.gateway._drain_one(connection)
         self.assertEqual(connection.messages, [])
         self.gateway._receive(json.dumps({
-            "v": 1, "type": "hello", "protocol": "robot-s3-json-v1", "role": "robot",
+            "evt": "hello_ack", "protocol": "robot-s3-steps-v2",
+            "session": "0123456789abcdef", "last_seq": 0,
         }))
         self.gateway._drain_one(connection)
-        envelope = json.loads(connection.messages[0])
-        self.assertEqual(envelope["id"], command.command_id)
-        self.assertEqual(envelope["payload"], {"angle_deg": 90.0})
+        self.assertEqual(json.loads(connection.messages[0]),
+                         {"cmd": "step", "heading": 90.0, "cm": 50.0, "seq": 3})
 
-    def test_incompatible_protocol_is_rejected(self) -> None:
+    def test_incompatible_protocol_or_session_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
-            self.gateway._receive(json.dumps({"v": 1, "type": "hello", "protocol": "otro"}))
+            self.gateway._receive(json.dumps({"evt": "hello_ack", "protocol": "otro",
+                                              "session": "0123456789abcdef"}))
+        with self.assertRaises(ValueError):
+            self.gateway._receive(json.dumps({"evt": "hello_ack", "protocol": "robot-s3-steps-v2",
+                                              "session": "otra"}))
 
     def test_cancelled_command_is_not_sent_after_reconnect(self) -> None:
         connection = _Connection()
-        command = RobotCommand.create("move", {"x_mm": 100, "y_mm": 0})
+        command = RobotCommand.create("reset_pose", {}, seq=4)
         self.gateway._protocol_v1 = True
         self.assertTrue(self.gateway.enqueue(command))
         self.gateway.cancel(command.command_id)
@@ -60,7 +65,6 @@ class GatewayTests(unittest.TestCase):
                 time.sleep(0.01)
                 snapshot = self.gateway.snapshot()
             self.assertEqual(snapshot["state"], "stopped")
-            self.assertIn("ROBOT_S3_LOCAL", snapshot["detail"])
             self.gateway.stop()
 
 

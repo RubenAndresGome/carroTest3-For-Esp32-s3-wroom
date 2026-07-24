@@ -51,7 +51,7 @@ constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
 constexpr int PWM_FORWARD_POLARITY = -1;
-constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(120 * PWM_SCALE_8_TO_10);
+constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int VELOCIDAD_BASE_RECTO = PWM_SAFE_HARD_LIMIT;
 constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(110 * PWM_SCALE_8_TO_10);
 constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(85 * PWM_SCALE_8_TO_10);
@@ -71,7 +71,7 @@ constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(12 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START = static_cast<int>(92 * PWM_SCALE_8_TO_10);
-constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(4 * PWM_SCALE_8_TO_10);
+constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_REACTIVATION_DEG = 3.0f;
 constexpr uint8_t TURN_MAX_ATTEMPTS = 3;
@@ -80,18 +80,19 @@ constexpr uint32_t TURN_SETTLE_MS = 300;
 constexpr uint32_t TURN_STALL_MS = 2500;
 
 // Calibración por búsqueda continua de torque (misma estrategia del test
-// aprobado, limitada al techo seguro de 120/255).
+// aprobado: búsqueda continua de 140 a 230/255.
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
 constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
-constexpr int      CALIBRATION_PWM_START = static_cast<int>(80 * PWM_SCALE_8_TO_10);
-constexpr int      CALIBRATION_PWM_END   = static_cast<int>(120 * PWM_SCALE_8_TO_10);
+constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
+constexpr int      CALIBRATION_PWM_END   = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
 constexpr uint8_t  CAL_MAX_ATTEMPTS = 7;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
+constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
 
 // Avance recto: fusión robusta de encoders y recuperación de rumbo (del test).
 constexpr float TOLERANCIA_DISTANCIA_CM = 2.0f;
@@ -110,7 +111,7 @@ constexpr int64_t TICKS_MINIMOS_AUDITORIA = 20;
 constexpr float ERROR_MAX_CLASIFICAR_DEG = 3.0f;
 
 // Tiempo muerto universal al invertir sentido (Motores.cpp).
-constexpr int PWM_DIRECTION_PAUSE_MS = 100;
+constexpr int PWM_DIRECTION_PAUSE_MS = 250;
 
 // Límites de validación de comandos.
 constexpr float STEP_MAX_DISTANCE_CM = 200.0f;

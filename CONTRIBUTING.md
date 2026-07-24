@@ -24,7 +24,9 @@
 ```powershell
 C:\Users\IK\.platformio\penv\Scripts\platformio.exe run
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\firmware\validar_firmware_modular.ps1
-& '.\desktop_app\.test-venv\Scripts\python.exe' -m unittest discover -s desktop_app\tests -v
+Push-Location desktop_app
+& '.\.test-venv\Scripts\python.exe' -m unittest discover -s tests -v
+Pop-Location
 desktop_app\scripts\frontend\compilar_frontend.bat
 scripts\desarrollo\validar_hmi.bat
 android_app\build_apk.ps1

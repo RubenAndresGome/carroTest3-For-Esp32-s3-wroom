@@ -26,3 +26,4 @@ struct ComandoRed {
 
 extern QueueHandle_t colaComandos;
 extern volatile bool flag_ESTOP_ISR;
+extern volatile int seq_ESTOP_pendiente;
