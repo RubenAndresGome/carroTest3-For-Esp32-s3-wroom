@@ -1574,13 +1574,15 @@
             document.getElementById('self-test-state').textContent='INTEGRADA EN FIRMWARE';
             document.getElementById('btn-calibrate').addEventListener('click',async()=>{
                 if(!state.connected) return LogSystem.add('WARN','Conecta primero con el carrito.');
-                if(!confirm('Ruedas elevadas y alimentación limitada. La calibración moverá el robot hasta +25°, reposará y volverá a 0°. ¿Continuar?'))return;
                 try {
+                    LogSystem.add('INFO','Enviando comando de calibración al robot...');
                     const result=await WSControl.send({cmd:'calibrate'});
                     if(!result)return;
                     this.commandId=result.id;
                     this.setState('CALIBRANDO TORQUE Y GIRO',false);
-                } catch(_) {}
+                } catch(err) {
+                    LogSystem.add('ERROR','Error enviando calibracion: ' + err.message);
+                }
             });
         },
         setState(label,ready) {

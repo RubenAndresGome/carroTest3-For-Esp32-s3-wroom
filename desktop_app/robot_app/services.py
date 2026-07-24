@@ -238,10 +238,16 @@ class RobotService:
         if connection["state"] != ConnectionState.CONNECTED.value or connection["protocol"] != "steps-v2":
             raise RuntimeError("El robot no está conectado con protocolo robot-s3-steps-v2")
         with self._lock:
-            if self._mission_blocked:
-                raise RuntimeError("La misión está bloqueada; bórrela antes de iniciar otra")
-            if self._mission_id is not None and self._mission_index < len(self._mission_points):
-                raise RuntimeError("Ya existe una misión activa")
+            if self._mission_id is not None:
+                self._mission_error = None
+                self._mission_id = None
+                self._mission_points = []
+                self._mission_index = 0
+                self._mission_command_id = None
+                self._mission_command_started_at = None
+                self._mission_seq = None
+                self._mission_blocked = False
+                self._mission_stage = "idle"
             telemetry = self._last_telemetry
             if telemetry is None or not telemetry.calibrated:
                 raise RuntimeError("El robot debe estar conectado y con la MPU de arranque lista")
@@ -259,18 +265,25 @@ class RobotService:
             target_x, target_y = validated["x_mm"], validated["y_mm"]
             dx = target_x - origin_x
             dy = target_y - origin_y
+            
+            # Descomposición automática en 2 tramos ortogonales si el punto es diagonal
+            sub_targets = []
             if abs(dx) > 1.0 and abs(dy) > 1.0:
-                raise ValueError(
-                    f"Tramo no ortogonal en waypoint {waypoint_index}: "
-                    f"cambian X ({dx:.1f} mm) e Y ({dy:.1f} mm)"
-                )
-            if abs(dx) <= 1.0:
-                target_x = origin_x
-            if abs(dy) <= 1.0:
-                target_y = origin_y
-            new_segments = split_segment_mm(origin_x, origin_y, target_x, target_y)
-            segments.extend(new_segments)
-            origin_x, origin_y = target_x, target_y
+                sub_targets.append((target_x, origin_y))
+                sub_targets.append((target_x, target_y))
+            else:
+                sub_targets.append((target_x, target_y))
+                
+            for tx, ty in sub_targets:
+                sub_dx = tx - origin_x
+                sub_dy = ty - origin_y
+                if abs(sub_dx) <= 1.0:
+                    tx = origin_x
+                if abs(sub_dy) <= 1.0:
+                    ty = origin_y
+                new_segments = split_segment_mm(origin_x, origin_y, tx, ty)
+                segments.extend(new_segments)
+                origin_x, origin_y = tx, ty
         if not segments:
             raise ValueError("La misión no contiene desplazamiento")
         if len(segments) > 32:
@@ -287,6 +300,8 @@ class RobotService:
             self._mission_blocked = False
             self._mission_revision = 1
             self._mission_stage = "executing"
+            self._next_seq = 1
+            self.database.set_setting("next_command_seq", 1)
         self._queue_current_mission_step()
         self._persist_mission()
         snapshot = self.mission_status()

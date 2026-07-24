@@ -13,7 +13,7 @@ public:
 private:
     unsigned long inicio_movimiento_ms;
     int64_t pulsos_movimiento_iniciales[4];
-    static constexpr unsigned long TIMEOUT_STALL_MS = 450;
+    static constexpr unsigned long TIMEOUT_STALL_MS = 800;
 };
 
 extern Seguridad WatchdogSeguridad;

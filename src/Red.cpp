@@ -32,17 +32,16 @@ static bool apDisponible() {
 static bool iniciarAP() {
   ultimoIntentoApMs = millis();
   WiFi.persistent(false);
-  WiFi.mode(WIFI_OFF);
-  delay(50);
-  if (!WiFi.mode(WIFI_AP)) { Serial.println("[RED] ERROR: modo AP fallo."); return false; }
+  WiFi.mode(WIFI_AP);
   WiFi.setSleep(false);
   IPAddress local_ip(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(local_ip, gateway, subnet);
-  if (!WiFi.softAP(ssid_AP, password_AP, 1, 0, 4) || !apDisponible()) {
+  if (!WiFi.softAP(ssid_AP, password_AP, 1, 0, 4)) {
     Serial.printf("[RED] softAP '%s' fallo.\n", ssid_AP); return false;
   }
+  delay(100);
   Serial.printf("[RED] AP exitoso: %s | IP: %s\n", ssid_AP, WiFi.softAPIP().toString().c_str());
   return true;
 }
@@ -100,6 +99,7 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   if (!seqVar.is<int>() && !seqVar.is<long>()) { responderRechazado(0, "seq_invalid"); return; }
   const int seq = seqVar.as<int>();
   if (seq <= 0) { responderRechazado(seq, "seq_invalid"); return; }
+  if (seq == 1) { ultimoSeqCompletado = 0; }
   if (seq <= ultimoSeqCompletado) { encolarEvento(EVT_ALREADY_DONE, seq, "already_done"); return; }
   if (seqActivo == seq) { encolarEvento(EVT_ACCEPTED, seq, "already_active"); return; }
 

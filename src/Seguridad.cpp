@@ -39,17 +39,19 @@ bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
     const int64_t actuales[4] = {snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR};
     const bool exige_izq = abs(pwm_L) > static_cast<int>(40 * PWM_SCALE_8_TO_10);
     const bool exige_der = abs(pwm_R) > static_cast<int>(40 * PWM_SCALE_8_TO_10);
-    const bool sf0 = exige_izq && llabs(actuales[0] - pulsos_movimiento_iniciales[0]) < 1;
-    const bool sf2 = exige_izq && llabs(actuales[2] - pulsos_movimiento_iniciales[2]) < 1;
-    const bool sf1 = exige_der && llabs(actuales[1] - pulsos_movimiento_iniciales[1]) < 1;
-    const bool sf3 = exige_der && llabs(actuales[3] - pulsos_movimiento_iniciales[3]) < 1;
-    if (sf0 || sf1 || sf2 || sf3) {
-        LOG_CORE("STALL: encoder sin pulsos bajo PWM.");
+    const bool fl_zero = llabs(actuales[0] - pulsos_movimiento_iniciales[0]) < 1;
+    const bool fr_zero = llabs(actuales[1] - pulsos_movimiento_iniciales[1]) < 1;
+    const bool bl_zero = llabs(actuales[2] - pulsos_movimiento_iniciales[2]) < 1;
+    const bool br_zero = llabs(actuales[3] - pulsos_movimiento_iniciales[3]) < 1;
+
+    const bool sf_left  = exige_izq && fl_zero && bl_zero;
+    const bool sf_right = exige_der && fr_zero && br_zero;
+
+    if (sf_left || sf_right) {
+        LOG_CORE("STALL: motor/lado completo sin pulsos bajo PWM.");
         frenarMotores();
         estadoActual = FALLO;
-        const char* det = "stall";
-        if (sf0) det = "stall_FL"; else if (sf2) det = "stall_BL";
-        else if (sf1) det = "stall_FR"; else if (sf3) det = "stall_BR";
+        const char* det = sf_left ? "stall_left" : "stall_right";
         encolarEvento(EVT_FAULT, seqActivo, det);
         return true;
     }

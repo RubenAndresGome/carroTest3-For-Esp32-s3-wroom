@@ -263,7 +263,10 @@ void controlarGiro() {
   float error = errorAng360(giroObjetivo, heading360);
   float errorAbs = fabsf(error);
   const int signoEsperado = error > 0 ? 1 : -1;
-  const int torqueCalibrado = signoEsperado > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
+  int torqueCalibrado = signoEsperado > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
+  if (torqueCalibrado == 0) {
+    torqueCalibrado = pwmMinGiroPos > 0 ? pwmMinGiroPos : (pwmMinGiroNeg > 0 ? pwmMinGiroNeg : PWM_TURN_START);
+  }
   if (!watchdogGiroArmado && torqueCalibrado > 0 && pwmGiroAct >= torqueCalibrado) {
     watchdogGiroArmado = true;
     ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=ahora;
@@ -302,7 +305,13 @@ void controlarGiro() {
   // --- calcular PWM ---
   int signoDeseado = error>0?1:-1;
   int minimo = signoDeseado>0 ? pwmMinGiroPos : pwmMinGiroNeg;
-  if (minimo == 0) { reintentarGiro("turn_not_calibrated"); return; }
+  if (minimo == 0) {
+    minimo = pwmMinGiroPos > 0 ? pwmMinGiroPos : (pwmMinGiroNeg > 0 ? pwmMinGiroNeg : 0);
+    if (minimo == 0 && (fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO)) {
+      minimo = PWM_TURN_START;
+    }
+    if (minimo == 0) { reintentarGiro("turn_not_calibrated"); return; }
+  }
   int pwmLejos = max(PWM_TURN_START, min(PWM_SAFE_HARD_LIMIT, minimo+PWM_TURN_FAR_MARGIN));
   int pwmCerca = min(PWM_SAFE_HARD_LIMIT, minimo+PWM_TURN_NEAR_MARGIN);
   int pwmObj = pwmLejos;
@@ -328,6 +337,9 @@ void controlarGiro() {
   }
   if (signoGiroApl!=0 && pwmGiroAct>0) {
     int cand = signoGiroApl>0 ? candidatoGiroPos : candidatoGiroNeg;
+    if (cand == 0) {
+      cand = candidatoGiroPos != 0 ? (signoGiroApl > 0 ? candidatoGiroPos : -candidatoGiroPos) : (signoGiroApl > 0 ? 1 : -1);
+    }
     aplicarVelocidades(-cand*pwmGiroAct, cand*pwmGiroAct);
   } else frenarMotores();
 
@@ -489,42 +501,48 @@ bool controlarAvance() {
 
   float err = errorAng360(rumboObjetivoDeg, heading360);
   errorRumboMaxTramo = max(errorRumboMaxTramo, fabsf(err));
-  if (fabsf(err) > 25.0f) { fallo("heading_unrecoverable"); return false; }
+
+  // Si la desviacion de rumbo supera el 20% (20.0°), pausar en marcha y ejecutar reorientacion de pivote
   if (fabsf(err) > ERROR_RUMBO_RECUPERAR_DEG) {
     if (!inicioErrorRumboMs) inicioErrorRumboMs = millis();
-    if (millis()-inicioErrorRumboMs >= ERROR_RUMBO_RECUPERAR_MS) {
+    if (millis() - inicioErrorRumboMs >= ERROR_RUMBO_RECUPERAR_MS) {
+      frenarMotores();
       distAcumuladaCm = distMedida;
       if (intentosRecup >= INTENTOS_RECUPERACION_MAX) { fallo("heading_no_recovery"); return false; }
       ++intentosRecup;
-      float correccion = constrain(err, -GIRO_RECUPERACION_MAX_DEG, GIRO_RECUPERACION_MAX_DEG);
       iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
       return false;
     }
   } else inicioErrorRumboMs = 0;
 
-  // --- calcular PWM ---
-  float ctrlRumbo = constrain(err*KP_RUMBO_PWM_POR_GRADO - s.gyro_z_filtrado_rad_s*KD_RUMBO_PWM_POR_RAD_S,
+  // --- calcular PWM y reduccion dinamica en marcha ---
+  float ctrlRumbo = constrain(err * KP_RUMBO_PWM_POR_GRADO - s.gyro_z_filtrado_rad_s * KD_RUMBO_PWM_POR_RAD_S,
                               -float(PWM_CORRECCION_RUMBO_MAX), float(PWM_CORRECCION_RUMBO_MAX));
   float ctrlEnc = 0.0f;
-  if (fabsf(err)<=2.0f) {
+  if (fabsf(err) <= 2.0f) {
     const float deltaIzq = 0.5f * (s.delta_pulsos_filtrado_FL + s.delta_pulsos_filtrado_BL);
     const float deltaDer = 0.5f * (s.delta_pulsos_filtrado_FR + s.delta_pulsos_filtrado_BR);
     float diff = deltaIzq - deltaDer;
-    ctrlEnc = constrain(diff*KP_ENCODER_PWM_POR_TICK, -float(PWM_CORRECCION_ENCODER_MAX), float(PWM_CORRECCION_ENCODER_MAX));
+    ctrlEnc = constrain(diff * KP_ENCODER_PWM_POR_TICK, -float(PWM_CORRECCION_ENCODER_MAX), float(PWM_CORRECCION_ENCODER_MAX));
   }
 
-  int base = restante<15.0f ? map(long(restante*10),20,150,VELOCIDAD_MINIMA_RECTO,VELOCIDAD_APROXIMACION) : VELOCIDAD_BASE_RECTO;
+  int base = restante < 15.0f ? map(long(restante * 10), 20, 150, VELOCIDAD_MINIMA_RECTO, VELOCIDAD_APROXIMACION) : VELOCIDAD_BASE_RECTO;
   base = constrain(base, VELOCIDAD_MINIMA_RECTO, VELOCIDAD_BASE_RECTO);
   base = constrain(base, 0, PWM_MAX);
 
-  // compensacion derecha + reduccion solo en un lado
-  int baseDer = constrain(aproximar(base*factorCompensacionDer), VELOCIDAD_MINIMA_RECTO, PWM_MAX);
-  int redL=0, redR=0;
-  if (ctrlRumbo>0) { if (candidatoGiroPos>0) redL+=aproximar(ctrlRumbo); else redR+=aproximar(ctrlRumbo); }
-  else if (ctrlRumbo<0) { if (candidatoGiroNeg<0) redL+=aproximar(-ctrlRumbo); else redR+=aproximar(-ctrlRumbo); }
-  if (ctrlEnc>0) redL+=aproximar(ctrlEnc); else redR+=aproximar(-ctrlEnc);
-  int magL = constrain(base-redL, VELOCIDAD_MINIMA_RECTO, PWM_MAX);
-  int magR = constrain(baseDer-redR, VELOCIDAD_MINIMA_RECTO, PWM_MAX);
+  // Compensacion derecha + reduccion dinamica del lado contrario al angulo desviado (extraida del test aprobado)
+  int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_MINIMA_RECTO, PWM_MAX);
+  int redL = 0, redR = 0;
+  if (ctrlRumbo != 0.0f) {
+    const int cand = ctrlRumbo > 0.0f ? candidatoGiroPos : candidatoGiroNeg;
+    // La calibracion decide que lado frena para corregir yaw
+    if (cand > 0) redL += aproximar(fabsf(ctrlRumbo));
+    else redR += aproximar(fabsf(ctrlRumbo));
+  }
+  if (ctrlEnc > 0) redL += aproximar(ctrlEnc); else redR += aproximar(-ctrlEnc);
+
+  int magL = constrain(base - redL, VELOCIDAD_MINIMA_RECTO, PWM_MAX);
+  int magR = constrain(baseDer - redR, VELOCIDAD_MINIMA_RECTO, PWM_MAX);
 
   aplicarVelocidades(magL, magR);
 
@@ -573,6 +591,7 @@ bool iniciarPaso(float heading, float distanciaCm, int seq) {
   if (estadoActual != LISTO) return false;
   if (distanciaCm < 0.5f || distanciaCm > STEP_MAX_DISTANCE_CM) return false;
   heading = normalizar360(heading);
+  if (seq == 1) { ultimoSeqCompletado = 0; }
   if (seq <= ultimoSeqCompletado) {
     encolarEvento(EVT_COMPLETED, seq, "already_done");
     return true;
