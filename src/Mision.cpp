@@ -1,6 +1,7 @@
 #include "Mision.h"
 
 #include "Cinematica.h"
+#include "Config.h"
 #include "Estado.h"
 #include "Eventos.h"
 #include "Motores.h"
@@ -23,6 +24,7 @@ bool pasoEnCurso = false;
 bool completada = false;
 bool interrumpida = false;
 uint32_t pasoPersistido = 0;  // índice activo + 1; cero significa ninguno.
+uint32_t inicioPausaEntrePasosMs = 0;
 char stepIdPersistido[33] = {};
 Preferences preferencias;
 
@@ -121,6 +123,7 @@ bool iniciarMisionAutonoma(const char* commandId, const char* missionId,
     commandIdInicio[32] = '\0';
     activa = true;
     pasoEnCurso = false;
+    inicioPausaEntrePasosMs = 0;
     indicePaso = checkpointPaso;
     return true;
 }
@@ -141,9 +144,11 @@ void procesarMisionAutonoma() {
             guardarCheckpoint();
             encolarEvento(EVT_PROGRESS, seqInicio, "mission_checkpoint",
                           static_cast<float>(checkpointPaso) / cantidadPuntos);
+            inicioPausaEntrePasosMs = millis();
         } else {
             activa = false;
             pasoEnCurso = false;
+            inicioPausaEntrePasosMs = 0;
             interrumpida = true;
             guardarCheckpoint();
             encolarEvento(EVT_FAULT, seqInicio, ultimoFalloDetalle[0] ? ultimoFalloDetalle : "mission_step_failed");
@@ -151,6 +156,10 @@ void procesarMisionAutonoma() {
         return;
     }
     if (estadoActual != LISTO) return;
+    if (inicioPausaEntrePasosMs > 0) {
+        if (millis() - inicioPausaEntrePasosMs < PAUSA_ENTRE_PASOS_MS) return;
+        inicioPausaEntrePasosMs = 0;
+    }
     if (indicePaso >= cantidadPuntos) {
         activa = false;
         cantidadPuntos = 0;  // libera automáticamente los puntos; queda checkpoint mínimo.
@@ -182,6 +191,7 @@ void detenerMisionAutonoma(bool conservarRuta) {
     }
     activa = false;
     pasoEnCurso = false;
+    inicioPausaEntrePasosMs = 0;
     commandIdPaso[0] = '\0';
     if (!conservarRuta) liberarMisionAutonoma();
 }
@@ -189,6 +199,7 @@ void detenerMisionAutonoma(bool conservarRuta) {
 void liberarMisionAutonoma() {
     activa = false;
     pasoEnCurso = false;
+    inicioPausaEntrePasosMs = 0;
     cantidadPuntos = totalPuntos = indicePaso = checkpointPaso = 0;
     revisionActual = 0;
     missionIdActual[0] = commandIdInicio[0] = commandIdPaso[0] = '\0';

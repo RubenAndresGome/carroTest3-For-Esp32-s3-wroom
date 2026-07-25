@@ -495,6 +495,13 @@ bool controlarAvance() {
   for (int i=0; i<2; ++i) {
     if (ladoTicks[i]!=ticksLadoAvAnt[i]) { ticksLadoAvAnt[i]=ladoTicks[i]; ultimoPulsoLadoAvMs[i]=millis(); }
     else if (millis()-ultimoPulsoLadoAvMs[i] > DRIVE_STALL_MS) {
+      if (intentosRecup < INTENTOS_RECUPERACION_MAX) {
+        ++intentosRecup;
+        frenarMotores();
+        distAcumuladaCm = distMedida;
+        iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
+        return false;
+      }
       fallo(i==0?"drive_stall_left":"drive_stall_right"); return false;
     }
   }

@@ -51,9 +51,9 @@ constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
 constexpr int PWM_FORWARD_POLARITY = -1;
-constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(250 * PWM_SCALE_8_TO_10);
+constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(247 * PWM_SCALE_8_TO_10);
 constexpr int VELOCIDAD_BASE_RECTO = PWM_SAFE_HARD_LIMIT;
-constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(230 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(235 * PWM_SCALE_8_TO_10);
 constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_CORRECCION_RUMBO_MAX = static_cast<int>(80 * PWM_SCALE_8_TO_10);
@@ -63,9 +63,9 @@ constexpr float KD_RUMBO_PWM_POR_RAD_S = 12.0f * PWM_SCALE_8_TO_10;
 constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
 constexpr float TOLERANCIA_GIRO_DEG = 3.0f;
 
-// Giro con slew y reintentos (valores conservadores portados del test).
-constexpr uint32_t TURN_TIMEOUT_MS = 70000;
-constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 12000;
+// Giro con slew y reintentos (watchdogs adaptados para evitar abortos prematuros).
+constexpr uint32_t TURN_TIMEOUT_MS = 90000;
+constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 20000;
 constexpr uint32_t TURN_CONTROL_PERIOD_MS = 20;
 constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(12 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(5 * PWM_SCALE_8_TO_10);
@@ -74,18 +74,18 @@ constexpr int PWM_TURN_START = static_cast<int>(130 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_REACTIVATION_DEG = 3.0f;
-constexpr uint8_t TURN_MAX_ATTEMPTS = 11;
+constexpr uint8_t TURN_MAX_ATTEMPTS = 20;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 2500;
 constexpr uint32_t TURN_SETTLE_MS = 300;
-constexpr uint32_t TURN_STALL_MS = 2500;
+constexpr uint32_t TURN_STALL_MS = 5000;
 
 // Calibración por búsqueda continua de torque (misma estrategia del test
-// aprobado: búsqueda continua de 140 a 250/255.
+// aprobado: búsqueda continua de 140 a 247/255.
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
 constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
 constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
-constexpr int      CALIBRATION_PWM_END   = static_cast<int>(250 * PWM_SCALE_8_TO_10);
+constexpr int      CALIBRATION_PWM_END   = static_cast<int>(247 * PWM_SCALE_8_TO_10);
 constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
@@ -94,16 +94,17 @@ constexpr uint8_t  CAL_MAX_ATTEMPTS = 7;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
 constexpr uint32_t CAL_MAX_PWM_STALL_MS = 1500;
 
-// Avance recto: fusión robusta de encoders y recuperación de rumbo (del test).
+// Avance recto: fusión robusta de encoders, recuperación de rumbo y pausas entre pasos.
 constexpr float TOLERANCIA_DISTANCIA_CM = 3.0f;
 constexpr float GYRO_MOVEMENT_RAD_S = 0.12f;
-constexpr uint32_t DRIVE_STALL_MS = 3500;
-constexpr uint32_t DRIVE_BASE_TIMEOUT_MS = 8000;
-constexpr uint32_t DRIVE_TIMEOUT_PER_CM_MS = 250;
+constexpr uint32_t DRIVE_STALL_MS = 6000;
+constexpr uint32_t DRIVE_BASE_TIMEOUT_MS = 15000;
+constexpr uint32_t DRIVE_TIMEOUT_PER_CM_MS = 400;
 constexpr float ERROR_RUMBO_RECUPERAR_DEG = 20.0f;
 constexpr uint32_t ERROR_RUMBO_RECUPERAR_MS = 300;
 constexpr float GIRO_RECUPERACION_MAX_DEG = 25.0f;
-constexpr uint8_t INTENTOS_RECUPERACION_MAX = 7;
+constexpr uint8_t INTENTOS_RECUPERACION_MAX = 20;
+constexpr uint32_t PAUSA_ENTRE_PASOS_MS = 600;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;
