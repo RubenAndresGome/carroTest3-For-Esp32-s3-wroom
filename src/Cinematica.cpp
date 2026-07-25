@@ -127,13 +127,11 @@ void calTorque(bool primera) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
       int guardado = min(PWM_TURN_MAX_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
-      if (s.gyro_z_filtrado_rad_s >= 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
+      if (s.gyro_z_filtrado_rad_s > 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
       else { candidatoGiroNeg=candidatoCal; pwmMinGiroNeg=guardado; }
       frenarMotores();
       if (primera) {
         if (s.gyro_z_filtrado_rad_s < 0) {
-          // El primer cableado ensayado produjo yaw negativo: invertir sólo
-          // después del interlock y buscar de forma independiente el +25°.
           candidatoCal = -candidatoCal;
           inicioPausaReintentoCalMs = ahora;
           inicioMovCalMs = 0;
@@ -216,6 +214,9 @@ uint32_t ultimoPulsoLadoGiroMs[2] = {};
 uint32_t ultimoCtrlGiroMs = 0;
 uint32_t ultimoAumentoTorqueGiroMs = 0;
 int pwmBusquedaGiro = 0;
+int pwmBoostFrenado = 0;
+uint32_t ultimoMicroPulsoMs = 0;
+bool microPulsoEncendido = false;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   const SensorSnapshot s = sensar();
@@ -229,6 +230,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   ultimoCtrlGiroMs=0;
   ultimoAumentoTorqueGiroMs=millis();
   pwmBusquedaGiro=PWM_TURN_START;
+  pwmBoostFrenado=0; ultimoMicroPulsoMs=0; microPulsoEncendido=false;
   faseRetornoGiro = retorno;
   fase = retorno;  // fase global sigue al giro
   if (retorno == Fase::GIRO_INICIAL) strncpy(faseComando,"giro_ini",sizeof(faseComando));
@@ -239,6 +241,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
 
 void reintentarGiro(const char* motivo) {
   frenarMotores(); pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false; giroEnTol=false;
+  pwmBoostFrenado=0; ultimoMicroPulsoMs=0; microPulsoEncendido=false;
   if (intentoGiro >= TURN_MAX_ATTEMPTS) { fallo(motivo); return; }
   ++intentoGiro;
   pausaReintentoGiroCal = true;
@@ -263,6 +266,7 @@ void controlarGiro() {
     inicioIntentoGiroMs = ahora;
     ultimoAumentoTorqueGiroMs=ahora;
     pwmBusquedaGiro=PWM_TURN_START;
+    pwmBoostFrenado=0; ultimoMicroPulsoMs=0; microPulsoEncendido=false;
   }
 
   const SensorSnapshot s = sensar();
@@ -298,9 +302,10 @@ void controlarGiro() {
   if (ahora - inicioIntentoGiroMs > TURN_ATTEMPT_TIMEOUT_MS) { reintentarGiro("turn_timeout_attempt"); return; }
 
   // --- latch de tolerancia ---
-  if (errorAbs <= TOLERANCIA_GIRO_DEG) {
+  const float tolGiro = (fase == Fase::CAL_RETORNO) ? TOLERANCIA_CALIBRACION_DEG : TOLERANCIA_GIRO_DEG;
+  if (errorAbs <= tolGiro) {
     frenarMotores(); pwmGiroAct=0; signoGiroApl=0; giroEnTol=true;
-    if (fabsf(s.gyro_z_filtrado_rad_s) > 0.05f) { estableGiroDesdeMs=0; return; }
+    if (fabsf(s.gyro_z_filtrado_rad_s) > 0.02f) { estableGiroDesdeMs=0; return; }
     if (!estableGiroDesdeMs) estableGiroDesdeMs = ahora;
     if (ahora - estableGiroDesdeMs >= TURN_SETTLE_MS) {
       completarGiro();
@@ -327,8 +332,42 @@ void controlarGiro() {
   int pwmLejos = max(PWM_TURN_START, min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_FAR_MARGIN));
   int pwmCerca = min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_NEAR_MARGIN);
   int pwmObj = pwmLejos;
-  if (errorAbs < TURN_BRAKING_ZONE_DEG)
-    pwmObj = pwmCerca + aproximar((pwmLejos-pwmCerca)*errorAbs/TURN_BRAKING_ZONE_DEG);
+
+  const bool detectadoSinMovimiento = (fabsf(s.gyro_z_filtrado_rad_s) < GYRO_MOVEMENT_RAD_S);
+
+  if (errorAbs < TURN_BRAKING_ZONE_DEG) {
+    pwmObj = pwmCerca + aproximar((pwmLejos - pwmCerca) * errorAbs / TURN_BRAKING_ZONE_DEG);
+
+    if (errorAbs > TURN_HYBRID_THRESHOLD_DEG) {
+      // --- MODO 1: Rampa Adaptativa Rápida (5.0° a 25.0°) ---
+      if (detectadoSinMovimiento) {
+        if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS) {
+          ultimoAumentoTorqueGiroMs = ahora;
+          pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - pwmObj, pwmBoostFrenado + static_cast<int>(5 * PWM_SCALE_8_TO_10));
+        }
+      } else {
+        if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS && pwmBoostFrenado > 0) {
+          ultimoAumentoTorqueGiroMs = ahora;
+          pwmBoostFrenado = max(0, pwmBoostFrenado - static_cast<int>(2 * PWM_SCALE_8_TO_10));
+        }
+      }
+      pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
+    } else {
+      // --- MODO 2: Micro-Pulsos de Exactitud (0.0° a 5.0°) ---
+      pwmObj = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
+      if (ahora - ultimoMicroPulsoMs >= (microPulsoEncendido ? TURN_PULSE_ON_MS : TURN_PULSE_OFF_MS)) {
+        ultimoMicroPulsoMs = ahora;
+        microPulsoEncendido = !microPulsoEncendido;
+      }
+      if (!microPulsoEncendido) {
+        pwmObj = 0; // Pausa breve para evaluacion IMU entre pulsos
+      }
+    }
+  } else {
+    pwmBoostFrenado = 0;
+    microPulsoEncendido = false;
+  }
+
   if (!movGiroConfirmado) {
     if (ahora - ultimoAumentoTorqueGiroMs >= CAL_RAMP_INTERVAL_MS) {
       ultimoAumentoTorqueGiroMs = ahora;
@@ -357,8 +396,6 @@ void controlarGiro() {
     aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct);
   } else frenarMotores();
 
-
-
   if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S || (ladoTicks[0]>=4&&ladoTicks[1]>=4)) {
     /* movimiento detectado: ok */
   } else if (ahora - inicioIntentoGiroMs > 5000) { reintentarGiro("turn_no_progress"); }
@@ -377,6 +414,8 @@ void completarGiro() {
     strncpy(faseComando,"cal_pausa",sizeof(faseComando));
   }
   else if (ret == Fase::CAL_RETORNO) {
+    frenarMotores();
+    delay(50);
     robotCalibrado = true; PoseGlobal.reset(); resetOrientacionIMU();
     fin(EVT_COMPLETED, "cal_ok");
   }

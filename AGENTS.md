@@ -96,5 +96,11 @@ operativa obligatoria durante carga y reinicio.
 
 - Si codebase-memory-mcp está disponible, usarlo antes de búsquedas amplias.
   Si no está disponible, usar `rg` y documentar el hallazgo sin bloquearse.
+- Para inspeccionar la base de datos SQLite extraída por ADB (`tmp_db/robot.sqlite3`), usar la herramienta CLI canónica en la raíz:
+  - `python consultar_db.py` (resumen general de tablas y sesiones)
+  - `python consultar_db.py --commands 15` (últimos 15 comandos con su estado y payload)
+  - `python consultar_db.py --events 20` (últimos 20 eventos del sistema)
+  - `python consultar_db.py --telemetry 10` (muestras de pose, yaw y PWM)
+  - `python consultar_db.py --search "calib"` (búsqueda rápida por patrón)
 - No editar salidas generadas, entornos virtuales, `node_modules`, `.pio/`,
   `desktop_app/build/` ni `desktop_app/dist/`.

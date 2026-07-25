@@ -2215,12 +2215,18 @@
             if(this.isRunning&&!mission.running) {
                 this.isRunning=false; this.unlockTabs(); clearTimeout(this.moveTimeout);
                 LogSystem.add('INFO','Ruta completada por el carrito.');
+                if (this.ockhamFinalHeadingZero) {
+                    this.ockhamFinalHeadingZero = false;
+                    LogSystem.add('INFO','Regreso de Ockham completado en (0,0); reorientando a 0° Yaw...');
+                    WSControl.send({cmd:'step', heading: 0.0, distanciaCm: 0.5});
+                }
             }
             this.updateListUI(); this.drawPlan();
         },
         onFsmIdle() {},
         failRoute(reason) {
             this.isRunning=false; this.waitingForMovement=false; this.activeCommandId=null;
+            this.ockhamFinalHeadingZero=false;
             clearTimeout(this.moveTimeout); this.unlockTabs(); this.updateListUI();
             LogSystem.add('ERROR',reason);
         },
@@ -2230,6 +2236,7 @@
                 const mission=await WSControl.api('/api/v1/missions',{method:'DELETE'});
                 if(mission.id!==null||mission.blocked)throw new Error('El backend no confirmó el borrado de la misión');
                 this.isRunning = false;
+                this.ockhamFinalHeadingZero = false;
                 this.unlockTabs();
                 clearTimeout(this.moveTimeout);
                 this.waitingForMovement = false;
@@ -2250,6 +2257,7 @@
             try {
                 const result=await WSControl.api('/api/v1/missions/robot-memory',{method:'DELETE'});
                 this.isRunning=false; this.waitingForMovement=false; this.activeCommandId=null;
+                this.ockhamFinalHeadingZero=false;
                 this.unlockTabs();
                 LogSystem.add('INFO','Misión y checkpoint de Python eliminados; se solicitó STOP si había un paso activo.');
                 this.currentStepIndex=0; this.updateListUI(); this.drawPlan();
@@ -2264,8 +2272,9 @@
             this.currentStepIndex = 0;
             this.currentOrigin = {x: state.telemetria.posX, y: state.telemetria.posY};
             this.clearTelemetryTrail();
-            LogSystem.add('CMD', 'Ejecutando Regreso de Ockham a 0,0');
+            LogSystem.add('CMD', 'Ejecutando Regreso de Ockham a 0,0 y reorientación final a 0° Yaw');
             this.appendLimited(this.currentOrigin.x,this.currentOrigin.y,0,0,'Regreso al origen');
+            this.ockhamFinalHeadingZero = true;
             this.updateListUI();
             this.drawPlan();
             this.start();
