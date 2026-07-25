@@ -32,3 +32,5 @@ void resetOrientacionIMU();
 float obtenerYawIMUDeg();
 bool recentrarYawIMUEnReposo();
 uint32_t cantidadRecentradosYawIMU();
+void resetFiltrosEncoder();
+

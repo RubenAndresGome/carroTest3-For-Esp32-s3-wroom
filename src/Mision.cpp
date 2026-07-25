@@ -53,8 +53,9 @@ bool calcularDestino(float targetX, float targetY, const char* stepId) {
     if (seqPaso <= 0) {
         seqPaso = static_cast<int>(indicePaso + 1);
     }
-    return iniciarPaso(headingDeg, dist, seqPaso);
+    return iniciarPaso(headingDeg, dist, seqPaso, targetX, targetY);
 }
+
 }
 
 void inicializarPersistenciaMision() {

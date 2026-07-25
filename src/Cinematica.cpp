@@ -32,6 +32,11 @@ void fallo(const char* d);
 // --- variables del paso (usadas por iniciarAvance, iniciarPaso) ---
 float pasoHeading = 0.0f;
 float pasoDistanciaCm = 0.0f;
+float pasoTargetX = NAN;
+float pasoTargetY = NAN;
+bool tieneTargetEspacial = false;
+float distTargetMinimaCm = 1e9f;
+
 
 // ===== helpers de angulo (yaw normalizado 0..360, error -180..180) =====
 float errorAng360(float obj, float act) {
@@ -406,32 +411,44 @@ float estimarTicksAvance(const int64_t v[4]) {
   return 0.5f*(promedioLado(v,true)+promedioLado(v,false));
 }
 void resetConfEncoders() {
-  modoDegradado=false;
-  for (int i=0;i<4;++i) { encoderConfiable[i]=true; encoderConfiableGlobal[i]=true; saludEnc[i]=0; inicioOutlierEncMs[i]=0; }
+  modoDegradado = false;
+  for (int i = 0; i < 4; ++i) {
+    encoderConfiable[i] = true;
+    encoderConfiableGlobal[i] = true;
+    saludEnc[i] = 0;
+    inicioOutlierEncMs[i] = 0;
+  }
+  resetFiltrosEncoder();
 }
 
 void iniciarAvance(bool conservar) {
   const SensorSnapshot s = sensar();
-  if (!conservar) { distAcumuladaCm=0.0f; intentosRecup=0; resetConfEncoders(); }
+  if (!conservar) { distAcumuladaCm = 0.0f; intentosRecup = 0; }
+  resetConfEncoders();
   conservarAcumulado = conservar;
   distObjetivoCm = pasoDistanciaCm;  // global del paso
   pasoDistanciaObjetivoCm = distObjetivoCm;
   rumboObjetivoDeg = pasoHeading;   // global del paso (heading del destino)
   copiarBase(ticksBaseAvance, s);
-  inicioAvanceMs=millis();
-  ticksLadoAvAnt[0]=ticksLadoAvAnt[1]=0;
-  ultimoPulsoLadoAvMs[0]=ultimoPulsoLadoAvMs[1]=millis();
-  inicioErrorRumboMs=0; errorRumboMaxTramo=0.0f;
+  inicioAvanceMs = millis();
+  ticksLadoAvAnt[0] = ticksLadoAvAnt[1] = 0;
+  ultimoPulsoLadoAvMs[0] = ultimoPulsoLadoAvMs[1] = millis();
+  inicioErrorRumboMs = 0; errorRumboMaxTramo = 0.0f;
+  if (tieneTargetEspacial) {
+    distTargetMinimaCm = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
+  }
   fase = Fase::AVANCE;
   strncpy(faseComando, "avance", sizeof(faseComando));
 }
 
 bool detectarOutliers(const int64_t v[4]) {
+  if (fase != Fase::AVANCE) return false;
   float med = mediana4(v);
-  if (modoDegradado || fabsf(errorAng360(rumboObjetivoDeg,heading360))>ERROR_MAX_CLASIFICAR_DEG || med<TICKS_MINIMOS_AUDITORIA) {
-    for (int i=0;i<4;++i) { inicioOutlierEncMs[i]=0; if(saludEnc[i]!=2)saludEnc[i]=0; }
+  if (modoDegradado || fabsf(errorAng360(rumboObjetivoDeg, heading360)) > ERROR_MAX_CLASIFICAR_DEG || med < TICKS_MINIMOS_AUDITORIA) {
+    for (int i = 0; i < 4; ++i) { inicioOutlierEncMs[i] = 0; if (saludEnc[i] != 2) saludEnc[i] = 0; }
     return false;
   }
+
   bool persistente=false;
   for (int i=0;i<4;++i) {
     if (fabsf(v[i]-med)/max(1.0f,fabsf(med)) > DESACUERDO_MAXIMO_PAR) {
@@ -489,6 +506,21 @@ bool controlarAvance() {
   uint32_t timeout = DRIVE_BASE_TIMEOUT_MS + (uint32_t)(distObjetivoCm * DRIVE_TIMEOUT_PER_CM_MS);
   if (millis()-inicioAvanceMs > timeout) { fallo("drive_timeout"); return false; }
   if (restante <= TOLERANCIA_DISTANCIA_CM) { return true; }
+
+  // Guardia Doble Espacial (PoseGlobal): comprobacion en tiempo real del objetivo espacial
+  if (tieneTargetEspacial) {
+    float distEspacialActual = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
+    if (distEspacialActual <= TOLERANCIA_DISTANCIA_CM) {
+      return true;
+    }
+    if (distEspacialActual < distTargetMinimaCm) {
+      distTargetMinimaCm = distEspacialActual;
+    } else if (distTargetMinimaCm <= 15.0f && (distEspacialActual - distTargetMinimaCm) >= 2.0f) {
+      // Sobrepaso espacial detectado (se alejo 2 cm tras estar a menos de 15 cm del destino)
+      return true;
+    }
+  }
+
 
   // outlier persistence
   if (detectarOutliers(d)) { iniciarPausaReeval(d); return false; }
@@ -605,7 +637,7 @@ bool iniciarCalibracion(int seq) {
   return true;
 }
 
-bool iniciarPaso(float heading, float distanciaCm, int seq) {
+bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float targetY) {
   if (estadoActual != LISTO) return false;
   if (distanciaCm < 0.5f || distanciaCm > STEP_MAX_DISTANCE_CM) return false;
   heading = normalizar360(heading);
@@ -620,6 +652,20 @@ bool iniciarPaso(float heading, float distanciaCm, int seq) {
   pasoHeadingObjetivo = heading;
   pasoDistanciaObjetivoCm = distanciaCm;
   pasoDistanciaActualCm = 0.0f;
+
+  if (std::isfinite(targetX) && std::isfinite(targetY)) {
+    pasoTargetX = targetX;
+    pasoTargetY = targetY;
+    tieneTargetEspacial = true;
+  } else {
+    float headingRad = heading * M_PI / 180.0f;
+    pasoTargetX = PoseGlobal.getX() + distanciaCm * sinf(headingRad);
+    pasoTargetY = PoseGlobal.getY() + distanciaCm * cosf(headingRad);
+    tieneTargetEspacial = true;
+  }
+
+  distTargetMinimaCm = 1e9f;
+
   fase = Fase::GIRO_INICIAL;
   estadoActual = EJECUTANDO;
   progresoComando = 0.0f;
@@ -627,6 +673,7 @@ bool iniciarPaso(float heading, float distanciaCm, int seq) {
   iniciarPasoInterno();
   return true;
 }
+
 
 void cancelarMovimiento(const char* detalle) {
   const int cancelado = seqActivo;

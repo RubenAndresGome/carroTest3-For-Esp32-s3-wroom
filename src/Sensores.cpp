@@ -155,6 +155,13 @@ static void leerEncoders(SensorSnapshot &snap) {
     snap.velocidad_filtrada_R_cm_s = delta_r * cm_por_pulso * ventanas_por_segundo;
 }
 
+void resetFiltrosEncoder() {
+    filtroEncoderFL.limpiar();
+    filtroEncoderFR.limpiar();
+    filtroEncoderBL.limpiar();
+    filtroEncoderBR.limpiar();
+}
+
 void resetOrientacionIMU() {
     portENTER_CRITICAL(&muxOrientacionIMU);
     anguloZ_acum = 0.0f;
