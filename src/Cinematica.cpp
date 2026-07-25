@@ -347,11 +347,16 @@ void controlarGiro() {
     if (pwmGiroAct<pwmObj) pwmGiroAct=min(pwmObj, pwmGiroAct+paso);
     else pwmGiroAct=max(pwmObj, pwmGiroAct-PWM_TURN_SLEW_STEP);
   }
-  if (signoGiroApl!=0 && pwmGiroAct>0) {
+  if (signoGiroApl != 0 && pwmGiroAct > 0) {
     int cand = signoGiroApl > 0 ? candidatoGiroPos : candidatoGiroNeg;
-    if (cand == 0) cand = signoGiroApl > 0 ? -1 : 1;
-    aplicarVelocidades(-cand*pwmGiroAct, cand*pwmGiroAct);
+    if (cand == 0) {
+      if (candidatoGiroPos != 0) cand = (signoGiroApl > 0) ? candidatoGiroPos : -candidatoGiroPos;
+      else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
+      else cand = (signoGiroApl > 0) ? -1 : 1;
+    }
+    aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct);
   } else frenarMotores();
+
 
 
   if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S || (ladoTicks[0]>=4&&ladoTicks[1]>=4)) {
