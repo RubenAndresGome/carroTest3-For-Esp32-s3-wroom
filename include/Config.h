@@ -70,7 +70,7 @@ constexpr uint32_t PAUSA_ENTRE_PASOS_MS = 600;
 
 // --- PARÁMETROS DE GIRO PIVOTE (TURN) ---
 constexpr uint32_t TURN_CONTROL_PERIOD_MS = 20;
-constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(185 * PWM_SCALE_8_TO_10); // Límite controlado para giros (~72%)
+constexpr int PWM_TURN_MAX_LIMIT = PWM_SAFE_HARD_LIMIT; // Límite seguro global para giros (230/255 = ~90%)
 constexpr int PWM_TURN_START = static_cast<int>(130 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(10 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(4 * PWM_SCALE_8_TO_10);
@@ -94,24 +94,29 @@ constexpr float KP_RUMBO_PWM_POR_GRADO = 4.0f * PWM_SCALE_8_TO_10;
 constexpr float KD_RUMBO_PWM_POR_RAD_S = 12.0f * PWM_SCALE_8_TO_10;
 constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
 
-// Calibración por búsqueda continua de torque (140 a 230/255).
+// Calibración y rampa incremental por búsqueda continua de torque (140 a 230/255).
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
 constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
 constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
-constexpr int      CALIBRATION_PWM_END   = static_cast<int>(230 * PWM_SCALE_8_TO_10);
-constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
-constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
+constexpr int      CALIBRATION_PWM_END   = PWM_SAFE_HARD_LIMIT;
+constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(13 * PWM_SCALE_8_TO_10); // ~5% de incremento por paso
+constexpr uint32_t CAL_RAMP_INTERVAL_MS = 500; // 500 ms de delay por paso de rampa
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
 constexpr uint8_t  CAL_MAX_ATTEMPTS = 7;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
-constexpr uint32_t CAL_MAX_PWM_STALL_MS = 1500;
+constexpr uint32_t CAL_MAX_PWM_STALL_MS = 1000;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;
 constexpr int64_t TICKS_MINIMOS_AUDITORIA = 20;
 constexpr float ERROR_MAX_CLASIFICAR_DEG = 3.0f;
+
+// Timeouts del Watchdog de Seguridad por fase (Seguridad.cpp)
+constexpr uint32_t TIMEOUT_STALL_CALIBRANDO_MS = 20000; // 20 segundos para calibración
+constexpr uint32_t TIMEOUT_STALL_GIRO_MS       = 12000; // 12 segundos para maniobras de giro
+constexpr uint32_t TIMEOUT_STALL_AVANCE_MS     = 7000;  // 7 segundos para avance recto
 
 // Tiempo muerto universal al invertir sentido (Motores.cpp).
 constexpr int PWM_DIRECTION_PAUSE_MS = 250;

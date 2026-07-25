@@ -10,6 +10,9 @@ bool iniciarPaso(float heading, float distanciaCm, int seq);
 void cancelarMovimiento(const char* detalle);
 void controlarMovimiento();
 
-// Utilidades expuestas para main.cpp
+// Utilidades expuestas para main.cpp y Seguridad.cpp
 float normalizar360(float angulo);
 bool enFaseAvance();
+bool enFaseGiro();
+bool enFaseCalibracion();
+

@@ -146,7 +146,7 @@ void calTorque(bool primera) {
 
   if (ahora - ultimoRampaCalMs >= CAL_RAMP_INTERVAL_MS) {
     ultimoRampaCalMs = ahora;
-    pwmCal = min(PWM_SAFE_HARD_LIMIT, pwmCal + CALIBRATION_PWM_STEP);
+    pwmCal = min(CALIBRATION_PWM_END, pwmCal + CALIBRATION_PWM_STEP);
   }
 
   if (pwmCal >= CALIBRATION_PWM_END) {
@@ -274,6 +274,12 @@ void controlarGiro() {
 
   if (abs(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S || (llabs(s.pulsosFL-ticksBaseGiroLocal[0])>=4 && llabs(s.pulsosFR-ticksBaseGiroLocal[1])>=4))
     movGiroConfirmado = true;
+
+  // Mientras el torque siga incrementándose en rampa para vencer fricción y no haya movimiento confirmado,
+  // mantener fresco el temporizador de pulso para evitar falsos stalls durante la búsqueda de torque.
+  if (!movGiroConfirmado && pwmBusquedaGiro < PWM_SAFE_HARD_LIMIT) {
+    ultimoPulsoLadoGiroMs[0] = ultimoPulsoLadoGiroMs[1] = ahora;
+  }
 
   int64_t d[4]; deltas(ticksBaseGiroLocal, s, d);
   int64_t ladoTicks[2] = {d[0]+d[2], d[1]+d[3]};
@@ -500,7 +506,7 @@ bool controlarAvance() {
         iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
         return false;
       }
-      fallo(i==0?"drive_stall_left":"drive_stall_right"); return false;
+      fallo(i==0?"drive_stall_left[Cinematica.cpp:503]":"drive_stall_right[Cinematica.cpp:503]"); return false;
     }
   }
 
@@ -579,6 +585,13 @@ float normalizar360(float a) {
   return a;
 }
 bool enFaseAvance() { return fase == Fase::AVANCE; }
+bool enFaseGiro() {
+  return fase == Fase::GIRO_INICIAL || fase == Fase::GIRO_RECUPERACION ||
+         fase == Fase::GIRO_FINAL || fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO;
+}
+bool enFaseCalibracion() {
+  return estadoActual == CALIBRANDO;
+}
 
 bool iniciarCalibracion(int seq) {
   if (estadoActual != DESARMADO && estadoActual != LISTO) return false;

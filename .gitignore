@@ -105,6 +105,7 @@ pnpm-debug.log*
 *.tmp
 *.bak
 *.stackdump
+logs_mensajes/
 
 # -----------------------------------------------------------------------------
 # Snapshots regenerables del legado
