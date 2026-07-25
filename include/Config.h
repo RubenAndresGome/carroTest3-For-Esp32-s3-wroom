@@ -43,7 +43,7 @@ constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
 constexpr float WHEEL_DIAMETER_CM = 6.6f;
 constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM;
 constexpr int ENCODER_PPR = 20;
-constexpr float MPU_YAW_POLARITY = 1.0f;
+constexpr float MPU_YAW_POLARITY = -1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID

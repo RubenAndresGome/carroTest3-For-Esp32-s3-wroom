@@ -162,6 +162,13 @@ void procesarMisionAutonoma() {
         inicioPausaEntrePasosMs = 0;
     }
     if (indicePaso >= cantidadPuntos) {
+        float hNorm = normalizar360(heading360);
+        if (hNorm > TOLERANCIA_GIRO_DEG && hNorm < (360.0f - TOLERANCIA_GIRO_DEG)) {
+            if (iniciarPaso(0.0f, 0.5f, 0)) {
+                pasoEnCurso = true;
+                return;
+            }
+        }
         activa = false;
         cantidadPuntos = 0;  // libera automáticamente los puntos; queda checkpoint mínimo.
         completada = true;
