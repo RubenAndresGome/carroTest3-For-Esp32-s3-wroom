@@ -42,7 +42,7 @@ ciega.
 ```
 
 `heading` es absoluto en `[0,360)`: 0° apunta a +Y y 90° a +X. `cm` está entre
-0.5 y 200. Cada `step` gira, avanza y termina alineado a 0°. Python acepta sólo
+0.5 y 200. Cada `step` gira al rumbo indicado, avanza manteniendo el rumbo y ejecuta alineación cardinal final a 0° al concluir la misión. Python acepta sólo
 tramos ortogonales con tolerancia transversal de 1 mm y divide recorridos
 largos en segmentos de hasta 2 m.
 

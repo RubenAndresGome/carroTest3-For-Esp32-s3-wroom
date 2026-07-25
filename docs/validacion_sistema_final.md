@@ -42,7 +42,7 @@ corrientes sostenidas menores de 1 A.
 - Programar 4500 mm: Python debe mostrar tres segmentos de hasta 2 m y mantener
   sólo uno activo.
 - Rechazar tramos diagonales que cambien más de 1 mm en ambos ejes.
-- Verificar 0° hacia +Y, 90° hacia +X y alineación final a 0° en cada paso.
+- Verificar 0° hacia +Y, 90° hacia +X, alineación precisa al rumbo del paso durante la ruta y alineación cardinal final a 0° al concluir la misión.
 - Bloquear cada encoder para comprobar `stall_FL/FR/BL/BR`; en giro, el
   watchdog de 2.5 s sólo comienza tras alcanzar torque calibrado.
 - Confirmar `reset_reason`, mínimos de stack Web/Control superiores a 1024

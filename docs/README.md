@@ -3,6 +3,7 @@
 Este directorio reúne la documentación vigente del proyecto.
 
 - [Protocolo de pasos v2 entre HMI y ESP32](protocolo_json_steps_v2_hmi_esp32.md)
+- [Arquitectura de control cinemático y rumbo](arquitectura_control_cinematica.md)
 - [Validación física del sistema final](validacion_sistema_final.md)
 - [Archivo histórico de pruebas](../archive/firmware_tests/READMEForTests.md)
 - [Desarrollo del frontend](desarrollo_frontend.md)
