@@ -82,8 +82,9 @@ uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
 int64_t ticksBaseCal[4] = {};
 float yawInicioCalDeg = 0.0f;
-int  candidatoGiroPos = 1, candidatoGiroNeg = -1;
+int  candidatoGiroPos = -1, candidatoGiroNeg = 1;
 int  pwmMinGiroPos = static_cast<int>(148 * PWM_SCALE_8_TO_10), pwmMinGiroNeg = static_cast<int>(148 * PWM_SCALE_8_TO_10);
+
 
 void iniciarFaseCal(Fase f) { fase = f; inicioFaseMs = millis(); }
 
@@ -348,9 +349,10 @@ void controlarGiro() {
   }
   if (signoGiroApl!=0 && pwmGiroAct>0) {
     int cand = signoGiroApl > 0 ? candidatoGiroPos : candidatoGiroNeg;
-    if (cand == 0) cand = signoGiroApl > 0 ? 1 : -1;
+    if (cand == 0) cand = signoGiroApl > 0 ? -1 : 1;
     aplicarVelocidades(-cand*pwmGiroAct, cand*pwmGiroAct);
   } else frenarMotores();
+
 
   if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S || (ladoTicks[0]>=4&&ladoTicks[1]>=4)) {
     /* movimiento detectado: ok */
