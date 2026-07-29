@@ -823,7 +823,10 @@
             </div>
             <span class="demo-badge" id="demo-badge">DEMO</span>
         </div>
-        <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia">E-STOP</button>
+        <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn btn-stop btn-sm" id="btn-close-app" aria-label="Cerrar aplicación de forma segura">Cerrar aplicación</button>
+            <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia">E-STOP</button>
+        </div>
     </header>
 
     <!-- TAB BAR -->
@@ -831,7 +834,7 @@
         <button class="tab-btn active" data-tab="conexion" role="tab" aria-selected="true">Conexión</button>
         <button class="tab-btn" data-tab="mapa" role="tab" aria-selected="false">Mapa de Navegación</button>
         <button class="tab-btn" data-tab="testing" role="tab" aria-selected="false">Testing S3</button>
-        <button class="tab-btn" data-tab="touch" role="tab" aria-selected="false" disabled title="No disponible en robot-s3-steps-v2">Control Touch (no disponible)</button>
+        <button class="tab-btn" data-tab="touch" role="tab" aria-selected="false" disabled title="No disponible en robot-s3-steps-v3">Control Touch (no disponible)</button>
         <button class="tab-btn" data-tab="rutas" role="tab" aria-selected="false">Rutas (Ockham)</button>
     </nav>
 
@@ -1450,8 +1453,37 @@
             if (this.appToken) headers['X-App-Token'] = this.appToken;
             const response = await fetch(path, { ...options, headers });
             const data = await response.json().catch(()=>({}));
-            if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+            if (!response.ok) {
+                const error = new Error(data.error || `HTTP ${response.status}`);
+                error.status = response.status; error.data = data;
+                throw error;
+            }
             return data;
+        },
+        async closeApplication(force=false) {
+            const button=document.getElementById('btn-close-app');
+            button.disabled=true;
+            try {
+                const result=await this.api('/api/v1/app/close',{
+                    method:'POST', body:JSON.stringify({force})
+                });
+                LogSystem.add(force?'WARN':'INFO',force
+                    ? 'Cierre forzado registrado; la parada física no fue confirmada.'
+                    : 'STOP confirmado y SQLite guardado. Cerrando aplicación...');
+                if(this.events)this.events.close();
+                button.textContent='Cierre seguro completado';
+                if(window.RobotHost&&typeof window.RobotHost.closeApp==='function') {
+                    window.RobotHost.closeApp();
+                }
+                return result;
+            } catch(error) {
+                button.disabled=false;
+                if(error.status===409&&confirm('No se confirmó STOP. ¿Forzar el cierre dejando constancia en SQLite?')) {
+                    return this.closeApplication(true);
+                }
+                LogSystem.add('ERROR',`Cierre bloqueado: ${error.message}`);
+                return null;
+            }
         },
         connectBackend() {
             const receive = event => {
@@ -1480,6 +1512,7 @@
             }
             if (message.connection) ConnectionPanel.applySnapshot(message);
             if (message.telemetry) this.applyBackendTelemetry(message.telemetry);
+            if (message.mission) RouteManager.onMission(message.mission);
         },
         applyBackendTelemetry(raw) {
             const telemX = Number(raw.x_mm || 0) / 10;
@@ -1551,9 +1584,9 @@
         async send(obj) {
             if (!this.flaskMode) throw new Error('desktop_app no está disponible');
             const cmd = String(obj.cmd || '').toLowerCase();
-            const supported = new Set(['calibrate','step','stop','estop','clear_fault','set_comp','reset_pose']);
+            const supported = new Set(['calibrate','step','turn_to','stop','estop','clear_fault','set_comp','reset_pose']);
             if (!supported.has(cmd)) {
-                LogSystem.add('WARN',`El protocolo robot-s3-steps-v2 no admite ${cmd}; usa pasos o rutas atómicas.`);
+                LogSystem.add('WARN',`El protocolo robot-s3-steps-v3 no admite ${cmd}; usa pasos o rutas atómicas.`);
                 return null;
             }
             const payload = {...obj}; delete payload.cmd;
@@ -1709,7 +1742,7 @@
             state.connected=this.state==='connected';
             const label={stopped:'DESCONECTADO',connecting:'CONECTANDO',connected:'CONECTADO',backoff:'REINTENTANDO'}[this.state]||this.state.toUpperCase();
             document.getElementById('connection-panel-state').textContent=label;
-            const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-steps-v2 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
+            const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-steps-v3 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
             document.getElementById('connection-panel-detail').textContent=detail;
             document.getElementById('connection-panel-dot').classList.toggle('ok',state.connected);
             Telemetry._ui();
@@ -2215,23 +2248,13 @@
             if(this.isRunning&&!mission.running) {
                 this.isRunning=false; this.unlockTabs(); clearTimeout(this.moveTimeout);
                 LogSystem.add('INFO','Ruta completada por el carrito.');
-                if (this.ockhamFinalHeadingZero) {
-                    this.ockhamFinalHeadingZero = false;
-                    const currentYaw = state.telemetria ? Math.abs(state.telemetria.orientacion || 0) : 0;
-                    if (currentYaw > 3.5) {
-                        LogSystem.add('INFO','Regreso de Ockham completado en (0,0); reorientando a 0° Yaw...');
-                        WSControl.send({cmd:'step', heading: 0.0, distanciaCm: 1.0});
-                    } else {
-                        LogSystem.add('INFO','Regreso de Ockham completado en (0,0); ya alineado a 0° Yaw.');
-                    }
-                }
+                if(mission.kind==='ockham_return') LogSystem.add('INFO','Regreso de Ockham y alineación final a 0° completados.');
             }
             this.updateListUI(); this.drawPlan();
         },
         onFsmIdle() {},
         failRoute(reason) {
             this.isRunning=false; this.waitingForMovement=false; this.activeCommandId=null;
-            this.ockhamFinalHeadingZero=false;
             clearTimeout(this.moveTimeout); this.unlockTabs(); this.updateListUI();
             LogSystem.add('ERROR',reason);
         },
@@ -2241,7 +2264,6 @@
                 const mission=await WSControl.api('/api/v1/missions',{method:'DELETE'});
                 if(mission.id!==null||mission.blocked)throw new Error('El backend no confirmó el borrado de la misión');
                 this.isRunning = false;
-                this.ockhamFinalHeadingZero = false;
                 this.unlockTabs();
                 clearTimeout(this.moveTimeout);
                 this.waitingForMovement = false;
@@ -2262,27 +2284,26 @@
             try {
                 const result=await WSControl.api('/api/v1/missions/robot-memory',{method:'DELETE'});
                 this.isRunning=false; this.waitingForMovement=false; this.activeCommandId=null;
-                this.ockhamFinalHeadingZero=false;
                 this.unlockTabs();
                 LogSystem.add('INFO','Misión y checkpoint de Python eliminados; se solicitó STOP si había un paso activo.');
                 this.currentStepIndex=0; this.updateListUI(); this.drawPlan();
             } catch(error) { LogSystem.add('ERROR',`No se pudo liberar la memoria: ${error.message}`); }
         },
-        ockhamReturn() {
+        async ockhamReturn() {
             if (!confirm("¿Ejecutar regreso de Ockham a 0,0?")) return;
-            this.isRunning = false;
-            this.unlockTabs();
-            clearTimeout(this.moveTimeout);
-            this.queue = [];
-            this.currentStepIndex = 0;
-            this.currentOrigin = {x: state.telemetria.posX, y: state.telemetria.posY};
-            this.clearTelemetryTrail();
-            LogSystem.add('CMD', 'Ejecutando Regreso de Ockham a 0,0 y reorientación final a 0° Yaw');
-            this.appendLimited(this.currentOrigin.x,this.currentOrigin.y,0,0,'Regreso al origen');
-            this.ockhamFinalHeadingZero = true;
-            this.updateListUI();
-            this.drawPlan();
-            this.start();
+            try {
+                const mission=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:'{}'});
+                this.currentOrigin={x:state.telemetria.posX,y:state.telemetria.posY};
+                this.queue=(mission.planned_points||[]).map(point=>({
+                    x:Number(point.x_mm)/10, y:Number(point.y_mm)/10, desc:'Paso inverso Ockham'
+                }));
+                this.currentStepIndex=mission.current_index||0;
+                this.activeCommandId=mission.active_command_id||null;
+                this.isRunning=true; this.waitingForMovement=true;
+                this.clearTelemetryTrail(); this.lockTabs();
+                LogSystem.add('CMD','Ruta Ockham inversa iniciada; Python conserva la pila y alineará yaw a 0°.');
+                this.updateListUI(); this.drawPlan(); this.autoScale();
+            } catch(error) { LogSystem.add('ERROR',`No se pudo iniciar Ockham: ${error.message}`); }
         }
     };
 
@@ -2441,10 +2462,11 @@
             WSControl.send({cmd:"estop"});
             LogSystem.add('ERROR', 'E-STOP enviado al robot');
         });
+        document.getElementById('btn-close-app').addEventListener('click',()=>WSControl.closeApplication(false));
 
         // Testing: Aplicar PWM
         document.getElementById('btn-apply-pwm').disabled = true;
-        document.getElementById('btn-apply-pwm').title = 'No disponible en robot-s3-steps-v2';
+        document.getElementById('btn-apply-pwm').title = 'No disponible en robot-s3-steps-v3';
         document.getElementById('btn-apply-pwm').addEventListener('click', function() {
             const l = parseInt(document.getElementById('pwm-left').value);
             const r = parseInt(document.getElementById('pwm-right').value);
@@ -2478,9 +2500,9 @@
             } else if(c==='retroceso'){
                 WSControl.send({cmd:'step',heading:180,cm:dist});
             } else if(c==='giro-izq'){
-                LogSystem.add('WARN','El protocolo atómico no admite giro sin avance.');
+                WSControl.send({cmd:'turn_to',heading:(Number(state.telemetria.angulo||0)-angle+360)%360});
             } else if(c==='giro-der'){
-                LogSystem.add('WARN','El protocolo atómico no admite giro sin avance.');
+                WSControl.send({cmd:'turn_to',heading:(Number(state.telemetria.angulo||0)+angle)%360});
             } else if(c==='parada'){
                 WSControl.send({cmd:"stop"});
                 LogSystem.add('CMD', 'Parada inmediata enviada');

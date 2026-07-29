@@ -8,7 +8,8 @@
 enum TipoComando : uint8_t {
     CMD_NINGUNO,
     CMD_CALIBRATE,    // calibración de torque + retorno a yaw inicial
-    CMD_STEP,         // paso atómico: girar a heading, avanzar cm, volver a 0°
+    CMD_STEP,         // paso atómico: girar a heading y avanzar cm
+    CMD_TURN_TO,      // giro atómico a un heading absoluto, sin traslación
     CMD_STOP,         // cancela el paso actual y queda LISTO
     CMD_ESTOP,        // parada de emergencia enclavada
     CMD_CLEAR_FAULT,  // rearma desde ESTOP o FALLO
@@ -19,7 +20,7 @@ enum TipoComando : uint8_t {
 struct ComandoRed {
     TipoComando tipo;
     int seq;
-    float heading;      // STEP: rumbo absoluto objetivo en grados [0, 360)
+    float heading;      // STEP/TURN_TO: rumbo absoluto objetivo en grados [0, 360)
     float distanciaCm;  // STEP: distancia a avanzar en cm (siempre positiva)
     float factor;       // SET_COMP: factor de compensación
 };

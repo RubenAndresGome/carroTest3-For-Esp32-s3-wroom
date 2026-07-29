@@ -34,7 +34,7 @@ class Severity(StrEnum):
 
 
 ALLOWED_COMMANDS = frozenset(
-    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "move"}
+    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "turn_to", "move"}
 )
 
 MAX_SEGMENT_MM = 2_000.0
@@ -69,6 +69,8 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
             "heading": _heading_degrees(source.get("heading")),
             "cm": _finite_number(source.get("cm"), "cm", 0.5, MAX_SEGMENT_MM / 10.0),
         }
+    if name == "turn_to":
+        return {"heading": _heading_degrees(source.get("heading"))}
     if name == "set_comp":
         return {"factor": _finite_number(source.get("factor"), "factor", 0.8, 1.0)}
     return {}
@@ -83,11 +85,19 @@ class RobotCommand:
     seq: int = 0
 
     @classmethod
-    def create(cls, name: object, payload: Mapping[str, Any] | None = None, seq: int = 0) -> "RobotCommand":
+    def create(cls, name: object, payload: Mapping[str, Any] | None = None, seq: int = 0,
+               command_id: str | None = None) -> "RobotCommand":
         normalized_name = str(name or "").strip().lower()
         if seq < 0:
             raise ValueError("seq no puede ser negativo")
-        return cls(name=normalized_name, payload=validate_command_payload(normalized_name, payload), seq=seq)
+        values: dict[str, Any] = {
+            "name": normalized_name,
+            "payload": validate_command_payload(normalized_name, payload),
+            "seq": seq,
+        }
+        if command_id is not None:
+            values["command_id"] = command_id
+        return cls(**values)
 
     def protocol_envelope(self) -> dict[str, Any]:
         if self.name == "move":

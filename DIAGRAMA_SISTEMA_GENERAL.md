@@ -37,7 +37,7 @@ flowchart TB
     end
 
     subgraph S_WIFI["Canal Wi-Fi (WebSocket Protocol V2)"]
-        Protocol["Protocolo JSON robot-s3-steps-v2"]
+        Protocol["Protocolo JSON robot-s3-steps-v3"]
     end
 
     subgraph S_ESP32["Sistema Autónomo ESP32-S3 (Firmware Dual-Core)"]

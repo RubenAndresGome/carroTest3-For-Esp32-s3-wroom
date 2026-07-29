@@ -86,7 +86,7 @@ class RobotGateway:
             self._reconnect.set()
 
     def enqueue(self, command: RobotCommand) -> bool:
-        priority = 0 if command.name == "estop" else 10
+        priority = 0 if command.name == "estop" else 1 if command.name == "stop" else 10
         try:
             self._outgoing.put_nowait(_Outgoing(priority, next(self._counter), command))
             return True
@@ -107,8 +107,8 @@ class RobotGateway:
             return {
                 "state": self._state.value,
                 "detail": self._detail,
-                "protocol": "steps-v2" if self._protocol_v1 else "negotiating",
-                "protocol_name": "robot-s3-steps-v2",
+                "protocol": "steps-v3" if self._protocol_v1 else "negotiating",
+                "protocol_name": "robot-s3-steps-v3",
                 "heartbeat_age_ms": heartbeat_age_ms,
                 "connect_attempt": self._connect_attempt,
                 "connect_attempt_max": self.MAX_CONNECT_ATTEMPTS,
@@ -158,7 +158,7 @@ class RobotGateway:
                         pass
                     if not self._protocol_v1 and self._handshake_started is not None:
                         if time.monotonic() - self._handshake_started > 3.0:
-                            raise RuntimeError("El robot no confirmó robot-s3-steps-v2")
+                            raise RuntimeError("El robot no confirmó robot-s3-steps-v3")
             except Exception as exc:  # frontera de E/S: se reporta sin derribar la app
                 logger.warning("Fallo del WebSocket hacia %s: %s", host, exc, exc_info=True)
                 if attempts >= self.MAX_CONNECT_ATTEMPTS:
@@ -230,7 +230,7 @@ class RobotGateway:
             raise ValueError("Mensaje del robot no es un objeto JSON")
         kind = message.get("evt")
         if kind == "hello_ack":
-            if message.get("protocol") != "robot-s3-steps-v2":
+            if message.get("protocol") != "robot-s3-steps-v3":
                 raise ValueError("Protocolo del robot incompatible")
             if message.get("session") != self._session_getter():
                 raise ValueError("El robot confirmó una sesión distinta")

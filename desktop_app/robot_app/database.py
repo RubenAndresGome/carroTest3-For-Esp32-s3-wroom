@@ -114,6 +114,24 @@ class Database:
                 (status, error, command_id),
             )
 
+    def fail_nonterminal_commands(self, reason: str) -> int:
+        """Finaliza comandos que no pueden sobrevivir al proceso propietario."""
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                "UPDATE commands SET status='failed',error=?,completed_at=CURRENT_TIMESTAMP "
+                "WHERE status IN ('queued','sent','acknowledged')",
+                (reason,),
+            )
+            return int(cursor.rowcount)
+
+    def close_orphan_sessions(self, reason: str) -> int:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                "UPDATE sessions SET ended_at=CURRENT_TIMESTAMP,disconnect_reason=? WHERE ended_at IS NULL",
+                (reason,),
+            )
+            return int(cursor.rowcount)
+
     def insert_event(self, session_id: int | None, kind: str, severity: str, payload: dict[str, Any]) -> None:
         with self.transaction() as connection:
             connection.execute(
@@ -188,4 +206,3 @@ class Database:
             connection.execute(f"DELETE FROM events WHERE session_id IN ({placeholders})", target_ids)
             cursor = connection.execute(f"DELETE FROM sessions WHERE id IN ({placeholders})", target_ids)
             return cursor.rowcount
-

@@ -53,10 +53,23 @@ class RobotBackendService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            stopSelf()
+            Thread({ requestSafeStopFromNotification() }, "robot-safe-stop").start()
             return START_NOT_STICKY
         }
         return START_STICKY
+    }
+
+    private fun requestSafeStopFromNotification() {
+        try {
+            if (!Python.isStarted()) return
+            val result = Python.getInstance().getModule("mobile_entry").callAttr("prepare_close", false)
+            val safe = result.callAttr("get", "safe_to_close", false).toBoolean()
+            if (safe) stopSelf()
+            else updateNotification("No se confirmó STOP; abra la app para reintentar o forzar el cierre")
+        } catch (error: Throwable) {
+            Log.w(TAG, "No fue posible confirmar la parada antes del cierre", error)
+            updateNotification("Cierre bloqueado: no se confirmó la parada del robot")
+        }
     }
 
     override fun onDestroy() {

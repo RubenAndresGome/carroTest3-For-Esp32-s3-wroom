@@ -41,6 +41,17 @@ class DatabaseTests(unittest.TestCase):
             self.assertIn("encoder_fl_seen", row["pin_state_json"])
             self.assertEqual(session["robot_id"], "ESP32S3-001122334455")
 
+    def test_restart_cleanup_closes_sessions_and_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "test.sqlite3")
+            database.initialize()
+            session_id = database.create_session()
+            database.insert_command("cmd-1", session_id, "step", {"heading": 0, "cm": 10}, "acknowledged")
+            self.assertEqual(database.fail_nonterminal_commands("restart"), 1)
+            self.assertEqual(database.close_orphan_sessions("restart"), 1)
+            self.assertEqual(database.command_rows(session_id)[0]["status"], "failed")
+            self.assertEqual(database.session_row(session_id)["disconnect_reason"], "restart")
+
 
 if __name__ == "__main__":
     unittest.main()

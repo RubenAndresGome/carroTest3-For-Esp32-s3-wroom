@@ -16,11 +16,12 @@ from robot_app.config import AppConfig
 _lock = threading.RLock()
 _server: Any | None = None
 _application: Any | None = None
+_stopping = False
 
 
 def run(android_files_dir: str, port: int = 8080) -> None:
     """Bloquea la hebra del servicio Android mientras Waitress está activo."""
-    global _server, _application
+    global _server, _application, _stopping
     data_dir = Path(android_files_dir) / "robot_s3"
     data_dir.mkdir(parents=True, exist_ok=True)
     settings = AppConfig(
@@ -38,6 +39,7 @@ def run(android_files_dir: str, port: int = 8080) -> None:
         ident="RobotS3-Android",
     )
     with _lock:
+        _stopping = False
         _application = application
         _server = server
     try:
@@ -51,10 +53,30 @@ def run(android_files_dir: str, port: int = 8080) -> None:
 
 def stop() -> None:
     """Detiene Waitress; el finally de run cierra gateway, sesión y SQLite."""
+    global _stopping
     with _lock:
+        if _stopping:
+            return
+        _stopping = True
         server = _server
     if server is not None:
         server.close()
+        for channel in list(server._map.values()):
+            try:
+                channel.close()
+            except Exception:
+                pass
+        server.task_dispatcher.shutdown(cancel_pending=True)
+
+
+def prepare_close(force: bool = False) -> dict[str, Any]:
+    """Usado por la notificación Android antes de destruir el servicio."""
+    with _lock:
+        application = _application
+    if application is None:
+        return {"safe_to_close": True, "stop_required": False, "stop_confirmed": True, "forced": force}
+    result = application.extensions["robot_service"].prepare_close(force=bool(force))
+    return dict(result)
 
 
 def is_ready() -> bool:

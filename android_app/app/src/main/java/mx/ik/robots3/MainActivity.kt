@@ -18,6 +18,7 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.JsResult
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -43,6 +44,16 @@ class MainActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var destroyed = false
     private var backCallback: OnBackInvokedCallback? = null
+
+    private inner class RobotHostBridge {
+        @JavascriptInterface
+        fun closeApp() {
+            runOnUiThread {
+                stopService(Intent(this@MainActivity, RobotBackendService::class.java))
+                finishAndRemoveTask()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -181,6 +192,7 @@ class MainActivity : Activity() {
             settings.builtInZoomControls = true
             settings.displayZoomControls = false
             settings.useWideViewPort = true
+            addJavascriptInterface(RobotHostBridge(), "RobotHost")
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     return request.url.host !in setOf("127.0.0.1", "localhost")

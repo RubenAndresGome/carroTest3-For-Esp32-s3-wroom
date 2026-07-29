@@ -1,9 +1,9 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v2";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
-constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v2";
+constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 
 // WiFi
 extern const char* ssid_AP;
@@ -80,10 +80,7 @@ constexpr float TOLERANCIA_GIRO_DEG = 3.0f;
 constexpr float TOLERANCIA_CALIBRACION_DEG = 1.0f;
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 5.0f;
-constexpr uint32_t TURN_STALL_FINE_MS = 600;
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
-constexpr uint32_t TURN_PULSE_ON_MS = 50;
-constexpr uint32_t TURN_PULSE_OFF_MS = 100;
 constexpr float TURN_REACTIVATION_DEG = 4.0f;
 constexpr uint8_t TURN_MAX_ATTEMPTS = 15;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 1500;

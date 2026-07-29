@@ -35,12 +35,12 @@ Este documento recopila la evaluación casuística y detallada de los cuestionam
 - **Candidato a Roadmap**: Persistir el mapeo `seq -> command_id` en SQLite para garantizar la asociación del evento `completed` al reconectar.
 
 #### 6. Acumulación de Error Geométrico Absoluto (`services.py:367`)
-- **Origen**: El protocolo modular `robot-s3-steps-v2` desacopla la planificación de ruta de la odometría de a bordo; cada tramo calcula su inicio desde el objetivo teórico anterior.
+- **Origen**: El protocolo modular `robot-s3-steps-v3` desacopla la planificación de ruta de la odometría de a bordo; cada tramo calcula su inicio desde el objetivo teórico anterior.
 - **Candidato a Roadmap**: Implementar lazo de compensación de pose integrada $(X_{\text{real}}, Y_{\text{real}})$ en Python para reajustar la distancia requerida del siguiente segmento ortogonal.
 
-#### 7. Alineación Cardinal Final a Yaw 0° (`Cinematica.cpp:744`)
+#### 7. Alineación Cardinal Final a Yaw 0°
 - **Origen y Racional**: Los tramos ortogonales individuales concluyen manteniendo el rumbo del segmento ($\theta = 0^\circ, 90^\circ, 180^\circ, 270^\circ$) para permitir encadenamientos fluidos de pasos sin detener el robot ni girar innecesariamente a $0^\circ$ entre segmentos.
-- **Estado Actual**: La alineación final a $0.0^\circ$ se reserva para el cierre completo de la misión (`mission_completed_zero_aligned` en `Mision.cpp`).
+- **Estado Actual**: Python conserva la misión y, al terminar la Ruta Ockham, envía el comando atómico `turn_to` a 0°. `Mision.cpp` no participa en la arquitectura operativa de pasos cortos.
 
 #### 8. Bug en Reorientación Final HMI (`index.html:2218`)
 - **Diagnóstico Confirmado**: `index.html` leía `orientacion` y la comparaba contra `3.5` como si fueran grados (mientras la variable telemetría se procesaba en radianes), e invocaba el envío de micro-desplazamientos de 0.5–1 cm.
@@ -71,9 +71,9 @@ Este documento recopila la evaluación casuística y detallada de los cuestionam
 
 ---
 
-## 2. Propuesta Arquitectónica: Ruta Ockham Inversa $f^{-1}$
+## 2. Arquitectura implementada: Ruta Ockham Inversa $f^{-1}$
 
-Actualmente, el regreso al origen en la Ruta Ockham calcula una trayectoria ortogonal directa basada en las coordenadas finales $(X, Y)$. Se establece en el roadmap la alternativa basada en la inversión de la función de trayectoria ejecutada:
+El backend guarda la última ruta saliente completada y genera el retorno mediante la inversión de sus vectores ejecutados:
 
 $$\text{Ruta Directa: } f(\text{pasos}) = \{p_1, p_2, p_3, \dots, p_n\}$$
 
@@ -94,10 +94,10 @@ $$\text{Ruta Ockham Inversa: } f^{-1}(\text{pasos}) = \{p_n^{-1}, p_{n-1}^{-1}, 
 
 | ID | Componente | Descripción de la Mejora Candidata | Prioridad |
 |---|---|---|---|
-| **RM-01** | HMI Web | Corregir cálculo de `currentYaw` en `index.html` y eliminar envío de micro-desplazamientos de 0.5–1 cm. | Alta |
+| **RM-01** | HMI Web | Implementado: alineación final mediante `turn_to`, sin micro-desplazamientos. | Completada |
 | **RM-02** | Firmware | Preservar `encoderConfiable[4]` durante reevaluaciones dentro del mismo tramo en `Cinematica.cpp`. | Alta |
 | **RM-03** | Firmware | Acumular `distMedida` en `distAcumuladaCm` antes de reiniciar ticks base por falla de encoder en `Cinematica.cpp`. | Alta |
-| **RM-04** | Backend | Persistir estado `blocked` y mapa `seq -> command_id` en SQLite local para tolerancia a reinicios de app. | Media |
+| **RM-04** | Backend | Implementado: persistencia de bloqueo, cuarentena al reiniciar y cierre seguro auditado. | Completada |
 | **RM-05** | Firmware | Adicionar mutex (`SemaphoreHandle_t`) alrededor de `msgBuf` en `Red.cpp`. | Media |
-| **RM-06** | HMI / Backend | Implementar motor de Ruta Ockham Inversa $f^{-1}$ basada en pila de pasos invertidos. | Media |
+| **RM-06** | HMI / Backend | Implementado: Ruta Ockham inversa administrada por Python y consumida una sola vez. | Completada |
 | **RM-07** | Backend | Lazo de compensación de pose absoluta integrated $(X_{\text{real}}, Y_{\text{real}})$ entre segmentos ortogonales. | Baja |

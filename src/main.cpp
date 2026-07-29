@@ -39,6 +39,10 @@ void procesarComandos() {
                 if (!iniciarPaso(cmd.heading, cmd.distanciaCm, cmd.seq))
                     encolarEvento(EVT_REJECTED, cmd.seq, "step_invalid");
                 break;
+            case CMD_TURN_TO:
+                if (!iniciarGiroAbsoluto(cmd.heading, cmd.seq))
+                    encolarEvento(EVT_REJECTED, cmd.seq, "turn_unavailable");
+                break;
             case CMD_STOP:
                 cancelarMovimiento("stopped");
                 encolarEvento(EVT_COMPLETED, cmd.seq, "stop_ok");
@@ -123,7 +127,7 @@ void setup() {
     Serial.begin(115200);
     delay(200);
     inicializarDiagnosticoRTOS();
-    Serial.printf("\n=== ROBOT S3 v2 | reset=%s ===\n", motivoResetESP32);
+    Serial.printf("\n=== ROBOT S3 v3 | reset=%s ===\n", motivoResetESP32);
 
     colaComandos = xQueueCreate(4, sizeof(ComandoRed));
     colaEventosRed = xQueueCreate(8, sizeof(EventoRed));

@@ -10,7 +10,7 @@ El firmware divide sus funciones estrictamente entre los dos núcleos del ESP32-
 
 1. **Core 0 - `Task_Web` (Stack 8192 bytes, Prioridad 1)**:
    - Administra la pila Wi-Fi (`ROBOT_S3_LOCAL`), el servidor HTTP y WebSockets (`AsyncWebSocket`).
-   - Parsea paquetes de entrada en formato JSON `robot-s3-steps-v2`.
+   - Parsea paquetes de entrada en formato JSON `robot-s3-steps-v3`.
    - Encola comandos en `colaComandos` y envía eventos desde `colaEventosRed`.
    - Publica muestras de telemetría a 10 Hz (cada 100 ms).
 
@@ -46,7 +46,7 @@ El firmware divide sus funciones estrictamente entre los dos núcleos del ESP32-
 - **Tope PWM Global**: Max 230/255 (~90%) en todas las maniobras.
 - **Tiempo Muerto al Invertir Giro**: Pause obligatorio de 250 ms en `Motores.cpp`.
 - **Rampa Suave de Arrancada**: Incremento paulatino de torque (+2/255 cada 20 ms) en giros.
-- **Búsqueda de Torque de Fricción**: Rampa de 140 a 230 en pasos de 5 cada 250 ms.
+- **Búsqueda de Torque de Fricción**: Rampa de 140 a 247/255 en pasos de 5 cada 250 ms.
 - **Tolerancia de Orientación en Giro**: Banda muerta de ±3.5° con parada inmediata y corrección sin vuelta inventada.
 
 ---

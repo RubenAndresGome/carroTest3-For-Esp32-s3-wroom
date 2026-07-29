@@ -34,7 +34,7 @@ Representa un comando emitido hacia el robot.
   - `seq: int`: Número de secuencia incremental para coincidencia con eventos del firmware.
 - **Métodos Clave**:
   - `create(cls, name, payload, seq) -> RobotCommand`: Valida los límites del payload antes de instanciar.
-  - `protocol_envelope() -> dict`: Genera el paquete JSON exacto para el protocolo `robot-s3-steps-v2`.
+  - `protocol_envelope() -> dict`: Genera el paquete JSON exacto para el protocolo `robot-s3-steps-v3`.
 
 #### `TelemetrySnapshot` (Dataclass Inmutable)
 Captura de estado transmitida periódicamente por el ESP32:
@@ -137,7 +137,7 @@ Odometría diferencial y fusión de orientación:
 Controlador cinemático de bucle cerrado:
 - **`controlarGiro()`**:
   - Ejecuta maniobra de pivote único continuo.
-  - Búsqueda continua de torque desde `140` hasta `230` en pasos de 5 cada 250 ms hasta vencer fricción estática.
+  - Búsqueda continua de torque desde `140` hasta `247/255` en pasos de 5 cada 250 ms hasta vencer fricción estática.
   - Frenado y corrección inmediata al entrar en la banda de tolerancia **$\pm 3.5^\circ$**.
 - **`controlarAvance()`**:
   - Lazo PD dinámico de rumbo: $\text{ctrlRumbo} = \text{constrain}(e_{\text{rumbo}} \cdot 4.0 - G_z \cdot 12.0, -45, +45)$.
@@ -149,7 +149,7 @@ Controlador cinemático de bucle cerrado:
 Guardián de integridad del robot:
 - **`auditarSalud(snap, pwmL, pwmR)`**:
   - Audita pérdida de MPU6050.
-  - Verifica atasco de motores por watchdog de encoder (450 ms en avance, 2.5 s en giro, 800 ms acumulado en rampa de torque máximo de calibración).
+  - Verifica atasco de motores por watchdog de encoder (6 s empíricos en avance, 2.5 s en giro, 800 ms acumulados al alcanzar el torque máximo de calibración).
   - Fuerza `FALLO` e inmoviliza el robot ante cualquier anomalía.
 - **`forzarEStop()`**: Detención inmediata por software/hardware.
 
@@ -161,5 +161,5 @@ Monitoreo de rendimiento e hilos FreeRTOS:
 #### `Red` (`include/Red.h`, `src/Red.cpp`)
 Servidor WebSocket e interfaz de comunicación JSON:
 - Gestiona punto de acceso Wi-Fi `ROBOT_S3_LOCAL`.
-- Procesa paquetes entrantes `robot-s3-steps-v2` y coloca `ComandoRed` en `colaComandos`.
+- Procesa paquetes entrantes `robot-s3-steps-v3` y coloca `ComandoRed` en `colaComandos`.
 - Lee `colaEventosRed` y transmite eventos y telemetría periódica (cada 100 ms).

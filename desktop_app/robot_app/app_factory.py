@@ -29,6 +29,7 @@ def create_app(config: AppConfig | None = None) -> Flask:
     service = RobotService(database, start_gateway=settings.start_gateway, max_message_bytes=settings.max_message_bytes)
     app.extensions["robot_service"] = service
     app.extensions["app_token"] = secrets.token_urlsafe(24)
+    app.extensions["host_shutdown"] = None
     app.register_blueprint(web)
 
     @app.before_request

@@ -118,6 +118,12 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
       responderRechazado(seq, "step_payload_invalid"); return;
     }
   }
+  else if (strcmp(cmd,"turn_to")==0) {
+    c.tipo=CMD_TURN_TO;
+    if (!leerFloatFinito(doc["heading"], c.heading)) {
+      responderRechazado(seq, "turn_payload_invalid"); return;
+    }
+  }
   else if (strcmp(cmd,"stop")==0)       { c.tipo=CMD_STOP; }
   else if (strcmp(cmd,"clear_fault")==0){ c.tipo=CMD_CLEAR_FAULT; }
   else if (strcmp(cmd,"set_comp")==0) {

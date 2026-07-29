@@ -14,7 +14,7 @@ namespace {
 enum class Fase : uint8_t {
   NINGUNA,
   CAL_CUENTA, CAL_A, CAL_VALIDAR_25, CAL_PAUSA, CAL_B, CAL_PAUSA_RETORNO, CAL_RETORNO,
-  GIRO_INICIAL, AVANCE, GIRO_RECUPERACION, GIRO_FINAL,
+  GIRO_INICIAL, AVANCE, GIRO_RECUPERACION, GIRO_FINAL, GIRO_SOLO,
   PAUSA_REEVALUACION
 };
 
@@ -215,8 +215,6 @@ uint32_t ultimoCtrlGiroMs = 0;
 uint32_t ultimoAumentoTorqueGiroMs = 0;
 int pwmBusquedaGiro = 0;
 int pwmBoostFrenado = 0;
-uint32_t ultimoMicroPulsoMs = 0;
-bool microPulsoEncendido = false;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   const SensorSnapshot s = sensar();
@@ -230,18 +228,19 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   ultimoCtrlGiroMs=0;
   ultimoAumentoTorqueGiroMs=millis();
   pwmBusquedaGiro=PWM_TURN_START;
-  pwmBoostFrenado=0; ultimoMicroPulsoMs=0; microPulsoEncendido=false;
+  pwmBoostFrenado=0;
   faseRetornoGiro = retorno;
   fase = retorno;  // fase global sigue al giro
   if (retorno == Fase::GIRO_INICIAL) strncpy(faseComando,"giro_ini",sizeof(faseComando));
   else if (retorno == Fase::GIRO_FINAL) strncpy(faseComando,"giro_fin",sizeof(faseComando));
   else if (retorno == Fase::GIRO_RECUPERACION) strncpy(faseComando,"recup",sizeof(faseComando));
+  else if (retorno == Fase::GIRO_SOLO) strncpy(faseComando,"giro_solo",sizeof(faseComando));
   else if (retorno == Fase::CAL_RETORNO) strncpy(faseComando,"cal_ret",sizeof(faseComando));
 }
 
 void reintentarGiro(const char* motivo) {
   frenarMotores(); pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false; giroEnTol=false;
-  pwmBoostFrenado=0; ultimoMicroPulsoMs=0; microPulsoEncendido=false;
+  pwmBoostFrenado=0;
   if (intentoGiro >= TURN_MAX_ATTEMPTS) { fallo(motivo); return; }
   ++intentoGiro;
   pausaReintentoGiroCal = true;
@@ -249,7 +248,7 @@ void reintentarGiro(const char* motivo) {
 }
 
 void controlarGiro() {
-  if (fase != Fase::GIRO_INICIAL && fase != Fase::GIRO_FINAL && fase != Fase::GIRO_RECUPERACION && fase != Fase::CAL_VALIDAR_25 && fase != Fase::CAL_RETORNO) return;
+  if (fase != Fase::GIRO_INICIAL && fase != Fase::GIRO_FINAL && fase != Fase::GIRO_RECUPERACION && fase != Fase::GIRO_SOLO && fase != Fase::CAL_VALIDAR_25 && fase != Fase::CAL_RETORNO) return;
   uint32_t ahora = millis();
   if (ahora - ultimoCtrlGiroMs < TURN_CONTROL_PERIOD_MS) return;
   ultimoCtrlGiroMs = ahora;
@@ -266,7 +265,7 @@ void controlarGiro() {
     inicioIntentoGiroMs = ahora;
     ultimoAumentoTorqueGiroMs=ahora;
     pwmBusquedaGiro=PWM_TURN_START;
-    pwmBoostFrenado=0; ultimoMicroPulsoMs=0; microPulsoEncendido=false;
+    pwmBoostFrenado=0;
   }
 
   const SensorSnapshot s = sensar();
@@ -348,24 +347,22 @@ void controlarGiro() {
       } else {
         if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS && pwmBoostFrenado > 0) {
           ultimoAumentoTorqueGiroMs = ahora;
-          pwmBoostFrenado = max(0, pwmBoostFrenado - static_cast<int>(5 * PWM_SCALE_8_TO_10));
+          pwmBoostFrenado = max(0, pwmBoostFrenado - static_cast<int>(2 * PWM_SCALE_8_TO_10));
         }
       }
       pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     } else {
-      // --- MODO 2: Micro-Pulsos de Exactitud (0.0° a 5.0°) ---
+      // --- MODO 2: aproximación fina continua (0.0° a 5.0°) ---
       pwmObj = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
-      if (ahora - ultimoMicroPulsoMs >= (microPulsoEncendido ? TURN_PULSE_ON_MS : TURN_PULSE_OFF_MS)) {
-        ultimoMicroPulsoMs = ahora;
-        microPulsoEncendido = !microPulsoEncendido;
+      if (detectadoSinMovimiento && ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS) {
+        ultimoAumentoTorqueGiroMs = ahora;
+        pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - pwmObj,
+                              pwmBoostFrenado + static_cast<int>(3 * PWM_SCALE_8_TO_10));
       }
-      if (!microPulsoEncendido) {
-        pwmObj = 0; // Pausa breve de 100 ms para evaluacion IMU entre pulsos
-      }
+      pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     }
   } else {
     pwmBoostFrenado = 0;
-    microPulsoEncendido = false;
   }
 
   if (!movGiroConfirmado) {
@@ -408,6 +405,7 @@ void completarGiro() {
   if (ret == Fase::GIRO_INICIAL) { iniciarAvance(false); }
   else if (ret == Fase::GIRO_RECUPERACION) { iniciarAvance(true); }
   else if (ret == Fase::GIRO_FINAL) { completarPaso(); }
+  else if (ret == Fase::GIRO_SOLO) { fin(EVT_COMPLETED, "turn_ok"); }
   else if (ret == Fase::CAL_VALIDAR_25) {
     iniciarFaseCal(Fase::CAL_PAUSA);
     progresoComando=0.55f;
@@ -665,7 +663,8 @@ float normalizar360(float a) {
 bool enFaseAvance() { return fase == Fase::AVANCE; }
 bool enFaseGiro() {
   return fase == Fase::GIRO_INICIAL || fase == Fase::GIRO_RECUPERACION ||
-         fase == Fase::GIRO_FINAL || fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO;
+         fase == Fase::GIRO_FINAL || fase == Fase::GIRO_SOLO ||
+         fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO;
 }
 bool enFaseCalibracion() {
   return estadoActual == CALIBRANDO;
@@ -720,6 +719,25 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   return true;
 }
 
+bool iniciarGiroAbsoluto(float heading, int seq) {
+  if (estadoActual != LISTO) return false;
+  heading = normalizar360(heading);
+  if (seq == 1) ultimoSeqCompletado = 0;
+  if (seq <= ultimoSeqCompletado) {
+    encolarEvento(EVT_COMPLETED, seq, "already_done");
+    return true;
+  }
+  seqActivo = seq;
+  pasoHeadingObjetivo = heading;
+  pasoDistanciaObjetivoCm = 0.0f;
+  pasoDistanciaActualCm = 0.0f;
+  estadoActual = EJECUTANDO;
+  progresoComando = 0.0f;
+  encolarEvento(EVT_ACCEPTED, seq, "accepted");
+  iniciarBaseGiro(heading, Fase::GIRO_SOLO);
+  return true;
+}
+
 
 void cancelarMovimiento(const char* detalle) {
   const int cancelado = seqActivo;
@@ -737,6 +755,7 @@ void controlarMovimiento() {
     case Fase::GIRO_INICIAL:
     case Fase::GIRO_RECUPERACION:
     case Fase::GIRO_FINAL:
+    case Fase::GIRO_SOLO:
     case Fase::CAL_RETORNO:
       controlarGiro();
       break;

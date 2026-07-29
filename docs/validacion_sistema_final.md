@@ -26,7 +26,7 @@ corrientes sostenidas menores de 1 A.
 
 ## Protocolo y reconexión
 
-- Confirmar saludo `robot-s3-steps-v2`, sesión de 16 caracteres y `last_seq`.
+- Confirmar saludo `robot-s3-steps-v3`, sesión de 16 caracteres y `last_seq`.
 - Enviar un `step` ortogonal y verificar `accepted`, `progress` y `completed`
   con el mismo entero `seq`.
 - Reenviar un `seq` completado: debe regresar `already_done` sin movimiento.

@@ -9,6 +9,11 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(command.payload, {"heading": 90.0, "cm": 50.0})
         self.assertEqual(command.protocol_envelope(), {"cmd": "step", "heading": 90.0, "cm": 50.0, "seq": 7})
 
+    def test_turn_to_is_atomic_and_has_no_distance(self) -> None:
+        command = RobotCommand.create("turn_to", {"heading": -90}, seq=8)
+        self.assertEqual(command.payload, {"heading": 270.0})
+        self.assertEqual(command.protocol_envelope(), {"cmd": "turn_to", "heading": 270.0, "seq": 8})
+
     def test_only_short_memory_commands_are_accepted(self) -> None:
         for legacy in ("manual", "test_pwm", "drive", "turn", "mission_upload"):
             with self.subTest(legacy=legacy), self.assertRaises(ValueError):
@@ -27,7 +32,7 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(len(pieces), 3)
         self.assertEqual(pieces[-1], {"x_mm": 4500.0, "y_mm": 0.0})
 
-    def test_steps_v2_telemetry_is_normalized(self) -> None:
+    def test_steps_v3_telemetry_is_normalized(self) -> None:
         snapshot = TelemetrySnapshot.from_message({
             "evt": "telemetry", "state": "listo", "yaw": 359.5,
             "x": 12.3, "y": -4.5, "enc": [1, 2, 3, 4],

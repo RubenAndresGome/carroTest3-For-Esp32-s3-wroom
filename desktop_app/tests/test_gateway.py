@@ -24,14 +24,14 @@ class GatewayTests(unittest.TestCase):
             session_getter=lambda: "0123456789abcdef",
         )
 
-    def test_commands_wait_for_steps_v2_handshake(self) -> None:
+    def test_commands_wait_for_steps_v3_handshake(self) -> None:
         connection = _Connection()
         command = RobotCommand.create("step", {"heading": 90, "cm": 50}, seq=3)
         self.assertTrue(self.gateway.enqueue(command))
         self.gateway._drain_one(connection)
         self.assertEqual(connection.messages, [])
         self.gateway._receive(json.dumps({
-            "evt": "hello_ack", "protocol": "robot-s3-steps-v2",
+            "evt": "hello_ack", "protocol": "robot-s3-steps-v3",
             "session": "0123456789abcdef", "last_seq": 0,
         }))
         self.gateway._drain_one(connection)
@@ -43,7 +43,7 @@ class GatewayTests(unittest.TestCase):
             self.gateway._receive(json.dumps({"evt": "hello_ack", "protocol": "otro",
                                               "session": "0123456789abcdef"}))
         with self.assertRaises(ValueError):
-            self.gateway._receive(json.dumps({"evt": "hello_ack", "protocol": "robot-s3-steps-v2",
+            self.gateway._receive(json.dumps({"evt": "hello_ack", "protocol": "robot-s3-steps-v3",
                                               "session": "otra"}))
 
     def test_cancelled_command_is_not_sent_after_reconnect(self) -> None:
@@ -54,6 +54,16 @@ class GatewayTests(unittest.TestCase):
         self.gateway.cancel(command.command_id)
         self.gateway._drain_one(connection)
         self.assertEqual(connection.messages, [])
+
+    def test_stop_has_priority_over_a_pending_maneuver(self) -> None:
+        connection = _Connection()
+        step = RobotCommand.create("step", {"heading": 0, "cm": 50}, seq=5)
+        stop = RobotCommand.create("stop", {}, seq=6)
+        self.gateway._protocol_v1 = True
+        self.assertTrue(self.gateway.enqueue(step))
+        self.assertTrue(self.gateway.enqueue(stop))
+        self.gateway._drain_one(connection)
+        self.assertEqual(json.loads(connection.messages[0]), {"cmd": "stop", "seq": 6})
 
     def test_connection_attempts_stop_instead_of_looping_forever(self) -> None:
         self.gateway.MAX_CONNECT_ATTEMPTS = 1

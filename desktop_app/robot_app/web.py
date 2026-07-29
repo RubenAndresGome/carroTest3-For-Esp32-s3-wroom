@@ -7,6 +7,7 @@ import io
 import json
 import queue
 import secrets
+import threading
 from pathlib import Path
 from functools import wraps
 from typing import Any, Callable
@@ -124,6 +125,28 @@ def missions() -> Response | tuple[Response, int]:
 @_require_token
 def clear_robot_mission_memory() -> Response:
     return jsonify(_service().clear_robot_mission_memory())
+
+
+@web.post("/api/v1/missions/return-home")
+@_require_token
+def return_home() -> tuple[Response, int]:
+    try:
+        return jsonify(_service().start_return_home()), 202
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.post("/api/v1/app/close")
+@_require_token
+def close_application() -> Response | tuple[Response, int]:
+    body = request.get_json(silent=True) or {}
+    result = _service().prepare_close(force=body.get("force") is True)
+    if not result.get("safe_to_close"):
+        return jsonify(result), 409
+    shutdown = current_app.extensions.get("host_shutdown")
+    if callable(shutdown):
+        threading.Timer(0.25, shutdown).start()
+    return jsonify(result)
 
 
 @web.post("/api/v1/sessions/start")
