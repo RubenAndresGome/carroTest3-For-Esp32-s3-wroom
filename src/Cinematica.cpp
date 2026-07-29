@@ -353,15 +353,16 @@ void controlarGiro() {
       }
       pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     } else {
-      // --- MODO 2: Micro-Pulsos de Exactitud (0.0° a 5.0°) ---
+      // --- MODO 2: Aproximación Fina Continua (0.0° a 5.0°) ---
+      // Preservar torque mínimo continuo sin pausas a 0 para no perder inercia rotacional
       pwmObj = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
-      if (ahora - ultimoMicroPulsoMs >= (microPulsoEncendido ? TURN_PULSE_ON_MS : TURN_PULSE_OFF_MS)) {
-        ultimoMicroPulsoMs = ahora;
-        microPulsoEncendido = !microPulsoEncendido;
+      if (detectadoSinMovimiento) {
+        if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS) {
+          ultimoAumentoTorqueGiroMs = ahora;
+          pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - pwmObj, pwmBoostFrenado + static_cast<int>(3 * PWM_SCALE_8_TO_10));
+        }
       }
-      if (!microPulsoEncendido) {
-        pwmObj = 0; // Pausa breve para evaluacion IMU entre pulsos
-      }
+      pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     }
   } else {
     pwmBoostFrenado = 0;

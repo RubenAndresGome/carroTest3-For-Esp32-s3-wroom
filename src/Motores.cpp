@@ -24,7 +24,7 @@ struct InterlockLado {
   bool apagadoRegistrado = false;
 
   int actualizar(int velocidadSolicitada, uint32_t ahora) {
-    velocidadSolicitada = constrain(velocidadSolicitada, -PWM_SAFE_HARD_LIMIT, PWM_SAFE_HARD_LIMIT);
+    velocidadSolicitada = constrain(velocidadSolicitada, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
     const int signoDeseado = velocidadSolicitada > 0 ? 1 : (velocidadSolicitada < 0 ? -1 : 0);
     const int magnitudDeseada = abs(velocidadSolicitada);
 
@@ -102,14 +102,14 @@ static void setMotorPWM(int pinFwd, int pinRev, int vel) {
 }
 
 static void aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
-  vel = constrain(vel, -PWM_SAFE_HARD_LIMIT, PWM_SAFE_HARD_LIMIT);
+  vel = constrain(vel, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
   setMotorPWM(pinFwd, pinRev, vel * PWM_FORWARD_POLARITY);
 }
 
 void aplicarVelocidades(int velIzq, int velDer) {
   const uint32_t ahora = millis();
-  pwm_solicitado_L = constrain(velIzq, -PWM_SAFE_HARD_LIMIT, PWM_SAFE_HARD_LIMIT);
-  pwm_solicitado_R = constrain(velDer, -PWM_SAFE_HARD_LIMIT, PWM_SAFE_HARD_LIMIT);
+  pwm_solicitado_L = constrain(velIzq, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
+  pwm_solicitado_R = constrain(velDer, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
   pwm_aplicado_L = interlockL.actualizar(pwm_solicitado_L, ahora);
   pwm_aplicado_R = interlockR.actualizar(pwm_solicitado_R, ahora);
 

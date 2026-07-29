@@ -9,7 +9,7 @@ Este documento describe la arquitectura de control, cinemática y desacoplamient
 Para evitar sobrepasos por inercia en maniobras de rotación y asegurar fuerza suficiente en rectas, el firmware desacopla los parámetros de potencia y tiempos entre ambas maniobras:
 
 ### Giro Pivote (`GIRO`)
-- **`PWM_TURN_MAX_LIMIT`**: Limitado a **185/255** (~72% de la potencia máxima). Evita que el robot acelere en exceso al rotar, eliminando sobrepasos bruscos (*overshoot*) y oscilaciones de interlock.
+- **`PWM_TURN_MAX_LIMIT`**: Configurado en **247/255** (~97% de la potencia máxima). Entrega el torque necesario para vencer la resistencia y fricción estática del suelo en giros y pivotes exigentes (como el regreso a 0° de la Ruta Ockham).
 - **`PWM_TURN_START`**: **130/255** (Supera la zona muerta de fricción estática de la caja reductora).
 - **`TOLERANCIA_GIRO_DEG`**: **3.5°** (Banda de error permisible de ~3–5%).
 - **`TURN_BRAKING_ZONE_DEG`**: **25.0°** (Zona de rampa de desaceleración).

@@ -2217,8 +2217,13 @@
                 LogSystem.add('INFO','Ruta completada por el carrito.');
                 if (this.ockhamFinalHeadingZero) {
                     this.ockhamFinalHeadingZero = false;
-                    LogSystem.add('INFO','Regreso de Ockham completado en (0,0); reorientando a 0° Yaw...');
-                    WSControl.send({cmd:'step', heading: 0.0, distanciaCm: 0.5});
+                    const currentYaw = state.telemetria ? Math.abs(state.telemetria.orientacion || 0) : 0;
+                    if (currentYaw > 3.5) {
+                        LogSystem.add('INFO','Regreso de Ockham completado en (0,0); reorientando a 0° Yaw...');
+                        WSControl.send({cmd:'step', heading: 0.0, distanciaCm: 1.0});
+                    } else {
+                        LogSystem.add('INFO','Regreso de Ockham completado en (0,0); ya alineado a 0° Yaw.');
+                    }
                 }
             }
             this.updateListUI(); this.drawPlan();
