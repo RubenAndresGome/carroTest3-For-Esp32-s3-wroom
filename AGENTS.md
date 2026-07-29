@@ -47,12 +47,7 @@
 - La calibración valida +25°, reposa 2.5 s y regresa al yaw 0° con una maniobra
   contraria independiente. Las rutas aceptan solamente tramos ortogonales con
   tolerancia geométrica de 1 mm y terminan tras su alineación cardinal final.
-- Todos los giros autónomos usan un único pivot continuo inspirado en el ensayo
-  aprobado. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo
-  controlador; no existen pausas residuales, pulsos ni fallback a arco. Mientras
-  no se confirme movimiento, el torque aumenta 5/255 cada 250 ms sin apagar.
-  Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica sí
-  produce parada segura.
+- Todos los giros autónomos usan un único pivot dinámico. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo controlador; la aproximación fina (<5°) utiliza micro-pulsos intermitentes de exactitud (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia e integración del IMU y evitar sobrepasos. El movimiento se valida con `fabsf(gyro_z)` y deltas de encoder. Mientras no se confirme movimiento en macro-giros, el torque escala en rampa adaptativa sin exceder 247/255 (~97%). Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica produce parada segura.
 - Stacks: Web 8192 y súper-ciclo de control 8192 bytes. El firmware publica el
   mínimo libre medido y el motivo de reinicio; menos de 1024 bytes es fallo de
   aceptación aunque no haya ocurrido un reset.

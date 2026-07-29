@@ -282,12 +282,12 @@ void controlarGiro() {
     ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=ahora;
   }
 
-  if (abs(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S || (llabs(s.pulsosFL-ticksBaseGiroLocal[0])>=4 && llabs(s.pulsosFR-ticksBaseGiroLocal[1])>=4))
+  if (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S || (llabs(s.pulsosFL-ticksBaseGiroLocal[0])>=4 && llabs(s.pulsosFR-ticksBaseGiroLocal[1])>=4))
     movGiroConfirmado = true;
 
   // Mientras el torque siga incrementándose en rampa para vencer fricción y no haya movimiento confirmado,
   // mantener fresco el temporizador de pulso para evitar falsos stalls durante la búsqueda de torque.
-  if (!movGiroConfirmado && pwmBusquedaGiro < PWM_SAFE_HARD_LIMIT) {
+  if (!movGiroConfirmado && pwmBusquedaGiro < PWM_TURN_MAX_LIMIT) {
     ultimoPulsoLadoGiroMs[0] = ultimoPulsoLadoGiroMs[1] = ahora;
   }
 
@@ -348,21 +348,20 @@ void controlarGiro() {
       } else {
         if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS && pwmBoostFrenado > 0) {
           ultimoAumentoTorqueGiroMs = ahora;
-          pwmBoostFrenado = max(0, pwmBoostFrenado - static_cast<int>(2 * PWM_SCALE_8_TO_10));
+          pwmBoostFrenado = max(0, pwmBoostFrenado - static_cast<int>(5 * PWM_SCALE_8_TO_10));
         }
       }
       pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     } else {
-      // --- MODO 2: Aproximación Fina Continua (0.0° a 5.0°) ---
-      // Preservar torque mínimo continuo sin pausas a 0 para no perder inercia rotacional
+      // --- MODO 2: Micro-Pulsos de Exactitud (0.0° a 5.0°) ---
       pwmObj = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
-      if (detectadoSinMovimiento) {
-        if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS) {
-          ultimoAumentoTorqueGiroMs = ahora;
-          pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - pwmObj, pwmBoostFrenado + static_cast<int>(3 * PWM_SCALE_8_TO_10));
-        }
+      if (ahora - ultimoMicroPulsoMs >= (microPulsoEncendido ? TURN_PULSE_ON_MS : TURN_PULSE_OFF_MS)) {
+        ultimoMicroPulsoMs = ahora;
+        microPulsoEncendido = !microPulsoEncendido;
       }
-      pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
+      if (!microPulsoEncendido) {
+        pwmObj = 0; // Pausa breve de 100 ms para evaluacion IMU entre pulsos
+      }
     }
   } else {
     pwmBoostFrenado = 0;
@@ -398,7 +397,7 @@ void controlarGiro() {
   } else frenarMotores();
 
   if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S || (ladoTicks[0]>=4&&ladoTicks[1]>=4)) {
-    /* movimiento detectado: ok */
+    movGiroConfirmado = true;
   } else if (ahora - inicioIntentoGiroMs > 5000) { reintentarGiro("turn_no_progress"); }
 }
 
