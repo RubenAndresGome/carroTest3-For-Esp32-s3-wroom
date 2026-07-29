@@ -73,9 +73,11 @@ Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
 
 ## Documentación adicional
 
+- [DIAGRAMA_SISTEMA_GENERAL.md](DIAGRAMA_SISTEMA_GENERAL.md) para el esquema de funcionamiento y diagramas UML del sistema general (Componentes, Despliegue, Secuencia y Estados)
+- [docs/especificacion_objetos_sistema.md](docs/especificacion_objetos_sistema.md) para la especificación detallada de clases, objetos y APIs de la versión actual
 - [CONTRIBUTING.md](CONTRIBUTING.md) para convenciones y validaciones
-- [docs/protocolo_json_steps_v2_hmi_esp32.md](docs/protocolo_json_steps_v2_hmi_esp32.md)
-  para el canal HMI–robot
+- [docs/protocolo_json_steps_v2_hmi_esp32.md](docs/protocolo_json_steps_v2_hmi_esp32.md) para el canal HMI–robot
 - [desktop_app/README.md](desktop_app/README.md) para la instalación local
 - [android_app/README.md](android_app/README.md) para la versión tablet
 - [docs/README.md](docs/README.md) para el panorama de arquitectura y hardware
+
