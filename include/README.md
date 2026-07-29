@@ -26,12 +26,14 @@ Este directorio contiene las definiciones de tipos, constantes de configuración
 ## Parámetros Críticos en `Config.h`
 
 ```cpp
-#define WHEEL_DIAMETER_CM       6.50f
-#define ENCODER_PPR            210
-#define PWM_MAX_GLOBAL         230   // Límite seguro DRV8833 (90%)
+#define WHEEL_DIAMETER_CM       6.60f
+#define PWM_SAFE_HARD_LIMIT    230   // Límite seguro avance rectilíneo (90%)
+#define PWM_TURN_MAX_LIMIT     247   // Límite seguro giros y calibración (97%)
 #define PWM_DIRECTION_PAUSE_MS 250   // Interlock al invertir sentido
 #define CONTROL_LOOP_PERIOD_US 10000 // Súper-ciclo 100 Hz (10 ms)
 #define TOLERANCIA_GIRO_DEG    3.5f  // Tolerancia angular de giro
+#define TURN_PULSE_ON_MS       50    // Ráfaga ON de exactitud (<5°)
+#define TURN_PULSE_OFF_MS      100   // Pausa OFF de exactitud (<5°)
 ```
 
 ---

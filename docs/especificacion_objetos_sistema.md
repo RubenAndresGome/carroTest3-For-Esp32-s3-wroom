@@ -115,8 +115,8 @@ Gobernanza de almacenamiento SQLite (`tmp_db/robot.sqlite3`):
 Gobernador físico y eléctrico de los motores DC vía DRV8833:
 - **`setup_MotorPinsLow()`**: Fuerza GPIOs a `LOW` inmediatamente al entrar a `setup()`.
 - **`aplicarVelocidades(int pwmL, int pwmR)`**:
-  - Clampa el PWM global al límite seguro **`PWM_SAFE_LIMIT` = 230/255** (~90%).
-  - Aplica tiempo muerto universal **`PWM_DIRECTION_PAUSE_MS` = 250 ms** ante cualquier cambio de signo en la velocidad.
+  - Clampa el PWM global al límite seguro de **`PWM_SAFE_HARD_LIMIT` = 230/255** (~90%) en avance rectilíneo y **`PWM_TURN_MAX_LIMIT` = 247/255** (~97%) en giros pivote y calibración.
+  - Aplica tiempo muerto universal **`PWM_DIRECTION_PAUSE_MS` = 250 ms** ante cualquier cambio de signo en la velocidad (`InterlockLado`).
 - **`frenarMotores()`**: Aplica cortocircuito de freno rápido en ambos puentes H y pone PWM a 0.
 
 #### `Sensores` (`include/Sensores.h`, `src/Sensores.cpp`)
@@ -132,12 +132,15 @@ Odometría diferencial y fusión de orientación:
   - Actualiza $X_{\text{global}}$ y $Y_{\text{global}}$ en centímetros.
 - **`actualizarOrientacion(deltaZ_rad)`**: Integra variación angular del giroscopio.
 - **`recentrarYawIMUEnReposo()`**: Corrección continua de drift angular mientras el robot permanece inmóvil en `LISTO` o `DESARMADO`.
+- **Candidatos de Giro Iniciales**: `candidatoGiroPos = -1` (avance izq / reversa der) y `candidatoGiroNeg = 1` para simetría angular inmediata.
 
 #### `Cinematica` (`include/Cinematica.h`, `src/Cinematica.cpp`)
 Controlador cinemático de bucle cerrado:
 - **`controlarGiro()`**:
-  - Ejecuta maniobra de pivote único continuo.
-  - Búsqueda continua de torque desde `140` hasta `247/255` en pasos de 5 cada 250 ms hasta vencer fricción estática.
+  - Ejecuta maniobra de pivote único dinámico.
+  - **MODO 1 (5° a 25°)**: Rampa adaptativa de torque desde `PWM_TURN_START` (130) hasta `247/255` (~97%) para vencer fricción estática.
+  - **MODO 2 (<5°)**: Ráfagas de micro-pulsos de exactitud (`TURN_PULSE_ON_MS` = 50 ms ON, `TURN_PULSE_OFF_MS` = 100 ms OFF con `pwmObj = 0`) para estabilizar inercia e integración IMU.
+  - Detección de movimiento validada con precisión flotante mediante `fabsf(gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S`.
   - Frenado y corrección inmediata al entrar en la banda de tolerancia **$\pm 3.5^\circ$**.
 - **`controlarAvance()`**:
   - Lazo PD dinámico de rumbo: $\text{ctrlRumbo} = \text{constrain}(e_{\text{rumbo}} \cdot 4.0 - G_z \cdot 12.0, -45, +45)$.

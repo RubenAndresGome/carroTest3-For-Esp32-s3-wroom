@@ -15,9 +15,9 @@
 1. Limitar la fuente a 0.5 A o usar batería con fusible de 1 A.
 2. Medir en serie con VMOT durante calibración, avance y giro.
 3. Medir corriente de arranque y rotor bloqueado por motor.
-4. Confirmar PWM cero antes de calibrar, techo global 230/255 y al menos 250 ms
+4. Confirmar PWM cero antes de calibrar, techo global 230/255 en avance, 247/255 en giros y al menos 250 ms
    a cero antes de toda inversión.
-5. Ejecutar calibración: búsqueda 140–230/255, validación +25°, reposo 2.5 s y
+5. Ejecutar calibración: búsqueda 140–247/255, validación +25°, reposo 2.5 s y
    regreso independiente a yaw 0°.
 6. Probar E-STOP durante una maniobra y confirmar enclavamiento y PWM cero.
 

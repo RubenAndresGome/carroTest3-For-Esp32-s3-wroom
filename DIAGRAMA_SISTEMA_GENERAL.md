@@ -57,7 +57,7 @@ flowchart TB
             Cine["Cinematica.cpp (Lazo Abierto/Cerrado)"]
             Sens["Sensores.cpp (PCNT + MPU6050)"]
             Pose["PoseEstimator.cpp (Odometría + Yaw)"]
-            Motores["Motores.cpp (PWM DRV8833 <= 230)"]
+            Motores["Motores.cpp (PWM DRV8833 <= 230 rectos / <= 247 giros)"]
             Seguridad["Seguridad.cpp (Watchdog + E-STOP)"]
 
             CmdQueue --> CmdProc
