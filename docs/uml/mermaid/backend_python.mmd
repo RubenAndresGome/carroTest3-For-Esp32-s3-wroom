@@ -1,0 +1,476 @@
+flowchart LR
+  subgraph f0["app.py"]
+    n4303201550["_load_application()"]
+    nd5db088795["parse_args()"]
+    n9222a02d25["main()"]
+    n3e89fea1ba["shutdown_host()"]
+  end
+  subgraph f1["__init__.py"]
+    nfb667eae25["create_app(*args: Any, **kwargs: Any)"]
+  end
+  subgraph f2["app_factory.py"]
+    nfb676358e5["create_app(config: AppConfig | None = None)"]
+    n8019a4b26e["create_csp_nonce()"]
+    n7502f63d12["secure_headers(response: Any)"]
+  end
+  subgraph f3["config.py"]
+    n2c28dde60e["normalize_robot_host(value: object)"]
+    n9e2127431d["from_environment(cls)"]
+  end
+  subgraph f4["database.py"]
+    n86f7e28f5c["__init__(self, path: Path)"]
+    n05766f4679["connect(self)"]
+    n23fb7c8d16["transaction(self)"]
+    ne45be1344d["initialize(self)"]
+    n9666ef0659["get_setting(self, key: str, default: Any = None)"]
+    n69d89b1d8c["set_setting(self, key: str, value: Any)"]
+    n3898e6f467["create_session(self)"]
+    ne90d71830a["update_session_identity(self, session_id: int, robot_id: str | None, firmware_version: str | None, protocol: str | None)"]
+    n83d5115c83["stop_session(self, session_id: int, reason: str | None = None)"]
+    n27ae570fe9["insert_command(self, command_id: str, session_id: int | None, name: str, payload: dict[str, Any], status: str)"]
+    n76e8386fea["update_command(self, command_id: str, status: str, error: str | None = None)"]
+    n46dc5cc68e["fail_nonterminal_commands(self, reason: str)"]
+    ncead72cfeb["close_orphan_sessions(self, reason: str)"]
+    n9200c1431e["insert_event(self, session_id: int | None, kind: str, severity: str, payload: dict[str, Any])"]
+    nceb90c202f["insert_telemetry(self, session_id: int, snapshot: Any)"]
+    na62e9c42fc["telemetry_rows(self, session_id: int)"]
+    nb756e00a7f["session_rows(self)"]
+    nb561ffbc05["session_row(self, session_id: int)"]
+    n719abc7e65["command_rows(self, session_id: int)"]
+    n091ba89cf1["event_rows(self, session_id: int)"]
+    n16e08bed59["purge_sessions(self, days: int)"]
+  end
+  subgraph f5["domain.py"]
+    nb983649585["_finite_number(value: Any, name: str, low: float, high: float)"]
+    n5dae047b8f["_heading_degrees(value: Any)"]
+    n8e2fbfdb5d["validate_command_payload(name: str, payload: Mapping[str, Any] | None)"]
+    n6ca843571d["create(cls, name: object, payload: Mapping[str, Any] | None = None, seq: int = 0, command_id: str | None = None)"]
+    n714e3e81a5["protocol_envelope(self)"]
+    nd75bd3f74d["split_segment_mm( start_x_mm: float, start_y_mm: float, end_x_mm: float, end_y_mm: float, max_segment_mm: float = MAX_SEGMENT_MM, )"]
+    n0e6e8ead54["from_message(cls, message: Mapping[str, Any], fallback_sequence: int)"]
+    na91b4952fd["public_dict(self)"]
+  end
+  subgraph f6["gateway.py"]
+    n768722c274["__init__( self, host_getter: Callable[[], str], on_message: Callable[[dict[str, Any]], None], on_state: Callable[[ConnectionState, str | None], None], on_sent: Callable[[RobotCommand], None], session_getter: Callable[[], str] = lambda: '', max_message_bytes: int = 4096, )"]
+    n9c7f87a274["start(self)"]
+    n06e0517455["stop(self)"]
+    n7e9b9be06c["request_reconnect(self)"]
+    ne1b1b4ed58["enqueue(self, command: RobotCommand)"]
+    nd7487f13c1["cancel(self, command_id: str | None)"]
+    nc197fe04ab["snapshot(self)"]
+    n75cdaae440["_set_state(self, state: ConnectionState, detail: str | None)"]
+    n1520d57fd8["_run(self)"]
+    n5a1cf90c3e["_drain_one(self, connection: Any)"]
+    n4aa436b2b5["_receive(self, raw: str | bytes)"]
+  end
+  subgraph f7["services.py"]
+    n7d5dace746["__init__(self, subscriber_size: int = 64)"]
+    n115452ec71["subscribe(self)"]
+    ne755d0e8c1["unsubscribe(self, subscriber: queue.Queue[str])"]
+    nfd2cf6432f["publish(self, kind: str, payload: dict[str, Any])"]
+    n88a4358b36["__init__(self, database: Database, queue_size: int = 256)"]
+    n12c9b28ed9["submit(self, session_id: int, snapshot: TelemetrySnapshot)"]
+    n62c79bc277["stop(self)"]
+    nef9be8ae96["_run(self)"]
+    n0e78c4700c["__init__(self, database: Database, start_gateway: bool = True, max_message_bytes: int = 4096)"]
+    n31e035e780["close(self)"]
+    n884c334d52["get_robot_host(self)"]
+    n7f9e095230["set_robot_host(self, value: object)"]
+    n60c9f4cd93["connect(self)"]
+    ndcab402af6["disconnect(self)"]
+    n9dc4e86e99["reconnect(self)"]
+    nb4f4a852d5["status(self)"]
+    n0c8cbb6a2b["mission_status(self)"]
+    nb2bb264f5a["_persist_mission(self)"]
+    neeae6914f7["_mission_wire_points(self)"]
+    nd004dad936["_require_ready_robot(self)"]
+    n5069cced8a["_build_segments(self, points: list[Any], mission_origin: dict[str, float])"]
+    n435fe0aec4["_activate_mission(self, segments: list[dict[str, float]], mission_origin: dict[str, float], kind: str, final_heading: float | None = None)"]
+    n9716cc95f2["start_mission(self, points: object)"]
+    n5704ddc140["start_return_home(self)"]
+    nb4799939aa["stop_mission(self, reason: str = 'operator_stop')"]
+    nf4a91db9b8["clear_robot_mission_memory(self)"]
+    ned4cdb96f2["_advance_mission(self)"]
+    nc1b94dd448["_set_return_state(self, state: str, error: str | None = None)"]
+    nec06d22e27["_queue_current_mission_step(self, seq_override: int | None = None)"]
+    nff9375a4dc["_queue_final_alignment(self, seq_override: int | None = None)"]
+    nd594864fbf["_expire_stalled_mission(self)"]
+    n64e9c7e35c["_block_mission(self, reason: str)"]
+    na90037dce8["_reconcile_mission_snapshot(self, snapshot: TelemetrySnapshot)"]
+    nad021044af["_reconcile_firmware_mission(self, firmware: dict[str, Any])"]
+    n8fd8e55f9b["send_command(self, name: object, payload: dict[str, Any] | None, seq_override: int | None = None, command_id_override: str | None = None)"]
+    n36cb103390["start_session(self)"]
+    n90bab01783["stop_session(self, reason: str | None = None)"]
+    n761e3775f1["_on_connection_state(self, state: ConnectionState, detail: str | None)"]
+    n11f28fea2c["_on_command_sent(self, command: RobotCommand)"]
+    n010a6770ca["_on_robot_message(self, message: dict[str, Any])"]
+    n561fea6bf3["_reconcile_short_memory_hello(self, message: dict[str, Any])"]
+    nbd2e9631c0["_movement_requires_stop(self)"]
+    nd469f1834d["_archive_mission_for_close(self)"]
+    n20d3c1d004["_finish_close_preparation(self, force: bool, stop_required: bool, stop_confirmed: bool)"]
+    n0ab2c921a7["prepare_close(self, force: bool = False, timeout_s: float | None = None)"]
+    na555b75091["purge_sessions(self, days: int)"]
+  end
+  subgraph f8["web.py"]
+    n11a7fd3b87["_service()"]
+    n9768753665["_require_token(function: Callable[..., Any])"]
+    nab39be2bb6["wrapper(*args: Any, **kwargs: Any)"]
+    nef186c8e4b["index()"]
+    nda183cb233["ui_asset(filename: str)"]
+    n815823909d["status()"]
+    n1eb416b959["robot_config()"]
+    n73c8d4811c["connection(action: str)"]
+    n93a37929af["command()"]
+    nd45a072485["estop()"]
+    n8fdba82311["missions()"]
+    n69f79285a5["clear_robot_mission_memory()"]
+    na13c11dcdf["return_home()"]
+    n18b113cef4["close_application()"]
+    n5f28d62235["start_session()"]
+    n1ef8b6f8a4["stop_session()"]
+    na5e8d26bb3["cleanup_sessions()"]
+    n13eb31c6b3["export_telemetry(session_id: int)"]
+    nefd77277fd["sessions()"]
+    n2ce00fdeb1["export_session_json(session_id: int)"]
+    n40caa891fe["events()"]
+    n2a6d149e68["stream()"]
+  end
+  n010a6770ca --> n0e6e8ead54
+  n010a6770ca --> n12c9b28ed9
+  n010a6770ca --> n561fea6bf3
+  n010a6770ca --> n64e9c7e35c
+  n010a6770ca --> n76e8386fea
+  n010a6770ca --> n9200c1431e
+  n010a6770ca --> na91b4952fd
+  n010a6770ca --> nc197fe04ab
+  n010a6770ca --> nd594864fbf
+  n010a6770ca --> ne90d71830a
+  n010a6770ca --> ned4cdb96f2
+  n010a6770ca --> nfd2cf6432f
+  n06e0517455 --> n75cdaae440
+  n091ba89cf1 --> n05766f4679
+  n0ab2c921a7 --> n20d3c1d004
+  n0ab2c921a7 --> n8fd8e55f9b
+  n0ab2c921a7 --> n9200c1431e
+  n0ab2c921a7 --> nbd2e9631c0
+  n0ab2c921a7 --> nc197fe04ab
+  n0e6e8ead54 --> n5dae047b8f
+  n0e6e8ead54 --> nb983649585
+  n0e78c4700c --> n2c28dde60e
+  n0e78c4700c --> n46dc5cc68e
+  n0e78c4700c --> n69d89b1d8c
+  n0e78c4700c --> n9200c1431e
+  n0e78c4700c --> n9666ef0659
+  n0e78c4700c --> n9c7f87a274
+  n0e78c4700c --> nb2bb264f5a
+  n0e78c4700c --> ncead72cfeb
+  n11f28fea2c --> n76e8386fea
+  n11f28fea2c --> nfd2cf6432f
+  n13eb31c6b3 --> n11a7fd3b87
+  n13eb31c6b3 --> na62e9c42fc
+  n1520d57fd8 --> n31e035e780
+  n1520d57fd8 --> n4aa436b2b5
+  n1520d57fd8 --> n5a1cf90c3e
+  n1520d57fd8 --> n75cdaae440
+  n16e08bed59 --> n23fb7c8d16
+  n18b113cef4 --> n0ab2c921a7
+  n18b113cef4 --> n11a7fd3b87
+  n18b113cef4 --> n9c7f87a274
+  n1eb416b959 --> n11a7fd3b87
+  n1eb416b959 --> n7f9e095230
+  n1eb416b959 --> n884c334d52
+  n1ef8b6f8a4 --> n11a7fd3b87
+  n20d3c1d004 --> n0c8cbb6a2b
+  n20d3c1d004 --> n46dc5cc68e
+  n20d3c1d004 --> n83d5115c83
+  n20d3c1d004 --> n9200c1431e
+  n20d3c1d004 --> nd469f1834d
+  n23fb7c8d16 --> n05766f4679
+  n23fb7c8d16 --> n31e035e780
+  n27ae570fe9 --> n23fb7c8d16
+  n2a6d149e68 -.-> nb4f4a852d5
+  n2a6d149e68 -.-> ne755d0e8c1
+  n2ce00fdeb1 --> n091ba89cf1
+  n2ce00fdeb1 --> n11a7fd3b87
+  n2ce00fdeb1 --> n719abc7e65
+  n2ce00fdeb1 --> na62e9c42fc
+  n2ce00fdeb1 --> nb561ffbc05
+  n31e035e780 --> n06e0517455
+  n31e035e780 --> n83d5115c83
+  n36cb103390 --> n3898e6f467
+  n36cb103390 --> nfd2cf6432f
+  n3898e6f467 --> n23fb7c8d16
+  n3898e6f467 --> nefd77277fd
+  n3e89fea1ba --> n31e035e780
+  n40caa891fe -.-> n115452ec71
+  n40caa891fe -.-> n11a7fd3b87
+  n40caa891fe -.-> n2a6d149e68
+  n40caa891fe -.-> nb4f4a852d5
+  n40caa891fe -.-> ne755d0e8c1
+  n435fe0aec4 --> n0c8cbb6a2b
+  n435fe0aec4 --> n69d89b1d8c
+  n435fe0aec4 --> n9666ef0659
+  n435fe0aec4 --> nb2bb264f5a
+  n435fe0aec4 --> nec06d22e27
+  n435fe0aec4 --> nfd2cf6432f
+  n46dc5cc68e --> n23fb7c8d16
+  n5069cced8a --> n6ca843571d
+  n5069cced8a --> nd75bd3f74d
+  n561fea6bf3 --> n64e9c7e35c
+  n561fea6bf3 --> n76e8386fea
+  n561fea6bf3 --> n8fd8e55f9b
+  n561fea6bf3 --> n9200c1431e
+  n561fea6bf3 --> nec06d22e27
+  n561fea6bf3 --> ned4cdb96f2
+  n561fea6bf3 --> nff9375a4dc
+  n5704ddc140 --> n435fe0aec4
+  n5704ddc140 --> n69d89b1d8c
+  n5704ddc140 --> n9666ef0659
+  n5704ddc140 --> nd004dad936
+  n5a1cf90c3e -.-> n714e3e81a5
+  n5dae047b8f --> nb983649585
+  n5f28d62235 --> n11a7fd3b87
+  n60c9f4cd93 --> n9c7f87a274
+  n64e9c7e35c --> n0c8cbb6a2b
+  n64e9c7e35c --> n76e8386fea
+  n64e9c7e35c --> n8fd8e55f9b
+  n64e9c7e35c --> nb2bb264f5a
+  n64e9c7e35c --> nc1b94dd448
+  n64e9c7e35c --> nd7487f13c1
+  n64e9c7e35c --> nfd2cf6432f
+  n69d89b1d8c --> n23fb7c8d16
+  n69f79285a5 --> n11a7fd3b87
+  n6ca843571d --> n8e2fbfdb5d
+  n719abc7e65 --> n05766f4679
+  n73c8d4811c --> n11a7fd3b87
+  n73c8d4811c --> nb4f4a852d5
+  n761e3775f1 --> n36cb103390
+  n761e3775f1 --> n83d5115c83
+  n761e3775f1 --> n9200c1431e
+  n761e3775f1 --> nfd2cf6432f
+  n76e8386fea --> n23fb7c8d16
+  n7f9e095230 --> n2c28dde60e
+  n7f9e095230 --> n69d89b1d8c
+  n7f9e095230 --> n7e9b9be06c
+  n7f9e095230 --> nfd2cf6432f
+  n815823909d --> n11a7fd3b87
+  n83d5115c83 --> n23fb7c8d16
+  n88a4358b36 -.-> n9c7f87a274
+  n8e2fbfdb5d --> n5dae047b8f
+  n8e2fbfdb5d --> nb983649585
+  n8fd8e55f9b --> n27ae570fe9
+  n8fd8e55f9b --> n69d89b1d8c
+  n8fd8e55f9b --> n6ca843571d
+  n8fd8e55f9b --> n76e8386fea
+  n8fd8e55f9b --> ne1b1b4ed58
+  n8fd8e55f9b --> nfd2cf6432f
+  n8fdba82311 --> n0c8cbb6a2b
+  n8fdba82311 --> n11a7fd3b87
+  n8fdba82311 --> n9716cc95f2
+  n8fdba82311 --> nb4799939aa
+  n90bab01783 --> nfd2cf6432f
+  n9200c1431e --> n23fb7c8d16
+  n9200c1431e --> n40caa891fe
+  n9222a02d25 --> n31e035e780
+  n9222a02d25 --> n3e89fea1ba
+  n9222a02d25 --> n4303201550
+  n9222a02d25 --> n9c7f87a274
+  n9222a02d25 --> nd5db088795
+  n9222a02d25 --> nfb667eae25
+  n93a37929af --> n11a7fd3b87
+  n93a37929af --> n8fd8e55f9b
+  n9666ef0659 --> n05766f4679
+  n9716cc95f2 --> n435fe0aec4
+  n9716cc95f2 --> n5069cced8a
+  n9716cc95f2 --> nd004dad936
+  n9768753665 --> nab39be2bb6
+  n9c7f87a274 --> nc197fe04ab
+  n9dc4e86e99 --> n7e9b9be06c
+  n9dc4e86e99 --> n9c7f87a274
+  n9dc4e86e99 --> nc197fe04ab
+  n9e2127431d --> n2c28dde60e
+  na13c11dcdf --> n11a7fd3b87
+  na13c11dcdf --> n5704ddc140
+  na5e8d26bb3 --> n11a7fd3b87
+  na5e8d26bb3 --> n16e08bed59
+  na62e9c42fc --> n05766f4679
+  na90037dce8 --> n64e9c7e35c
+  na90037dce8 --> nad021044af
+  nad021044af --> n0c8cbb6a2b
+  nad021044af --> nb2bb264f5a
+  nad021044af --> nfd2cf6432f
+  nb2bb264f5a --> n69d89b1d8c
+  nb4799939aa --> n0c8cbb6a2b
+  nb4799939aa --> n69d89b1d8c
+  nb4799939aa --> n76e8386fea
+  nb4799939aa --> n8fd8e55f9b
+  nb4799939aa --> n9666ef0659
+  nb4799939aa --> nb2bb264f5a
+  nb4799939aa --> nc1b94dd448
+  nb4799939aa --> nd7487f13c1
+  nb4799939aa --> nfd2cf6432f
+  nb4f4a852d5 --> n0c8cbb6a2b
+  nb4f4a852d5 --> na91b4952fd
+  nb4f4a852d5 --> nc197fe04ab
+  nb561ffbc05 --> n05766f4679
+  nb756e00a7f --> n05766f4679
+  nc1b94dd448 --> n69d89b1d8c
+  nc1b94dd448 --> n9666ef0659
+  ncead72cfeb --> n23fb7c8d16
+  nceb90c202f --> n23fb7c8d16
+  nd004dad936 --> nc197fe04ab
+  nd45a072485 --> n11a7fd3b87
+  nd45a072485 --> n8fd8e55f9b
+  nd469f1834d --> n0c8cbb6a2b
+  nd469f1834d --> nb2bb264f5a
+  nd469f1834d --> nc1b94dd448
+  nd469f1834d --> nd7487f13c1
+  nd469f1834d --> nfd2cf6432f
+  nd594864fbf --> n64e9c7e35c
+  nd75bd3f74d --> nb983649585
+  ndcab402af6 --> n06e0517455
+  ne45be1344d --> n05766f4679
+  ne45be1344d --> n31e035e780
+  ne90d71830a --> n23fb7c8d16
+  nec06d22e27 --> n8fd8e55f9b
+  nec06d22e27 --> nb2bb264f5a
+  ned4cdb96f2 --> n0c8cbb6a2b
+  ned4cdb96f2 --> n69d89b1d8c
+  ned4cdb96f2 --> nb2bb264f5a
+  ned4cdb96f2 --> nc1b94dd448
+  ned4cdb96f2 --> nec06d22e27
+  ned4cdb96f2 --> nfd2cf6432f
+  ned4cdb96f2 --> nff9375a4dc
+  nef9be8ae96 -.-> nceb90c202f
+  nefd77277fd --> n11a7fd3b87
+  nefd77277fd --> nb756e00a7f
+  nf4a91db9b8 --> nb4799939aa
+  nfb676358e5 --> n69d89b1d8c
+  nfb676358e5 --> n7502f63d12
+  nfb676358e5 --> n8019a4b26e
+  nfb676358e5 --> n9666ef0659
+  nfb676358e5 --> n9e2127431d
+  nfb676358e5 --> ne45be1344d
+  nff9375a4dc --> n8fd8e55f9b
+  nff9375a4dc --> nb2bb264f5a
+  classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
+  classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
+  classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
+  class n4303201550 bajo
+  class nd5db088795 bajo
+  class n9222a02d25 bajo
+  class n3e89fea1ba bajo
+  class nfb667eae25 bajo
+  class nfb676358e5 bajo
+  class n8019a4b26e bajo
+  class n7502f63d12 bajo
+  class n2c28dde60e bajo
+  class n9e2127431d medio
+  class n86f7e28f5c bajo
+  class n05766f4679 bajo
+  class n23fb7c8d16 bajo
+  class ne45be1344d bajo
+  class n9666ef0659 bajo
+  class n69d89b1d8c bajo
+  class n3898e6f467 bajo
+  class ne90d71830a bajo
+  class n83d5115c83 bajo
+  class n27ae570fe9 bajo
+  class n76e8386fea bajo
+  class n46dc5cc68e bajo
+  class ncead72cfeb bajo
+  class n9200c1431e bajo
+  class nceb90c202f bajo
+  class na62e9c42fc bajo
+  class nb756e00a7f bajo
+  class nb561ffbc05 bajo
+  class n719abc7e65 bajo
+  class n091ba89cf1 bajo
+  class n16e08bed59 bajo
+  class nb983649585 bajo
+  class n5dae047b8f bajo
+  class n8e2fbfdb5d bajo
+  class n6ca843571d bajo
+  class n714e3e81a5 bajo
+  class nd75bd3f74d bajo
+  class n0e6e8ead54 medio
+  class na91b4952fd medio
+  class n768722c274 bajo
+  class n9c7f87a274 medio
+  class n06e0517455 medio
+  class n7e9b9be06c bajo
+  class ne1b1b4ed58 medio
+  class nd7487f13c1 bajo
+  class nc197fe04ab bajo
+  class n75cdaae440 medio
+  class n1520d57fd8 medio
+  class n5a1cf90c3e bajo
+  class n4aa436b2b5 medio
+  class n7d5dace746 bajo
+  class n115452ec71 bajo
+  class ne755d0e8c1 bajo
+  class nfd2cf6432f bajo
+  class n88a4358b36 medio
+  class n12c9b28ed9 bajo
+  class n62c79bc277 medio
+  class nef9be8ae96 bajo
+  class n0e78c4700c bajo
+  class n31e035e780 medio
+  class n884c334d52 bajo
+  class n7f9e095230 bajo
+  class n60c9f4cd93 bajo
+  class ndcab402af6 medio
+  class n9dc4e86e99 bajo
+  class nb4f4a852d5 medio
+  class n0c8cbb6a2b bajo
+  class nb2bb264f5a bajo
+  class neeae6914f7 bajo
+  class nd004dad936 bajo
+  class n5069cced8a bajo
+  class n435fe0aec4 medio
+  class n9716cc95f2 bajo
+  class n5704ddc140 bajo
+  class nb4799939aa medio
+  class nf4a91db9b8 bajo
+  class ned4cdb96f2 medio
+  class nc1b94dd448 bajo
+  class nec06d22e27 bajo
+  class nff9375a4dc bajo
+  class nd594864fbf bajo
+  class n64e9c7e35c medio
+  class na90037dce8 medio
+  class nad021044af medio
+  class n8fd8e55f9b medio
+  class n36cb103390 medio
+  class n90bab01783 medio
+  class n761e3775f1 bajo
+  class n11f28fea2c bajo
+  class n010a6770ca bajo
+  class n561fea6bf3 medio
+  class nbd2e9631c0 bajo
+  class nd469f1834d medio
+  class n20d3c1d004 medio
+  class n0ab2c921a7 medio
+  class na555b75091 bajo
+  class n11a7fd3b87 bajo
+  class n9768753665 bajo
+  class nab39be2bb6 bajo
+  class nef186c8e4b bajo
+  class nda183cb233 bajo
+  class n815823909d bajo
+  class n1eb416b959 bajo
+  class n73c8d4811c bajo
+  class n93a37929af bajo
+  class nd45a072485 medio
+  class n8fdba82311 bajo
+  class n69f79285a5 bajo
+  class na13c11dcdf bajo
+  class n18b113cef4 bajo
+  class n5f28d62235 bajo
+  class n1ef8b6f8a4 bajo
+  class na5e8d26bb3 bajo
+  class n13eb31c6b3 medio
+  class nefd77277fd bajo
+  class n2ce00fdeb1 medio
+  class n40caa891fe bajo
+  class n2a6d149e68 bajo

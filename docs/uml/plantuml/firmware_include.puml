@@ -1,0 +1,71 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam backgroundColor #07111F
+skinparam componentStyle rectangle
+skinparam componentBackgroundColor #102238
+skinparam componentBorderColor #39E6AA
+skinparam componentFontColor white
+skinparam ArrowColor #5BD8FF
+title firmware/include — grafo funcional
+component "tipo\nCC=1 · Bajo" as n52fd560f83
+component "seq\nCC=1 · Bajo" as ndfcaf3f3be
+component "heading\nCC=1 · Bajo" as n2723cbcf48
+component "distanciaCm\nCC=1 · Bajo" as ne704d1ed5d
+component "factor\nCC=1 · Bajo" as n2135af2d5f
+component "tipo\nCC=1 · Bajo" as nae6550dc08
+component "seq\nCC=1 · Bajo" as na459c2b651
+component "detalle\nCC=1 · Bajo" as n8ee7331898
+component "progreso\nCC=1 · Bajo" as n7c591dc3c6
+component "x_cm\nCC=1 · Bajo" as nb9914d7cbb
+component "y_cm\nCC=1 · Bajo" as n95dbe740db
+component "step_id\nCC=1 · Bajo" as nfd79d6b1ab
+component "getX\nCC=1 · Bajo" as n3bb4d1fc5e
+component "getY\nCC=1 · Bajo" as n9130f7fc90
+component "getThetaRad\nCC=1 · Bajo" as n1834fa7be3
+component "getThetaDeg\nCC=1 · Bajo" as n07aa956131
+component "getArcoCentroGiroCm\nCC=1 · Bajo" as n82c0e0074d
+component "getTraslacionGiroXCm\nCC=1 · Bajo" as n2fc3d55854
+component "getTraslacionGiroYCm\nCC=1 · Bajo" as nbe71efe7e7
+component "x_global\nCC=1 · Bajo" as nbedd71425a
+component "y_global\nCC=1 · Bajo" as nd7a4b30061
+component "theta_rad\nCC=1 · Bajo" as naaf8b63ce1
+component "last_pulsos_FL\nCC=1 · Bajo" as nb5a3b6f3c6
+component "last_pulsos_FR\nCC=1 · Bajo" as nb9bf88a428
+component "last_pulsos_BL\nCC=1 · Bajo" as n74d860e5dc
+component "last_pulsos_BR\nCC=1 · Bajo" as n6efa12ee47
+component "cm_por_pulso\nCC=1 · Bajo" as nca786383e3
+component "ultimo_signo_l\nCC=1 · Bajo" as nb936c76155
+component "ultimo_signo_r\nCC=1 · Bajo" as nb3c380a9a3
+component "arco_centro_giro_cm\nCC=1 · Bajo" as n1188c6a6bf
+component "traslacion_giro_x_cm\nCC=1 · Bajo" as nf4fed91bea
+component "traslacion_giro_y_cm\nCC=1 · Bajo" as n6bc5cba68b
+component "DISTANCIA_EJES_CM\nCC=1 · Bajo" as nedb05230fb
+component "inicio_movimiento_ms\nCC=1 · Bajo" as nb8a33f8356
+component "pulsos_movimiento_iniciales\nCC=1 · Bajo" as nfcd2379a57
+component "pulsosFL\nCC=1 · Bajo" as na1bb2d9854
+component "pulsosFR\nCC=1 · Bajo" as nd1a857052e
+component "pulsosBL\nCC=1 · Bajo" as n9d7f448fe0
+component "pulsosBR\nCC=1 · Bajo" as n74e4f2a87a
+component "delta_pulsos_filtrado_FL\nCC=1 · Bajo" as n5b7748b089
+component "delta_pulsos_filtrado_FR\nCC=1 · Bajo" as n59e87ae3c9
+component "delta_pulsos_filtrado_BL\nCC=1 · Bajo" as n71156c1ab3
+component "delta_pulsos_filtrado_BR\nCC=1 · Bajo" as n0dc73f2365
+component "velocidad_filtrada_L_cm_s\nCC=1 · Bajo" as n4620569983
+component "velocidad_filtrada_R_cm_s\nCC=1 · Bajo" as n0a82169272
+component "imu_deltaZ_rad\nCC=1 · Bajo" as ndfa959ae0b
+component "gyro_z_filtrado_rad_s\nCC=1 · Bajo" as n887ffd1cbd
+component "gyro_z_offset_rad_s\nCC=1 · Bajo" as n28dd55e800
+component "yaw_integrado_deg\nCC=1 · Bajo" as n6a9588871e
+component "timestamp_ms\nCC=1 · Bajo" as n92b92815e1
+component "timestamp_us\nCC=1 · Bajo" as n53765c5a44
+component "mpu_present\nCC=1 · Bajo" as n6d2232461b
+component "mpu_stale\nCC=1 · Bajo" as n588b6ba92e
+component "mpu_calibrated\nCC=1 · Bajo" as n7c7ebe4c92
+component "sequence\nCC=1 · Bajo" as n19143883c9
+legend
+|= Flecha |= Interacción |
+| --> | síncrona |
+| ..> | asíncrona, evento o cola |
+endlegend
+@enduml

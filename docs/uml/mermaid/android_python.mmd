@@ -1,0 +1,14 @@
+flowchart LR
+  subgraph f0["mobile_entry.py"]
+    nf409672dbd["run(android_files_dir: str, port: int = 8080)"]
+    n30c2a870f3["stop()"]
+    n848f86d9b2["prepare_close(force: bool = False)"]
+    n572c203830["is_ready()"]
+  end
+  classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
+  classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
+  classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
+  class nf409672dbd bajo
+  class n30c2a870f3 medio
+  class n848f86d9b2 bajo
+  class n572c203830 bajo

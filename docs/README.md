@@ -2,6 +2,21 @@
 
 Este directorio reúne la documentación técnica vigente, esquemas de funcionamiento y especificaciones del proyecto.
 
+## Punto de entrada recomendado
+
+- 🧭 [**Portal documental interactivo**](portal/README.md): instalación local
+  del manual HTML/Tailwind con Mermaid, Cytoscape y Chart.js.
+- 📗 [**Manual de uso y recuperación**](manual_usuario.md): operación completa,
+  actualización Android, calibración, rutas, Ockham, desconexiones y cierre.
+- 🔎 [**Auditoría del estado actual**](auditoria_estado_actual.md): dictamen,
+  hallazgos trazables y matriz de reconexión.
+- ✅ [**Informe de cobertura de la entrega**](informe_entrega_documentacion.md):
+  matriz requisito–evidencia y resultados de todas las puertas ejecutadas.
+- 🧬 [**UML de todas las funciones por carpeta**](uml/README.md): inventario
+  regenerable de las fuentes activas.
+- 🎬 [**Evidencia audiovisual**](../evidencia/README.md): videos normalizados,
+  hashes, fotogramas y lectura tutorial.
+
 ---
 
 ## Documentos Principales de Arquitectura
@@ -28,3 +43,21 @@ Este directorio reúne la documentación técnica vigente, esquemas de funcionam
 ## Archivos Históricos
 
 Los documentos de iteraciones anteriores están conservados en [`archive/legacy`](../archive/legacy/README.md) y no describen necesariamente la versión activa.
+
+## Regeneración y validación
+
+```powershell
+python scripts/documentacion/generar_catalogo.py
+python scripts/documentacion/renderizar_uml.py
+python scripts/documentacion/generar_resumen_sqlite.py
+python scripts/documentacion/validar_enlaces.py
+Push-Location docs/portal
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run build
+Pop-Location
+```
+
+El inventario excluye `archive/`, pruebas, dependencias, `.pio`, `build` y
+`dist`. La salida versionada se genera en `documentacionCompleta/site/`; se
+regenera desde `docs/portal/` y no se edita manualmente.

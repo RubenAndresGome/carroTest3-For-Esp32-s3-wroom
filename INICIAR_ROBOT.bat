@@ -19,4 +19,5 @@ if not exist "desktop_app\.venv\Scripts\python.exe" (
   )
 )
 
+start "" /min "documentacionCompleta\ABRIR_PORTAL.bat"
 call "desktop_app\scripts\run.bat"

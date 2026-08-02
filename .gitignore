@@ -76,6 +76,10 @@ desktop_app/.exe-smoke-data/
 *.sqlite3
 *.sqlite3-wal
 *.sqlite3-shm
+*.sqlite
+*.db
+*.sqlite3-*
+tmp_db/
 
 # Paquete opcional para reconstrucción offline; se conserva solo el marcador.
 desktop_app/vendor/wheels/**/*.whl
@@ -89,9 +93,15 @@ desktop_app/vendor/wheels/**/*.whl
 .npm/
 desktop_app/frontend/dist/
 desktop_app/robot_app/static/vite-dist/
+docs/portal/dist/
+.codex_tools/
 android_app/.gradle/
 android_app/local.properties
 android_app/**/build/
+*.apk
+*.aab
+*.jks
+*.keystore
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -106,6 +116,8 @@ pnpm-debug.log*
 *.bak
 *.stackdump
 logs_mensajes/
+**/crash*.txt
+**/logcat*.txt
 
 # -----------------------------------------------------------------------------
 # Snapshots regenerables del legado

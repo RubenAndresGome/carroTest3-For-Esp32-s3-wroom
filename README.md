@@ -31,7 +31,9 @@ La base del diseño es la siguiente:
 ├── include/                   Headers, estados, seguridad y configuración
 ├── desktop_app/               HMI canónico, backend Flask, frontend y scripts
 ├── android_app/               APK Chaquopy/WebView del mismo backend canónico
-├── docs/                      Arquitectura, protocolo JSON V1 y hardware
+├── docs/                      Arquitectura, protocolo JSON v3 y manuales
+├── evidencia/                 Videos normalizados, hashes y fotogramas tutoriales
+├── documentacionCompleta/     Portal documental estático listo para abrir
 ├── scripts/                   Herramientas de compilación y validación
 ├── archive/                   Ensayos aprobados y prototipos legacy
 ├── lib/                       Bibliotecas de terceros del firmware
@@ -46,7 +48,7 @@ La base del diseño es la siguiente:
 
 - El firmware se compila con PlatformIO y se carga al ESP32-S3.
 - El backend Python de [desktop_app/](desktop_app/) se abre en el equipo local
-  y conecta con el robot por el Wi-Fi de la red `ROBOT_S3_LOCAL`.
+  y conecta con el robot por el Wi-Fi configurado como `<SSID_ROBOT>`.
 - La HMI realiza la calibración y la validación del estado físico antes de
   permitir el movimiento.
 
@@ -73,10 +75,21 @@ Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
 
 ## Documentación adicional
 
+- [docs/manual_usuario.md](docs/manual_usuario.md) para operación,
+  recuperación de desconexiones y cierre seguro
+- [docs/auditoria_estado_actual.md](docs/auditoria_estado_actual.md) para el
+  dictamen verificable del código y las pruebas físicas disponibles
+- [docs/portal/README.md](docs/portal/README.md) para abrir el portal
+  HTML/Tailwind con diagramas y catálogo navegable
+- [documentacionCompleta/README.md](documentacionCompleta/README.md) para abrir
+  con doble clic la versión estática generada y versionada
+- [docs/uml/README.md](docs/uml/README.md) para los UML generados de todas las
+  funciones activas por carpeta
+- [evidencia/README.md](evidencia/README.md) para videos, hashes y fotogramas
 - [DIAGRAMA_SISTEMA_GENERAL.md](DIAGRAMA_SISTEMA_GENERAL.md) para el esquema de funcionamiento y diagramas UML del sistema general (Componentes, Despliegue, Secuencia y Estados)
 - [docs/especificacion_objetos_sistema.md](docs/especificacion_objetos_sistema.md) para la especificación detallada de clases, objetos y APIs de la versión actual
 - [CONTRIBUTING.md](CONTRIBUTING.md) para convenciones y validaciones
-- [docs/protocolo_json_steps_v2_hmi_esp32.md](docs/protocolo_json_steps_v2_hmi_esp32.md) para el canal HMI–robot
+- [docs/protocolo_json_steps_v3_hmi_esp32.md](docs/protocolo_json_steps_v3_hmi_esp32.md) para el canal HMI–robot activo
 - [desktop_app/README.md](desktop_app/README.md) para la instalación local
 - [android_app/README.md](android_app/README.md) para la versión tablet
 - [docs/README.md](docs/README.md) para el panorama de arquitectura y hardware

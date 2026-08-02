@@ -1,0 +1,20 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam backgroundColor #07111F
+skinparam componentStyle rectangle
+skinparam componentBackgroundColor #102238
+skinparam componentBorderColor #39E6AA
+skinparam componentFontColor white
+skinparam ArrowColor #5BD8FF
+title android/python — grafo funcional
+component "run\nCC=1 · Bajo" as nf409672dbd
+component "stop\nCC=5 · Medio" as n30c2a870f3
+component "prepare_close\nCC=2 · Bajo" as n848f86d9b2
+component "is_ready\nCC=1 · Bajo" as n572c203830
+legend
+|= Flecha |= Interacción |
+| --> | síncrona |
+| ..> | asíncrona, evento o cola |
+endlegend
+@enduml

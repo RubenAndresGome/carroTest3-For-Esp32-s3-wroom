@@ -17,7 +17,9 @@
 - Documentación vigente: `docs/`.
 - Herramientas repetibles: `scripts/<subsistema>/`.
 - Referencias no operativas: `archive/legacy/`.
-- Artefactos regenerables y datos locales nunca se confirman en Git.
+- Datos locales y bases crudas nunca se confirman en Git. Los artefactos
+  documentales reproducibles de `docs/uml/exportados/` y
+  `documentacionCompleta/site/` sí se versionan como excepción explícita.
 
 ## Comprobaciones antes de integrar
 
@@ -30,6 +32,15 @@ Pop-Location
 desktop_app\scripts\frontend\compilar_frontend.bat
 scripts\desarrollo\validar_hmi.bat
 android_app\build_apk.ps1
+python scripts\documentacion\generar_catalogo.py
+python scripts\documentacion\renderizar_uml.py
+python scripts\documentacion\generar_resumen_sqlite.py
+python scripts\documentacion\validar_enlaces.py
+Push-Location docs\portal
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run build
+Pop-Location
 ```
 
 Los ensayos `archive/firmware_tests/*.cpp.disabled` se compilan únicamente con

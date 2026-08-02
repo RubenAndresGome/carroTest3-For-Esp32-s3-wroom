@@ -1,0 +1,235 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam backgroundColor #07111F
+skinparam componentStyle rectangle
+skinparam componentBackgroundColor #102238
+skinparam componentBorderColor #39E6AA
+skinparam componentFontColor white
+skinparam ArrowColor #5BD8FF
+title hmi/canonica — grafo funcional
+component "initChart\nCC=5 · Medio" as nee1a6a0b78
+component "actualizarBarra\nCC=3 · Bajo" as n499fcf91a7
+component "init\nCC=2 · Bajo" as naa761ddf13
+component "api\nCC=6 · Bajo" as n5d8de27216
+component "closeApplication\nCC=10 · Medio" as n1eb30b32f8
+component "connectBackend\nCC=3 · Bajo" as ncbda059a58
+component "consumeBackend\nCC=11 · Medio" as n24e3573506
+component "applyBackendTelemetry\nCC=141 · Alto" as n7dc0415ad7
+component "send\nCC=7 · Medio" as nd786ec0a0d
+component "sendMove\nCC=4 · Bajo" as n01e34424b2
+component "init\nCC=4 · Bajo" as nff3745dc1b
+component "setState\nCC=1 · Bajo" as nfeaa5344ac
+component "applyTelemetry\nCC=54 · Alto" as n310ca3d0a6
+component "onRobotEvent\nCC=19 · Bajo" as ne528bc1fbb
+component "init\nCC=1 · Bajo" as n83015f61e2
+component "change\nCC=4 · Bajo" as nee2f53d786
+component "applySnapshot\nCC=8 · Bajo" as nafecb1f816
+component "applyConnection\nCC=5 · Medio" as nd11d8a2d86
+component "applySession\nCC=2 · Medio" as n620364c7a2
+component "applyIdentity\nCC=4 · Bajo" as n50e280aa82
+component "esc\nCC=3 · Bajo" as nb443efa380
+component "loadHistory\nCC=4 · Medio" as n03da7d2bb2
+component "init\nCC=1 · Bajo" as n09b87c3718
+component "add\nCC=7 · Bajo" as n495824e449
+component "clear\nCC=3 · Bajo" as n358fc686e6
+component "setFilter\nCC=2 · Bajo" as n51536db22f
+component "downloadTXT\nCC=2 · Bajo" as n9a0d149461
+component "init\nCC=2 · Bajo" as n005287f472
+component "_ticks\nCC=4 · Bajo" as nf165946cf2
+component "loop\nCC=19 · Alto" as n9c497b2954
+component "init\nCC=1 · Bajo" as n874d80cedd
+component "update\nCC=13 · Bajo" as nf873e7be72
+component "render\nCC=10 · Medio" as n0eb63532ba
+component "_process\nCC=6 · Bajo" as n28404d21e3
+component "_uiTelem\nCC=11 · Bajo" as n46a8c63678
+component "_uiPos\nCC=3 · Bajo" as nefe53ae67d
+component "_ui\nCC=2 · Bajo" as nd3ec81537a
+component "update\nCC=5 · Medio" as nc2ea51e326
+component "init\nCC=1 · Medio" as na03b402ce9
+component "_chartOptions\nCC=1 · Bajo" as ndb9606cca3
+component "_initCharts\nCC=5 · Bajo" as na593ff6d29
+component "resizeCharts\nCC=3 · Bajo" as n35690a4881
+component "clearTelemetryTrail\nCC=2 · Bajo" as n57582c23f7
+component "updateLabels\nCC=2 · Bajo" as nc857e445b1
+component "updatePreview\nCC=4 · Bajo" as n9f3d4efa0a
+component "addStep\nCC=8 · Bajo" as n62d29c02ec
+component "removeLastStep\nCC=4 · Bajo" as n2376ea587c
+component "appendLimited\nCC=2 · Bajo" as ne0a576a097
+component "updateListUI\nCC=9 · Bajo" as n4aed01ac25
+component "drawPlan\nCC=2 · Bajo" as n8b1e31f0fc
+component "autoScale\nCC=4 · Bajo" as nb2ee4fda87
+component "updateTelemetryMap\nCC=4 · Bajo" as nf97041cdcd
+component "toggleCinema\nCC=1 · Bajo" as n5c29d8c5ab
+component "lockTabs\nCC=2 · Bajo" as n12c45c1d06
+component "unlockTabs\nCC=1 · Bajo" as n455d72224e
+component "start\nCC=8 · Medio" as n5dda903873
+component "onRobotEvent\nCC=1 · Bajo" as na09d5ae582
+component "onMission\nCC=12 · Medio" as nf49f37b09f
+component "onFsmIdle\nCC=1 · Bajo" as n5146fd5912
+component "failRoute\nCC=1 · Bajo" as n57eaee319e
+component "stopAndReset\nCC=7 · Medio" as naf210a7a1c
+component "clearRobotMemory\nCC=4 · Medio" as nc580fabe2b
+component "ockhamReturn\nCC=7 · Medio" as n755859acce
+component "init\nCC=1 · Bajo" as nac06183909
+component "init\nCC=3 · Bajo" as n3a8d0d7387
+component "_pos\nCC=3 · Bajo" as n67a1ad1741
+component "_sendManual\nCC=8 · Medio" as n1415fcf322
+component "start\nCC=12 · Medio" as n7044b57d0e
+component "move\nCC=13 · Medio" as n8b1ad5be84
+component "end\nCC=3 · Medio" as n2c9fdf6d34
+component "_resetVis\nCC=1 · Bajo" as n2ed59fa1cc
+component "_bars\nCC=5 · Bajo" as nc6792f166d
+component "_dirName\nCC=18 · Bajo" as n63d08ce8c2
+component "init\nCC=31 · Alto" as n13665709c2
+nee1a6a0b78 ..> n499fcf91a7 : asíncrona
+nee1a6a0b78 ..> n01e34424b2 : asíncrona
+nee1a6a0b78 ..> nf873e7be72 : asíncrona
+n499fcf91a7 --> nf873e7be72 : síncrona
+naa761ddf13 --> n495824e449 : síncrona
+naa761ddf13 --> ncbda059a58 : síncrona
+n1eb30b32f8 ..> n495824e449 : asíncrona
+n1eb30b32f8 ..> n5d8de27216 : asíncrona
+ncbda059a58 ..> n495824e449 : asíncrona
+ncbda059a58 ..> n5d8de27216 : asíncrona
+ncbda059a58 ..> n24e3573506 : asíncrona
+n24e3573506 --> n495824e449 : síncrona
+n24e3573506 --> n7dc0415ad7 : síncrona
+n24e3573506 --> nd11d8a2d86 : síncrona
+n24e3573506 --> n620364c7a2 : síncrona
+n24e3573506 --> nafecb1f816 : síncrona
+n24e3573506 --> n03da7d2bb2 : síncrona
+n24e3573506 --> nf49f37b09f : síncrona
+n24e3573506 --> ne528bc1fbb : síncrona
+n7dc0415ad7 --> n28404d21e3 : síncrona
+n7dc0415ad7 --> n495824e449 : síncrona
+n7dc0415ad7 --> n50e280aa82 : síncrona
+n7dc0415ad7 --> n310ca3d0a6 : síncrona
+n7dc0415ad7 --> nf873e7be72 : síncrona
+nd786ec0a0d ..> n495824e449 : asíncrona
+nd786ec0a0d ..> n5d8de27216 : asíncrona
+n01e34424b2 --> n495824e449 : síncrona
+n01e34424b2 --> n5d8de27216 : síncrona
+nff3745dc1b ..> n495824e449 : asíncrona
+nff3745dc1b ..> nd786ec0a0d : asíncrona
+nff3745dc1b ..> nfeaa5344ac : asíncrona
+n310ca3d0a6 --> n495824e449 : síncrona
+n310ca3d0a6 --> nfeaa5344ac : síncrona
+ne528bc1fbb --> n495824e449 : síncrona
+ne528bc1fbb --> nfeaa5344ac : síncrona
+n83015f61e2 --> nee2f53d786 : síncrona
+n83015f61e2 --> n03da7d2bb2 : síncrona
+nee2f53d786 ..> n495824e449 : asíncrona
+nee2f53d786 ..> n5d8de27216 : asíncrona
+nee2f53d786 ..> nafecb1f816 : asíncrona
+nafecb1f816 --> nd11d8a2d86 : síncrona
+nafecb1f816 --> n50e280aa82 : síncrona
+nafecb1f816 --> n620364c7a2 : síncrona
+nd11d8a2d86 ..> nd3ec81537a : asíncrona
+n03da7d2bb2 ..> n495824e449 : asíncrona
+n03da7d2bb2 ..> n5d8de27216 : asíncrona
+n03da7d2bb2 ..> nb443efa380 : asíncrona
+n005287f472 --> nf165946cf2 : síncrona
+n005287f472 --> n9c497b2954 : síncrona
+n9c497b2954 --> n495824e449 : síncrona
+n874d80cedd --> n0eb63532ba : síncrona
+nf873e7be72 --> n0eb63532ba : síncrona
+n28404d21e3 --> nefe53ae67d : síncrona
+n28404d21e3 --> n46a8c63678 : síncrona
+n28404d21e3 --> n495824e449 : síncrona
+n28404d21e3 --> n5146fd5912 : síncrona
+n28404d21e3 --> nf873e7be72 : síncrona
+n28404d21e3 --> nf97041cdcd : síncrona
+n46a8c63678 --> nf873e7be72 : síncrona
+nd3ec81537a --> n0eb63532ba : síncrona
+nc2ea51e326 --> n495824e449 : síncrona
+na03b402ce9 --> na593ff6d29 : síncrona
+na03b402ce9 --> n62d29c02ec : síncrona
+na03b402ce9 --> nc580fabe2b : síncrona
+na03b402ce9 --> n755859acce : síncrona
+na03b402ce9 --> n2376ea587c : síncrona
+na03b402ce9 --> n5dda903873 : síncrona
+na03b402ce9 --> naf210a7a1c : síncrona
+na03b402ce9 --> nc857e445b1 : síncrona
+na03b402ce9 --> n9f3d4efa0a : síncrona
+na593ff6d29 --> ndb9606cca3 : síncrona
+n57582c23f7 --> nf873e7be72 : síncrona
+nc857e445b1 --> n9f3d4efa0a : síncrona
+n62d29c02ec ..> n495824e449 : cola/evento
+n62d29c02ec ..> ne0a576a097 : cola/evento
+n62d29c02ec ..> nb2ee4fda87 : cola/evento
+n62d29c02ec ..> n57582c23f7 : cola/evento
+n62d29c02ec ..> n8b1e31f0fc : cola/evento
+n62d29c02ec ..> n4aed01ac25 : cola/evento
+n2376ea587c ..> n495824e449 : cola/evento
+n2376ea587c ..> nb2ee4fda87 : cola/evento
+n2376ea587c ..> n8b1e31f0fc : cola/evento
+n2376ea587c ..> n4aed01ac25 : cola/evento
+n8b1e31f0fc ..> nf873e7be72 : cola/evento
+nb2ee4fda87 ..> nf873e7be72 : cola/evento
+nf97041cdcd --> nf873e7be72 : síncrona
+n5c29d8c5ab --> n35690a4881 : síncrona
+n12c45c1d06 --> n495824e449 : síncrona
+n5dda903873 ..> n495824e449 : cola/evento
+n5dda903873 ..> n5d8de27216 : cola/evento
+n5dda903873 ..> n8b1e31f0fc : cola/evento
+n5dda903873 ..> n12c45c1d06 : cola/evento
+n5dda903873 ..> n4aed01ac25 : cola/evento
+nf49f37b09f --> n495824e449 : síncrona
+nf49f37b09f --> n8b1e31f0fc : síncrona
+nf49f37b09f --> n57eaee319e : síncrona
+nf49f37b09f --> n455d72224e : síncrona
+nf49f37b09f --> n4aed01ac25 : síncrona
+n57eaee319e --> n495824e449 : síncrona
+n57eaee319e --> n455d72224e : síncrona
+n57eaee319e --> n4aed01ac25 : síncrona
+naf210a7a1c ..> n495824e449 : cola/evento
+naf210a7a1c ..> n5d8de27216 : cola/evento
+naf210a7a1c ..> n57582c23f7 : cola/evento
+naf210a7a1c ..> n8b1e31f0fc : cola/evento
+naf210a7a1c ..> n455d72224e : cola/evento
+naf210a7a1c ..> n4aed01ac25 : cola/evento
+nc580fabe2b ..> n495824e449 : asíncrona
+nc580fabe2b ..> n5d8de27216 : asíncrona
+nc580fabe2b ..> n8b1e31f0fc : asíncrona
+nc580fabe2b ..> n455d72224e : asíncrona
+nc580fabe2b ..> n4aed01ac25 : asíncrona
+n755859acce ..> n495824e449 : cola/evento
+n755859acce ..> n5d8de27216 : cola/evento
+n755859acce ..> nb2ee4fda87 : cola/evento
+n755859acce ..> n57582c23f7 : cola/evento
+n755859acce ..> n8b1e31f0fc : cola/evento
+n755859acce ..> n12c45c1d06 : cola/evento
+n755859acce ..> n4aed01ac25 : cola/evento
+n3a8d0d7387 --> n2c9fdf6d34 : síncrona
+n3a8d0d7387 --> n8b1ad5be84 : síncrona
+n3a8d0d7387 --> n5dda903873 : síncrona
+n1415fcf322 --> nd786ec0a0d : síncrona
+n7044b57d0e --> n1415fcf322 : síncrona
+n7044b57d0e --> n495824e449 : síncrona
+n7044b57d0e --> n8b1ad5be84 : síncrona
+n8b1ad5be84 --> nc6792f166d : síncrona
+n8b1ad5be84 --> n63d08ce8c2 : síncrona
+n8b1ad5be84 --> n67a1ad1741 : síncrona
+n8b1ad5be84 --> n1415fcf322 : síncrona
+n8b1ad5be84 --> n2c9fdf6d34 : síncrona
+n2c9fdf6d34 --> nc6792f166d : síncrona
+n2c9fdf6d34 --> n2ed59fa1cc : síncrona
+n2c9fdf6d34 --> n1415fcf322 : síncrona
+n13665709c2 ..> n495824e449 : asíncrona
+n13665709c2 ..> n358fc686e6 : asíncrona
+n13665709c2 ..> n1eb30b32f8 : asíncrona
+n13665709c2 ..> n9a0d149461 : asíncrona
+n13665709c2 ..> n2c9fdf6d34 : asíncrona
+n13665709c2 ..> nee1a6a0b78 : asíncrona
+n13665709c2 ..> n03da7d2bb2 : asíncrona
+n13665709c2 ..> nd786ec0a0d : asíncrona
+n13665709c2 ..> n51536db22f : asíncrona
+n13665709c2 ..> n5c29d8c5ab : asíncrona
+n13665709c2 ..> nf873e7be72 : asíncrona
+legend
+|= Flecha |= Interacción |
+| --> | síncrona |
+| ..> | asíncrona, evento o cola |
+endlegend
+@enduml

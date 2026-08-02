@@ -1,0 +1,44 @@
+@startuml
+!pragma layout smetana
+left to right direction
+skinparam backgroundColor #07111F
+skinparam componentStyle rectangle
+skinparam componentBackgroundColor #102238
+skinparam componentBorderColor #39E6AA
+skinparam componentFontColor white
+skinparam ArrowColor #5BD8FF
+title android/kotlin — grafo funcional
+component "closeApp\nCC=1 · Bajo" as n87621b6d8c
+component "onCreate\nCC=2 · Bajo" as n8f76673f16
+component "onWindowFocusChanged\nCC=1 · Bajo" as n9820efe960
+component "onDestroy\nCC=1 · Bajo" as n8739081e8c
+component "onBackPressed\nCC=1 · Bajo" as n3c49a94bd5
+component "registerBackNavigation\nCC=1 · Bajo" as n59ccc33f26
+component "handleBackNavigation\nCC=1 · Bajo" as nf0c1cce562
+component "requestNotificationPermission\nCC=1 · Bajo" as nf3941eb1d6
+component "startRobotBackend\nCC=1 · Bajo" as nc30a1b0742
+component "buildLoadingView\nCC=1 · Bajo" as n311443dd41
+component "waitForBackend\nCC=1 · Bajo" as n003d4fee9d
+component "showHmi\nCC=1 · Bajo" as na687e91cde
+component "shouldOverrideUrlLoading\nCC=1 · Bajo" as nd92386c252
+component "onJsConfirm\nCC=5 · Bajo" as ncd0826f85e
+component "downloadExport\nCC=3 · Bajo" as n192c9dfeb7
+component "showStartupError\nCC=1 · Bajo" as n8b65f2e09d
+component "applySystemInsets\nCC=1 · Bajo" as n987109e4ee
+component "onCreate\nCC=1 · Bajo" as n520cb03fa4
+component "run\nCC=1 · Bajo" as ndf977c95d0
+component "onCreate\nCC=1 · Bajo" as n838f29f55a
+component "onStartCommand\nCC=2 · Bajo" as n25639137b6
+component "requestSafeStopFromNotification\nCC=1 · Bajo" as n283189676d
+component "onDestroy\nCC=1 · Bajo" as n09d4bf5cc2
+component "onBind\nCC=3 · Bajo" as n3ff05d3319
+component "acquireLocks\nCC=1 · Bajo" as n9d50172ff3
+component "createNotificationChannel\nCC=1 · Bajo" as nbce9b29a6e
+component "buildNotification\nCC=1 · Bajo" as n8d67797e67
+component "updateNotification\nCC=1 · Bajo" as n5d94f6061d
+legend
+|= Flecha |= Interacción |
+| --> | síncrona |
+| ..> | asíncrona, evento o cola |
+endlegend
+@enduml

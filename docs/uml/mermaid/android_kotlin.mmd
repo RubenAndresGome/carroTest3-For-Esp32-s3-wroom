@@ -1,0 +1,66 @@
+flowchart LR
+  subgraph f0["MainActivity.kt"]
+    n87621b6d8c["closeApp()"]
+    n8f76673f16["onCreate()"]
+    n9820efe960["onWindowFocusChanged()"]
+    n8739081e8c["onDestroy()"]
+    n3c49a94bd5["onBackPressed()"]
+    n59ccc33f26["registerBackNavigation()"]
+    nf0c1cce562["handleBackNavigation()"]
+    nf3941eb1d6["requestNotificationPermission()"]
+    nc30a1b0742["startRobotBackend()"]
+    n311443dd41["buildLoadingView()"]
+    n003d4fee9d["waitForBackend()"]
+    na687e91cde["showHmi()"]
+    nd92386c252["shouldOverrideUrlLoading()"]
+    ncd0826f85e["onJsConfirm()"]
+    n192c9dfeb7["downloadExport()"]
+    n8b65f2e09d["showStartupError()"]
+    n987109e4ee["applySystemInsets()"]
+  end
+  subgraph f1["RobotApplication.kt"]
+    n520cb03fa4["onCreate()"]
+  end
+  subgraph f2["RobotBackendService.kt"]
+    ndf977c95d0["run()"]
+    n838f29f55a["onCreate()"]
+    n25639137b6["onStartCommand()"]
+    n283189676d["requestSafeStopFromNotification()"]
+    n09d4bf5cc2["onDestroy()"]
+    n3ff05d3319["onBind()"]
+    n9d50172ff3["acquireLocks()"]
+    nbce9b29a6e["createNotificationChannel()"]
+    n8d67797e67["buildNotification()"]
+    n5d94f6061d["updateNotification()"]
+  end
+  classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
+  classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
+  classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
+  class n87621b6d8c bajo
+  class n8f76673f16 bajo
+  class n9820efe960 bajo
+  class n8739081e8c bajo
+  class n3c49a94bd5 bajo
+  class n59ccc33f26 bajo
+  class nf0c1cce562 bajo
+  class nf3941eb1d6 bajo
+  class nc30a1b0742 bajo
+  class n311443dd41 bajo
+  class n003d4fee9d bajo
+  class na687e91cde bajo
+  class nd92386c252 bajo
+  class ncd0826f85e bajo
+  class n192c9dfeb7 bajo
+  class n8b65f2e09d bajo
+  class n987109e4ee bajo
+  class n520cb03fa4 bajo
+  class ndf977c95d0 bajo
+  class n838f29f55a bajo
+  class n25639137b6 bajo
+  class n283189676d bajo
+  class n09d4bf5cc2 bajo
+  class n3ff05d3319 bajo
+  class n9d50172ff3 bajo
+  class nbce9b29a6e bajo
+  class n8d67797e67 bajo
+  class n5d94f6061d bajo

@@ -1,253 +1,548 @@
-# Esquema de Funcionamiento y Diagramas UML del Sistema General
+# Atlas UML y arquitectura completa del Robot S3
 
-Este documento describe la arquitectura global, flujo de control y esquemas de interacción entre el **Servidor HMI/Backend (Python Desktop / Android)** y el **Sistema Autónomo (Firmware ESP32-S3)**.
+Este documento representa la implementación operativa actual. Los inventarios
+de todas las funciones y sus grafos por carpeta se generan en
+[`docs/uml/`](docs/uml/README.md). Los hallazgos y discrepancias se mantienen en
+[`docs/auditoria_estado_actual.md`](docs/auditoria_estado_actual.md).
 
----
+## 1. Contexto del sistema
 
-## 1. Diagrama UML de Componentes del Sistema General
+```mermaid
+flowchart LR
+    Operator["Operador"]
+    Host["Controlador único<br/>Windows o Android"]
+    Robot["Robot ESP32-S3"]
+    Storage[("SQLite local")]
+    Hardware["DRV8833 · 4 motores<br/>4 encoders · MPU6050"]
 
-El sistema se compone de dos grandes subsistemas:
+    Operator -->|"planifica, calibra, detiene"| Host
+    Host <-->|"HTTP + SSE en loopback"| Operator
+    Host <-->|"WebSocket JSON v3<br/>Wi-Fi [SSID_ROBOT]"| Robot
+    Host -->|"misiones, comandos, eventos, telemetría"| Storage
+    Robot <-->|"PWM, PCNT, I²C"| Hardware
+```
 
-1. **Servidor HMI / Backend** (en `desktop_app/` para Windows y `android_app/` para Tablet Samsung): maneja interfaz visual, persistencia en SQLite, descomposición ortogonal de rutas y WebSocket cliente.
-2. **Sistema Autónomo ESP32-S3** (en `src/` e `include/`): ejecuta el control en tiempo real a 100 Hz, odometría, filtrado MPU6050, protecciones eléctricas DRV8833 y servidor WebSocket.
+Regla de propiedad: Windows y Android son alternativas. Nunca deben mantener
+dos gateways conectados simultáneamente al mismo robot.
+
+## 2. Despliegue físico y de procesos
 
 ```mermaid
 flowchart TB
-    subgraph S_SERVER["Servidor (Desktop App / Android App)"]
-        direction TB
-        UI["HMI Interface Web / Socket.IO"]
-        Facade["RobotFacade"]
-        Dispatcher["CommandDispatcherService"]
-        Mission["MissionService"]
-        Route["OrthogonalRoute / split_segment_mm"]
-        Gateway["RobotGateway (WebSocket Client)"]
-        Recorder["TelemetryRecorder"]
-        DB[("SQLite Database (tmp_db/robot.sqlite3)")]
-        Hub["EventHub"]
-
-        UI --> Facade
-        Facade --> Dispatcher
-        Facade --> Mission
-        Facade --> Recorder
-        Mission --> Route
-        Dispatcher --> Gateway
-        Recorder --> DB
-        Gateway --> Hub
-        Hub --> UI
+    subgraph WIN["Opción A · Windows"]
+        Browser["Navegador local"]
+        WaitressW["Waitress 127.0.0.1:8080"]
+        FlaskW["Flask + RobotService"]
+        GatewayW["RobotGateway · hebra WebSocket"]
+        RecorderW["TelemetryRecorder · hebra SQLite"]
+        DBW[("robot.sqlite3")]
+        Browser <-->|"HTTP/SSE"| WaitressW
+        WaitressW --> FlaskW
+        FlaskW --> GatewayW
+        FlaskW --> RecorderW --> DBW
     end
 
-    subgraph S_WIFI["Canal Wi-Fi (WebSocket Protocol V2)"]
-        Protocol["Protocolo JSON robot-s3-steps-v3"]
+    subgraph AND["Opción B · Android"]
+        WebView["WebView restringida a loopback"]
+        Service["RobotBackendService foreground"]
+        Chaquopy["Python/Chaquopy"]
+        WaitressA["Waitress 127.0.0.1:8080"]
+        DBA[("files/robot_s3/robot.sqlite3")]
+        Locks["WakeLock + WifiLock"]
+        WebView <-->|"HTTP/SSE + puente de cierre"| WaitressA
+        Service --> Chaquopy --> WaitressA
+        Service --> Locks
+        Chaquopy --> DBA
     end
 
-    subgraph S_ESP32["Sistema Autónomo ESP32-S3 (Firmware Dual-Core)"]
-        subgraph CORE0["Core 0 - Comunicaciones (Task_Web)"]
-            TaskWeb["Task_Web (ESP32 Core 0)"]
-            RedServer["Red.cpp (WebSocket Server)"]
-            TaskWeb --> RedServer
-        end
+    AP["ESP32 SoftAP<br/>[IP_ROBOT]/ws"]
+    ESP["ESP32-S3<br/>Core 0 + Core 1"]
+    Driver["2× DRV8833"]
+    Motors["4× motor"]
+    Enc["4× encoder PCNT"]
+    IMU["MPU6050 I²C"]
 
-        subgraph QUEUES["FreeRTOS Inter-Task Queues"]
-            CmdQueue["colaComandos (Queue size 4)"]
-            EvtQueue["colaEventosRed (Queue size 8)"]
-        end
-
-        subgraph CORE1["Core 1 - Tiempo Real 100 Hz (loop Super-Ciclo)"]
-            CmdProc["procesarComandos()"]
-            Cine["Cinematica.cpp (Lazo Abierto/Cerrado)"]
-            Sens["Sensores.cpp (PCNT + MPU6050)"]
-            Pose["PoseEstimator.cpp (Odometría + Yaw)"]
-            Motores["Motores.cpp (PWM DRV8833 <= 230 rectos / <= 247 giros)"]
-            Seguridad["Seguridad.cpp (Watchdog + E-STOP)"]
-
-            CmdQueue --> CmdProc
-            CmdProc --> Cine
-            Sens --> Pose
-            Pose --> Cine
-            Cine --> Motores
-            Seguridad --> Motores
-            Cine --> EvtQueue
-        end
-
-        RedServer --> CmdQueue
-        EvtQueue --> RedServer
-    end
-
-    subgraph S_HARDWARE["Hardware Físico y Sensores"]
-        DRV["DRV8833 Dual H-Bridge Driver"]
-        DC["Motores DC con Reductora"]
-        Encoders["Encoders Magnéticos (x4)"]
-        MPU["MPU6050 IMU (I2C 400kHz)"]
-
-        Motores --> DRV
-        DRV --> DC
-        Encoders --> Sens
-        MPU --> Sens
-    end
-
-    Gateway <--> Protocol
-    Protocol <--> TaskWeb
+    GatewayW -. "alternativa" .-> AP
+    Chaquopy -. "alternativa" .-> AP
+    AP --> ESP
+    ESP --> Driver --> Motors
+    Enc --> ESP
+    IMU --> ESP
 ```
 
----
-
-## 2. Diagrama UML de Despliegue (Hardware & Software)
-
-Describe la asignación física de componentes software sobre el hardware del robot y la estación base / tablet:
+## 3. Componentes reales del backend
 
 ```mermaid
 flowchart TB
-    subgraph NODE_HOST["Estación Base / Tablet (Windows / Android)"]
-        subgraph SW_BACKEND["Python Backend (app.py / Chaquopy)"]
-            Facade_D["RobotFacade & CommandDispatcher"]
-            Recorder_D["TelemetryRecorder & EventHub"]
-            Gateway_D["RobotGateway (Propietario Único)"]
-        end
-        DB_D[("SQLite (robot.sqlite3)")]
-        UI_D["Web Frontend (HTML5 / JS / Canvas)"]
+    HMI["hmi/index.html<br/>HMI canónica"]
+    Web["web.py<br/>18 rutas REST/SSE"]
+    Factory["app_factory.py<br/>Flask, token, CSP"]
+    Service["RobotService<br/>misión y coordinación"]
+    Domain["domain.py<br/>validación y DTO"]
+    Gateway["RobotGateway<br/>PriorityQueue + WebSocket"]
+    Hub["EventHub<br/>fan-out SSE"]
+    Recorder["TelemetryRecorder<br/>cola acotada"]
+    Database["Database<br/>transacciones SQLite"]
+    Migration["001_initial.sql"]
+    Firmware["ESP32 WebSocket v3"]
 
-        UI_D <-->|"HTTP REST / SSE"| SW_BACKEND
-        Recorder_D --> DB_D
-    end
-
-    subgraph NODE_WIFI["Red Wi-Fi AP (ROBOT_S3_LOCAL)"]
-        WIFI_BUS["Canal WebSocket / IP: 192.168.4.1:80/ws"]
-    end
-
-    subgraph NODE_ESP32["Robot Móvil Autónomo ESP32-S3"]
-        subgraph C0["ESP32-S3 Core 0 (Comunicaciones)"]
-            TaskWeb_D["Task_Web (Stack 8KB)"]
-            WSServer_D["AsyncWebSocket Server"]
-            TaskWeb_D <--> WSServer_D
-        end
-
-        subgraph RTOS_QUEUES["IPC FreeRTOS"]
-            Q1["colaComandos"]
-            Q2["colaEventosRed"]
-        end
-
-        subgraph C1["ESP32-S3 Core 1 (Super-Ciclo 100 Hz)"]
-            Loop_D["loop Native Loop (Stack 8KB)"]
-            Control_D["Cinematica & PD Yaw Controller"]
-            Odometry_D["PoseEstimator (Odometría + Gyro Z)"]
-            Safety_D["Seguridad & Protecciones DRV8833"]
-
-            Loop_D --> Control_D
-            Loop_D --> Odometry_D
-            Loop_D --> Safety_D
-        end
-
-        subgraph HW_PERIPHERALS["Periféricos de Hardware"]
-            IMU_HW["Módulo MPU6050 (I2C 400kHz)"]
-            DRV_HW["Drivers DRV8833 (Dead-Time 250ms, PWM <= 230)"]
-            ENC_HW["Encoders Magnéticos (x4 PCNT)"]
-        end
-
-        WSServer_D <--> Q1
-        WSServer_D <--> Q2
-        Q1 <--> Loop_D
-        Q2 <--> Loop_D
-
-        C1 -->|"I2C Bus"| IMU_HW
-        C1 -->|"GPIO LEDC PWM"| DRV_HW
-        ENC_HW -->|"GPIO PCNT Units"| C1
-    end
-
-    Gateway_D <--> WIFI_BUS
-    WIFI_BUS <--> WSServer_D
+    HMI -->|"X-App-Token"| Web
+    Web --> Service
+    Factory --> Web
+    Factory --> Service
+    Service --> Domain
+    Service --> Gateway
+    Service --> Hub --> HMI
+    Service --> Recorder --> Database
+    Service --> Database
+    Database --> Migration
+    Gateway <--> Firmware
 ```
 
----
+## 4. Componentes del firmware y afinidad de núcleo
 
-## 3. Diagrama UML de Secuencia (Flujo de Ejecución de Paso Ortogonal y Telemetría)
+```mermaid
+flowchart TB
+    subgraph CORE0["Core 0 · Task_Web · 8192"]
+        WS["ESPAsyncWebServer / AsyncWebSocket"]
+        Parse["parsearMensaje()"]
+        Drain["drenarEventos()"]
+        Telemetry["enviarTelemetria() · 10 Hz"]
+        WS --> Parse
+        Drain --> WS
+        Telemetry --> WS
+    end
 
-Ilustra el intercambio asíncrono desde que el usuario solicita un comando de movimiento en el Servidor HMI hasta su procesamiento síncrono a 100 Hz en el ESP32-S3 y la retroalimentación de telemetría:
+    CmdQ[["colaComandos · 4"]]
+    EvtQ[["colaEventosRed · 8"]]
+
+    subgraph CORE1["Core 1 · loop nativo · 100 Hz"]
+        Commands["procesarComandos()"]
+        Sensors["leerSensoresSincrono()"]
+        Pose["PoseEstimator"]
+        Safety["Seguridad::auditarSalud()"]
+        Motion["controlarMovimiento()"]
+        Motor["aplicarVelocidades()"]
+        Commands --> Motion
+        Sensors --> Pose
+        Sensors --> Safety
+        Pose --> Motion
+        Safety --> Motor
+        Motion --> Motor
+    end
+
+    Parse --> CmdQ --> Commands
+    Commands --> EvtQ
+    Motion --> EvtQ
+    Safety --> EvtQ
+    EvtQ --> Drain
+```
+
+La misma muestra `SensorSnapshot` alimenta pose, seguridad y cinemática dentro
+del ciclo de control; no existen tareas intermedias en Core 1.
+
+## 5. Flujo de arranque y negociación
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Usuario as Usuario HMI
-    participant Web as Web Frontend (UI)
-    participant Facade as RobotFacade (Python)
-    participant Gateway as RobotGateway (Python)
-    participant Core0 as Task_Web (ESP32 Core 0)
-    participant Core1 as loop() 100Hz (ESP32 Core 1)
-    participant Hardware as Motores / Encoders / MPU
+    actor O as Operador
+    participant H as HMI
+    participant S as RobotService
+    participant G as RobotGateway
+    participant E as ESP32
+    participant D as SQLite
 
-    Usuario->>Web: Clic en "Ejecutar Paso" (heading=90°, cm=50)
-    Web->>Facade: POST /api/command {cmd: "step", heading: 90, cm: 50}
-    Facade->>Facade: Crear y Validar RobotCommand(seq=101)
-    Facade->>Gateway: send_command(RobotCommand)
-    Gateway->>Gateway: Encolar en PriorityQueue (_Outgoing)
-    Gateway->>Core0: Send JSON {"cmd":"step", "heading":90, "cm":50, "seq":101}
-    Core0->>Core0: deserializarJson() -> ComandoRed struct
-    Core0->>Core1: xQueueSend(colaComandos, &cmd)
-  
-    rect rgb(235, 245, 255)
-        note over Core1,Hardware: Súper-ciclo síncrono a 100 Hz (10 ms)
-        Core1->>Core1: procesarComandos() -> iniciarPaso(90°, 50cm, seq=101)
-        Core1->>Hardware: leerSensoresSincrono() [PCNT Encoders + MPU6050 I2C]
-        Hardware-->>Core1: SensorSnapshot (pulsos, deltaZ_rad)
-        Core1->>Core1: PoseGlobal.actualizarOdometria()
-        Core1->>Core1: controlarMovimiento() -> Giro Pivote Continuo / Avance PD
-        Core1->>Hardware: aplicarVelocidades(pwmL, pwmR) [DRV8833 PWM <= 230]
-        Core1->>Core0: xQueueSend(colaEventosRed, EVT_PROGRESS)
+    S->>D: fallar comandos no terminales previos
+    S->>D: cerrar sesiones huérfanas
+    S->>S: crear controller_session y next_seq=1
+    O->>H: Conectar
+    H->>S: POST /connection/connect
+    S->>G: start()
+    G->>E: abrir ws://[IP_ROBOT]/ws
+    G->>E: hello(session, seq=0)
+    E-->>G: hello_ack(session, last_seq, state, calibrated)
+    G->>G: validar protocolo y sesión exacta
+    alt reinicio de aplicación con pendientes
+        S->>E: stop(seq=N)
+        E-->>S: completed(stop_ok)
+        S->>H: controls_ready=true
+    else proceso continuo
+        S->>S: reconciliar last_seq y comando activo
     end
-
-    Core0->>Gateway: Broadcast JSON Telemetry Snapshot & EVT_PROGRESS
-    Gateway->>Facade: on_message(TelemetrySnapshot)
-    Facade->>Web: SSE / Socket.IO Telemetry Stream (x, y, heading, status)
-    Web->>Usuario: Actualización de Posición e Historial en Vivo
-
-    rect rgb(235, 255, 235)
-        note over Core1: Paso Alcanzado con Tolerancia Geométrica
-        Core1->>Core0: xQueueSend(colaEventosRed, EVT_COMPLETED, "step_ok")
-    end
-    Core0->>Gateway: Send Event JSON {"evt":"completed", "seq":101, "msg":"step_ok"}
-    Gateway->>Facade: Command Status -> COMPLETED
-    Facade->>Web: Event Notify (Comando Completado)
 ```
 
----
+## 6. Calibración física
 
-## 4. Diagrama UML de Máquina de Estados (Firmware ESP32-S3)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor O as Operador
+    participant H as HMI
+    participant P as Python
+    participant R as Red/Core 0
+    participant C as Cinemática/Core 1
+    participant HW as IMU + encoders + motores
 
-Muestra los estados operativos y las transiciones del robot en firmware:
+    O->>H: Recalibrar
+    H->>P: POST command calibrate
+    P->>R: calibrate(seq)
+    R-->>P: accepted(seq)
+    R->>C: colaComandos
+    C->>HW: cuenta regresiva con PWM=0
+    loop búsqueda de torque
+        C->>HW: rampa PWM de giro
+        HW-->>C: gyro Z + ticks por lado
+    end
+    C->>HW: validar giro +25°
+    C->>HW: reposo y retorno independiente a yaw 0
+    alt validación completa
+        C-->>P: completed(cal_ok)
+    else IMU, stall, timeout o encoder inválido
+        C->>HW: PWM=0
+        C-->>P: fault(detalle)
+    end
+```
+
+## 7. Misión ortogonal saliente
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor O as Operador
+    participant H as HMI
+    participant S as RobotService
+    participant DB as SQLite
+    participant G as Gateway
+    participant E as ESP32
+
+    O->>H: definir puntos
+    H->>S: POST /missions {points}
+    S->>S: validar telemetría fresca y estado listo
+    S->>S: descomponer diagonales y tramos >200 cm
+    S->>DB: persistir active_mission
+    loop un paso atómico cada vez
+        S->>G: enqueue step(heading, cm, seq)
+        G->>E: JSON v3
+        E-->>G: accepted
+        E-->>G: progress + telemetry
+        E-->>G: completed(step_ok)
+        G->>S: evento terminal
+        S->>DB: completar comando y avanzar índice
+    end
+    S->>DB: stage=completed
+    S->>DB: last_completed_route.return_state=available
+```
+
+## 8. Paso atómico en el ESP32
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DESARMADO : Arranque / setup_MotorPinsLow()
-  
-    DESARMADO --> CALIBRANDO : Comando CMD_CALIBRATION
-    CALIBRANDO --> LISTO : Calibración exitosa (+25° yaw, 2.5s reposo, 0° yaw)
-    CALIBRANDO --> FALLO : Atascamiento / Pérdida IMU / Watchdog 800ms
-
-    DESARMADO --> LISTO : Transición manual limpia
-    LISTO --> EJECUTANDO : Comando CMD_STEP / CMD_MOVE
-  
-    EJECUTANDO --> EJECUTANDO : Bucle 100 Hz (Giro Pivote Continuo -> Avance PD)
-    EJECUTANDO --> LISTO : Fin de Paso / Alineación Cardinal Final
-    EJECUTANDO --> PAUSADO : Comando CMD_STOP / Pause
-    PAUSADO --> EJECUTANDO : Reanudar Paso
-    PAUSADO --> LISTO : Cancelar Paso
-
-    EJECUTANDO --> FALLO : Sensor Invalido / Overcurrent / Stall Watchdog
-    LISTO --> FALLO : Fallo Hardware auditado por Seguridad.cpp
-  
-    state FALLO {
-        [*] --> MotoresFrenados : frenarMotores() + PWM=0
-        MotoresFrenados --> InterlockActivo : DRV8833 Pause 250ms
-    }
-
-    FALLO --> DESARMADO : Comando CMD_CLEAR_FAULT / E-STOP Reset
+    [*] --> Validar
+    Validar --> Rechazado: no calibrado / ocupado / rango
+    Validar --> GiroInicial: comando válido
+    GiroInicial --> Avance: rumbo dentro de tolerancia
+    GiroInicial --> Fallo: IMU / stall / timeout
+    Avance --> Recuperacion: error de rumbo persistente
+    Recuperacion --> Avance: rumbo recuperado
+    Avance --> GiroFinal: distancia alcanzada
+    GiroFinal --> Completado: alineación cardinal
+    GiroFinal --> Fallo: IMU / stall / timeout
+    Recuperacion --> Fallo: intentos agotados
+    Completado --> [*]: step_ok
+    Rechazado --> [*]
+    Fallo --> [*]
 ```
 
----
+## 9. Retorno Ockham
 
-## 5. Referencias de Especificación por Componente
+```mermaid
+flowchart LR
+    Completed["Ruta saliente completada"]
+    Available["return_state=available"]
+    Reverse["Invertir vectores<br/>en orden inverso"]
+    Consume["return_state=in_progress"]
+    Steps["Ejecutar pasos atómicos"]
+    Align["turn_to(0°)"]
+    Done["return_state=completed"]
+    Blocked["return_state=blocked"]
 
-Las especificaciones detalladas de clases, funciones y estructuras de datos se encuentran organizadas en las siguientes carpetas del proyecto:
+    Completed --> Available --> Reverse --> Consume --> Steps --> Align --> Done
+    Consume -->|"fault, stop, restart"| Blocked
+    Available -->|"nueva ruta saliente"| Blocked
+```
 
-- **Servidor y Backend (Python / HMI)**: [`desktop_app/README.md`](desktop_app/README.md) y [`docs/especificacion_objetos_sistema.md`](docs/especificacion_objetos_sistema.md#1-especificación-de-objetos-del-servidor-python-desktop_app--android_app).
-- **Sistema Autónomo (ESP32-S3 Firmware)**: [`src/README.md`](src/README.md), [`include/README.md`](include/README.md) y [`docs/especificacion_objetos_sistema.md`](docs/especificacion_objetos_sistema.md#2-especificación-de-objetos-del-sistema-autónomo-firmware-esp32-s3).
-- **Aplicación Android (Tablet Samsung Wrapper)**: [`android_app/README.md`](android_app/README.md).
+## 10. Reconexión dentro del mismo proceso
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as RobotService
+    participant G as RobotGateway
+    participant E as ESP32
+    participant DB as SQLite
+
+    E--xG: corte WebSocket
+    G->>S: BACKOFF
+    S->>DB: registrar corte de transporte
+    loop hasta cinco intentos actuales
+        G->>E: conectar
+    end
+    E-->>G: socket abierto
+    G->>E: hello(misma session)
+    E-->>S: hello_ack(last_seq,state)
+    alt last_seq >= seq activo
+        S->>DB: reconciliar como completado
+        S->>S: avanzar misión
+    else robot listo y last_seq menor
+        S->>E: reenviar mismo seq y command_id Python
+    else robot ejecutando/calibrando
+        S->>S: esperar terminal/telemetría
+    else estado incompatible o reboot
+        S->>S: bloquear misión
+        S->>E: stop
+    end
+```
+
+La implementación actual se detiene después del quinto intento; el bucle del
+diagrama representa el comportamiento existente, no la resiliencia deseada.
+
+## 11. Reinicio de la aplicación Python
+
+```mermaid
+stateDiagram-v2
+    [*] --> CargarSQLite
+    CargarSQLite --> Cuarentena: misión no terminal
+    CargarSQLite --> Limpio: sin pendientes
+    Cuarentena --> Abandoned: stage=abandoned
+    Cuarentena --> ComandosFallidos: queued/sent/acknowledged -> failed
+    Cuarentena --> SesionesCerradas: app_restarted_uncleanly
+    Abandoned --> EsperarRobot
+    ComandosFallidos --> EsperarRobot
+    SesionesCerradas --> EsperarRobot
+    EsperarRobot --> StopReconciliacion: hello_ack válido
+    StopReconciliacion --> Controles: completed/stop_ok
+    StopReconciliacion --> Bloqueado: terminal incorrecto o sin ACK
+    Limpio --> Controles
+```
+
+## 12. Cierre seguro
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor O as Operador
+    participant H as HMI
+    participant S as RobotService
+    participant E as ESP32
+    participant DB as SQLite
+    participant OS as Android/Waitress
+
+    O->>H: Cerrar aplicación
+    H->>S: POST /app/close {force:false}
+    S->>S: activar latch closing y rechazar movimientos
+    alt movimiento o misión activa
+        S->>E: stop(seq)
+        alt completed(stop_ok) antes de 5 s
+            E-->>S: stop_ok
+            S->>DB: robot_stop_confirmed
+        else sin confirmación
+            S-->>H: 409 safe_to_close=false
+            H-->>O: ofrecer cierre forzado explícito
+        end
+    end
+    S->>DB: abandonar misión y cerrar comandos/sesión
+    S-->>H: 200 safe_to_close=true
+    H->>OS: cerrar host y aplicación
+```
+
+## 13. Máquinas de estado coordinadas
+
+```mermaid
+stateDiagram-v2
+    state "Python · misión" as PY {
+        [*] --> idle
+        idle --> executing
+        executing --> aligning_final
+        aligning_final --> completed
+        executing --> blocked
+        aligning_final --> blocked
+        executing --> abandoned
+        blocked --> executing: nueva misión explícita
+        completed --> executing: nueva misión/retorno
+    }
+
+    state "ESP32 · robot" as FW {
+        [*] --> DESARMADO
+        DESARMADO --> CALIBRANDO
+        CALIBRANDO --> LISTO: cal_ok
+        CALIBRANDO --> FALLO
+        LISTO --> EJECUTANDO
+        EJECUTANDO --> LISTO: step_ok/turn_ok
+        EJECUTANDO --> FALLO
+        LISTO --> ESTOP
+        EJECUTANDO --> ESTOP
+        FALLO --> DESARMADO: clear_fault sin calibración
+        FALLO --> LISTO: clear_fault calibrado
+    }
+```
+
+## 14. Modelo de datos SQLite
+
+```mermaid
+erDiagram
+    SETTINGS {
+        TEXT key PK
+        TEXT value_json
+        TEXT updated_at
+    }
+    SESSIONS {
+        INTEGER id PK
+        TEXT started_at
+        TEXT ended_at
+        TEXT robot_id
+        TEXT firmware_version
+        TEXT protocol
+        TEXT disconnect_reason
+    }
+    COMMANDS {
+        TEXT id PK
+        INTEGER session_id FK
+        TEXT command_type
+        TEXT payload_json
+        TEXT status
+        TEXT error
+        TEXT created_at
+        TEXT sent_at
+        TEXT ack_at
+        TEXT completed_at
+    }
+    EVENTS {
+        INTEGER id PK
+        INTEGER session_id FK
+        TEXT kind
+        TEXT severity
+        TEXT payload_json
+        TEXT created_at
+    }
+    TELEMETRY {
+        INTEGER id PK
+        INTEGER session_id FK
+        INTEGER seq
+        TEXT state
+        REAL x_mm
+        REAL y_mm
+        REAL yaw_deg
+        INTEGER pwm_l
+        INTEGER pwm_r
+        TEXT payload_json
+    }
+    SESSIONS ||--o{ COMMANDS : registra
+    SESSIONS ||--o{ EVENTS : contiene
+    SESSIONS ||--o{ TELEMETRY : muestrea
+```
+
+`active_mission`, `last_completed_route`, `controller_session` y
+`next_command_seq` se almacenan como JSON en `settings`.
+
+## 15. Cadena de seguridad
+
+```mermaid
+flowchart TB
+    Input["Entrada HMI"] --> Validate["Validación Python<br/>tipo, rango, estado, frescura"]
+    Validate --> Protocol["Sesión + seq + handshake"]
+    Protocol --> Queue["colaComandos"]
+    Queue --> State["Estado robot/calibración"]
+    State --> Motion["Cinemática"]
+    Motion --> Clamp["Clamp PWM<br/>230 avance · 247 giro"]
+    Clamp --> Interlock["Interlock 250 ms por lado"]
+    Interlock --> DRV["DRV8833"]
+    Sensors["PCNT + MPU"] --> Watchdog["Watchdogs por fase"]
+    Watchdog --> Stop["frenarMotores()"]
+    Estop["E-STOP"] --> Stop
+    Stop --> DRV
+    Physical["VMOT apagado en boot/carga<br/>capacitores + fusible"] --> DRV
+```
+
+La última defensa de boot y sobrecorriente es física; no puede sustituirse con
+firmware.
+
+## 16. Ciclo de vida Android
+
+```mermaid
+flowchart TB
+    Launch["RobotApplication"] --> Python["Python.start()"]
+    Launch --> Service["RobotBackendService"]
+    Service --> Locks["WakeLock/WifiLock renovables"]
+    Service --> Mobile["mobile_entry.run(filesDir)"]
+    Mobile --> Waitress["Waitress loopback"]
+    Activity["MainActivity"] --> Probe["sondeo HTTP hasta 30 s"]
+    Probe --> WebView["WebView local"]
+    WebView --> Bridge["RobotHost.closeApp()"]
+    Bridge --> Service
+    Service --> Prepare["prepare_close(false)"]
+    Prepare -->|"safe_to_close"| Finish["stopSelf + finishAndRemoveTask"]
+    Prepare -->|"sin stop_ok"| Warning["notificación de bloqueo"]
+```
+
+## 17. Flujo de eventos y telemetría
+
+```mermaid
+flowchart LR
+    Snapshot["SensorSnapshot 100 Hz"] --> Pose["PoseEstimator"]
+    Snapshot --> Safety["Seguridad"]
+    Snapshot --> Control["Cinemática"]
+    Pose --> Telemetry["JSON 10 Hz"]
+    Safety --> Events["Eventos terminales"]
+    Control --> Events
+    Telemetry --> WS["WebSocket"]
+    Events --> WS
+    WS --> Normalize["TelemetrySnapshot.from_message"]
+    Normalize --> Recorder["Recorder 5 Hz aprox."]
+    Normalize --> SSE["EventHub/SSE"]
+    Recorder --> DB[("SQLite")]
+    SSE --> HMI["Gráficas y estado"]
+```
+
+## 18. Construcción y validación
+
+```mermaid
+flowchart LR
+    Source["Fuentes canónicas"] --> PIO["PlatformIO firmware"]
+    Source --> Modular["staging firmware modular"]
+    Source --> PyTest["unittest Python"]
+    Source --> Front["TypeScript + Vitest + Vite"]
+    Source --> HmiCheck["validador HMI"]
+    Source --> Gradle["Gradle + Chaquopy APK"]
+    PIO --> Gate["Puerta de integración"]
+    Modular --> Gate
+    PyTest --> Gate
+    Front --> Gate
+    HmiCheck --> Gate
+    Gradle --> Gate
+    Gate --> Physical["Prueba física con corriente limitada"]
+```
+
+## 19. Trazabilidad de evidencia
+
+```mermaid
+flowchart TB
+    Video1["Video: servidor + robot"] --> Frames1["24 fotogramas tutoriales"]
+    Video2["Video: ruta ortogonal"] --> Frames2["24 fotogramas tutoriales"]
+    Frames1 --> Manual["Portal/manual"]
+    Frames2 --> Manual
+    SQLite["SQLite/telemetría"] -. "correlación pendiente" .-> Video1
+    Measure["Medición física"] -. "aceptación pendiente" .-> Video2
+    CurrentCode["Commit auditado"] --> Catalog["Catálogo de 460 funciones"]
+    Catalog --> Manual
+```
+
+## 20. Índices detallados
+
+- [Auditoría y riesgos](docs/auditoria_estado_actual.md)
+- [Catálogo UML por carpeta](docs/uml/README.md)
+- [Vistas especializadas PCNT/MPU/JSON/PWM](docs/uml/vistas_especializadas.md)
+- [Especificación de objetos](docs/especificacion_objetos_sistema.md)
+- [Protocolo JSON v3](docs/protocolo_json_steps_v3_hmi_esp32.md)
+- [Evidencia audiovisual](evidencia/README.md)
+- [Validación física](docs/validacion_sistema_final.md)

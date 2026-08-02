@@ -1,0 +1,255 @@
+flowchart LR
+  subgraph f0["SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html"]
+    n4cbf77c493["fm(n,d=1)"]
+    n593102974c["nLetter()"]
+    n14f1ef6e7b["toast(m,t='info')"]
+    n622aa6745d["addPt()"]
+    n9c3c116062["rmPt(l)"]
+    n01061f78b6["clearAll()"]
+    n198e0e1e49["rPts()"]
+    n315958bad0["genRoute()"]
+    n4671b319ba["rChips()"]
+    nc767be9aa0["calcSteps()"]
+    n1fe21f1388["buildCSegs()"]
+    ndf4f4132cd["rSteps()"]
+    n09bc0b5b13["draw()"]
+    nb71483d30e["arrow(ax,ay,dx,dy,col)"]
+    nf82920201d["toggleCine()"]
+    n3cf472952d["startC()"]
+    n1aaec6a3f2["stopC()"]
+    nee051b40aa["cFrame(t)"]
+    nbfbc2048fe["hlStep(i)"]
+    nc0f3636e27["upSt()"]
+    n93bfeb5085["resetV()"]
+    n505bfe6358["initResize()"]
+    n29119f8e5f["mainW()"]
+    n1a802d9f8b["pL()"]
+    ne07e262822["pR()"]
+    ne7fd0cdcfd["onDown(type,e)"]
+    ndcc2caa7d0["onMove(cx2)"]
+    n6703467174["onUp()"]
+    naa0319038c["initEv()"]
+    n756c4c6df7["rsz()"]
+    n4df1dd2897["init()"]
+  end
+  subgraph f1["consultar_db.py"]
+    n49043c79a3["connect_db(db_path: str)"]
+    n5e0a00e68d["show_summary(conn: sqlite3.Connection)"]
+    nbf82b6eba0["list_sessions(conn: sqlite3.Connection, limit: int)"]
+    n9c7418a419["list_commands(conn: sqlite3.Connection, limit: int)"]
+    n2434d50d95["list_events(conn: sqlite3.Connection, limit: int)"]
+    n34bb24da56["list_telemetry(conn: sqlite3.Connection, limit: int)"]
+    nce7e9f10a5["search_all(conn: sqlite3.Connection, term: str)"]
+    n48e4577564["main()"]
+  end
+  subgraph f2["generar_catalogo.py"]
+    nafd356db32["active_files()"]
+    nbe76a713c4["subsystem(path: Path)"]
+    n7c3b78fe6d["language(path: Path)"]
+    n1cb0d8a18e["run_ctags(files: list[Path])"]
+    n8581868fe2["embedded_html_functions(path: Path)"]
+    n6c940fadb8["find_end(start: int)"]
+    n80d4f33be9["scripted_functions(files: list[Path])"]
+    n771ad39ac6["visibility(item: dict[str, Any], source_line: str)"]
+    nf0f6e15fe6["normalize_tags(tags: list[dict[str, Any]])"]
+    nb4286ff169["_function_body(item: dict[str, Any])"]
+    nb9f51e6533["_owner(folder: str)"]
+    n82d755956d["_platform(folder: str)"]
+    n9e90b74861["_complexity(body: str)"]
+    ndf31e443c8["_interaction(body: str)"]
+    n982ba39366["_shared_state(body: str)"]
+    nb32f8aebc6["infer_calls(functions: list[dict[str, Any]], routes: list[dict[str, Any]])"]
+    n03f09ef830["dependency_cycles(functions: list[dict[str, Any]])"]
+    n20291b9270["visit(node: str)"]
+    n256df7dfce["extract_routes(files: list[Path])"]
+    na83aea5101["node_id(item: dict[str, Any])"]
+    ncfaa75265c["mermaid_for_folder(folder: str, functions: list[dict[str, Any]])"]
+    n33bac7ac43["plantuml_for_folder(folder: str, functions: list[dict[str, Any]])"]
+    ne8f50e770a["write_markdown(functions: list[dict[str, Any]], types: list[dict[str, Any]])"]
+    n709c592fef["main()"]
+  end
+  subgraph f3["generar_resumen_sqlite.py"]
+    n9eab49d8ad["rows(connection: sqlite3.Connection, query: str, parameters: tuple = ())"]
+    ncb8c29961f["elapsed_seconds(value: str, origin: datetime)"]
+    n1c9814c081["main()"]
+  end
+  subgraph f4["renderizar_uml.py"]
+    n5483b456cb["download_if_needed()"]
+    nf237d76ace["render(format_name: str)"]
+    n489ce3258b["main()"]
+  end
+  subgraph f5["validar_enlaces.py"]
+    n3d5d392d32["markdown_files()"]
+    n3d26275b4a["normalize_target(raw: str)"]
+    n5d2522213b["main()"]
+  end
+  n01061f78b6 --> n09bc0b5b13
+  n01061f78b6 --> n14f1ef6e7b
+  n01061f78b6 --> n198e0e1e49
+  n01061f78b6 --> n1aaec6a3f2
+  n01061f78b6 --> n4671b319ba
+  n01061f78b6 --> nc0f3636e27
+  n01061f78b6 --> ndf4f4132cd
+  n03f09ef830 --> n20291b9270
+  n09bc0b5b13 --> nb71483d30e
+  n198e0e1e49 --> n09bc0b5b13
+  n198e0e1e49 --> n9c3c116062
+  n1a802d9f8b --> ne7fd0cdcfd
+  n1aaec6a3f2 --> n09bc0b5b13
+  n1c9814c081 --> n9eab49d8ad
+  n1c9814c081 --> ncb8c29961f
+  n29119f8e5f --> ne7fd0cdcfd
+  n315958bad0 --> n09bc0b5b13
+  n315958bad0 --> n14f1ef6e7b
+  n315958bad0 --> n4671b319ba
+  n315958bad0 --> nc0f3636e27
+  n315958bad0 --> nc767be9aa0
+  n315958bad0 --> ndf4f4132cd
+  n33bac7ac43 --> na83aea5101
+  n489ce3258b --> n5483b456cb
+  n489ce3258b --> nf237d76ace
+  n48e4577564 --> n2434d50d95
+  n48e4577564 --> n34bb24da56
+  n48e4577564 --> n49043c79a3
+  n48e4577564 --> n5e0a00e68d
+  n48e4577564 --> n9c7418a419
+  n48e4577564 --> nbf82b6eba0
+  n48e4577564 --> nce7e9f10a5
+  n4cbf77c493 --> n593102974c
+  n4df1dd2897 --> n09bc0b5b13
+  n4df1dd2897 --> n198e0e1e49
+  n4df1dd2897 --> n315958bad0
+  n4df1dd2897 --> n505bfe6358
+  n4df1dd2897 --> n622aa6745d
+  n4df1dd2897 --> n756c4c6df7
+  n4df1dd2897 --> naa0319038c
+  n4df1dd2897 --> nc0f3636e27
+  n505bfe6358 --> n29119f8e5f
+  n505bfe6358 --> n6703467174
+  n505bfe6358 --> n756c4c6df7
+  n505bfe6358 --> ndcc2caa7d0
+  n505bfe6358 --> ne7fd0cdcfd
+  n5d2522213b --> n3d26275b4a
+  n5d2522213b --> n3d5d392d32
+  n622aa6745d --> n09bc0b5b13
+  n622aa6745d --> n14f1ef6e7b
+  n622aa6745d --> n198e0e1e49
+  n622aa6745d --> n593102974c
+  n622aa6745d --> nc0f3636e27
+  n709c592fef --> n03f09ef830
+  n709c592fef --> n1cb0d8a18e
+  n709c592fef --> n256df7dfce
+  n709c592fef --> n80d4f33be9
+  n709c592fef --> n8581868fe2
+  n709c592fef --> nafd356db32
+  n709c592fef --> nb32f8aebc6
+  n709c592fef --> ne8f50e770a
+  n709c592fef --> nf0f6e15fe6
+  n756c4c6df7 --> n09bc0b5b13
+  n8581868fe2 --> n6c940fadb8
+  n93bfeb5085 --> n09bc0b5b13
+  n9c3c116062 --> n09bc0b5b13
+  n9c3c116062 --> n198e0e1e49
+  n9c3c116062 --> n4671b319ba
+  n9c3c116062 --> nc0f3636e27
+  n9c3c116062 --> nc767be9aa0
+  n9c3c116062 --> ndf4f4132cd
+  naa0319038c --> n09bc0b5b13
+  nb32f8aebc6 --> n82d755956d
+  nb32f8aebc6 --> n982ba39366
+  nb32f8aebc6 --> n9e90b74861
+  nb32f8aebc6 --> nb4286ff169
+  nb32f8aebc6 --> nb9f51e6533
+  nb32f8aebc6 --> ndf31e443c8
+  nc767be9aa0 --> n1fe21f1388
+  ncfaa75265c --> na83aea5101
+  ndcc2caa7d0 --> n29119f8e5f
+  ndcc2caa7d0 --> n756c4c6df7
+  ndf4f4132cd --> n09bc0b5b13
+  ne07e262822 --> ne7fd0cdcfd
+  ne8f50e770a --> n33bac7ac43
+  ne8f50e770a --> ncfaa75265c
+  nee051b40aa --> n09bc0b5b13
+  nee051b40aa --> n14f1ef6e7b
+  nee051b40aa --> n1aaec6a3f2
+  nee051b40aa --> nbfbc2048fe
+  nf0f6e15fe6 --> n771ad39ac6
+  nf0f6e15fe6 --> n7c3b78fe6d
+  nf0f6e15fe6 --> nbe76a713c4
+  nf82920201d --> n1aaec6a3f2
+  nf82920201d --> n3cf472952d
+  classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
+  classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
+  classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
+  class n4cbf77c493 bajo
+  class n593102974c bajo
+  class n14f1ef6e7b bajo
+  class n622aa6745d bajo
+  class n9c3c116062 bajo
+  class n01061f78b6 bajo
+  class n198e0e1e49 bajo
+  class n315958bad0 bajo
+  class n4671b319ba bajo
+  class nc767be9aa0 bajo
+  class n1fe21f1388 bajo
+  class ndf4f4132cd bajo
+  class n09bc0b5b13 bajo
+  class nb71483d30e bajo
+  class nf82920201d bajo
+  class n3cf472952d medio
+  class n1aaec6a3f2 bajo
+  class nee051b40aa bajo
+  class nbfbc2048fe bajo
+  class nc0f3636e27 bajo
+  class n93bfeb5085 bajo
+  class n505bfe6358 bajo
+  class n29119f8e5f bajo
+  class n1a802d9f8b bajo
+  class ne07e262822 bajo
+  class ne7fd0cdcfd bajo
+  class ndcc2caa7d0 bajo
+  class n6703467174 bajo
+  class naa0319038c bajo
+  class n756c4c6df7 bajo
+  class n4df1dd2897 bajo
+  class n49043c79a3 bajo
+  class n5e0a00e68d bajo
+  class nbf82b6eba0 bajo
+  class n9c7418a419 bajo
+  class n2434d50d95 bajo
+  class n34bb24da56 alto
+  class nce7e9f10a5 bajo
+  class n48e4577564 bajo
+  class nafd356db32 bajo
+  class nbe76a713c4 bajo
+  class n7c3b78fe6d bajo
+  class n1cb0d8a18e bajo
+  class n8581868fe2 bajo
+  class n6c940fadb8 bajo
+  class n80d4f33be9 bajo
+  class n771ad39ac6 bajo
+  class nf0f6e15fe6 bajo
+  class nb4286ff169 bajo
+  class nb9f51e6533 bajo
+  class n82d755956d bajo
+  class n9e90b74861 bajo
+  class ndf31e443c8 medio
+  class n982ba39366 medio
+  class nb32f8aebc6 alto
+  class n03f09ef830 bajo
+  class n20291b9270 bajo
+  class n256df7dfce bajo
+  class na83aea5101 bajo
+  class ncfaa75265c bajo
+  class n33bac7ac43 bajo
+  class ne8f50e770a alto
+  class n709c592fef bajo
+  class n9eab49d8ad bajo
+  class ncb8c29961f bajo
+  class n1c9814c081 medio
+  class n5483b456cb bajo
+  class nf237d76ace bajo
+  class n489ce3258b bajo
+  class n3d5d392d32 bajo
+  class n3d26275b4a bajo
+  class n5d2522213b bajo

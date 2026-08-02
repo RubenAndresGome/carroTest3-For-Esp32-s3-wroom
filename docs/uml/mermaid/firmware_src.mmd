@@ -1,0 +1,391 @@
+flowchart LR
+  subgraph f0["Cinematica.cpp"]
+    n1940a3e27a["errorAng360(float obj,float act)"]
+    n3dc7b7e95d["aproximar(float v)"]
+    n01277c72c7["sensar()"]
+    n186404df9a["copiarBase(int64_t dest[4],const SensorSnapshot & s)"]
+    n42e14d27c5["deltas(const int64_t base[4],const SensorSnapshot & s,int64_t out[4])"]
+    nfde25926ff["fin(TipoEvento t,const char * d)"]
+    nc3eec0fb58["fallo(const char * d)"]
+    n77879ff1c7["iniciarFaseCal(Fase f)"]
+    nd9b8eddc73["calCuenta()"]
+    n94a6712d0e["calTorque(bool primera)"]
+    ned2e4d48f2["controlarCalibracion()"]
+    n4b536264dc["iniciarBaseGiro(float objetivoDeg,Fase retorno)"]
+    n7aa7f5ee49["reintentarGiro(const char * motivo)"]
+    nec013fe7a8["controlarGiro()"]
+    nd5a5e3678f["completarGiro()"]
+    ned4ed8ba55["mediana4(const int64_t v[4])"]
+    n74b8dd73d7["hayPorLado()"]
+    n09eef1c5c3["promedioLado(const int64_t v[4],bool izq)"]
+    n2eb9176c0d["estimarTicksAvance(const int64_t v[4])"]
+    n477c017be5["resetConfEncoders()"]
+    nb7824323ae["iniciarAvance(bool conservar)"]
+    n3e614b3323["detectarOutliers(const int64_t v[4])"]
+    n7815c0c425["iniciarPausaReeval(const int64_t v[4])"]
+    nd74d78fa17["completarPausaReeval()"]
+    n29017fef3c["controlarAvance()"]
+    n451b4d7596["completarPaso()"]
+    nf969f266f4["iniciarPasoInterno()"]
+    nc5b23157f1["normalizar360(float a)"]
+    n30c8f0a81c["enFaseAvance()"]
+    n3a83295c66["enFaseGiro()"]
+    n5ae6f62555["enFaseCalibracion()"]
+    na8998b7173["iniciarCalibracion(int seq)"]
+    nf2633d6b21["iniciarPaso(float heading,float distanciaCm,int seq,float targetX,float targetY)"]
+    ne0362aa598["iniciarGiroAbsoluto(float heading,int seq)"]
+    n8b86cd69c0["cancelarMovimiento(const char * detalle)"]
+    nbc445e9d60["controlarMovimiento()"]
+  end
+  subgraph f1["DiagnosticoRTOS.cpp"]
+    ned6049114b["textoReset(esp_reset_reason_t motivo)"]
+    n999b6f2133["actualizarMinimo(volatile uint32_t & destino,UBaseType_t valor)"]
+    n13d5d5c8e7["resultadosValidos(BaseType_t web,bool controlEnCore1)"]
+    ne4a753795c["stackBajoValores(uint32_t web,uint32_t control)"]
+    n73252a2cfd["inicializarDiagnosticoRTOS()"]
+    n93202db9d6["registrarStackLibre(TareaDiagnosticada tarea,UBaseType_t bytesLibres)"]
+    n7fe919940e["registrarResultadoArquitectura(BaseType_t web,bool controlEnCore1)"]
+    ndf604692a1["registrarCicloControl(uint32_t periodoUs,uint32_t jitterUs,uint32_t duracionUs,uint32_t antiguedadMuestraUs,uint32_t deadlinesPerdidos)"]
+    n1b9377afe9["stackRTOSBajo()"]
+    ndf57242908["validarLogicaDiagnosticoRTOS()"]
+  end
+  subgraph f2["Eventos.cpp"]
+    na2bfb4ac57["encolarEvento(TipoEvento tipo,int seq,const char * detalle,float progreso)"]
+  end
+  subgraph f3["Mision.cpp"]
+    n4c72a557d1["guardarCheckpoint()"]
+    n7f71553283["crearIdPaso(size_t indice)"]
+    n7124881696["calcularDestino(float targetX,float targetY,const char * stepId)"]
+    n78ff63d885["inicializarPersistenciaMision()"]
+    n7111d39d27["misionAutonomaCoincide(const char * missionId,uint32_t revision,const PuntoMision * nuevos,size_t cantidad)"]
+    ne2128c8db3["cargarMisionAutonoma(const char * missionId,uint32_t revision,const PuntoMision * nuevos,size_t cantidad)"]
+    n3611be396e["iniciarMisionAutonoma(const char * commandId,const char * missionId,uint32_t revision)"]
+    n66990ff677["procesarMisionAutonoma()"]
+    n70b3074db4["detenerMisionAutonoma(bool conservarRuta)"]
+    ne0b5dff15e["liberarMisionAutonoma()"]
+    nb0228d405f["misionAutonomaCargada()"]
+    n361e38c76d["misionAutonomaActiva()"]
+    n9ca963ff76["idMisionAutonoma()"]
+    nf5e174de25["revisionMisionAutonoma()"]
+    n9e66c04032["pasoMisionActual()"]
+    n8d730cf516["pasosMisionCompletados()"]
+    n402773b772["totalPasosMision()"]
+    n701f62257b["estadoMisionAutonoma()"]
+    nebce00eecf["idPasoMisionActual()"]
+    n9acab61491["misionAutonomaInterrumpida()"]
+  end
+  subgraph f4["Motores.cpp"]
+    neac6f35910["aplicarVelocidades(int velIzq,int velDer)"]
+    na27e92de22["frenarMotores()"]
+    n5766281555["validarInterlockMotores()"]
+    n2569a29899["estadoInterlockL()"]
+    n975b360956["estadoInterlockR()"]
+    nf65c4ca9a2["signoEnergizadoL()"]
+    n337c0aa1f1["signoEnergizadoR()"]
+    nf1254dfd85["signoPendienteL()"]
+    n7bc60c1e73["signoPendienteR()"]
+    n799d913a06["setup_MotorPinsLow()"]
+    n9cd8f173f7["setup_Motores()"]
+  end
+  subgraph f5["PoseEstimator.cpp"]
+    n6d0812ef64["PoseEstimator()"]
+    naf7943a248["inicializar(float rueda_diametro_cm,int encoder_ppr)"]
+    n09b485aec5["reset()"]
+    n40419d6fc8["actualizarOdometria(int64_t pulsosFL,int64_t pulsosFR,int64_t pulsosBL,int64_t pulsosBR,bool avanzando)"]
+    nbc5b045960["iniciarMedicionTraslacionGiro()"]
+    nc8a9f799ef["actualizarOrientacion(float imu_delta_z)"]
+    nf524a72017["distanciaAlObjetivo(float obj_x,float obj_y)"]
+    n84102f3e2b["anguloAlObjetivoRad(float obj_x,float obj_y)"]
+  end
+  subgraph f6["Red.cpp"]
+    n336c50ec04["setup_Red()"]
+    n2e5041024c["procesarWebSockets()"]
+    n3c207cccf1["pushTelemetria()"]
+  end
+  subgraph f7["Seguridad.cpp"]
+    n56c916953e["Seguridad()"]
+    n4b74cb0712["auditarSalud(const SensorSnapshot & snap,int pwm_L,int pwm_R)"]
+    n55a95df373["forzarEStop()"]
+    n4b618bbd88["resetFallo()"]
+  end
+  subgraph f8["Sensores.cpp"]
+    ne07f96b0e0["setup_Sensores()"]
+    nbcba3216f0["resetFiltrosEncoder()"]
+    n30e90c2e57["resetOrientacionIMU()"]
+    nce50232280["obtenerYawIMUDeg()"]
+    na50b46ec42["recentrarYawIMUEnReposo()"]
+    nbc954010bb["cantidadRecentradosYawIMU()"]
+    naf53943060["leerSensoresSincrono()"]
+    n8a65804026["snapshotSensoresControl()"]
+    n9008852f41["obtenerUltimoSnapshotSensores(SensorSnapshot & destino)"]
+  end
+  subgraph f9["main.cpp"]
+    n48e7b1ca3d["procesarComandos()"]
+    n19c52865a0["Task_Web(void *)"]
+    na556d6a5dc["setup()"]
+    n84f960c41a["loop()"]
+  end
+  n01277c72c7 --> n9008852f41
+  n09b485aec5 --> nbc5b045960
+  n19c52865a0 --> n2e5041024c
+  n19c52865a0 --> n3c207cccf1
+  n19c52865a0 --> n93202db9d6
+  n1b9377afe9 --> ne4a753795c
+  n29017fef3c --> n01277c72c7
+  n29017fef3c --> n1940a3e27a
+  n29017fef3c --> n2eb9176c0d
+  n29017fef3c --> n3dc7b7e95d
+  n29017fef3c --> n3e614b3323
+  n29017fef3c --> n42e14d27c5
+  n29017fef3c --> n4b536264dc
+  n29017fef3c --> n7815c0c425
+  n29017fef3c --> na27e92de22
+  n29017fef3c --> nc3eec0fb58
+  n29017fef3c --> nc5b23157f1
+  n29017fef3c --> nd74d78fa17
+  n29017fef3c --> neac6f35910
+  n29017fef3c --> nf524a72017
+  n2eb9176c0d --> n09eef1c5c3
+  n2eb9176c0d --> n74b8dd73d7
+  n2eb9176c0d --> ned4ed8ba55
+  n3611be396e --> nb0228d405f
+  n3e614b3323 --> n1940a3e27a
+  n3e614b3323 --> ned4ed8ba55
+  n451b4d7596 --> nfde25926ff
+  n477c017be5 --> nbcba3216f0
+  n48e7b1ca3d -.-> n09b485aec5
+  n48e7b1ca3d -.-> n30e90c2e57
+  n48e7b1ca3d -.-> n4b618bbd88
+  n48e7b1ca3d -.-> n55a95df373
+  n48e7b1ca3d -.-> n8b86cd69c0
+  n48e7b1ca3d -.-> na2bfb4ac57
+  n48e7b1ca3d -.-> na8998b7173
+  n48e7b1ca3d -.-> ne0362aa598
+  n48e7b1ca3d -.-> nf2633d6b21
+  n4b536264dc --> n01277c72c7
+  n4b536264dc --> n186404df9a
+  n4b618bbd88 --> na27e92de22
+  n4b74cb0712 -.-> n30c8f0a81c
+  n4b74cb0712 -.-> n3a83295c66
+  n4b74cb0712 -.-> n5ae6f62555
+  n4b74cb0712 -.-> na27e92de22
+  n4b74cb0712 -.-> na2bfb4ac57
+  n55a95df373 --> na27e92de22
+  n66990ff677 -.-> n4c72a557d1
+  n66990ff677 -.-> n7124881696
+  n66990ff677 -.-> n7f71553283
+  n66990ff677 -.-> na2bfb4ac57
+  n66990ff677 -.-> nc5b23157f1
+  n66990ff677 -.-> nf2633d6b21
+  n6d0812ef64 --> n09b485aec5
+  n70b3074db4 --> n4c72a557d1
+  n70b3074db4 --> ne0b5dff15e
+  n7124881696 --> n84102f3e2b
+  n7124881696 --> nc5b23157f1
+  n7124881696 --> nf2633d6b21
+  n7124881696 --> nf524a72017
+  n73252a2cfd --> ned6049114b
+  n7815c0c425 --> na27e92de22
+  n7aa7f5ee49 --> na27e92de22
+  n7aa7f5ee49 --> nc3eec0fb58
+  n7fe919940e --> n13d5d5c8e7
+  n84f960c41a --> n8a65804026
+  n84f960c41a --> n93202db9d6
+  n84f960c41a --> ndf604692a1
+  n8b86cd69c0 -.-> na27e92de22
+  n8b86cd69c0 -.-> na2bfb4ac57
+  n93202db9d6 --> n999b6f2133
+  n94a6712d0e --> n01277c72c7
+  n94a6712d0e --> n186404df9a
+  n94a6712d0e --> n42e14d27c5
+  n94a6712d0e --> n4b536264dc
+  n94a6712d0e --> n77879ff1c7
+  n94a6712d0e --> na27e92de22
+  n94a6712d0e --> nc3eec0fb58
+  n94a6712d0e --> nc5b23157f1
+  n94a6712d0e --> neac6f35910
+  n9cd8f173f7 --> na27e92de22
+  na556d6a5dc -.-> n336c50ec04
+  na556d6a5dc -.-> n73252a2cfd
+  na556d6a5dc -.-> n799d913a06
+  na556d6a5dc -.-> n7fe919940e
+  na556d6a5dc -.-> n9cd8f173f7
+  na556d6a5dc -.-> na27e92de22
+  na556d6a5dc -.-> naf7943a248
+  na556d6a5dc -.-> ne07f96b0e0
+  na8998b7173 -.-> n01277c72c7
+  na8998b7173 -.-> na2bfb4ac57
+  nb7824323ae --> n01277c72c7
+  nb7824323ae --> n186404df9a
+  nb7824323ae --> n477c017be5
+  nb7824323ae --> nf524a72017
+  nbc445e9d60 --> n1940a3e27a
+  nbc445e9d60 --> n29017fef3c
+  nbc445e9d60 --> n451b4d7596
+  nbc445e9d60 --> n4b536264dc
+  nbc445e9d60 --> nc5b23157f1
+  nbc445e9d60 --> nec013fe7a8
+  nbc445e9d60 --> ned2e4d48f2
+  nc3eec0fb58 --> nfde25926ff
+  nd5a5e3678f --> n09b485aec5
+  nd5a5e3678f --> n30e90c2e57
+  nd5a5e3678f --> n451b4d7596
+  nd5a5e3678f --> n77879ff1c7
+  nd5a5e3678f --> na27e92de22
+  nd5a5e3678f --> nb7824323ae
+  nd5a5e3678f --> nfde25926ff
+  nd74d78fa17 --> n01277c72c7
+  nd74d78fa17 --> n186404df9a
+  nd74d78fa17 --> n74b8dd73d7
+  nd74d78fa17 --> nb7824323ae
+  nd74d78fa17 --> nc3eec0fb58
+  nd74d78fa17 --> ned4ed8ba55
+  nd9b8eddc73 --> n01277c72c7
+  nd9b8eddc73 --> n186404df9a
+  nd9b8eddc73 --> n77879ff1c7
+  nd9b8eddc73 --> nc3eec0fb58
+  nd9b8eddc73 --> nc5b23157f1
+  ndf57242908 --> n13d5d5c8e7
+  ndf57242908 --> ne4a753795c
+  ndf57242908 --> ned6049114b
+  ne0362aa598 -.-> n4b536264dc
+  ne0362aa598 -.-> na2bfb4ac57
+  ne0362aa598 -.-> nc5b23157f1
+  ne2128c8db3 --> n4c72a557d1
+  nec013fe7a8 --> n01277c72c7
+  nec013fe7a8 --> n186404df9a
+  nec013fe7a8 --> n1940a3e27a
+  nec013fe7a8 --> n3dc7b7e95d
+  nec013fe7a8 --> n42e14d27c5
+  nec013fe7a8 --> n7aa7f5ee49
+  nec013fe7a8 --> na27e92de22
+  nec013fe7a8 --> nc3eec0fb58
+  nec013fe7a8 --> nd5a5e3678f
+  nec013fe7a8 --> neac6f35910
+  ned2e4d48f2 --> n01277c72c7
+  ned2e4d48f2 --> n186404df9a
+  ned2e4d48f2 --> n4b536264dc
+  ned2e4d48f2 --> n77879ff1c7
+  ned2e4d48f2 --> n94a6712d0e
+  ned2e4d48f2 --> na27e92de22
+  ned2e4d48f2 --> nc3eec0fb58
+  ned2e4d48f2 --> nc5b23157f1
+  ned2e4d48f2 --> nd9b8eddc73
+  ned2e4d48f2 --> nec013fe7a8
+  nf2633d6b21 -.-> na2bfb4ac57
+  nf2633d6b21 -.-> nc5b23157f1
+  nf2633d6b21 -.-> nf969f266f4
+  nf969f266f4 --> n1940a3e27a
+  nf969f266f4 --> n4b536264dc
+  nf969f266f4 --> nb7824323ae
+  nfde25926ff -.-> na27e92de22
+  nfde25926ff -.-> na2bfb4ac57
+  classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
+  classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
+  classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
+  class n1940a3e27a bajo
+  class n3dc7b7e95d bajo
+  class n01277c72c7 bajo
+  class n186404df9a bajo
+  class n42e14d27c5 bajo
+  class nfde25926ff bajo
+  class nc3eec0fb58 bajo
+  class n77879ff1c7 bajo
+  class nd9b8eddc73 bajo
+  class n94a6712d0e alto
+  class ned2e4d48f2 bajo
+  class n4b536264dc bajo
+  class n7aa7f5ee49 bajo
+  class nec013fe7a8 alto
+  class nd5a5e3678f bajo
+  class ned4ed8ba55 bajo
+  class n74b8dd73d7 bajo
+  class n09eef1c5c3 bajo
+  class n2eb9176c0d bajo
+  class n477c017be5 bajo
+  class nb7824323ae bajo
+  class n3e614b3323 bajo
+  class n7815c0c425 bajo
+  class nd74d78fa17 bajo
+  class n29017fef3c alto
+  class n451b4d7596 bajo
+  class nf969f266f4 bajo
+  class nc5b23157f1 bajo
+  class n30c8f0a81c bajo
+  class n3a83295c66 bajo
+  class n5ae6f62555 bajo
+  class na8998b7173 bajo
+  class nf2633d6b21 bajo
+  class ne0362aa598 bajo
+  class n8b86cd69c0 bajo
+  class nbc445e9d60 bajo
+  class ned6049114b bajo
+  class n999b6f2133 bajo
+  class n13d5d5c8e7 bajo
+  class ne4a753795c bajo
+  class n73252a2cfd bajo
+  class n93202db9d6 bajo
+  class n7fe919940e bajo
+  class ndf604692a1 bajo
+  class n1b9377afe9 bajo
+  class ndf57242908 bajo
+  class na2bfb4ac57 bajo
+  class n4c72a557d1 medio
+  class n7f71553283 bajo
+  class n7124881696 bajo
+  class n78ff63d885 medio
+  class n7111d39d27 bajo
+  class ne2128c8db3 bajo
+  class n3611be396e bajo
+  class n66990ff677 bajo
+  class n70b3074db4 bajo
+  class ne0b5dff15e medio
+  class nb0228d405f bajo
+  class n361e38c76d bajo
+  class n9ca963ff76 bajo
+  class nf5e174de25 bajo
+  class n9e66c04032 bajo
+  class n8d730cf516 bajo
+  class n402773b772 bajo
+  class n701f62257b bajo
+  class nebce00eecf bajo
+  class n9acab61491 bajo
+  class neac6f35910 alto
+  class na27e92de22 alto
+  class n5766281555 bajo
+  class n2569a29899 bajo
+  class n975b360956 bajo
+  class nf65c4ca9a2 bajo
+  class n337c0aa1f1 bajo
+  class nf1254dfd85 bajo
+  class n7bc60c1e73 bajo
+  class n799d913a06 bajo
+  class n9cd8f173f7 alto
+  class n6d0812ef64 bajo
+  class naf7943a248 bajo
+  class n09b485aec5 bajo
+  class n40419d6fc8 bajo
+  class nbc5b045960 bajo
+  class nc8a9f799ef bajo
+  class nf524a72017 bajo
+  class n84102f3e2b bajo
+  class n336c50ec04 medio
+  class n2e5041024c bajo
+  class n3c207cccf1 bajo
+  class n56c916953e bajo
+  class n4b74cb0712 alto
+  class n55a95df373 medio
+  class n4b618bbd88 medio
+  class ne07f96b0e0 bajo
+  class nbcba3216f0 bajo
+  class n30e90c2e57 bajo
+  class nce50232280 bajo
+  class na50b46ec42 bajo
+  class nbc954010bb bajo
+  class naf53943060 bajo
+  class n8a65804026 bajo
+  class n9008852f41 bajo
+  class n48e7b1ca3d medio
+  class n19c52865a0 bajo
+  class na556d6a5dc alto
+  class n84f960c41a bajo

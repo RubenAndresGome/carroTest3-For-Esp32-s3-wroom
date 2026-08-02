@@ -1,0 +1,51 @@
+@startuml
+title Robot S3 — adquisición, protocolo y PWM
+skinparam backgroundColor #08131F
+skinparam defaultFontColor #E2E8F0
+skinparam ArrowColor #38BDF8
+skinparam componentBackgroundColor #0F766E
+skinparam componentBorderColor #5EEAD4
+skinparam queueBackgroundColor #0F766E
+skinparam queueBorderColor #5EEAD4
+skinparam queueFontColor #E2E8F0
+skinparam databaseBackgroundColor #0F766E
+skinparam databaseBorderColor #5EEAD4
+skinparam databaseFontColor #E2E8F0
+skinparam noteBackgroundColor #1E293B
+skinparam noteBorderColor #38BDF8
+skinparam noteFontColor #E2E8F0
+
+component "PCNT ×4" as PCNT
+component "MPU6050\nI2C" as MPU
+component "SensorSnapshot\n100 Hz · Core 1" as SNAP
+component "Pose + filtros" as POSE
+component "Seguridad" as SAFE
+component "Cinemática" as CINE
+component "PWM + interlock\n250 ms" as PWM
+component "DRV8833" as DRV
+queue "colaComandos · 4" as CQ
+queue "colaEventos · 8" as EQ
+component "WebSocket JSON v3\nCore 0" as WS
+database "SQLite\nPython" as DB
+
+PCNT --> SNAP : pulsos/deltas
+MPU --> SNAP : gyro Z/yaw
+SNAP --> POSE
+SNAP --> SAFE
+POSE --> CINE
+SAFE --> CINE : stop/fault
+CQ --> CINE : ComandoRed + seq
+CINE --> PWM
+PWM --> DRV
+CINE --> EQ : terminal/progreso
+WS --> CQ : step/turn_to/stop
+EQ --> WS : accepted/completed/fault
+WS --> DB : RobotService persiste
+
+note right of WS
+hello: session, seq=0
+step: heading, cm, seq
+turn_to: heading, seq
+evento: evt, seq, detail?, pct?
+end note
+@enduml
