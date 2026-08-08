@@ -71,6 +71,11 @@ compile_commands.json
 htmlcov/
 desktop_app/build/
 desktop_app/dist/
+/build/
+/ActualizadorRobot.spec
+/update_firmware_o_documentacion/actualizar-robot/build/
+/update_firmware_o_documentacion/actualizar-robot/dist/
+/update_firmware_o_documentacion/actualizar-robot/ActualizadorRobot.spec
 desktop_app/.test-data/
 desktop_app/.exe-smoke-data/
 *.sqlite3

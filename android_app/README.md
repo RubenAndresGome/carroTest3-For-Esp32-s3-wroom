@@ -13,7 +13,7 @@ Galaxy Tab / APK
 │   ├── RobotFacade & MissionService
 │   ├── TelemetryRecorder & EventHub
 │   └── RobotGateway (Único Propietario WebSocket Activo)
-├── SQLite Privado Android (/data/data/com.robots3.hmi/databases/tablet_robot.sqlite3)
+├── SQLite Privado Android (/data/user/0/mx.ik.robots3/files/robot_s3/robot.sqlite3)
 └── RobotGateway → ws://192.168.4.1/ws → Firmware ESP32-S3
 ```
 
@@ -59,6 +59,19 @@ El archivo instalable se genera en `android_app/app/build/outputs/apk/debug/app-
 cd android_app
 .\install_tablet.ps1
 ```
+
+### Extraer evidencia SQLite después de una prueba
+
+Con depuración USB ya autorizada y una sola tablet conectada:
+
+```powershell
+cd android_app
+.\extraer_db_tablet.ps1
+```
+
+La copia se lee de la base interna del APK debug mediante `run-as`, se guarda
+con fecha y hora en `tmp_db/` sin sobrescribir ensayos anteriores. Para más de
+una tablet, usar `-Serial <serie>`.
 
 ---
 

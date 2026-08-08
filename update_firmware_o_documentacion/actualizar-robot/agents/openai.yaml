@@ -1,0 +1,4 @@
+interface:
+  display_name: "Actualizador Robot S3"
+  short_description: "Actualiza HMI Android y firmware ESP32"
+  default_prompt: "Usa $actualizar-robot para compilar e instalar la HMI o firmware."

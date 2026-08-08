@@ -1,0 +1,4 @@
+interface:
+  display_name: "Actualizador HMI Tablet"
+  short_description: "Compila e instala HMI Android seguro"
+  default_prompt: "Usa $actualizar-hmi-tablet para compilar e instalar el HMI actualizado en la tablet autorizada."
