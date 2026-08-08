@@ -41,7 +41,17 @@ constexpr uint16_t IMU_CALIBRATION_SAMPLES = 256;
 constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
 
 constexpr float WHEEL_DIAMETER_CM = 6.6f;
-constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM;
+// Corrección firmada de la distancia por pulso. La fórmula es la solicitada:
+// constante efectiva = constante nominal + porcentaje * constante nominal.
+// Calibración provisional de suelo: los recorridos físicos reportaron un
+// sobreavance de 10 % en 1 m y de 15--20 % en 2 m. Al aumentar la distancia
+// estimada por tick, el restante se reduce antes y el robot ordena el freno
+// antes. Revalidar con tres corridas de 50 y 200 cm tras cada cambio mecánico.
+constexpr float ENCODER_ERROR_PORCENTAJE = 0.15f;
+constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
+static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
+              "La correccion del encoder debe conservar una distancia por pulso positiva.");
+constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER;
 constexpr int ENCODER_PPR = 20;
 constexpr float MPU_YAW_POLARITY = -1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
@@ -55,23 +65,56 @@ constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10); /
 
 // --- PARÁMETROS DE AVANCE RECTO (DRIVE) ---
 constexpr int VELOCIDAD_BASE_RECTO = PWM_SAFE_HARD_LIMIT;
-constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(180 * PWM_SCALE_8_TO_10);
-constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(140 * PWM_SCALE_8_TO_10);
+// En pruebas de suelo, un torque inicial cercano a 65 % evita que el avance
+// fino quede zumbando por debajo de la fricción estática. Sigue por debajo del
+// tope seguro de avance (230/255).
+constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(200 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(165 * PWM_SCALE_8_TO_10);
+// La reversa no entra directamente a crucero: después del interlock se rampa
+// desde el torque mínimo para que el PID confirme yaw antes de potencia plena.
+constexpr uint32_t RAMPA_REVERSA_MS = 900;
+// Dentro del cierre se reduce el torque sin debilitar el arranque de crucero.
+// Esto evita que un paso corto llegue al umbral con 65 % de PWM todavía activo.
+constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(150 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 3.0f;
+constexpr float DISTANCIA_APROXIMACION_CM = 40.0f;
+// Modelo inicial de avance por inercia. La fase de asentamiento publica el
+// resultado real por JSON para afinar estos valores con pruebas de piso.
+constexpr float FRENO_RESIDUAL_BASE_CM = 1.5f;
+constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.006f;
+constexpr float FRENO_RESIDUAL_MAX_CM = 8.0f;
+constexpr uint32_t ASENTAMIENTO_MIN_MS = 250;
+constexpr uint32_t ASENTAMIENTO_SIN_PULSOS_MS = 300;
+constexpr uint32_t ASENTAMIENTO_MAX_MS = 1500;
+// Una misión con objetivo absoluto no puede terminar únicamente por el
+// contador longitudinal: debe converger al punto planificado.
+constexpr float TOLERANCIA_ENDPOINT_CM = 5.0f;
+// Por debajo de este umbral el arrastre de frenado puede ser mayor que la
+// corrección. No se gira ni se avanza automáticamente: se reporta calibración.
+constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM =
+    TOLERANCIA_ENDPOINT_CM + FRENO_RESIDUAL_MAX_CM;
+constexpr uint8_t INTENTOS_RECUPERACION_ENDPOINT_MAX = 2;
 constexpr float GYRO_MOVEMENT_RAD_S = 0.12f;
 constexpr uint32_t DRIVE_STALL_MS = 6000;
 constexpr uint32_t DRIVE_BASE_TIMEOUT_MS = 15000;
 constexpr uint32_t DRIVE_TIMEOUT_PER_CM_MS = 400;
-constexpr float ERROR_RUMBO_RECUPERAR_DEG = 20.0f;
-constexpr uint32_t ERROR_RUMBO_RECUPERAR_MS = 300;
+// La corrección PID continua absorbe el desvío moderado. El pivote se arma
+// sólo ante una pérdida clara y sostenida de rumbo, evitando ciclos de
+// avance/giro durante segmentos cortos.
+constexpr float ERROR_RUMBO_RECUPERAR_DEG = 15.0f;
+constexpr uint32_t ERROR_RUMBO_RECUPERAR_MS = 600;
 constexpr float GIRO_RECUPERACION_MAX_DEG = 25.0f;
-constexpr uint8_t INTENTOS_RECUPERACION_MAX = 20;
+// Un error persistente debe terminar en parada segura; no mantener PWM en un
+// ciclo de recuperación indefinido si el robot no responde.
+constexpr uint8_t INTENTOS_RECUPERACION_MAX = 3;
 constexpr uint32_t PAUSA_ENTRE_PASOS_MS = 600;
 
 // --- PARÁMETROS DE GIRO PIVOTE (TURN) ---
 constexpr uint32_t TURN_CONTROL_PERIOD_MS = 20;
 constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(247 * PWM_SCALE_8_TO_10); // Límite seguro para giros (247/255 = ~97%)
-constexpr int PWM_TURN_START = static_cast<int>(130 * PWM_SCALE_8_TO_10);
+// Giro inicial a ~65 % para vencer fricción. La rampa posterior conserva el
+// límite de 247/255 y el interlock universal al invertir polaridad.
+constexpr int PWM_TURN_START = static_cast<int>(165 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(10 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(4 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
@@ -84,7 +127,9 @@ constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
 constexpr float TURN_REACTIVATION_DEG = 4.0f;
 constexpr uint8_t TURN_MAX_ATTEMPTS = 15;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 1500;
-constexpr uint32_t TURN_SETTLE_MS = 300;
+// Exigir medio segundo largo de yaw estable antes de abandonar el giro y
+// volver al avance; evita reanudar cuando el chasis aún está asentándose.
+constexpr uint32_t TURN_SETTLE_MS = 600;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 60000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
@@ -94,8 +139,14 @@ constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_CORRECCION_RUMBO_MAX = static_cast<int>(80 * PWM_SCALE_8_TO_10);
 constexpr int PWM_CORRECCION_ENCODER_MAX = static_cast<int>(15 * PWM_SCALE_8_TO_10);
 constexpr float KP_RUMBO_PWM_POR_GRADO = 4.0f * PWM_SCALE_8_TO_10;
+constexpr float KI_RUMBO_PWM_POR_GRADO_S = 0.35f * PWM_SCALE_8_TO_10;
 constexpr float KD_RUMBO_PWM_POR_RAD_S = 12.0f * PWM_SCALE_8_TO_10;
 constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
+constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 35.0f;
+constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
+constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
+constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 8.0f;
+constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 135.0f;
 
 // Calibración y rampa incremental por búsqueda continua de torque (140 a 230/255).
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
@@ -126,6 +177,7 @@ constexpr int PWM_DIRECTION_PAUSE_MS = 250;
 
 // Límites de validación de comandos.
 constexpr float STEP_MAX_DISTANCE_CM = 200.0f;
+constexpr float STEP_TARGET_MAX_ABS_CM = 10000.0f;
 constexpr float COMP_FACTOR_MIN = 0.80f;
 constexpr float COMP_FACTOR_MAX = 1.00f;
 

@@ -12,7 +12,8 @@ from typing import Any
 
 from .config import DEFAULT_ROBOT_HOST, normalize_robot_host
 from .database import Database
-from .domain import CommandStatus, ConnectionState, RobotCommand, Severity, TelemetrySnapshot, split_segment_mm
+from .domain import (MAX_SEGMENT_MM, CommandStatus, ConnectionState, RobotCommand, Severity,
+                     TelemetrySnapshot, split_segment_mm)
 from .gateway import RobotGateway
 
 
@@ -530,7 +531,15 @@ class RobotService:
             reuse_command_id = self._mission_command_id if seq_override is not None else None
         heading = math.degrees(math.atan2(dx, dy)) % 360.0
         distance_cm = math.hypot(dx, dy) / 10.0
-        command = self.send_command("step", {"heading": heading, "cm": distance_cm},
+        if (abs(dx) > 1.0 and abs(dy) > 1.0) or not 0.5 <= distance_cm <= MAX_SEGMENT_MM / 10.0:
+            raise RuntimeError("Segmento de misión no ortogonal o fuera de rango")
+        # El waypoint no se reconstruye desde la odometría desviada: el ESP32
+        # recibe el punto almacenado en la ruta para poder recuperar el
+        # desplazamiento lateral antes de confirmar el paso.
+        command = self.send_command("step", {
+            "heading": heading, "cm": distance_cm, "drive_mode": "auto",
+            "target_x_mm": target["x_mm"], "target_y_mm": target["y_mm"],
+        },
                                     seq_override=seq_override, command_id_override=reuse_command_id)
         with self._lock:
             self._mission_command_id = command.command_id

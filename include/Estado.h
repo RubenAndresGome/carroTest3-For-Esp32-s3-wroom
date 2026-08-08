@@ -33,10 +33,47 @@ extern float heading360;
 extern bool modoDegradado;
 extern bool encoderConfiableGlobal[4];
 
-// Compensación de asimetría mecánica del lado derecho (del test aprobado).
+// Compensación ajustable de asimetría mecánica. Por defecto neutra: el sesgo
+// residual se corrige con el término integral, no con un valor adivinado.
 extern float factorCompensacionDer;
 
 // Objetivos del paso en curso (para telemetría)
 extern float pasoHeadingObjetivo;
 extern float pasoDistanciaObjetivoCm;
 extern float pasoDistanciaActualCm;
+extern bool pasoObjetivoAbsoluto;
+extern float pasoTargetXObjetivoCm;
+extern float pasoTargetYObjetivoCm;
+extern float pasoErrorLongitudinalCm;
+extern float pasoErrorLateralCm;
+extern float pasoErrorEuclidianoCm;
+extern float pasoRumboDinamicoDeg;
+extern float pasoErrorRumboDeg;
+extern float pasoControlRumboPwm;
+extern float pasoControlRumboP;
+extern float pasoControlRumboI;
+extern float pasoControlRumboD;
+extern float pasoControlEncoderPwm;
+extern float pasoControlLateralDeg;
+extern float pasoIntegralRumboGradoS;
+extern uint32_t pasoRampaReversaMs;
+extern char pasoLadoFrenoRumbo[8];
+extern bool pasoEnReversa;
+extern uint32_t pasoEjecucionId;
+extern uint8_t pasoIntentosEndpoint;
+extern char pasoMotivoFinalizacion[40];
+extern char pasoDecisionRecuperacion[24];
+extern float pasoDistanciaRecuperacionCm;
+extern bool pasoRecuperacionUsaReversa;
+
+// Diagnóstico longitudinal publicado por JSON. Permite ajustar escala y
+// frenado desde la telemetría de tablet cuando no hay osciloscopio.
+extern char pasoModoSolicitado[10];
+extern char pasoModoEfectivo[10];
+extern float pasoRumboTrayectoDeg;
+extern float pasoRumboCuerpoDeg;
+extern float pasoRumboFinalDeg;
+extern float pasoDistanciaRestanteCm;
+extern float pasoFrenoPrevistoCm;
+extern float pasoArrastreFrenoCm;
+extern uint32_t pasoAsentamientoMs;

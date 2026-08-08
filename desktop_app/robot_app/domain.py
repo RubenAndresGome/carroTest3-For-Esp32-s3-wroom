@@ -65,10 +65,23 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
             "y_mm": _finite_number(source.get("y_mm"), "y_mm", -100_000, 100_000),
         }
     if name == "step":
-        return {
+        result = {
             "heading": _heading_degrees(source.get("heading")),
             "cm": _finite_number(source.get("cm"), "cm", 0.5, MAX_SEGMENT_MM / 10.0),
         }
+        if "drive_mode" in source:
+            drive_mode = source["drive_mode"]
+            if not isinstance(drive_mode, str) or drive_mode not in {"forward", "reverse", "auto"}:
+                raise ValueError("drive_mode debe ser forward, reverse o auto")
+            result["drive_mode"] = drive_mode
+        has_target_x = "target_x_mm" in source
+        has_target_y = "target_y_mm" in source
+        if has_target_x != has_target_y:
+            raise ValueError("step requiere target_x_mm y target_y_mm juntos")
+        if has_target_x:
+            result["target_x_mm"] = _finite_number(source["target_x_mm"], "target_x_mm", -100_000, 100_000)
+            result["target_y_mm"] = _finite_number(source["target_y_mm"], "target_y_mm", -100_000, 100_000)
+        return result
     if name == "turn_to":
         return {"heading": _heading_degrees(source.get("heading"))}
     if name == "set_comp":
@@ -215,6 +228,9 @@ class TelemetrySnapshot:
     calibration_diagnostics: dict[str, Any] = field(default_factory=dict)
     self_test: dict[str, Any] = field(default_factory=dict)
     target: dict[str, Any] = field(default_factory=dict)
+    drive_control: dict[str, Any] = field(default_factory=dict)
+    motion: dict[str, Any] = field(default_factory=dict)
+    recovery: dict[str, Any] = field(default_factory=dict)
     last_terminal: dict[str, Any] = field(default_factory=dict)
     mission: dict[str, Any] = field(default_factory=dict)
     encoder_health: tuple[str, str, str, str] = ("unknown", "unknown", "unknown", "unknown")
@@ -373,6 +389,12 @@ class TelemetrySnapshot:
             self_test=dict(payload.get("self_test", {}))
             if isinstance(payload.get("self_test", {}), Mapping) else {},
             target=dict(payload.get("target", {})) if isinstance(payload.get("target", {}), Mapping) else {},
+            drive_control=dict(payload.get("drive_control", {}))
+            if isinstance(payload.get("drive_control", {}), Mapping) else {},
+            motion=dict(payload.get("motion", {}))
+            if isinstance(payload.get("motion", {}), Mapping) else {},
+            recovery=dict(payload.get("recovery", {}))
+            if isinstance(payload.get("recovery", {}), Mapping) else {},
             last_terminal=dict(payload.get("last_terminal", {})) if isinstance(payload.get("last_terminal", {}), Mapping) else {},
             mission=dict(payload.get("mission", {})) if isinstance(payload.get("mission", {}), Mapping) else {},
             encoder_health=tuple(
@@ -407,7 +429,10 @@ class TelemetrySnapshot:
             "robot_id": self.robot_id, "firmware_version": self.firmware_version, "pin_state": self.pin_state,
             "calibrated": self.calibrated, "degraded_mode": self.degraded_mode,
             "active_command_id": self.active_command_id, "active_command_name": self.active_command_name,
-            "command_progress": self.command_progress, "target": self.target, "mission": self.mission,
+            "command_progress": self.command_progress, "target": self.target,
+            "drive_control": self.drive_control, "motion": self.motion,
+            "recovery": self.recovery,
+            "mission": self.mission,
             "turn_attempt": self.turn_attempt, "turn_attempt_max": self.turn_attempt_max,
             "retry_pause_remaining_ms": self.retry_pause_remaining_ms,
             "drive_attempt": self.drive_attempt,

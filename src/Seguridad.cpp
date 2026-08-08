@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "Eventos.h"
 #include "Cinematica.h"
+#include "ControlSeguridad.h"
 
 Seguridad WatchdogSeguridad;
 
@@ -65,16 +66,18 @@ bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
     const bool bl_zero = llabs(actuales[2] - pulsos_movimiento_iniciales[2]) < 1;
     const bool br_zero = llabs(actuales[3] - pulsos_movimiento_iniciales[3]) < 1;
 
-    const bool sf_left  = exige_izq && fl_zero && bl_zero;
-    const bool sf_right = exige_der && fr_zero && br_zero;
+    const bool sf_left  = ControlSeguridad::ladoEnStall(exige_izq, fl_zero, bl_zero);
+    const bool sf_right = ControlSeguridad::ladoEnStall(exige_der, fr_zero, br_zero);
 
     if (sf_left || sf_right) {
         LOG_CORE("STALL Seguridad.cpp: motor/lado completo sin pulsos bajo PWM.");
         frenarMotores();
+        reiniciarControlRumbo();
         estadoActual = FALLO;
         char detMsg[64];
         const char* modoTag = enFaseCalibracion() ? "cal" : (enFaseGiro() ? "giro" : "avance");
         snprintf(detMsg, sizeof(detMsg), "stall_%s_%s[pwmL=%d,pwmR=%d]", modoTag, sf_left ? "left" : "right", pwm_L, pwm_R);
+        registrarMotivoFinalizacion(detMsg);
         encolarEvento(EVT_FAULT, seqActivo, detMsg);
         return true;
     }
@@ -89,11 +92,14 @@ bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
 void Seguridad::forzarEStop() {
     LOG_CORE("E-STOP enclavado.");
     frenarMotores();
+    reiniciarControlRumbo();
+    registrarMotivoFinalizacion("estop");
     estadoActual = ESTOP;
 }
 
 void Seguridad::resetFallo() {
     frenarMotores();
+    reiniciarControlRumbo();
     if (estadoActual != ESTOP && estadoActual != FALLO) {
         LOG_CORE("Rearme ignorado: sin fallo activo.");
         return;

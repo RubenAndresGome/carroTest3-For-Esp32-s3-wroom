@@ -763,6 +763,23 @@
         /* --- Estilos Pestaña Rutas --- */
         .route-maps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
         @media (max-width: 768px) { .route-maps-grid { grid-template-columns: 1fr; } }
+        .route-program-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+        .route-program-header .card-title { margin:0; font-size:14px; }
+        .route-mode-chip { padding:4px 7px; border:1px solid rgba(0,176,255,.28); border-radius:999px; color:var(--info); background:var(--info-dim); font:700 9px var(--font-mono); letter-spacing:.35px; white-space:nowrap; }
+        .route-form { display:grid; grid-template-columns:minmax(145px,.85fr) auto minmax(150px,1fr) minmax(150px,1fr) auto auto; gap:10px; align-items:end; margin-bottom:14px; padding:11px; border:1px solid var(--border); border-radius:var(--radius); background:linear-gradient(135deg,rgba(13,18,25,.92),rgba(22,29,39,.72)); }
+        .route-form .cmd-input-group { min-width:0; }
+        .route-form .btn { height:34px; white-space:nowrap; }
+        .route-axis-toggle { align-self:end; height:34px; display:flex; align-items:center; }
+        .route-axis-toggle input { position:absolute; inline-size:1px; block-size:1px; opacity:0; pointer-events:none; }
+        .route-axis-toggle label { position:relative; display:flex; align-items:center; gap:7px; min-height:34px; padding:0 9px; border:1px solid var(--border-light); border-radius:999px; color:var(--text-secondary); font:700 10px var(--font-ui); cursor:pointer; user-select:none; white-space:nowrap; transition:color .15s,border-color .15s,background .15s; }
+        .route-axis-toggle label::before { content:''; width:24px; height:14px; border-radius:999px; background:var(--bg-input); border:1px solid var(--border); box-shadow:inset 0 0 0 1px rgba(0,0,0,.18); transition:background .15s,border-color .15s; }
+        .route-axis-toggle label::after { content:''; position:absolute; left:12px; width:10px; height:10px; border-radius:50%; background:var(--text-muted); transition:transform .15s,background .15s; }
+        .route-axis-toggle input:checked + label { color:var(--accent); border-color:rgba(0,230,118,.45); background:var(--accent-dim); }
+        .route-axis-toggle input:checked + label::before { background:rgba(0,230,118,.25); border-color:rgba(0,230,118,.45); }
+        .route-axis-toggle input:checked + label::after { transform:translateX(10px); background:var(--accent); }
+        .route-axis-toggle input:focus-visible + label { outline:2px solid var(--info); outline-offset:2px; }
+        @media (max-width:1050px) { .route-form { grid-template-columns:minmax(145px,1fr) auto minmax(145px,1fr) minmax(145px,1fr); } .route-form .btn { width:100%; } }
+        @media (max-width:600px) { .route-program-header { align-items:flex-start; } .route-mode-chip { font-size:8px; } .route-form { grid-template-columns:1fr 1fr; gap:8px; padding:9px; } .route-axis-toggle { align-self:end; } .route-form .btn { grid-column:span 1; font-size:10px; } }
         .route-map-card { position: relative; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border); padding: 10px; display: flex; flex-direction: column; transition: all 0.3s; }
         .route-map-card.cinema-mode { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-primary); margin: 0; border: none; border-radius: 0; padding: 20px; }
         .route-map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -1170,26 +1187,33 @@
     <!-- TAB 4: RUTAS -->
     <div class="tab-content" id="tab-rutas" role="tabpanel">
         <div class="card route-content">
-            <div class="card-title" style="font-size: 14px;">Programación de Rutas (Descomposición Ortogonal · cada paso termina a 0°)</div>
+            <div class="route-program-header">
+                <div class="card-title">Programador de rutas</div>
+                <span class="route-mode-chip">ORTOGONAL · FIN 0°</span>
+            </div>
             
-            <form id="route-form" style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; align-items: flex-end;">
-                <div class="cmd-input-group" style="flex: 0 1 150px;">
+            <form id="route-form" class="route-form">
+                <div class="cmd-input-group">
                     <label>Modo de Entrada:</label>
                     <select id="route-mode" style="width: 100%; padding: 5px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
                         <option value="rect">Rectangular (X, Y)</option>
                         <option value="polar">Polar (Radio, Ángulo)</option>
                     </select>
                 </div>
-                <div class="cmd-input-group" style="flex: 0 1 150px;">
+                <div class="route-axis-toggle" id="route-axis-default-group" title="Al capturar un eje, completa el otro con 0. Si reemplazas ese 0 automático, el primer eje pasa a 0.">
+                    <input type="checkbox" id="route-axis-default" aria-label="Eje único: completar el otro eje con cero">
+                    <label for="route-axis-default">Eje único</label>
+                </div>
+                <div class="cmd-input-group">
                     <label id="route-label-1">Coordenada Relativa X:</label>
                     <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-1" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-1" data-toggle-sign="route-input-1" aria-label="Cambiar signo del primer valor">&plusmn;</button></div>
                 </div>
-                <div class="cmd-input-group" style="flex: 0 1 150px;">
+                <div class="cmd-input-group">
                     <label id="route-label-2">Coordenada Relativa Y:</label>
                     <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-2" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-2" data-toggle-sign="route-input-2" aria-label="Cambiar signo del segundo valor">&plusmn;</button></div>
                 </div>
-                <button type="submit" class="btn btn-accent" style="height: 34px; font-weight: bold;">+ Agregar Paso Ortogonal</button>
-                <button type="button" class="btn" id="btn-route-pop" style="height: 34px;">↶ Deshacer último paso</button>
+                <button type="submit" class="btn btn-accent">+ Agregar paso</button>
+                <button type="button" class="btn" id="btn-route-pop">↶ Deshacer</button>
             </form>
 
             <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;">Equiv: X = 0.00, Y = 0.00</div>
@@ -1235,6 +1259,10 @@
                             <tr><td>X</td><td id="route-live-x">0.0 cm</td><td>Y</td><td id="route-live-y">0.0 cm</td></tr>
                             <tr><td>Yaw</td><td id="route-live-yaw">0.0°</td><td>Estado</td><td id="route-live-state">INIT</td></tr>
                             <tr><td>Distancia</td><td id="route-live-dist">0.0 cm</td><td>PWM L / R</td><td id="route-live-pwm">0 / 0</td></tr>
+                            <tr><td>Objetivo / error</td><td id="route-live-error">sin objetivo</td><td>PID P / I / D</td><td id="route-live-control">0 / 0 / 0</td></tr>
+                            <tr><td>Rumbo dinámico / eθ</td><td id="route-live-heading">0.0° / 0.0°</td><td>Encoder / comp.</td><td id="route-live-assist">0.0 / 1.00</td></tr>
+                            <tr><td>Sentido / rumbo</td><td id="route-live-motion">forward · 0°</td><td>Freno / arrastre</td><td id="route-live-brake">0.0 / 0.0 cm</td></tr>
+                            <tr><td>Endpoint / decisión</td><td id="route-live-endpoint">sin corrección</td><td>Corrección / pivote</td><td id="route-live-recovery">—</td></tr>
                             <tr><td>Arco de giro</td><td id="route-live-arc">0.0 cm</td><td>Traslación X / Y</td><td id="route-live-turn-xy">0.0 / 0.0 cm</td></tr>
                             <tr><td>Sup. Izq.</td><td id="route-live-fl">0</td><td>Sup. Der.</td><td id="route-live-fr">0</td></tr>
                             <tr><td>Inf. Izq.</td><td id="route-live-bl">0</td><td>Inf. Der.</td><td id="route-live-br">0</td></tr>
@@ -1576,7 +1604,8 @@
                 distancia:totalDistance, angulo:yaw, posX:telemX, posY:telemY,
                 orientacion:yaw*Math.PI/180, estado:uiState,
                 pfl:Number(pulses.fl||0), pfr:Number(pulses.fr||0), pbl:Number(pulses.bl||0), pbr:Number(pulses.br||0),
-                pwmL:Number(pwm.left||0), pwmR:Number(pwm.right||0)
+                pwmL:Number(pwm.left||0), pwmR:Number(pwm.right||0),
+                target:raw.target||{}, driveControl:raw.drive_control||{}, motion:raw.motion||{}, recovery:raw.recovery||{}
             });
             Calibration.applyTelemetry(raw);
             ConnectionPanel.applyIdentity(raw);
@@ -1969,6 +1998,22 @@
             document.getElementById('route-live-state').textContent=state.estado;
             document.getElementById('route-live-dist').textContent=`${t.distancia.toFixed(1)} cm`;
             document.getElementById('route-live-pwm').textContent=`${t.pwmL} / ${t.pwmR}`;
+            const target=t.target||{}, control=t.driveControl||{};
+            document.getElementById('route-live-error').textContent=target.absolute
+                ? `Av ${Number(target.longitudinal_error_cm||0).toFixed(1)} · L ${Number(target.lateral_error_cm||0).toFixed(1)} · D ${Number(target.distance_error_cm||0).toFixed(1)} cm · #${Number(target.endpoint_attempt||0)}${target.finish_reason?` · ${target.finish_reason}`:''}`
+                : 'paso relativo';
+            document.getElementById('route-live-control').textContent=`${Number(control.p||0).toFixed(1)} / ${Number(control.i||0).toFixed(1)} / ${Number(control.d||0).toFixed(1)}`;
+            document.getElementById('route-live-heading').textContent=`${Number(control.dynamic_heading_deg||0).toFixed(1)}° / ${Number(control.heading_error_deg||0).toFixed(1)}°`;
+            document.getElementById('route-live-assist').textContent=`${Number(control.encoder_pwm||0).toFixed(1)} / ${Number(control.right_compensation||1).toFixed(2)} · yaw ${control.heading_brake_side||'none'}`;
+            const motion=t.motion||{};
+            const rampaReversa=motion.reverse_ramp_active?` · rampa R ${Number(motion.reverse_ramp_elapsed_ms||0)} ms`:'';
+            document.getElementById('route-live-motion').textContent=`${motion.effective_mode||motion.requested_mode||'forward'} · trayecto ${Number(motion.travel_heading_deg||0).toFixed(1)}° · chasis ${Number(motion.body_heading_deg||0).toFixed(1)}° · final ${Number(motion.final_heading_deg||0).toFixed(1)}°${rampaReversa}`;
+            document.getElementById('route-live-brake').textContent=`pred ${Number(motion.brake_prediction_cm||0).toFixed(1)} · arrastre ${Number(motion.coast_cm||0).toFixed(1)} cm · asent. ${Number(motion.settle_elapsed_ms||0)} ms`;
+            const recovery=t.recovery||{};
+            document.getElementById('route-live-endpoint').textContent=`${recovery.decision||'none'} · error ${Number(recovery.distance_cm||0).toFixed(1)} / mín ${Number(recovery.min_distance_cm||0).toFixed(1)} cm`;
+            document.getElementById('route-live-recovery').textContent=recovery.pivot_avoided
+                ? `${recovery.direction||'reverse'} · sin pivote`
+                : `${recovery.direction||'forward'} · pivote sólo si hace falta`;
             document.getElementById('route-live-fl').textContent=t.pfl || 0;
             document.getElementById('route-live-fr').textContent=t.pfr || 0;
             document.getElementById('route-live-bl').textContent=t.pbl || 0;
@@ -2012,20 +2057,25 @@
        ROUTE MANAGER (Path Programming)
        ============================================== */
     const RouteManager = {
-        queue: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null,
+        queue: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null,
         init() {
             this.modeSelect = document.getElementById('route-mode');
             this.input1 = document.getElementById('route-input-1');
             this.input2 = document.getElementById('route-input-2');
             this.lbl1 = document.getElementById('route-label-1');
             this.lbl2 = document.getElementById('route-label-2');
+            this.axisDefault = document.getElementById('route-axis-default');
+            this.axisDefaultGroup = document.getElementById('route-axis-default-group');
             this.list = document.getElementById('route-list');
             this.preview = document.getElementById('route-polar-preview');
             this._initCharts();
             
             this.modeSelect.addEventListener('change', () => { this.updateLabels(); this.updatePreview(); });
-            this.input1.addEventListener('input', () => this.updatePreview());
-            this.input2.addEventListener('input', () => this.updatePreview());
+            this.axisDefault.addEventListener('change', () => {
+                this.rectangularCeroAutomatico = null;
+            });
+            this.input1.addEventListener('input', () => { this.completarEjeRectangular(this.input1); this.updatePreview(); });
+            this.input2.addEventListener('input', () => { this.completarEjeRectangular(this.input2); this.updatePreview(); });
             document.getElementById('route-form').addEventListener('submit', (e) => {
                 e.preventDefault(); this.addStep();
             });
@@ -2034,6 +2084,7 @@
             document.getElementById('btn-route-stop').addEventListener('click', () => this.stopAndReset());
             document.getElementById('btn-route-ockham').addEventListener('click', () => this.ockhamReturn());
             document.getElementById('btn-route-clear-memory').addEventListener('click', () => this.clearRobotMemory());
+            this.updateLabels();
         },
         _chartOptions() {
             const theme = getComputedStyle(document.documentElement);
@@ -2066,15 +2117,30 @@
                 ]},
                 options:this._chartOptions()
             });
+            const tolerancePlugin = {
+                id:'routeEndpointTolerance',
+                afterDatasetsDraw(chart) {
+                    const target=chart.$endpointTolerance;
+                    if(!target) return;
+                    const x=chart.scales.x.getPixelForValue(target.x), y=chart.scales.y.getPixelForValue(target.y);
+                    const radiusX=Math.abs(chart.scales.x.getPixelForValue(target.x+5)-x);
+                    const radiusY=Math.abs(chart.scales.y.getPixelForValue(target.y+5)-y);
+                    const ctx=chart.ctx;
+                    ctx.save(); ctx.strokeStyle='rgba(245,158,11,.9)'; ctx.lineWidth=1.5;
+                    ctx.setLineDash([5,3]); ctx.beginPath(); ctx.ellipse(x,y,radiusX,radiusY,0,0,Math.PI*2); ctx.stroke(); ctx.restore();
+                }
+            };
             this.telemChart = new Chart(document.getElementById('route-telem-chart').getContext('2d'), {
                 type:'scatter',
                 data:{ datasets:[
                     { label:'Trayectoria real', data:[], showLine:true, borderColor:this.colors.info, backgroundColor:this.colors.info, borderWidth:2, tension:.2, pointRadius:0 },
                     { label:'Posición actual', data:[{x:0,y:0}], pointRadius:6, pointBackgroundColor:this.colors.accent, pointBorderColor:this.colors.accent },
                     { label:'Orientación', data:[{x:0,y:0},{x:0,y:8}], showLine:true, borderColor:this.colors.accent, borderWidth:2, pointRadius:0 },
-                    { label:'Origen', data:[{x:0,y:0}], pointRadius:4, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse }
+                    { label:'Origen', data:[{x:0,y:0}], pointRadius:4, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse },
+                    { label:'Ruta planificada', data:[], showLine:true, borderColor:this.colors.muted, borderDash:[6,4], borderWidth:1.5, pointRadius:0 },
+                    { label:'Tolerancia final (±5 cm)', data:[], pointRadius:4, pointBackgroundColor:'#f59e0b', pointBorderColor:'#f59e0b' }
                 ]},
-                options:this._chartOptions()
+                options:this._chartOptions(), plugins:[tolerancePlugin]
             });
         },
         resizeCharts() {
@@ -2097,6 +2163,24 @@
                 document.getElementById('route-sign-1').style.display = 'none';
                 this.preview.style.display = 'block';
                 this.updatePreview();
+            }
+            const esRectangular = this.modeSelect.value === 'rect';
+            this.axisDefaultGroup.hidden = !esRectangular;
+            this.axisDefault.disabled = !esRectangular;
+            if (!esRectangular) this.rectangularCeroAutomatico = null;
+        },
+        completarEjeRectangular(campoEditado) {
+            if (this.modeSelect.value !== 'rect' || !this.axisDefault.checked) return;
+            const valor = campoEditado.value.trim();
+            if (!valor) {
+                if (this.rectangularCeroAutomatico === campoEditado.id) this.rectangularCeroAutomatico = null;
+                return;
+            }
+            const otroCampo = campoEditado === this.input1 ? this.input2 : this.input1;
+            const reemplazaCeroAutomatico = this.rectangularCeroAutomatico === campoEditado.id;
+            if (!otroCampo.value.trim() || reemplazaCeroAutomatico) {
+                otroCampo.value = '0';
+                this.rectangularCeroAutomatico = otroCampo.id;
             }
         },
         updatePreview() {
@@ -2129,7 +2213,7 @@
                 this.appendLimited(nx,lastWp.y,nx,lastWp.y+dy,'Mover Y');
             }
             
-            this.input1.value = ''; this.input2.value = '';
+            this.input1.value = ''; this.input2.value = ''; this.rectangularCeroAutomatico = null;
             this.updateListUI();
             this.drawPlan();
             this.autoScale();
@@ -2168,7 +2252,16 @@
         },
         drawPlan() {
             if (!this.planChart) return;
-            this.planChart.data.datasets[0].data = [{x:0,y:0}, ...this.queue.map(wp=>({x:wp.x-this.currentOrigin.x,y:wp.y-this.currentOrigin.y}))];
+            const plan=[{x:0,y:0}, ...this.queue.map(wp=>({x:wp.x-this.currentOrigin.x,y:wp.y-this.currentOrigin.y}))];
+            this.planChart.data.datasets[0].data = plan;
+            if (this.telemChart) {
+                const index=Math.min(this.currentStepIndex, Math.max(0,this.queue.length-1));
+                const waypoint=this.queue[index];
+                this.telemChart.data.datasets[4].data=plan;
+                this.telemChart.data.datasets[5].data=waypoint ? [{x:waypoint.x-this.currentOrigin.x,y:waypoint.y-this.currentOrigin.y}] : [];
+                this.telemChart.$endpointTolerance=waypoint ? {x:waypoint.x-this.currentOrigin.x,y:waypoint.y-this.currentOrigin.y} : null;
+                this.telemChart.update('none');
+            }
             this.planChart.update('none');
         },
         autoScale() {

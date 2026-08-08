@@ -17,12 +17,26 @@ enum TipoComando : uint8_t {
     CMD_RESET_POSE    // pone x, y y yaw en cero
 };
 
+// El rumbo de trayecto y el sentido del chasis son conceptos distintos. Un
+// objetivo detrás del robot puede ejecutarse en reversa y conservar el yaw.
+enum ModoPaso : uint8_t {
+    PASO_ADELANTE,
+    PASO_REVERSA,
+    PASO_AUTO,
+};
+
 struct ComandoRed {
     TipoComando tipo;
     int seq;
     float heading;      // STEP/TURN_TO: rumbo absoluto objetivo en grados [0, 360)
     float distanciaCm;  // STEP: distancia a avanzar en cm (siempre positiva)
     float factor;       // SET_COMP: factor de compensación
+    // Campos aditivos de STEP. En una misión el backend entrega el waypoint
+    // exacto; los pasos manuales siguen usando sólo heading + cm.
+    float targetXCm;
+    float targetYCm;
+    bool tieneObjetivoAbsoluto;
+    ModoPaso modoPaso;
 };
 
 extern QueueHandle_t colaComandos;

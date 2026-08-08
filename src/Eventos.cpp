@@ -3,11 +3,12 @@
 
 QueueHandle_t colaEventosRed = nullptr;
 
-void encolarEvento(TipoEvento tipo, int seq, const char* detalle, float progreso) {
+void encolarEvento(TipoEvento tipo, int seq, const char* detalle, float progreso, uint32_t runId) {
     if (!colaEventosRed) return;
     EventoRed evt = {};
     evt.tipo = tipo;
     evt.seq = seq;
+    evt.run_id = runId ? runId : pasoEjecucionId;
     evt.progreso = progreso;
     if (detalle) {
         strncpy(evt.detalle, detalle, sizeof(evt.detalle) - 1);

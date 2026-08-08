@@ -81,12 +81,24 @@ static bool leerFloatFinito(JsonVariantConst valor, float& destino) {
   return isfinite(destino);
 }
 
+static bool leerModoPaso(JsonVariantConst valor, ModoPaso& destino) {
+  // Los clientes anteriores no envían drive_mode y conservan la semántica de
+  // avance tradicional. La HMI actual manda auto para habilitar reversa.
+  if (valor.isNull()) { destino = PASO_ADELANTE; return true; }
+  if (!valor.is<const char*>()) return false;
+  const char* modo = valor.as<const char*>();
+  if (strcmp(modo, "forward") == 0) { destino = PASO_ADELANTE; return true; }
+  if (strcmp(modo, "reverse") == 0) { destino = PASO_REVERSA; return true; }
+  if (strcmp(modo, "auto") == 0) { destino = PASO_AUTO; return true; }
+  return false;
+}
+
 static void responderRechazado(int seq, const char* detalle) {
   encolarEvento(EVT_REJECTED, seq, detalle);
 }
 
 static void parsearMensaje(const uint8_t* data, size_t len) {
-  StaticJsonDocument<768> doc;
+  StaticJsonDocument<1024> doc;
   DeserializationError err = deserializeJson(doc, data, len);
   if (err || !doc.is<JsonObject>()) return;
   const char* cmd = doc["cmd"] | "";
@@ -116,6 +128,26 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
     c.tipo=CMD_STEP;
     if (!leerFloatFinito(doc["heading"], c.heading) || !leerFloatFinito(doc["cm"], c.distanciaCm)) {
       responderRechazado(seq, "step_payload_invalid"); return;
+    }
+    if (!leerModoPaso(doc["drive_mode"], c.modoPaso)) {
+      responderRechazado(seq, "step_drive_mode_invalid"); return;
+    }
+    const bool tieneX = !doc["target_x_mm"].isNull();
+    const bool tieneY = !doc["target_y_mm"].isNull();
+    if (tieneX != tieneY) {
+      responderRechazado(seq, "step_target_pair_required"); return;
+    }
+    if (tieneX) {
+      float targetXmm = 0.0f, targetYmm = 0.0f;
+      if (!leerFloatFinito(doc["target_x_mm"], targetXmm) ||
+          !leerFloatFinito(doc["target_y_mm"], targetYmm) ||
+          fabsf(targetXmm) > STEP_TARGET_MAX_ABS_CM * 10.0f ||
+          fabsf(targetYmm) > STEP_TARGET_MAX_ABS_CM * 10.0f) {
+        responderRechazado(seq, "step_target_invalid"); return;
+      }
+      c.targetXCm = targetXmm / 10.0f;
+      c.targetYCm = targetYmm / 10.0f;
+      c.tieneObjetivoAbsoluto = true;
     }
   }
   else if (strcmp(cmd,"turn_to")==0) {
@@ -172,7 +204,7 @@ static void drenarEventos() {
   while (colaEventosRed && xQueueReceive(colaEventosRed, &evt, 0) == pdTRUE) {
     StaticJsonDocument<256> doc;
     const char* tipo = evt.tipo==EVT_ACCEPTED?"accepted":evt.tipo==EVT_REJECTED?"rejected":evt.tipo==EVT_COMPLETED?"completed":evt.tipo==EVT_ALREADY_DONE?"already_done":evt.tipo==EVT_FAULT?"fault":"progress";
-    doc["evt"] = tipo; doc["seq"] = evt.seq;
+    doc["evt"] = tipo; doc["seq"] = evt.seq; doc["run_id"] = evt.run_id;
     if (evt.detalle[0]) doc["detail"] = evt.detalle;
     if (evt.tipo == EVT_PROGRESS) doc["pct"] = evt.progreso;
     enviarJSON(doc);
@@ -183,7 +215,7 @@ static void drenarEventos() {
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  StaticJsonDocument<1024> doc;
+  StaticJsonDocument<2048> doc;
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
@@ -195,12 +227,70 @@ static void enviarTelemetria() {
   obtenerUltimoSnapshotSensores(s);
   enc.add(s.pulsosFL); enc.add(s.pulsosFR); enc.add(s.pulsosBL); enc.add(s.pulsosBR);
   doc["degraded"] = modoDegradado;
+  doc["degraded_mode"] = modoDegradado;
+  JsonArray encConfiables = doc.createNestedArray("enc_trusted");
+  for (bool confiable : encoderConfiableGlobal) encConfiables.add(confiable);
+  doc["encoder_scale_factor"] = FACTOR_ESCALA_ENCODER;
+  doc["encoder_error_pct"] = ENCODER_ERROR_PORCENTAJE;
+  JsonObject saludEncoders = doc.createNestedObject("encoder_health");
+  saludEncoders["fl"] = encoderConfiableGlobal[0] ? "ok" : "excluded";
+  saludEncoders["fr"] = encoderConfiableGlobal[1] ? "ok" : "excluded";
+  saludEncoders["bl"] = encoderConfiableGlobal[2] ? "ok" : "excluded";
+  saludEncoders["br"] = encoderConfiableGlobal[3] ? "ok" : "excluded";
+  JsonObject fusionEncoders = doc.createNestedObject("encoder_fusion");
+  fusionEncoders["estimator"] = "mediana_robusta_por_lado";
+  fusionEncoders["left_reliable_count"] = int(encoderConfiableGlobal[0]) + int(encoderConfiableGlobal[2]);
+  fusionEncoders["right_reliable_count"] = int(encoderConfiableGlobal[1]) + int(encoderConfiableGlobal[3]);
+  fusionEncoders["distance_scale_factor"] = FACTOR_ESCALA_ENCODER;
+  fusionEncoders["distance_error_pct"] = ENCODER_ERROR_PORCENTAJE;
+  JsonObject movimiento = doc.createNestedObject("motion");
+  movimiento["requested_mode"] = pasoModoSolicitado;
+  movimiento["effective_mode"] = pasoModoEfectivo;
+  movimiento["travel_heading_deg"] = pasoRumboTrayectoDeg;
+  movimiento["body_heading_deg"] = pasoRumboCuerpoDeg;
+  movimiento["final_heading_deg"] = pasoRumboFinalDeg;
+  movimiento["remaining_cm"] = pasoDistanciaRestanteCm;
+  movimiento["brake_prediction_cm"] = pasoFrenoPrevistoCm;
+  movimiento["coast_cm"] = pasoArrastreFrenoCm;
+  movimiento["settle_elapsed_ms"] = pasoAsentamientoMs;
+  movimiento["reverse_ramp_elapsed_ms"] = pasoRampaReversaMs;
+  movimiento["reverse_ramp_active"] = pasoEnReversa &&
+      pasoRampaReversaMs < RAMPA_REVERSA_MS;
+  movimiento["run_id"] = pasoEjecucionId;
   doc["session"] = sessionId;
   doc["last_seq"] = ultimoSeqCompletado;
   doc["seq"] = seqActivo;
+  doc["command_run_id"] = pasoEjecucionId;
   doc["phase"] = faseComando;
   doc["prog"] = roundf(progresoComando*100)/100;
   doc["comp"] = roundf(factorCompensacionDer*100)/100;
+  JsonObject target = doc.createNestedObject("target");
+  target["absolute"] = pasoObjetivoAbsoluto;
+  target["x_cm"] = pasoTargetXObjetivoCm;
+  target["y_cm"] = pasoTargetYObjetivoCm;
+  target["longitudinal_error_cm"] = pasoErrorLongitudinalCm;
+  target["lateral_error_cm"] = pasoErrorLateralCm;
+  target["distance_error_cm"] = pasoErrorEuclidianoCm;
+  target["endpoint_attempt"] = pasoIntentosEndpoint;
+  target["finish_reason"] = pasoMotivoFinalizacion;
+  JsonObject recuperacion = doc.createNestedObject("recovery");
+  recuperacion["decision"] = pasoDecisionRecuperacion;
+  recuperacion["distance_cm"] = pasoDistanciaRecuperacionCm;
+  recuperacion["direction"] = pasoRecuperacionUsaReversa ? "reverse" : "forward";
+  recuperacion["pivot_avoided"] = pasoRecuperacionUsaReversa;
+  recuperacion["min_distance_cm"] = DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM;
+  JsonObject control = doc.createNestedObject("drive_control");
+  control["dynamic_heading_deg"] = pasoRumboDinamicoDeg;
+  control["heading_error_deg"] = pasoErrorRumboDeg;
+  control["pwm"] = pasoControlRumboPwm;
+  control["p"] = pasoControlRumboP;
+  control["i"] = pasoControlRumboI;
+  control["d"] = pasoControlRumboD;
+  control["integral_deg_s"] = pasoIntegralRumboGradoS;
+  control["encoder_pwm"] = pasoControlEncoderPwm;
+  control["lateral_correction_deg"] = pasoControlLateralDeg;
+  control["right_compensation"] = factorCompensacionDer;
+  control["heading_brake_side"] = pasoLadoFrenoRumbo;
   doc["cal"] = robotCalibrado;
   doc["firmware"] = FIRMWARE_VERSION;
   doc["protocol"] = PROTOCOL_NAME;

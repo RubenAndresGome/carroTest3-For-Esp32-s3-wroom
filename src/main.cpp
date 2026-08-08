@@ -11,6 +11,7 @@
 #include "Seguridad.h"
 #include "Eventos.h"
 #include "DiagnosticoRTOS.h"
+#include "ControlSeguridad.h"
 #include <esp_timer.h>
 
 TaskHandle_t TaskWebHandle;
@@ -19,7 +20,7 @@ volatile bool flag_ESTOP_ISR = false;
 volatile int seq_ESTOP_pendiente = 0;
 
 void procesarComandos() {
-    if (flag_ESTOP_ISR) {
+    if (ControlSeguridad::estopSolicitado(flag_ESTOP_ISR)) {
         const int seq = seq_ESTOP_pendiente;
         flag_ESTOP_ISR = false;
         seq_ESTOP_pendiente = 0;
@@ -36,7 +37,8 @@ void procesarComandos() {
                     encolarEvento(EVT_REJECTED, cmd.seq, "cal_unavailable");
                 break;
             case CMD_STEP:
-                if (!iniciarPaso(cmd.heading, cmd.distanciaCm, cmd.seq))
+                if (!iniciarPaso(cmd.heading, cmd.distanciaCm, cmd.seq, cmd.targetXCm, cmd.targetYCm,
+                                 cmd.tieneObjetivoAbsoluto, cmd.modoPaso))
                     encolarEvento(EVT_REJECTED, cmd.seq, "step_invalid");
                 break;
             case CMD_TURN_TO:
@@ -102,11 +104,13 @@ static void ejecutarCicloControl() {
         if (estadoActual == LISTO || estadoActual == DESARMADO) {
             recentrarYawIMUEnReposo();
         }
-        PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
-                                       (estadoActual == EJECUTANDO && enFaseAvance()));
-        if (!snap.mpu_present || snap.mpu_stale) {
+            PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
+                                       (estadoActual == EJECUTANDO && enFaseTraslacion()));
+        if (!ControlSeguridad::imuApta(snap.mpu_present, snap.mpu_stale)) {
             if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO) {
                 frenarMotores();
+                reiniciarControlRumbo();
+                registrarMotivoFinalizacion("mpu_lost");
                 estadoActual = FALLO;
                 LOG_CORE("FAULT: MPU ausente/obsoleto durante movimiento.");
                 encolarEvento(EVT_FAULT, seqActivo, "mpu_lost");
@@ -131,7 +135,7 @@ void setup() {
 
     colaComandos = xQueueCreate(4, sizeof(ComandoRed));
     colaEventosRed = xQueueCreate(8, sizeof(EventoRed));
-    PoseGlobal.inicializar(WHEEL_DIAMETER_CM, ENCODER_PPR);
+    PoseGlobal.inicializar(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
     setup_Motores();
     setup_Red();
     setup_Sensores();

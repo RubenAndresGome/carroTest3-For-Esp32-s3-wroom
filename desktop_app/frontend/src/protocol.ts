@@ -38,6 +38,28 @@ export interface Telemetry {
   readonly active_command_id: string | null;
   readonly active_command_name: string | null;
   readonly command_progress: number;
+  readonly target: {
+    readonly absolute?: boolean;
+    readonly x_cm?: number;
+    readonly y_cm?: number;
+    readonly longitudinal_error_cm?: number;
+    readonly lateral_error_cm?: number;
+    readonly distance_error_cm?: number;
+    readonly endpoint_attempt?: number;
+    readonly finish_reason?: string;
+  };
+  readonly drive_control: {
+    readonly dynamic_heading_deg?: number;
+    readonly heading_error_deg?: number;
+    readonly pwm?: number;
+    readonly p?: number;
+    readonly i?: number;
+    readonly d?: number;
+    readonly integral_deg_s?: number;
+    readonly encoder_pwm?: number;
+    readonly lateral_correction_deg?: number;
+    readonly right_compensation?: number;
+  };
   readonly turn_requested_mode: "AUTO" | "PIVOT" | string;
   readonly turn_mode: "PIVOT_CONTINUOUS" | string;
   readonly turn_mode_reason: string;

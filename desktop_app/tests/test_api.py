@@ -46,6 +46,15 @@ class ApiTests(unittest.TestCase):
         self.assertIn("robot-s3-steps-v3", html)
         self.assertIn("Cerrar aplicación", html)
         self.assertNotIn("Este botón sólo recentra la pose", html)
+        for diagnostic in (
+            "longitudinal_error_cm", "lateral_error_cm", "distance_error_cm",
+            "dynamic_heading_deg", "heading_error_deg", "encoder_pwm",
+            "right_compensation", "finish_reason", "route-live-heading",
+            "route-live-endpoint", "route-live-recovery", "pivot_avoided",
+            "route-axis-default", "Eje único", "route-program-header",
+        ):
+            with self.subTest(diagnostic=diagnostic):
+                self.assertIn(diagnostic, html)
 
     def test_event_seq_is_mapped_back_to_python_command_id(self) -> None:
         self.service.start_session()
@@ -65,7 +74,10 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(mission["total_segments"], 3)
         first = self.service.gateway._outgoing.queue[0].command
         self.assertEqual(first.name, "step")
-        self.assertEqual(first.payload, {"heading": 90.0, "cm": 150.0})
+        self.assertEqual(first.payload, {
+            "heading": 90.0, "cm": 150.0, "drive_mode": "auto",
+            "target_x_mm": 1500.0, "target_y_mm": 0.0,
+        })
         self.service._on_robot_message({"evt": "completed", "seq": first.seq, "detail": "step_ok"})
         status = self.service.mission_status()
         self.assertEqual(status["current_index"], 1)
@@ -76,9 +88,13 @@ class ApiTests(unittest.TestCase):
         self.service.start_mission([{"x_mm": 0, "y_mm": 1000}, {"x_mm": 1000, "y_mm": 1000}])
         first = self.service.gateway._outgoing.queue[0].command
         self.assertEqual(first.payload["heading"], 0.0)
+        self.assertEqual(first.payload["drive_mode"], "auto")
+        self.assertEqual((first.payload["target_x_mm"], first.payload["target_y_mm"]), (0.0, 1000.0))
         self.service._on_robot_message({"evt": "completed", "seq": first.seq})
         commands = [item.command for item in self.service.gateway._outgoing.queue]
         self.assertEqual(commands[-1].payload["heading"], 90.0)
+        self.assertEqual((commands[-1].payload["target_x_mm"], commands[-1].payload["target_y_mm"]),
+                         (1000.0, 1000.0))
 
     def test_diagonal_route_is_rejected_but_one_mm_tolerance_is_allowed(self) -> None:
         self._ready()
@@ -99,6 +115,17 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(status["blocked"])
         self.assertEqual(status["current_index"], 0)
         self.assertEqual(status["error"], "stall_FR")
+
+    def test_endpoint_not_reached_blocks_current_waypoint(self) -> None:
+        self._ready()
+        mission = self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.service._on_robot_message({
+            "evt": "fault", "seq": mission["active_seq"], "detail": "endpoint_not_reached",
+        })
+        status = self.service.mission_status()
+        self.assertTrue(status["blocked"])
+        self.assertEqual(status["current_index"], 0)
+        self.assertEqual(status["error"], "endpoint_not_reached")
 
     def test_hello_reconciles_completed_step_without_repeating_it(self) -> None:
         self._ready()
