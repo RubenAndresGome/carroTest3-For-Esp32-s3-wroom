@@ -62,9 +62,9 @@ for (const [name, source] of Object.entries(diagrams)) {
 
 const markdownDiagramFiles = [
   resolve(repoRoot, "DIAGRAMA_SISTEMA_GENERAL.md"),
-  ...readdirSync(resolve(repoRoot, "docs/uml"), { withFileTypes: true })
+  ...readdirSync(resolve(repoRoot, "docs_markdowns/uml"), { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => resolve(repoRoot, "docs/uml", entry.name)),
+    .map((entry) => resolve(repoRoot, "docs_markdowns/uml", entry.name)),
 ];
 for (const file of markdownDiagramFiles) {
   const markdown = readFileSync(file, "utf8");
@@ -102,24 +102,24 @@ for (const item of evidence) {
 }
 
 for (const file of [
-  "docs/auditoria_estado_actual.md",
-  "docs/hallazgos_y_riesgos.md",
-  "docs/decisiones_de_alcance.md",
-  "docs/guia_auditorias_futuras.md",
-  "docs/glosario_y_referencias.md",
-  "docs/datos_y_privacidad.md",
-  "docs/datos_sqlite_documentales.json",
-  "docs/catalogo_funciones.csv",
-  "docs/manual_usuario.md",
-  "docs/uml/README.md",
+  "docs_markdowns/auditoria_estado_actual.md",
+  "docs_markdowns/hallazgos_y_riesgos.md",
+  "docs_markdowns/decisiones_de_alcance.md",
+  "docs_markdowns/guia_auditorias_futuras.md",
+  "docs_markdowns/glosario_y_referencias.md",
+  "docs_markdowns/datos_y_privacidad.md",
+  "docs_markdowns/datos_sqlite_documentales.json",
+  "docs_markdowns/catalogo_funciones.csv",
+  "docs_markdowns/manual_usuario.md",
+  "docs_markdowns/uml/README.md",
   "DIAGRAMA_SISTEMA_GENERAL.md",
   "evidencia/README.md",
 ]) {
   assert(existsSync(resolve(repoRoot, file)), `Documento requerido faltante: ${file}`);
 }
 
-const plantumlDir = resolve(repoRoot, "docs/uml/plantuml");
-const exportedDir = resolve(repoRoot, "docs/uml/exportados");
+const plantumlDir = resolve(repoRoot, "docs_markdowns/uml/plantuml");
+const exportedDir = resolve(repoRoot, "docs_markdowns/uml/exportados");
 const pumlFiles = readdirSync(plantumlDir).filter((name) => name.endsWith(".puml"));
 assert(pumlFiles.length >= Object.keys(catalog.stats.by_folder).length + 1,
   "Debe existir un PlantUML por carpeta y al menos una vista transversal");
