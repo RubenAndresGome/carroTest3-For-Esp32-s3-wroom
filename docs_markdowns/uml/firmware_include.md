@@ -1,30 +1,76 @@
 # UML funcional: `firmware/include`
 
-Funciones detectadas: **55**. Tipos detectados: **10**.
+Funciones detectadas: **97**. Tipos detectados: **16**.
 
 ## Grafo de llamadas
 
 ```mermaid
 flowchart LR
   subgraph f0["Comandos.h"]
-    n52fd560f83["tipo()"]
-    ndfcaf3f3be["seq()"]
-    n2723cbcf48["heading()"]
-    ne704d1ed5d["distanciaCm()"]
-    n2135af2d5f["factor()"]
+    nb9d52df174["tipo()"]
+    n54e28a7808["seq()"]
+    na384e552ee["heading()"]
+    n19302bb7c7["distanciaCm()"]
+    n1a150105f0["factor()"]
+    n359e3192c8["targetXCm()"]
+    n3ddd954461["targetYCm()"]
+    nd0867b25a6["tieneObjetivoAbsoluto()"]
+    n475cac3a15["modoPaso()"]
   end
-  subgraph f1["Eventos.h"]
+  subgraph f1["ControlRuta.h"]
+    naf5b9be116["longitudinalCm()"]
+    n7d8fcdccb4["lateralCm()"]
+    n56c5928aa3["euclidianoCm()"]
+    n443a3bfa6b["integralGradoS()"]
+    nd35097c3a5["p()"]
+    n7314fc80d8["i()"]
+    nbb3bcd73ea["d()"]
+    n05c7a68a3c["total()"]
+    n2e3822c0b7["integralGradoS()"]
+    nfd68ebbf51["limitar(float valor,float minimo,float maximo)"]
+    n055e6556b4["normalizar360(float grados)"]
+    n40c8cb2eef["errorAngularDeg(float objetivoDeg,float actualDeg)"]
+    nbe93f15ded["reversaAutomatica(float rumboTrayectoDeg,float rumboActualDeg,float umbralDeg)"]
+    nb3b8b073ec["rumboCuerpoParaTrayecto(float rumboTrayectoDeg,int direccion)"]
+    n0fcdf5f124["correccionLateralParaDireccion(float correccionRumboDeg,int direccion)"]
+    n8079dd1716["frenarLadoIzquierdoParaRumbo(int candidatoGiro,int direccion)"]
+    nabeea36787["distanciaPorTick(float diametroEfectivoCm,int pulsosPorRevolucion)"]
+    nc92c4c3dbd["distanciaFrenoPrevista(float pwm,float baseCm,float cmPorPwm,float maximoCm)"]
+    n77bb7c210f["calcularErroresTrayectoria(float posicionXCm,float posicionYCm,float objetivoXCm,float objetivoYCm,float rumboPlanificadoDeg,float distanciaPlanificadaCm)"]
+    n2ed90afeb2["correccionLateralRumboDeg(float errorLateralCm,float gananciaDegPorCm,float limiteDeg)"]
+    na4be9f82eb["actualizarPI(EstadoPI & estado,float errorDeg,float gyroRadS,float dtS,float kp,float ki,float kd,float limitePwm,float limiteIntegralGradoS)"]
+    n6686d80e74["endpointAceptable(float errorLateralCm,float errorEuclidianoCm,float errorYawDeg,float toleranciaEndpointCm,float toleranciaYawDeg)"]
+    n123b18d6f2["agotoIntentosEndpoint(uint8_t intentosRealizados,uint8_t maximoIntentos)"]
+    n2e65f908c7["decidirEndpoint(bool objetivoAbsoluto,bool endpointAceptado,uint8_t intentosRealizados,uint8_t maximoIntentos)"]
+    n14c5e62500["decidirEndpointSeguro(bool objetivoAbsoluto,bool endpointAceptado,uint8_t intentosRealizados,uint8_t maximoIntentos,float distanciaErrorCm,float distanciaMinimaRecuperableCm)"]
+  end
+  subgraph f2["ControlSeguridad.h"]
+    nc112944dbf["imuApta(bool presente,bool obsoleta)"]
+    neefa84e65c["estopSolicitado(bool solicitado)"]
+    na3d5c6af71["encoderEsOutlier(int64_t delta,float mediana,float desacuerdoMaximo)"]
+    n015925b31b["confiable()"]
+    n1dd147497d["mediana()"]
+    n4af4da39bf["modoDegradado()"]
+    nbc1218dd16["ladoIzquierdoValido()"]
+    n641bb93d5b["ladoDerechoValido()"]
+    nd631f6f320["medianaCuatro(const int64_t valores[4])"]
+    n6a1353563a["clasificarEncoders(const int64_t valores[4],float desacuerdoMaximo)"]
+    n35f31e7c43["promedioConfiableLado(const int64_t valores[4],const bool confiable[4],bool izquierdo)"]
+    ndd6f549d25["ladoEnStall(bool ladoExigido,bool pulsoFrontalCero,bool pulsoPosteriorCero)"]
+  end
+  subgraph f3["Eventos.h"]
     nae6550dc08["tipo()"]
     na459c2b651["seq()"]
-    n8ee7331898["detalle()"]
-    n7c591dc3c6["progreso()"]
+    nf13fbcc40f["run_id()"]
+    n76ea421fa2["detalle()"]
+    n62d9f5cb98["progreso()"]
   end
-  subgraph f2["Mision.h"]
+  subgraph f4["Mision.h"]
     nb9914d7cbb["x_cm()"]
     n95dbe740db["y_cm()"]
     nfd79d6b1ab["step_id()"]
   end
-  subgraph f3["PoseEstimator.h"]
+  subgraph f5["PoseEstimator.h"]
     n3bb4d1fc5e["getX() const"]
     n9130f7fc90["getY() const"]
     n1834fa7be3["getThetaRad() const"]
@@ -47,11 +93,11 @@ flowchart LR
     n6bc5cba68b["traslacion_giro_y_cm()"]
     nedb05230fb["DISTANCIA_EJES_CM()"]
   end
-  subgraph f4["Seguridad.h"]
+  subgraph f6["Seguridad.h"]
     nb8a33f8356["inicio_movimiento_ms()"]
     nfcd2379a57["pulsos_movimiento_iniciales()"]
   end
-  subgraph f5["Sensores.h"]
+  subgraph f7["Sensores.h"]
     na1bb2d9854["pulsosFL()"]
     nd1a857052e["pulsosFR()"]
     n9d7f448fe0["pulsosBL()"]
@@ -73,18 +119,70 @@ flowchart LR
     n7c7ebe4c92["mpu_calibrated()"]
     n19143883c9["sequence()"]
   end
+  n14c5e62500 --> n2e65f908c7
+  n2e65f908c7 --> n123b18d6f2
+  n2ed90afeb2 --> nfd68ebbf51
+  n40c8cb2eef --> n055e6556b4
+  n6a1353563a --> na3d5c6af71
+  n6a1353563a --> nd631f6f320
+  na4be9f82eb --> nfd68ebbf51
+  nb3b8b073ec --> n055e6556b4
+  nbe93f15ded --> n40c8cb2eef
+  nc92c4c3dbd --> nfd68ebbf51
   classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
   classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
   classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
-  class n52fd560f83 bajo
-  class ndfcaf3f3be bajo
-  class n2723cbcf48 bajo
-  class ne704d1ed5d bajo
-  class n2135af2d5f bajo
+  class nb9d52df174 bajo
+  class n54e28a7808 bajo
+  class na384e552ee bajo
+  class n19302bb7c7 bajo
+  class n1a150105f0 bajo
+  class n359e3192c8 bajo
+  class n3ddd954461 bajo
+  class nd0867b25a6 bajo
+  class n475cac3a15 bajo
+  class naf5b9be116 bajo
+  class n7d8fcdccb4 bajo
+  class n56c5928aa3 bajo
+  class n443a3bfa6b bajo
+  class nd35097c3a5 bajo
+  class n7314fc80d8 bajo
+  class nbb3bcd73ea bajo
+  class n05c7a68a3c bajo
+  class n2e3822c0b7 bajo
+  class nfd68ebbf51 bajo
+  class n055e6556b4 bajo
+  class n40c8cb2eef bajo
+  class nbe93f15ded bajo
+  class nb3b8b073ec bajo
+  class n0fcdf5f124 bajo
+  class n8079dd1716 bajo
+  class nabeea36787 bajo
+  class nc92c4c3dbd bajo
+  class n77bb7c210f bajo
+  class n2ed90afeb2 bajo
+  class na4be9f82eb bajo
+  class n6686d80e74 bajo
+  class n123b18d6f2 bajo
+  class n2e65f908c7 bajo
+  class n14c5e62500 bajo
+  class nc112944dbf bajo
+  class neefa84e65c bajo
+  class na3d5c6af71 bajo
+  class n015925b31b bajo
+  class n1dd147497d bajo
+  class n4af4da39bf bajo
+  class nbc1218dd16 bajo
+  class n641bb93d5b bajo
+  class nd631f6f320 bajo
+  class n6a1353563a alto
+  class n35f31e7c43 bajo
+  class ndd6f549d25 bajo
   class nae6550dc08 bajo
   class na459c2b651 bajo
-  class n8ee7331898 bajo
-  class n7c591dc3c6 bajo
+  class nf13fbcc40f bajo
+  class n76ea421fa2 bajo
+  class n62d9f5cb98 bajo
   class nb9914d7cbb bajo
   class n95dbe740db bajo
   class nfd79d6b1ab bajo
@@ -139,20 +237,62 @@ Fuentes: [Mermaid](mermaid/firmware_include.mmd) · [PlantUML](plantuml/firmware
 
 | Función | Archivo | CC | Propietario | Riesgo/estado | Entra desde | Sale hacia | Estado compartido |
 |---|---|---:|---|---|---|---|---|
-| `ComandoRed.tipo` | [`include/Comandos.h`](../../include/Comandos.h#L21) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `ComandoRed.seq` | [`include/Comandos.h`](../../include/Comandos.h#L22) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `ComandoRed.heading` | [`include/Comandos.h`](../../include/Comandos.h#L23) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `ComandoRed.distanciaCm` | [`include/Comandos.h`](../../include/Comandos.h#L24) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `ComandoRed.factor` | [`include/Comandos.h`](../../include/Comandos.h#L25) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.tipo` | [`include/Comandos.h`](../../include/Comandos.h#L29) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.seq` | [`include/Comandos.h`](../../include/Comandos.h#L30) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.heading` | [`include/Comandos.h`](../../include/Comandos.h#L31) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.distanciaCm` | [`include/Comandos.h`](../../include/Comandos.h#L32) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.factor` | [`include/Comandos.h`](../../include/Comandos.h#L33) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.targetXCm` | [`include/Comandos.h`](../../include/Comandos.h#L36) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.targetYCm` | [`include/Comandos.h`](../../include/Comandos.h#L37) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.tieneObjetivoAbsoluto` | [`include/Comandos.h`](../../include/Comandos.h#L38) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ComandoRed.modoPaso` | [`include/Comandos.h`](../../include/Comandos.h#L39) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::ErroresTrayectoria.longitudinalCm` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L12) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::ErroresTrayectoria.lateralCm` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L13) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::ErroresTrayectoria.euclidianoCm` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L14) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::EstadoPI.integralGradoS` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L18) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::SalidaPI.p` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L22) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::SalidaPI.i` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L23) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::SalidaPI.d` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L24) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::SalidaPI.total` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L25) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta::SalidaPI.integralGradoS` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L26) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlRuta.limitar` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L36) | 3 | ESP32 / tiempo real | Bajo; interno; síncrona | `actualizarPI`, `correccionLateralRumboDeg`, `distanciaFrenoPrevista` | — | — |
+| `ControlRuta.normalizar360` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L40) | 2 | ESP32 / tiempo real | Bajo; interno; síncrona | `calCuenta`, `calTorque`, `calcularDestino`, `controlarAvance`, `controlarCalibracion`, `errorAngularDeg`, `iniciarGiroAbsoluto`, `iniciarPaso`, `iniciarRecuperacionEndpoint`, `procesarMisionAutonoma`, `rumboCuerpoParaTrayecto` | — | — |
+| `ControlRuta.errorAngularDeg` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L45) | 3 | ESP32 / tiempo real | Bajo; interno; síncrona | `reversaAutomatica` | `normalizar360` | — |
+| `ControlRuta.reversaAutomatica` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L52) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `iniciarPaso`, `iniciarRecuperacionEndpoint` | `errorAngularDeg` | — |
+| `ControlRuta.rumboCuerpoParaTrayecto` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L57) | 2 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAvance`, `iniciarPaso`, `iniciarRecuperacionEndpoint` | `normalizar360` | — |
+| `ControlRuta.correccionLateralParaDireccion` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L61) | 2 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAvance` | — | — |
+| `ControlRuta.frenarLadoIzquierdoParaRumbo` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L67) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAvance` | — | — |
+| `ControlRuta.distanciaPorTick` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L71) | 2 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAsentamientoFinal`, `controlarAvance` | — | — |
+| `ControlRuta.distanciaFrenoPrevista` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L77) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAvance` | `limitar` | — |
+| `ControlRuta.calcularErroresTrayectoria` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L82) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `actualizarErroresTrayectoria` | — | — |
+| `ControlRuta.correccionLateralRumboDeg` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L101) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAvance` | `limitar` | — |
+| `ControlRuta.actualizarPI` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L108) | 6 | ESP32 / tiempo real | Bajo; interno; síncrona | `controlarAvance` | `limitar` | estado |
+| `ControlRuta.endpointAceptable` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L132) | 3 | ESP32 / tiempo real | Bajo; interno; síncrona | `objetivoAbsolutoAlcanzado` | — | — |
+| `ControlRuta.agotoIntentosEndpoint` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L140) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `decidirEndpoint` | — | — |
+| `ControlRuta.decidirEndpoint` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L144) | 4 | ESP32 / tiempo real | Bajo; interno; síncrona | `decidirEndpointSeguro` | `agotoIntentosEndpoint` | — |
+| `ControlRuta.decidirEndpointSeguro` | [`include/ControlRuta.h`](../../include/ControlRuta.h#L156) | 3 | ESP32 / tiempo real | Bajo; interno; síncrona | `completarPaso`, `iniciarRecuperacionEndpoint` | `decidirEndpoint` | — |
+| `ControlSeguridad.imuApta` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L11) | 2 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlSeguridad.estopSolicitado` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L15) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `procesarComandos` | — | — |
+| `ControlSeguridad.encoderEsOutlier` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L19) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `clasificarEncoders`, `detectarOutliers` | — | — |
+| `ControlSeguridad::ClasificacionEncoders.confiable` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L25) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlSeguridad::ClasificacionEncoders.mediana` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L26) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlSeguridad::ClasificacionEncoders.modoDegradado` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L27) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlSeguridad::ClasificacionEncoders.ladoIzquierdoValido` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L28) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlSeguridad::ClasificacionEncoders.ladoDerechoValido` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L29) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `ControlSeguridad.medianaCuatro` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L35) | 4 | ESP32 / tiempo real | Bajo; interno; síncrona | `clasificarEncoders`, `mediana4` | — | — |
+| `ControlSeguridad.clasificarEncoders` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L49) | 14 | ESP32 / tiempo real | Alto; interno; síncrona | `completarPausaReeval` | `encoderEsOutlier`, `medianaCuatro` | — |
+| `ControlSeguridad.promedioConfiableLado` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L95) | 6 | ESP32 / tiempo real | Bajo; interno; síncrona | `promedioLado` | — | — |
+| `ControlSeguridad.ladoEnStall` | [`include/ControlSeguridad.h`](../../include/ControlSeguridad.h#L106) | 3 | ESP32 / tiempo real | Bajo; interno; síncrona | `auditarSalud` | — | — |
 | `EventoRed.tipo` | [`include/Eventos.h`](../../include/Eventos.h#L14) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `EventoRed.seq` | [`include/Eventos.h`](../../include/Eventos.h#L15) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `EventoRed.detalle` | [`include/Eventos.h`](../../include/Eventos.h#L16) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `EventoRed.progreso` | [`include/Eventos.h`](../../include/Eventos.h#L17) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `EventoRed.run_id` | [`include/Eventos.h`](../../include/Eventos.h#L16) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `EventoRed.detalle` | [`include/Eventos.h`](../../include/Eventos.h#L17) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `EventoRed.progreso` | [`include/Eventos.h`](../../include/Eventos.h#L18) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `PuntoMision.x_cm` | [`include/Mision.h`](../../include/Mision.h#L8) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `PuntoMision.y_cm` | [`include/Mision.h`](../../include/Mision.h#L9) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `PuntoMision.step_id` | [`include/Mision.h`](../../include/Mision.h#L10) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
-| `PoseEstimator.getX` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L18) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `iniciarPaso` | — | — |
-| `PoseEstimator.getY` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L19) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `iniciarPaso` | — | — |
+| `PoseEstimator.getX` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L18) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `actualizarErroresTrayectoria`, `iniciarPaso` | — | — |
+| `PoseEstimator.getY` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L19) | 1 | ESP32 / tiempo real | Bajo; interno; síncrona | `actualizarErroresTrayectoria`, `iniciarPaso` | — | — |
 | `PoseEstimator.getThetaRad` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L20) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `PoseEstimator.getThetaDeg` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L21) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `PoseEstimator.getArcoCentroGiroCm` | [`include/PoseEstimator.h`](../../include/PoseEstimator.h#L25) | 1 | ESP32 / tiempo real | Bajo; sin llamada interna detectada; síncrona | — | — | — |

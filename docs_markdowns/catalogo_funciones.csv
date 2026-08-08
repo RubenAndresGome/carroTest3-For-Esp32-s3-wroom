@@ -64,12 +64,12 @@ Database.event_rows,desktop_app/robot_app/database.py,182,backend/python,Windows
 Database.purge_sessions,desktop_app/robot_app/database.py,189,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,9,cleanup_sessions,transaction,telemetría
 _finite_number,desktop_app/robot_app/domain.py,45,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_heading_degrees; from_message; split_segment_mm; validate_command_payload,,
 _heading_degrees,desktop_app/robot_app/domain.py,54,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,from_message; validate_command_payload,_finite_number,
-validate_command_payload,desktop_app/robot_app/domain.py,58,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,6,create,_finite_number; _heading_degrees,
-RobotCommand.create,desktop_app/robot_app/domain.py,88,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_build_segments; send_command,validate_command_payload,
-RobotCommand.protocol_envelope,desktop_app/robot_app/domain.py,102,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_drain_one,,
-split_segment_mm,desktop_app/robot_app/domain.py,108,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_build_segments,_finite_number,
-TelemetrySnapshot.from_message,desktop_app/robot_app/domain.py,226,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,34,_on_robot_message,_finite_number; _heading_degrees,telemetría
-TelemetrySnapshot.public_dict,desktop_app/robot_app/domain.py,389,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,1,_on_robot_message; status,,
+validate_command_payload,desktop_app/robot_app/domain.py,58,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,10,create,_finite_number; _heading_degrees,
+RobotCommand.create,desktop_app/robot_app/domain.py,101,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_build_segments; send_command,validate_command_payload,
+RobotCommand.protocol_envelope,desktop_app/robot_app/domain.py,115,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_drain_one,,
+split_segment_mm,desktop_app/robot_app/domain.py,121,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_build_segments,_finite_number,
+TelemetrySnapshot.from_message,desktop_app/robot_app/domain.py,242,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,37,_on_robot_message,_finite_number; _heading_degrees,telemetría
+TelemetrySnapshot.public_dict,desktop_app/robot_app/domain.py,411,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,1,_on_robot_message; status,,
 RobotGateway.__init__,desktop_app/robot_app/gateway.py,37,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,cola/evento,1,,,
 RobotGateway.start,desktop_app/robot_app/gateway.py,67,backend/python,Windows/Android,Python / misión e historial,Medio,interno,asíncrona,3,__init__; close_application; connect; init; main; reconnect,clear; snapshot,
 RobotGateway.stop,desktop_app/robot_app/gateway.py,77,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,2,close; disconnect,_set_state,
@@ -81,52 +81,52 @@ RobotGateway._set_state,desktop_app/robot_app/gateway.py,117,backend/python,Wind
 RobotGateway._run,desktop_app/robot_app/gateway.py,124,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,asíncrona,14,,_drain_one; _receive; _set_state; clear; close; send,sesión
 RobotGateway._drain_one,desktop_app/robot_app/gateway.py,202,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,7,_run,protocol_envelope; send,
 RobotGateway._receive,desktop_app/robot_app/gateway.py,224,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,8,_run,,sesión
-EventHub.__init__,desktop_app/robot_app/services.py,20,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,cola/evento,1,,,
-EventHub.subscribe,desktop_app/robot_app/services.py,25,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,1,events,add,
-EventHub.unsubscribe,desktop_app/robot_app/services.py,31,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,1,events; stream,,
-EventHub.publish,desktop_app/robot_app/services.py,35,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,4,_activate_mission; _advance_mission; _archive_mission_for_close; _block_mission; _on_command_sent; _on_connection_state; _on_robot_message; _reconcile_firmware_mission; send_command; set_robot_host; start_session; stop_mission; stop_session,,
-TelemetryRecorder.__init__,desktop_app/robot_app/services.py,51,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,cola/evento,1,,start,telemetría
-TelemetryRecorder.submit,desktop_app/robot_app/services.py,59,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,3,_on_robot_message,,
-TelemetryRecorder.stop,desktop_app/robot_app/services.py,69,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,1,close; disconnect,,
-TelemetryRecorder._run,desktop_app/robot_app/services.py,73,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,cola/evento,4,,insert_telemetry,
-RobotService.__init__,desktop_app/robot_app/services.py,91,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,11,,_persist_mission; close_orphan_sessions; fail_nonterminal_commands; get_setting; insert_event; normalize_robot_host; set_setting; start,misión activa
-RobotService.close,desktop_app/robot_app/services.py,186,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,3,_run; closeApplication; initialize; main; run; shutdown_host; stop; transaction,stop; stop_session,
-RobotService.get_robot_host,desktop_app/robot_app/services.py,198,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,robot_config,,
-RobotService.set_robot_host,desktop_app/robot_app/services.py,202,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,robot_config,normalize_robot_host; publish; request_reconnect; set_setting,
-RobotService.connect,desktop_app/robot_app/services.py,213,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,command_rows; connect_db; event_rows; get_setting; initialize; main; session_row; session_rows; telemetry_rows; transaction,start,
-RobotService.disconnect,desktop_app/robot_app/services.py,216,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,síncrona,1,,stop,
-RobotService.reconnect,desktop_app/robot_app/services.py,219,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,2,,request_reconnect; snapshot; start,
-RobotService.status,desktop_app/robot_app/services.py,225,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,2,connection; events; stream,mission_status; public_dict; snapshot,telemetría; parada/cierre
-RobotService.mission_status,desktop_app/robot_app/services.py,243,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,4,_activate_mission; _advance_mission; _archive_mission_for_close; _block_mission; _finish_close_preparation; _reconcile_firmware_mission; missions; status; stop_mission,,
-RobotService._persist_mission,desktop_app/robot_app/services.py,265,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,__init__; _activate_mission; _advance_mission; _archive_mission_for_close; _block_mission; _queue_current_mission_step; _queue_final_alignment; _reconcile_firmware_mission; stop_mission,set_setting,misión activa
-RobotService._mission_wire_points,desktop_app/robot_app/services.py,278,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,2,,,
-RobotService._require_ready_robot,desktop_app/robot_app/services.py,287,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,7,start_mission; start_return_home,snapshot,estado; telemetría
-RobotService._build_segments,desktop_app/robot_app/services.py,305,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,9,start_mission,create; split_segment_mm,
-RobotService._activate_mission,desktop_app/robot_app/services.py,340,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,4,start_mission; start_return_home,_persist_mission; _queue_current_mission_step; get_setting; mission_status; publish; set_setting,
-RobotService.start_mission,desktop_app/robot_app/services.py,374,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,missions,_activate_mission; _build_segments; _require_ready_robot,telemetría
-RobotService.start_return_home,desktop_app/robot_app/services.py,382,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,8,return_home,_activate_mission; _require_ready_robot; get_setting; set_setting,telemetría
-RobotService.stop_mission,desktop_app/robot_app/services.py,421,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,7,clear_robot_mission_memory; missions,_persist_mission; _set_return_state; cancel; get_setting; mission_status; publish; send_command; set_setting; update_command,
-RobotService.clear_robot_mission_memory,desktop_app/robot_app/services.py,467,backend/python,Windows/Android,Python / misión e historial,Bajo,entrada/framework,síncrona,1,,stop_mission,
-RobotService._advance_mission,desktop_app/robot_app/services.py,473,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,10,_on_robot_message; _reconcile_short_memory_hello,_persist_mission; _queue_current_mission_step; _queue_final_alignment; _set_return_state; mission_status; publish; set_setting,
-RobotService._set_return_state,desktop_app/robot_app/services.py,515,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_advance_mission; _archive_mission_for_close; _block_mission; stop_mission,get_setting; set_setting,
-RobotService._queue_current_mission_step,desktop_app/robot_app/services.py,522,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,4,_activate_mission; _advance_mission; _reconcile_short_memory_hello,_persist_mission; send_command,
-RobotService._queue_final_alignment,desktop_app/robot_app/services.py,541,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_advance_mission; _reconcile_short_memory_hello,_persist_mission; send_command,
-RobotService._expire_stalled_mission,desktop_app/robot_app/services.py,555,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_on_robot_message,_block_mission,
-RobotService._block_mission,desktop_app/robot_app/services.py,566,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,6,_expire_stalled_mission; _on_robot_message; _reconcile_mission_snapshot; _reconcile_short_memory_hello,_persist_mission; _set_return_state; cancel; mission_status; publish; send_command; update_command,
-RobotService._reconcile_mission_snapshot,desktop_app/robot_app/services.py,594,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,síncrona,8,,_block_mission; _reconcile_firmware_mission,
-RobotService._reconcile_firmware_mission,desktop_app/robot_app/services.py,620,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,9,_reconcile_mission_snapshot,_persist_mission; mission_status; publish,
-RobotService.send_command,desktop_app/robot_app/services.py,654,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,13,_block_mission; _queue_current_mission_step; _queue_final_alignment; _reconcile_short_memory_hello; command; estop; prepare_close; stop_mission,add; create; enqueue; insert_command; publish; set_setting; update_command,parada/cierre
-RobotService.start_session,desktop_app/robot_app/services.py,690,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,2,_on_connection_state,create_session; publish,sesión
-RobotService.stop_session,desktop_app/robot_app/services.py,699,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,2,_finish_close_preparation; _on_connection_state; close,publish,sesión
-RobotService._on_connection_state,desktop_app/robot_app/services.py,708,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,4,,insert_event; publish; start_session; stop_session,
-RobotService._on_command_sent,desktop_app/robot_app/services.py,719,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,4,,publish; update_command,
-RobotService._on_robot_message,desktop_app/robot_app/services.py,728,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,17,,_advance_mission; _block_mission; _expire_stalled_mission; _reconcile_short_memory_hello; from_message; insert_event; public_dict; publish; snapshot; submit; update_command; update_session_identity,telemetría
-RobotService._reconcile_short_memory_hello,desktop_app/robot_app/services.py,808,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,9,_on_robot_message,_advance_mission; _block_mission; _queue_current_mission_step; _queue_final_alignment; insert_event; send_command; update_command,
-RobotService._movement_requires_stop,desktop_app/robot_app/services.py,850,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,prepare_close,,telemetría
-RobotService._archive_mission_for_close,desktop_app/robot_app/services.py,861,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,3,_finish_close_preparation,_persist_mission; _set_return_state; cancel; mission_status; publish,
-RobotService._finish_close_preparation,desktop_app/robot_app/services.py,880,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,6,prepare_close,_archive_mission_for_close; fail_nonterminal_commands; insert_event; mission_status; stop_session,
-RobotService.prepare_close,desktop_app/robot_app/services.py,909,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,11,close_application,_finish_close_preparation; _movement_requires_stop; insert_event; send_command; snapshot,
-RobotService.purge_sessions,desktop_app/robot_app/services.py,964,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,cleanup_sessions,,
+EventHub.__init__,desktop_app/robot_app/services.py,21,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,cola/evento,1,,,
+EventHub.subscribe,desktop_app/robot_app/services.py,26,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,1,events,add,
+EventHub.unsubscribe,desktop_app/robot_app/services.py,32,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,1,events; stream,,
+EventHub.publish,desktop_app/robot_app/services.py,36,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,4,_activate_mission; _advance_mission; _archive_mission_for_close; _block_mission; _on_command_sent; _on_connection_state; _on_robot_message; _reconcile_firmware_mission; send_command; set_robot_host; start_session; stop_mission; stop_session,,
+TelemetryRecorder.__init__,desktop_app/robot_app/services.py,52,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,cola/evento,1,,start,telemetría
+TelemetryRecorder.submit,desktop_app/robot_app/services.py,60,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,3,_on_robot_message,,
+TelemetryRecorder.stop,desktop_app/robot_app/services.py,70,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,1,close; disconnect,,
+TelemetryRecorder._run,desktop_app/robot_app/services.py,74,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,cola/evento,4,,insert_telemetry,
+RobotService.__init__,desktop_app/robot_app/services.py,92,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,11,,_persist_mission; close_orphan_sessions; fail_nonterminal_commands; get_setting; insert_event; normalize_robot_host; set_setting; start,misión activa
+RobotService.close,desktop_app/robot_app/services.py,187,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,3,_run; closeApplication; initialize; main; run; shutdown_host; stop; transaction,stop; stop_session,
+RobotService.get_robot_host,desktop_app/robot_app/services.py,199,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,robot_config,,
+RobotService.set_robot_host,desktop_app/robot_app/services.py,203,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,robot_config,normalize_robot_host; publish; request_reconnect; set_setting,
+RobotService.connect,desktop_app/robot_app/services.py,214,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,command_rows; connect_db; event_rows; get_setting; initialize; main; session_row; session_rows; telemetry_rows; transaction,start,
+RobotService.disconnect,desktop_app/robot_app/services.py,217,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,síncrona,1,,stop,
+RobotService.reconnect,desktop_app/robot_app/services.py,220,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,2,,request_reconnect; snapshot; start,
+RobotService.status,desktop_app/robot_app/services.py,226,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,2,connection; events; stream,mission_status; public_dict; snapshot,telemetría; parada/cierre
+RobotService.mission_status,desktop_app/robot_app/services.py,244,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,4,_activate_mission; _advance_mission; _archive_mission_for_close; _block_mission; _finish_close_preparation; _reconcile_firmware_mission; missions; status; stop_mission,,
+RobotService._persist_mission,desktop_app/robot_app/services.py,266,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,__init__; _activate_mission; _advance_mission; _archive_mission_for_close; _block_mission; _queue_current_mission_step; _queue_final_alignment; _reconcile_firmware_mission; stop_mission,set_setting,misión activa
+RobotService._mission_wire_points,desktop_app/robot_app/services.py,279,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,2,,,
+RobotService._require_ready_robot,desktop_app/robot_app/services.py,288,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,7,start_mission; start_return_home,snapshot,estado; telemetría
+RobotService._build_segments,desktop_app/robot_app/services.py,306,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,9,start_mission,create; split_segment_mm,
+RobotService._activate_mission,desktop_app/robot_app/services.py,341,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,4,start_mission; start_return_home,_persist_mission; _queue_current_mission_step; get_setting; mission_status; publish; set_setting,
+RobotService.start_mission,desktop_app/robot_app/services.py,375,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,missions,_activate_mission; _build_segments; _require_ready_robot,telemetría
+RobotService.start_return_home,desktop_app/robot_app/services.py,383,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,8,return_home,_activate_mission; _require_ready_robot; get_setting; set_setting,telemetría
+RobotService.stop_mission,desktop_app/robot_app/services.py,422,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,7,clear_robot_mission_memory; missions,_persist_mission; _set_return_state; cancel; get_setting; mission_status; publish; send_command; set_setting; update_command,
+RobotService.clear_robot_mission_memory,desktop_app/robot_app/services.py,468,backend/python,Windows/Android,Python / misión e historial,Bajo,entrada/framework,síncrona,1,,stop_mission,
+RobotService._advance_mission,desktop_app/robot_app/services.py,474,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,10,_on_robot_message; _reconcile_short_memory_hello,_persist_mission; _queue_current_mission_step; _queue_final_alignment; _set_return_state; mission_status; publish; set_setting,
+RobotService._set_return_state,desktop_app/robot_app/services.py,516,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_advance_mission; _archive_mission_for_close; _block_mission; stop_mission,get_setting; set_setting,
+RobotService._queue_current_mission_step,desktop_app/robot_app/services.py,523,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,5,_activate_mission; _advance_mission; _reconcile_short_memory_hello,_persist_mission; send_command,
+RobotService._queue_final_alignment,desktop_app/robot_app/services.py,550,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,_advance_mission; _reconcile_short_memory_hello,_persist_mission; send_command,
+RobotService._expire_stalled_mission,desktop_app/robot_app/services.py,564,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_on_robot_message,_block_mission,
+RobotService._block_mission,desktop_app/robot_app/services.py,575,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,6,_expire_stalled_mission; _on_robot_message; _reconcile_mission_snapshot; _reconcile_short_memory_hello,_persist_mission; _set_return_state; cancel; mission_status; publish; send_command; update_command,
+RobotService._reconcile_mission_snapshot,desktop_app/robot_app/services.py,603,backend/python,Windows/Android,Python / misión e historial,Medio,sin llamada interna detectada,síncrona,8,,_block_mission; _reconcile_firmware_mission,
+RobotService._reconcile_firmware_mission,desktop_app/robot_app/services.py,629,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,9,_reconcile_mission_snapshot,_persist_mission; mission_status; publish,
+RobotService.send_command,desktop_app/robot_app/services.py,663,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,13,_block_mission; _queue_current_mission_step; _queue_final_alignment; _reconcile_short_memory_hello; command; estop; prepare_close; stop_mission,add; create; enqueue; insert_command; publish; set_setting; update_command,parada/cierre
+RobotService.start_session,desktop_app/robot_app/services.py,699,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,2,_on_connection_state,create_session; publish,sesión
+RobotService.stop_session,desktop_app/robot_app/services.py,708,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,2,_finish_close_preparation; _on_connection_state; close,publish,sesión
+RobotService._on_connection_state,desktop_app/robot_app/services.py,717,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,4,,insert_event; publish; start_session; stop_session,
+RobotService._on_command_sent,desktop_app/robot_app/services.py,728,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,4,,publish; update_command,
+RobotService._on_robot_message,desktop_app/robot_app/services.py,737,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,17,,_advance_mission; _block_mission; _expire_stalled_mission; _reconcile_short_memory_hello; from_message; insert_event; public_dict; publish; snapshot; submit; update_command; update_session_identity,telemetría
+RobotService._reconcile_short_memory_hello,desktop_app/robot_app/services.py,817,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,9,_on_robot_message,_advance_mission; _block_mission; _queue_current_mission_step; _queue_final_alignment; insert_event; send_command; update_command,
+RobotService._movement_requires_stop,desktop_app/robot_app/services.py,859,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,3,prepare_close,,telemetría
+RobotService._archive_mission_for_close,desktop_app/robot_app/services.py,870,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,3,_finish_close_preparation,_persist_mission; _set_return_state; cancel; mission_status; publish,
+RobotService._finish_close_preparation,desktop_app/robot_app/services.py,889,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,6,prepare_close,_archive_mission_for_close; fail_nonterminal_commands; insert_event; mission_status; stop_session,
+RobotService.prepare_close,desktop_app/robot_app/services.py,918,backend/python,Windows/Android,Python / misión e historial,Medio,interno,síncrona,11,close_application,_finish_close_preparation; _movement_requires_stop; insert_event; send_command; snapshot,
+RobotService.purge_sessions,desktop_app/robot_app/services.py,973,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,cleanup_sessions,,
 _service,desktop_app/robot_app/web.py,24,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,1,cleanup_sessions; clear_robot_mission_memory; close_application; command; connection; estop; events; export_session_json; export_telemetry; missions; return_home; robot_config; sessions; start_session; status; stop_session,,
 _require_token,desktop_app/robot_app/web.py,28,backend/python,Windows/Android,Python / misión e historial,Bajo,sin llamada interna detectada,síncrona,2,,wrapper,
 _require_token.wrapper,desktop_app/robot_app/web.py,30,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,síncrona,2,_require_token,,
@@ -149,20 +149,62 @@ sessions,desktop_app/robot_app/web.py,191,backend/python,Windows/Android,Python 
 export_session_json,desktop_app/robot_app/web.py,196,backend/python,Windows/Android,Python / misión e historial,Medio,entrada/framework,síncrona,5,,_service; command_rows; event_rows; session_row; telemetry_rows,telemetría; sesión
 events,desktop_app/robot_app/web.py,214,backend/python,Windows/Android,Python / misión e historial,Bajo,entrada/framework,cola/evento,3,insert_event,_service; status; stream; subscribe; unsubscribe,
 events.stream,desktop_app/robot_app/web.py,219,backend/python,Windows/Android,Python / misión e historial,Bajo,interno,cola/evento,3,events,status; unsubscribe,
-ComandoRed.tipo,include/Comandos.h,21,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-ComandoRed.seq,include/Comandos.h,22,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-ComandoRed.heading,include/Comandos.h,23,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-ComandoRed.distanciaCm,include/Comandos.h,24,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-ComandoRed.factor,include/Comandos.h,25,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.tipo,include/Comandos.h,29,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.seq,include/Comandos.h,30,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.heading,include/Comandos.h,31,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.distanciaCm,include/Comandos.h,32,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.factor,include/Comandos.h,33,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.targetXCm,include/Comandos.h,36,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.targetYCm,include/Comandos.h,37,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.tieneObjetivoAbsoluto,include/Comandos.h,38,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ComandoRed.modoPaso,include/Comandos.h,39,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::ErroresTrayectoria.longitudinalCm,include/ControlRuta.h,12,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::ErroresTrayectoria.lateralCm,include/ControlRuta.h,13,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::ErroresTrayectoria.euclidianoCm,include/ControlRuta.h,14,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::EstadoPI.integralGradoS,include/ControlRuta.h,18,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::SalidaPI.p,include/ControlRuta.h,22,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::SalidaPI.i,include/ControlRuta.h,23,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::SalidaPI.d,include/ControlRuta.h,24,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::SalidaPI.total,include/ControlRuta.h,25,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta::SalidaPI.integralGradoS,include/ControlRuta.h,26,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlRuta.limitar,include/ControlRuta.h,36,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,actualizarPI; correccionLateralRumboDeg; distanciaFrenoPrevista,,
+ControlRuta.normalizar360,include/ControlRuta.h,40,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,calCuenta; calTorque; calcularDestino; controlarAvance; controlarCalibracion; errorAngularDeg; iniciarGiroAbsoluto; iniciarPaso; iniciarRecuperacionEndpoint; procesarMisionAutonoma; rumboCuerpoParaTrayecto,,
+ControlRuta.errorAngularDeg,include/ControlRuta.h,45,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,reversaAutomatica,normalizar360,
+ControlRuta.reversaAutomatica,include/ControlRuta.h,52,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,iniciarPaso; iniciarRecuperacionEndpoint,errorAngularDeg,
+ControlRuta.rumboCuerpoParaTrayecto,include/ControlRuta.h,57,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarAvance; iniciarPaso; iniciarRecuperacionEndpoint,normalizar360,
+ControlRuta.correccionLateralParaDireccion,include/ControlRuta.h,61,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarAvance,,
+ControlRuta.frenarLadoIzquierdoParaRumbo,include/ControlRuta.h,67,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance,,
+ControlRuta.distanciaPorTick,include/ControlRuta.h,71,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarAsentamientoFinal; controlarAvance,,
+ControlRuta.distanciaFrenoPrevista,include/ControlRuta.h,77,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance,limitar,
+ControlRuta.calcularErroresTrayectoria,include/ControlRuta.h,82,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,actualizarErroresTrayectoria,,
+ControlRuta.correccionLateralRumboDeg,include/ControlRuta.h,101,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance,limitar,
+ControlRuta.actualizarPI,include/ControlRuta.h,108,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,controlarAvance,limitar,estado
+ControlRuta.endpointAceptable,include/ControlRuta.h,132,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,objetivoAbsolutoAlcanzado,,
+ControlRuta.agotoIntentosEndpoint,include/ControlRuta.h,140,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,decidirEndpoint,,
+ControlRuta.decidirEndpoint,include/ControlRuta.h,144,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,decidirEndpointSeguro,agotoIntentosEndpoint,
+ControlRuta.decidirEndpointSeguro,include/ControlRuta.h,156,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,completarPaso; iniciarRecuperacionEndpoint,decidirEndpoint,
+ControlSeguridad.imuApta,include/ControlSeguridad.h,11,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,2,,,
+ControlSeguridad.estopSolicitado,include/ControlSeguridad.h,15,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,procesarComandos,,
+ControlSeguridad.encoderEsOutlier,include/ControlSeguridad.h,19,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,clasificarEncoders; detectarOutliers,,
+ControlSeguridad::ClasificacionEncoders.confiable,include/ControlSeguridad.h,25,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlSeguridad::ClasificacionEncoders.mediana,include/ControlSeguridad.h,26,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlSeguridad::ClasificacionEncoders.modoDegradado,include/ControlSeguridad.h,27,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlSeguridad::ClasificacionEncoders.ladoIzquierdoValido,include/ControlSeguridad.h,28,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlSeguridad::ClasificacionEncoders.ladoDerechoValido,include/ControlSeguridad.h,29,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+ControlSeguridad.medianaCuatro,include/ControlSeguridad.h,35,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,clasificarEncoders; mediana4,,
+ControlSeguridad.clasificarEncoders,include/ControlSeguridad.h,49,firmware/include,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,14,completarPausaReeval,encoderEsOutlier; medianaCuatro,
+ControlSeguridad.promedioConfiableLado,include/ControlSeguridad.h,95,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,promedioLado,,
+ControlSeguridad.ladoEnStall,include/ControlSeguridad.h,106,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,auditarSalud,,
 EventoRed.tipo,include/Eventos.h,14,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 EventoRed.seq,include/Eventos.h,15,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-EventoRed.detalle,include/Eventos.h,16,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-EventoRed.progreso,include/Eventos.h,17,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+EventoRed.run_id,include/Eventos.h,16,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+EventoRed.detalle,include/Eventos.h,17,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
+EventoRed.progreso,include/Eventos.h,18,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 PuntoMision.x_cm,include/Mision.h,8,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 PuntoMision.y_cm,include/Mision.h,9,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 PuntoMision.step_id,include/Mision.h,10,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-PoseEstimator.getX,include/PoseEstimator.h,18,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,iniciarPaso,,
-PoseEstimator.getY,include/PoseEstimator.h,19,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,iniciarPaso,,
+PoseEstimator.getX,include/PoseEstimator.h,18,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,actualizarErroresTrayectoria; iniciarPaso,,
+PoseEstimator.getY,include/PoseEstimator.h,19,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,actualizarErroresTrayectoria; iniciarPaso,,
 PoseEstimator.getThetaRad,include/PoseEstimator.h,20,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 PoseEstimator.getThetaDeg,include/PoseEstimator.h,21,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 PoseEstimator.getArcoCentroGiroCm,include/PoseEstimator.h,25,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
@@ -204,42 +246,53 @@ SensorSnapshot.mpu_present,include/Sensores.h,21,firmware/include,ESP32-S3,ESP32
 SensorSnapshot.mpu_stale,include/Sensores.h,22,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 SensorSnapshot.mpu_calibrated,include/Sensores.h,23,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 SensorSnapshot.sequence,include/Sensores.h,24,firmware/include,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
-__anon3dcaec680111.errorAng360,src/Cinematica.cpp,42,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,controlarAvance; controlarGiro; controlarMovimiento; detectarOutliers; iniciarPasoInterno,,
-__anon3dcaec680111.aproximar,src/Cinematica.cpp,48,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance; controlarGiro,,
-__anon3dcaec680111.sensar,src/Cinematica.cpp,51,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; completarPausaReeval; controlarAvance; controlarCalibracion; controlarGiro; iniciarAvance; iniciarBaseGiro; iniciarCalibracion,obtenerUltimoSnapshotSensores,
-__anon3dcaec680111.copiarBase,src/Cinematica.cpp,56,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; completarPausaReeval; controlarCalibracion; controlarGiro; iniciarAvance; iniciarBaseGiro,,
-__anon3dcaec680111.deltas,src/Cinematica.cpp,59,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calTorque; controlarAvance; controlarGiro,,
-__anon3dcaec680111.fin,src/Cinematica.cpp,65,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,3,completarGiro; completarPaso; fallo,encolarEvento; frenarMotores,
-__anon3dcaec680111.fallo,src/Cinematica.cpp,71,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; completarPausaReeval; controlarAvance; controlarCalibracion; controlarGiro; reintentarGiro,fin,
-__anon3dcaec680111.iniciarFaseCal,src/Cinematica.cpp,89,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; completarGiro; controlarCalibracion,,
-__anon3dcaec680111.calCuenta,src/Cinematica.cpp,91,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,5,controlarCalibracion,copiarBase; fallo; iniciarFaseCal; normalizar360; sensar,
-__anon3dcaec680111.calTorque,src/Cinematica.cpp,104,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,19,controlarCalibracion,aplicarVelocidades; copiarBase; deltas; fallo; frenarMotores; iniciarBaseGiro; iniciarFaseCal; normalizar360; sensar,
-__anon3dcaec680111.controlarCalibracion,src/Cinematica.cpp,169,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,13,controlarMovimiento,calCuenta; calTorque; controlarGiro; copiarBase; fallo; frenarMotores; iniciarBaseGiro; iniciarFaseCal; normalizar360; sensar,
-__anon3dcaec680111.iniciarBaseGiro,src/Cinematica.cpp,219,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,calTorque; controlarAvance; controlarCalibracion; controlarMovimiento; iniciarGiroAbsoluto; iniciarPasoInterno,copiarBase; sensar,
-__anon3dcaec680111.reintentarGiro,src/Cinematica.cpp,241,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarGiro,fallo; frenarMotores,
-__anon3dcaec680111.controlarGiro,src/Cinematica.cpp,250,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,76,controlarCalibracion; controlarMovimiento,aplicarVelocidades; aproximar; completarGiro; copiarBase; deltas; errorAng360; fallo; frenarMotores; reintentarGiro; sensar,
-__anon3dcaec680111.completarGiro,src/Cinematica.cpp,401,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,7,controlarGiro,completarPaso; fin; frenarMotores; iniciarAvance; iniciarFaseCal; reset; resetOrientacionIMU,
-__anon3dcaec680111.mediana4,src/Cinematica.cpp,440,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,completarPausaReeval; detectarOutliers; estimarTicksAvance,,
-__anon3dcaec680111.hayPorLado,src/Cinematica.cpp,445,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,completarPausaReeval; estimarTicksAvance,,
-__anon3dcaec680111.promedioLado,src/Cinematica.cpp,446,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,estimarTicksAvance,,
-__anon3dcaec680111.estimarTicksAvance,src/Cinematica.cpp,451,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,controlarAvance,hayPorLado; mediana4; promedioLado,
-__anon3dcaec680111.resetConfEncoders,src/Cinematica.cpp,457,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,iniciarAvance,resetFiltrosEncoder,
-__anon3dcaec680111.iniciarAvance,src/Cinematica.cpp,468,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,completarGiro; completarPausaReeval; iniciarPasoInterno,copiarBase; distanciaAlObjetivo; resetConfEncoders; sensar,
-__anon3dcaec680111.detectarOutliers,src/Cinematica.cpp,488,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,12,controlarAvance,errorAng360; mediana4,
-__anon3dcaec680111.iniciarPausaReeval,src/Cinematica.cpp,507,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarAvance,frenarMotores,
-__anon3dcaec680111.completarPausaReeval,src/Cinematica.cpp,515,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,controlarAvance,copiarBase; fallo; hayPorLado; iniciarAvance; mediana4; sensar,
-__anon3dcaec680111.controlarAvance,src/Cinematica.cpp,535,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,34,controlarMovimiento,aplicarVelocidades; aproximar; completarPausaReeval; deltas; detectarOutliers; distanciaAlObjetivo; errorAng360; estimarTicksAvance; fallo; frenarMotores; iniciarBaseGiro; iniciarPausaReeval; normalizar360; sensar,
-__anon3dcaec680111.completarPaso,src/Cinematica.cpp,641,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,completarGiro; controlarMovimiento,fin,
-__anon3dcaec680111.iniciarPasoInterno,src/Cinematica.cpp,646,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,iniciarPaso,errorAng360; iniciarAvance; iniciarBaseGiro,
-normalizar360,src/Cinematica.cpp,658,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,calCuenta; calTorque; calcularDestino; controlarAvance; controlarCalibracion; controlarMovimiento; iniciarGiroAbsoluto; iniciarPaso; procesarMisionAutonoma,,
-enFaseAvance,src/Cinematica.cpp,663,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,auditarSalud,,
-enFaseGiro,src/Cinematica.cpp,664,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,auditarSalud,,
-enFaseCalibracion,src/Cinematica.cpp,669,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,auditarSalud,,
-iniciarCalibracion,src/Cinematica.cpp,673,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,6,procesarComandos,encolarEvento; sensar,
-iniciarPaso,src/Cinematica.cpp,685,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,8,calcularDestino; procesarComandos; procesarMisionAutonoma,encolarEvento; getX; getY; iniciarPasoInterno; normalizar360,
-iniciarGiroAbsoluto,src/Cinematica.cpp,722,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,4,procesarComandos,encolarEvento; iniciarBaseGiro; normalizar360,
-cancelarMovimiento,src/Cinematica.cpp,742,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,4,procesarComandos,encolarEvento; frenarMotores,
-controlarMovimiento,src/Cinematica.cpp,750,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,17,,completarPaso; controlarAvance; controlarCalibracion; controlarGiro; errorAng360; iniciarBaseGiro; normalizar360,
+__anon3dcaec680111.errorAng360,src/Cinematica.cpp,63,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,controlarAvance; controlarGiro; detectarOutliers; iniciarPasoInterno; iniciarRecuperacionEndpoint; objetivoAbsolutoAlcanzado; verificarObjetivoFinal,,
+__anon3dcaec680111.aproximar,src/Cinematica.cpp,69,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance; controlarGiro,,
+__anon3dcaec680111.sensar,src/Cinematica.cpp,72,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; controlarAsentamientoFinal; controlarAvance; controlarCalibracion; controlarGiro; iniciarAsentamientoFinal; iniciarAvance; iniciarBaseGiro; iniciarCalibracion,obtenerUltimoSnapshotSensores,
+__anon3dcaec680111.copiarBase,src/Cinematica.cpp,77,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; controlarCalibracion; controlarGiro; iniciarAsentamientoFinal; iniciarAvance; iniciarBaseGiro,,
+__anon3dcaec680111.deltas,src/Cinematica.cpp,80,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calTorque; controlarAsentamientoFinal; controlarAvance; controlarGiro,,
+__anon3dcaec680111.fin,src/Cinematica.cpp,86,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,3,completarGiro; completarPaso; completarPasoConCorreccionPendiente; fallo,encolarEvento; frenarMotores; registrarMotivoFinalizacion; reiniciarControlRumbo,
+__anon3dcaec680111.fallo,src/Cinematica.cpp,94,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; completarPaso; completarPausaReeval; controlarAsentamientoFinal; controlarAvance; controlarCalibracion; controlarGiro; iniciarRecuperacionEndpoint; reintentarGiro,fin,
+__anon3dcaec680111.iniciarFaseCal,src/Cinematica.cpp,112,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calCuenta; calTorque; completarGiro; controlarCalibracion,,
+__anon3dcaec680111.calCuenta,src/Cinematica.cpp,114,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,5,controlarCalibracion,copiarBase; fallo; iniciarFaseCal; normalizar360; sensar,
+__anon3dcaec680111.calTorque,src/Cinematica.cpp,127,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,19,controlarCalibracion,aplicarVelocidades; copiarBase; deltas; fallo; frenarMotores; iniciarBaseGiro; iniciarFaseCal; normalizar360; sensar,
+__anon3dcaec680111.controlarCalibracion,src/Cinematica.cpp,192,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,13,controlarMovimiento,calCuenta; calTorque; controlarGiro; copiarBase; fallo; frenarMotores; iniciarBaseGiro; iniciarFaseCal; normalizar360; sensar,
+__anon3dcaec680111.iniciarBaseGiro,src/Cinematica.cpp,242,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,calTorque; controlarAvance; controlarCalibracion; iniciarGiroAbsoluto; iniciarPasoInterno; iniciarRecuperacionEndpoint; verificarObjetivoFinal,copiarBase; reiniciarControlRumbo; sensar,
+__anon3dcaec680111.reintentarGiro,src/Cinematica.cpp,265,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarGiro,fallo; frenarMotores,
+__anon3dcaec680111.controlarGiro,src/Cinematica.cpp,274,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,76,controlarCalibracion; controlarMovimiento,aplicarVelocidades; aproximar; completarGiro; copiarBase; deltas; errorAng360; fallo; frenarMotores; reintentarGiro; sensar,
+__anon3dcaec680111.completarGiro,src/Cinematica.cpp,425,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,7,controlarGiro,fin; frenarMotores; iniciarAvance; iniciarFaseCal; iniciarVerificacionFinal; reset; resetOrientacionIMU,
+__anon3dcaec680111.actualizarErroresTrayectoria,src/Cinematica.cpp,464,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarAsentamientoFinal; controlarAvance; iniciarAvance; iniciarPaso; iniciarRecuperacionEndpoint; objetivoAbsolutoAlcanzado,calcularErroresTrayectoria; getX; getY,
+__anon3dcaec680111.objetivoAbsolutoAlcanzado,src/Cinematica.cpp,474,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,completarPaso; verificarObjetivoFinal,actualizarErroresTrayectoria; endpointAceptable; errorAng360,
+__anon3dcaec680111.mediana4,src/Cinematica.cpp,481,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,detectarOutliers; estimarTicksAvance,medianaCuatro,
+__anon3dcaec680111.hayPorLado,src/Cinematica.cpp,484,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,estimarTicksAvance,,
+__anon3dcaec680111.promedioLado,src/Cinematica.cpp,485,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance; estimarTicksAvance,promedioConfiableLado,
+__anon3dcaec680111.estimarTicksAvance,src/Cinematica.cpp,488,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,controlarAsentamientoFinal; controlarAvance,hayPorLado; mediana4; promedioLado,
+__anon3dcaec680111.resetConfEncoders,src/Cinematica.cpp,494,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,iniciarAvance,resetFiltrosEncoder,
+__anon3dcaec680111.iniciarAvance,src/Cinematica.cpp,505,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,completarGiro; completarPausaReeval; iniciarPasoInterno; iniciarRecuperacionEndpoint,actualizarErroresTrayectoria; copiarBase; distanciaAlObjetivo; reiniciarControlRumbo; resetConfEncoders; sensar,
+__anon3dcaec680111.detectarOutliers,src/Cinematica.cpp,536,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,12,controlarAvance,encoderEsOutlier; errorAng360; mediana4,
+__anon3dcaec680111.iniciarPausaReeval,src/Cinematica.cpp,555,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,controlarAvance,frenarMotores; reiniciarControlRumbo,
+__anon3dcaec680111.completarPausaReeval,src/Cinematica.cpp,564,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,5,controlarAvance,clasificarEncoders; fallo; iniciarAvance,
+__anon3dcaec680111.controlarAvance,src/Cinematica.cpp,582,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,43,controlarMovimiento,actualizarErroresTrayectoria; actualizarPI; anguloAlObjetivoRad; aplicarVelocidades; aproximar; completarPausaReeval; correccionLateralParaDireccion; correccionLateralRumboDeg; deltas; detectarOutliers; distanciaAlObjetivo; distanciaFrenoPrevista; distanciaPorTick; errorAng360; estimarTicksAvance; fallo; frenarLadoIzquierdoParaRumbo; frenarMotores; iniciarAsentamientoFinal; iniciarBaseGiro; iniciarPausaReeval; normalizar360; promedioLado; rumboCuerpoParaTrayecto; sensar,
+__anon3dcaec680111.iniciarAsentamientoFinal,src/Cinematica.cpp,771,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,controlarAvance,copiarBase; frenarMotores; sensar,
+__anon3dcaec680111.controlarAsentamientoFinal,src/Cinematica.cpp,785,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,7,controlarMovimiento,actualizarErroresTrayectoria; deltas; distanciaPorTick; estimarTicksAvance; fallo; sensar,
+__anon3dcaec680111.iniciarVerificacionFinal,src/Cinematica.cpp,815,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,completarGiro; controlarMovimiento,frenarMotores,
+__anon3dcaec680111.iniciarRecuperacionEndpoint,src/Cinematica.cpp,822,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,9,completarPaso; verificarObjetivoFinal,actualizarErroresTrayectoria; anguloAlObjetivoRad; completarPasoConCorreccionPendiente; decidirEndpointSeguro; distanciaAlObjetivo; errorAng360; fallo; iniciarAvance; iniciarBaseGiro; normalizar360; reversaAutomatica; rumboCuerpoParaTrayecto,
+__anon3dcaec680111.verificarObjetivoFinal,src/Cinematica.cpp,876,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,5,controlarMovimiento,completarPaso; errorAng360; frenarMotores; iniciarBaseGiro; iniciarRecuperacionEndpoint; objetivoAbsolutoAlcanzado,
+__anon3dcaec680111.completarPaso,src/Cinematica.cpp,894,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,5,verificarObjetivoFinal,completarPasoConCorreccionPendiente; decidirEndpointSeguro; distanciaAlObjetivo; fallo; fin; iniciarRecuperacionEndpoint; objetivoAbsolutoAlcanzado,
+__anon3dcaec680111.completarPasoConCorreccionPendiente,src/Cinematica.cpp,920,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,completarPaso; iniciarRecuperacionEndpoint,fin,
+__anon3dcaec680111.iniciarPasoInterno,src/Cinematica.cpp,928,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,iniciarPaso,errorAng360; iniciarAvance; iniciarBaseGiro,
+normalizar360,src/Cinematica.cpp,940,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,calCuenta; calTorque; calcularDestino; controlarAvance; controlarCalibracion; errorAngularDeg; iniciarGiroAbsoluto; iniciarPaso; iniciarRecuperacionEndpoint; procesarMisionAutonoma; rumboCuerpoParaTrayecto,,
+reiniciarControlRumbo,src/Cinematica.cpp,945,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,auditarSalud; cancelarMovimiento; fin; forzarEStop; iniciarAvance; iniciarBaseGiro; iniciarPausaReeval; resetFallo,,
+registrarMotivoFinalizacion,src/Cinematica.cpp,956,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,auditarSalud; cancelarMovimiento; fin; forzarEStop; iniciarCalibracion; iniciarGiroAbsoluto; iniciarPaso,,
+enFaseAvance,src/Cinematica.cpp,960,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,auditarSalud,,
+enFaseTraslacion,src/Cinematica.cpp,961,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,2,,,
+enFaseGiro,src/Cinematica.cpp,964,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,6,auditarSalud,,
+enFaseCalibracion,src/Cinematica.cpp,969,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,auditarSalud,,
+iniciarCalibracion,src/Cinematica.cpp,973,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,6,procesarComandos,encolarEvento; registrarMotivoFinalizacion; sensar,
+iniciarPaso,src/Cinematica.cpp,989,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,22,calcularDestino; procesarComandos; procesarMisionAutonoma,actualizarErroresTrayectoria; encolarEvento; getX; getY; iniciarPasoInterno; normalizar360; registrarMotivoFinalizacion; reversaAutomatica; rumboCuerpoParaTrayecto,
+iniciarGiroAbsoluto,src/Cinematica.cpp,1075,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,4,procesarComandos,encolarEvento; iniciarBaseGiro; normalizar360; registrarMotivoFinalizacion,
+cancelarMovimiento,src/Cinematica.cpp,1101,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,evento,5,procesarComandos,encolarEvento; frenarMotores; registrarMotivoFinalizacion; reiniciarControlRumbo,
+controlarMovimiento,src/Cinematica.cpp,1111,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,20,,controlarAsentamientoFinal; controlarAvance; controlarCalibracion; controlarGiro; iniciarVerificacionFinal; verificarObjetivoFinal,
 __anon3946a1160111.textoReset,src/DiagnosticoRTOS.cpp,19,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,11,inicializarDiagnosticoRTOS; validarLogicaDiagnosticoRTOS,,
 __anon3946a1160111.actualizarMinimo,src/DiagnosticoRTOS.cpp,35,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,registrarStackLibre,,
 __anon3946a1160111.resultadosValidos,src/DiagnosticoRTOS.cpp,40,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,2,registrarResultadoArquitectura; validarLogicaDiagnosticoRTOS,,
@@ -250,7 +303,7 @@ registrarResultadoArquitectura,src/DiagnosticoRTOS.cpp,64,firmware/src,ESP32-S3,
 registrarCicloControl,src/DiagnosticoRTOS.cpp,72,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,4,loop,,
 stackRTOSBajo,src/DiagnosticoRTOS.cpp,82,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,stackBajoValores,
 validarLogicaDiagnosticoRTOS,src/DiagnosticoRTOS.cpp,86,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,11,,resultadosValidos; stackBajoValores; textoReset,
-encolarEvento,src/Eventos.cpp,6,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,cola/evento,12,auditarSalud; cancelarMovimiento; fin; iniciarCalibracion; iniciarGiroAbsoluto; iniciarPaso; procesarComandos; procesarMisionAutonoma,,
+encolarEvento,src/Eventos.cpp,6,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,cola/evento,13,auditarSalud; cancelarMovimiento; fin; iniciarCalibracion; iniciarGiroAbsoluto; iniciarPaso; procesarComandos; procesarMisionAutonoma,,
 __anon9b3bf7a90111.guardarCheckpoint,src/Mision.cpp,31,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,síncrona,2,cargarMisionAutonoma; detenerMisionAutonoma; procesarMisionAutonoma,end,
 __anon9b3bf7a90111.crearIdPaso,src/Mision.cpp,42,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,procesarMisionAutonoma,,
 __anon9b3bf7a90111.calcularDestino,src/Mision.cpp,47,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,procesarMisionAutonoma,anguloAlObjetivoRad; distanciaAlObjetivo; iniciarPaso; normalizar360,
@@ -272,7 +325,7 @@ estadoMisionAutonoma,src/Mision.cpp,231,firmware/src,ESP32-S3,ESP32 / tiempo rea
 idPasoMisionActual,src/Mision.cpp,238,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 misionAutonomaInterrumpida,src/Mision.cpp,239,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 aplicarVelocidades,src/Motores.cpp,109,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,1,calTorque; controlarAvance; controlarGiro,,
-frenarMotores,src/Motores.cpp,122,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,2,auditarSalud; calTorque; cancelarMovimiento; completarGiro; controlarAvance; controlarCalibracion; controlarGiro; fin; forzarEStop; iniciarPausaReeval; reintentarGiro; resetFallo; setup; setup_Motores,,
+frenarMotores,src/Motores.cpp,122,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,interno,síncrona,2,auditarSalud; calTorque; cancelarMovimiento; completarGiro; controlarAvance; controlarCalibracion; controlarGiro; fin; forzarEStop; iniciarAsentamientoFinal; iniciarPausaReeval; iniciarVerificacionFinal; reintentarGiro; resetFallo; setup; setup_Motores; verificarObjetivoFinal,,
 validarInterlockMotores,src/Motores.cpp,133,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,24,,,estado
 estadoInterlockL,src/Motores.cpp,179,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,estado
 estadoInterlockR,src/Motores.cpp,180,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,estado
@@ -288,15 +341,15 @@ PoseEstimator.reset,src/PoseEstimator.cpp,15,firmware/src,ESP32-S3,ESP32 / tiemp
 PoseEstimator.actualizarOdometria,src/PoseEstimator.cpp,27,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,12,,,
 PoseEstimator.iniciarMedicionTraslacionGiro,src/PoseEstimator.cpp,65,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,reset,,
 PoseEstimator.actualizarOrientacion,src/PoseEstimator.cpp,71,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,3,,,
-PoseEstimator.distanciaAlObjetivo,src/PoseEstimator.cpp,78,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calcularDestino; controlarAvance; iniciarAvance,,
-PoseEstimator.anguloAlObjetivoRad,src/PoseEstimator.cpp,84,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calcularDestino,,
-setup_Red,src/Red.cpp,221,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,asíncrona,4,setup,,
-procesarWebSockets,src/Red.cpp,235,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,Task_Web,,
-pushTelemetria,src/Red.cpp,241,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,Task_Web,,
-Seguridad.Seguridad,src/Seguridad.cpp,10,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,2,,,
-Seguridad.auditarSalud,src/Seguridad.cpp,15,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,sin llamada interna detectada,evento,23,,enFaseAvance; enFaseCalibracion; enFaseGiro; encolarEvento; frenarMotores,parada/cierre
-Seguridad.forzarEStop,src/Seguridad.cpp,89,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,síncrona,1,procesarComandos,frenarMotores,parada/cierre
-Seguridad.resetFallo,src/Seguridad.cpp,95,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,síncrona,4,procesarComandos,frenarMotores,parada/cierre
+PoseEstimator.distanciaAlObjetivo,src/PoseEstimator.cpp,78,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calcularDestino; completarPaso; controlarAvance; iniciarAvance; iniciarRecuperacionEndpoint,,
+PoseEstimator.anguloAlObjetivoRad,src/PoseEstimator.cpp,84,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,calcularDestino; controlarAvance; iniciarRecuperacionEndpoint,,
+setup_Red,src/Red.cpp,311,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,asíncrona,4,setup,,
+procesarWebSockets,src/Red.cpp,325,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,3,Task_Web,,
+pushTelemetria,src/Red.cpp,331,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,Task_Web,,
+Seguridad.Seguridad,src/Seguridad.cpp,11,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,2,,,
+Seguridad.auditarSalud,src/Seguridad.cpp,16,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,sin llamada interna detectada,evento,19,,enFaseAvance; enFaseCalibracion; enFaseGiro; encolarEvento; frenarMotores; ladoEnStall; registrarMotivoFinalizacion; reiniciarControlRumbo,parada/cierre
+Seguridad.forzarEStop,src/Seguridad.cpp,92,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,síncrona,1,procesarComandos,frenarMotores; registrarMotivoFinalizacion; reiniciarControlRumbo,parada/cierre
+Seguridad.resetFallo,src/Seguridad.cpp,100,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,interno,síncrona,4,procesarComandos,frenarMotores; reiniciarControlRumbo,parada/cierre
 setup_Sensores,src/Sensores.cpp,82,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,5,setup,,
 resetFiltrosEncoder,src/Sensores.cpp,158,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,resetConfEncoders,,
 resetOrientacionIMU,src/Sensores.cpp,165,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,completarGiro; procesarComandos,,
@@ -306,13 +359,13 @@ cantidadRecentradosYawIMU,src/Sensores.cpp,198,firmware/src,ESP32-S3,ESP32 / tie
 leerSensoresSincrono,src/Sensores.cpp,253,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,1,,,
 snapshotSensoresControl,src/Sensores.cpp,267,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,loop,,
 obtenerUltimoSnapshotSensores,src/Sensores.cpp,271,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,interno,síncrona,1,sensar,,
-procesarComandos,src/main.cpp,21,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,sin llamada interna detectada,cola/evento,18,,cancelarMovimiento; encolarEvento; forzarEStop; iniciarCalibracion; iniciarGiroAbsoluto; iniciarPaso; reset; resetFallo; resetOrientacionIMU,cola de comandos; parada/cierre
-Task_Web,src/main.cpp,75,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,3,,procesarWebSockets; pushTelemetria; registrarStackLibre,
-setup,src/main.cpp,124,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,entrada/framework,cola/evento,2,,frenarMotores; inicializar; inicializarDiagnosticoRTOS; registrarResultadoArquitectura; setup_MotorPinsLow; setup_Motores; setup_Red; setup_Sensores,cola de comandos
-loop,src/main.cpp,150,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,entrada/framework,síncrona,6,init,registrarCicloControl; registrarStackLibre; snapshotSensoresControl,
+procesarComandos,src/main.cpp,22,firmware/src,ESP32-S3,ESP32 / tiempo real,Medio,sin llamada interna detectada,cola/evento,18,,cancelarMovimiento; encolarEvento; estopSolicitado; forzarEStop; iniciarCalibracion; iniciarGiroAbsoluto; iniciarPaso; reset; resetFallo; resetOrientacionIMU,cola de comandos; parada/cierre
+Task_Web,src/main.cpp,77,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,sin llamada interna detectada,síncrona,3,,procesarWebSockets; pushTelemetria; registrarStackLibre,
+setup,src/main.cpp,128,firmware/src,ESP32-S3,ESP32 / tiempo real,Alto,entrada/framework,cola/evento,2,,frenarMotores; inicializar; inicializarDiagnosticoRTOS; registrarResultadoArquitectura; setup_MotorPinsLow; setup_Motores; setup_Red; setup_Sensores,cola de comandos
+loop,src/main.cpp,154,firmware/src,ESP32-S3,ESP32 / tiempo real,Bajo,entrada/framework,síncrona,6,init,registrarCicloControl; registrarStackLibre; snapshotSensoresControl,
 RobotApi.constructor,desktop_app/frontend/src/api.ts,4,frontend/typescript,Windows (validación),HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
 RobotApi.status,desktop_app/frontend/src/api.ts,6,frontend/typescript,Windows (validación),HMI / operador,Bajo,entrada/framework,asíncrona,2,connection; events; stream,,
-isRobotStatus,desktop_app/frontend/src/protocol.ts,120,frontend/typescript,Windows (validación),HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
+isRobotStatus,desktop_app/frontend/src/protocol.ts,142,frontend/typescript,Windows (validación),HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
 SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.fm,SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html,187,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,sin llamada interna detectada,síncrona,4,,nLetter,
 SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.nLetter,SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html,189,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,addPt; fm,,
 SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.toast,SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html,192,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,addPt; cFrame; clearAll; genRoute,,
@@ -344,14 +397,17 @@ SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.onUp,SistemaDeDescomposi
 SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.initEv,SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html,562,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,11,init,draw,
 SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.rsz,SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html,589,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,init; initResize; onMove,draw,
 SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.init,SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html,597,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,sin llamada interna detectada,síncrona,4,,addPt; draw; genRoute; initEv; initResize; loop; rPts; rsz; upSt,
-connect_db,consultar_db.py,21,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,main,connect,
-show_summary,consultar_db.py,32,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,6,main,,estado
-list_sessions,consultar_db.py,54,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,3,main,,
-list_commands,consultar_db.py,64,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,4,main,,estado
-list_events,consultar_db.py,75,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,main,,
-list_telemetry,consultar_db.py,83,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Alto,interno,síncrona,3,main,,estado; telemetría
-search_all,consultar_db.py,96,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,12,main,,
-main,consultar_db.py,118,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,entrada/framework,síncrona,11,,close; connect_db; list_commands; list_events; list_sessions; list_telemetry; parse_args; search_all; show_summary,telemetría
+connect_db,consultar_db.py,22,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,main,connect,
+show_summary,consultar_db.py,33,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,6,main,,estado
+list_sessions,consultar_db.py,55,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,3,main,,
+list_commands,consultar_db.py,65,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,4,main,,estado
+list_events,consultar_db.py,76,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,2,main,,
+list_telemetry,consultar_db.py,84,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Alto,interno,síncrona,3,main,,estado; telemetría
+_angular_delta_deg,consultar_db.py,97,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,1,list_segments; trace_command,,
+list_segments,consultar_db.py,101,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Medio,interno,síncrona,20,main,_angular_delta_deg,telemetría
+trace_command,consultar_db.py,168,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Alto,interno,síncrona,34,main,_angular_delta_deg,telemetría
+search_all,consultar_db.py,265,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,12,main,,
+main,consultar_db.py,287,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,entrada/framework,síncrona,15,,close; connect_db; list_commands; list_events; list_segments; list_sessions; list_telemetry; parse_args; search_all; show_summary; trace_command,telemetría
 active_files,scripts/documentacion/generar_catalogo.py,36,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,6,main,,
 subsystem,scripts/documentacion/generar_catalogo.py,64,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,8,normalize_tags,,
 language,scripts/documentacion/generar_catalogo.py,83,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,1,normalize_tags,,
@@ -385,77 +441,79 @@ main,scripts/documentacion/renderizar_uml.py,54,herramientas/scripts,Desarrollo,
 markdown_files,scripts/documentacion/validar_enlaces.py,15,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,4,main,,
 normalize_target,scripts/documentacion/validar_enlaces.py,26,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,interno,síncrona,3,main,,
 main,scripts/documentacion/validar_enlaces.py,36,herramientas/scripts,Desarrollo,Mantenimiento / herramientas,Bajo,entrada/framework,síncrona,10,,markdown_files; normalize_target,
-HMI.initChart,desktop_app/robot_app/hmi/index.html,1312,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,5,init,actualizarBarra; sendMove; update,
-HMI.actualizarBarra,desktop_app/robot_app/hmi/index.html,1408,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,initChart,update,
-HMI.init,desktop_app/robot_app/hmi/index.html,1444,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,2,,add; connectBackend,
-HMI.api,desktop_app/robot_app/hmi/index.html,1451,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,asíncrona,6,change; clearRobotMemory; closeApplication; connectBackend; loadHistory; ockhamReturn; send; sendMove; start; stopAndReset,,
-HMI.closeApplication,desktop_app/robot_app/hmi/index.html,1463,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,10,init,add; api; close; closeApp,
-HMI.connectBackend,desktop_app/robot_app/hmi/index.html,1488,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,asíncrona,3,init,add; api; consumeBackend,
-HMI.consumeBackend,desktop_app/robot_app/hmi/index.html,1499,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,11,connectBackend,add; applyBackendTelemetry; applyConnection; applySession; applySnapshot; loadHistory; onMission; onRobotEvent,telemetría; sesión
-HMI.applyBackendTelemetry,desktop_app/robot_app/hmi/index.html,1517,hmi/canonica,Windows/Android,HMI / operador,Alto,interno,síncrona,141,consumeBackend,_process; add; applyIdentity; applyTelemetry; update,estado; telemetría; parada/cierre
-HMI.send,desktop_app/robot_app/hmi/index.html,1584,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,7,_drain_one; _run; _sendManual; init,add; api,parada/cierre
-HMI.sendMove,desktop_app/robot_app/hmi/index.html,1598,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,initChart,add; api,
-HMI.init,desktop_app/robot_app/hmi/index.html,1612,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,asíncrona,4,,add; send; setState,
-HMI.setState,desktop_app/robot_app/hmi/index.html,1630,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,applyTelemetry; init; onRobotEvent,,
-HMI.applyTelemetry,desktop_app/robot_app/hmi/index.html,1637,hmi/canonica,Windows/Android,HMI / operador,Alto,interno,síncrona,54,applyBackendTelemetry,add; setState,parada/cierre
-HMI.onRobotEvent,desktop_app/robot_app/hmi/index.html,1691,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,19,consumeBackend,add; setState,
-HMI.init,desktop_app/robot_app/hmi/index.html,1717,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,change; loadHistory,
-HMI.change,desktop_app/robot_app/hmi/index.html,1723,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,asíncrona,4,init,add; api; applySnapshot,
-HMI.applySnapshot,desktop_app/robot_app/hmi/index.html,1733,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,8,change; consumeBackend,applyConnection; applyIdentity; applySession,telemetría
-HMI.applyConnection,desktop_app/robot_app/hmi/index.html,1740,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,5,applySnapshot; consumeBackend,_ui,telemetría
-HMI.applySession,desktop_app/robot_app/hmi/index.html,1750,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,2,applySnapshot; consumeBackend,,sesión
-HMI.applyIdentity,desktop_app/robot_app/hmi/index.html,1751,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,applyBackendTelemetry; applySnapshot,,telemetría
-HMI.esc,desktop_app/robot_app/hmi/index.html,1756,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,loadHistory,,
-HMI.loadHistory,desktop_app/robot_app/hmi/index.html,1757,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,4,consumeBackend; init,add; api; esc,telemetría; sesión
-HMI.init,desktop_app/robot_app/hmi/index.html,1773,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
-HMI.add,desktop_app/robot_app/hmi/index.html,1774,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,7,_process; addStep; applyBackendTelemetry; applyTelemetry; cancel; change; clearRobotMemory; closeApplication; connectBackend; consumeBackend; dependency_cycles; failRoute; hlStep; init; initResize; loadHistory; lockTabs; loop; mainW; mermaid_for_folder; ockhamReturn; onDown; onMission; onRobotEvent; pL; pR; removeLastStep; send; sendMove; send_command; start; startC; stopAndReset; subscribe; update; visit,,
-HMI.clear,desktop_app/robot_app/hmi/index.html,1791,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,_run; init; liberarMisionAutonoma; start,,
-HMI.setFilter,desktop_app/robot_app/hmi/index.html,1797,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,init,,
-HMI.downloadTXT,desktop_app/robot_app/hmi/index.html,1798,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,init,,estado
-HMI.init,desktop_app/robot_app/hmi/index.html,1810,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,2,,_ticks; loop,
-HMI._ticks,desktop_app/robot_app/hmi/index.html,1823,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,init,,
-HMI.loop,desktop_app/robot_app/hmi/index.html,1833,hmi/canonica,Windows/Android,HMI / operador,Alto,entrada/framework,síncrona,19,init,add,estado; telemetría
-HMI.init,desktop_app/robot_app/hmi/index.html,1883,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,render,
-HMI.update,desktop_app/robot_app/hmi/index.html,1884,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,13,_process; _uiTelem; actualizarBarra; applyBackendTelemetry; autoScale; clearTelemetryTrail; create_app; drawPlan; init; initChart; updateTelemetryMap,render,
-HMI.render,desktop_app/robot_app/hmi/index.html,1905,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,10,_ui; init; main; update,,telemetría
-HMI._process,desktop_app/robot_app/hmi/index.html,1924,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,6,applyBackendTelemetry,_uiPos; _uiTelem; add; onFsmIdle; update; updateTelemetryMap,estado; telemetría
-HMI._uiTelem,desktop_app/robot_app/hmi/index.html,1941,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,11,_process,update,estado; telemetría
-HMI._uiPos,desktop_app/robot_app/hmi/index.html,1978,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,_process,,telemetría
-HMI._ui,desktop_app/robot_app/hmi/index.html,1993,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,applyConnection,render,
-HMI.update,desktop_app/robot_app/hmi/index.html,2001,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,5,_process; _uiTelem; actualizarBarra; applyBackendTelemetry; autoScale; clearTelemetryTrail; create_app; drawPlan; init; initChart; updateTelemetryMap,add,parada/cierre
-HMI.init,desktop_app/robot_app/hmi/index.html,2016,hmi/canonica,Windows/Android,HMI / operador,Medio,sin llamada interna detectada,síncrona,1,,_initCharts; addStep; clearRobotMemory; ockhamReturn; removeLastStep; start; stopAndReset; updateLabels; updatePreview,
-HMI._chartOptions,desktop_app/robot_app/hmi/index.html,2038,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,_initCharts,,
-HMI._initCharts,desktop_app/robot_app/hmi/index.html,2055,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,5,init,_chartOptions,
-HMI.resizeCharts,desktop_app/robot_app/hmi/index.html,2080,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,toggleCinema,,
-HMI.clearTelemetryTrail,desktop_app/robot_app/hmi/index.html,2084,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,addStep; ockhamReturn; stopAndReset,update,
-HMI.updateLabels,desktop_app/robot_app/hmi/index.html,2088,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,init,updatePreview,
-HMI.updatePreview,desktop_app/robot_app/hmi/index.html,2102,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,init; updateLabels,,
-HMI.addStep,desktop_app/robot_app/hmi/index.html,2109,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,8,init,add; appendLimited; autoScale; clearTelemetryTrail; drawPlan; updateListUI,telemetría
-HMI.removeLastStep,desktop_app/robot_app/hmi/index.html,2137,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,4,init,add; autoScale; drawPlan; updateListUI,telemetría
-HMI.appendLimited,desktop_app/robot_app/hmi/index.html,2148,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,2,addStep,,
-HMI.updateListUI,desktop_app/robot_app/hmi/index.html,2155,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,9,addStep; clearRobotMemory; failRoute; ockhamReturn; onMission; removeLastStep; start; stopAndReset,,
-HMI.drawPlan,desktop_app/robot_app/hmi/index.html,2169,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,2,addStep; clearRobotMemory; ockhamReturn; onMission; removeLastStep; start; stopAndReset,update,
-HMI.autoScale,desktop_app/robot_app/hmi/index.html,2174,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,4,addStep; ockhamReturn; removeLastStep,update,
-HMI.updateTelemetryMap,desktop_app/robot_app/hmi/index.html,2189,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,_process,update,
-HMI.toggleCinema,desktop_app/robot_app/hmi/index.html,2202,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,init,resizeCharts,
-HMI.lockTabs,desktop_app/robot_app/hmi/index.html,2207,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,ockhamReturn; start,add,
-HMI.unlockTabs,desktop_app/robot_app/hmi/index.html,2213,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,clearRobotMemory; failRoute; onMission; stopAndReset,,
-HMI.start,desktop_app/robot_app/hmi/index.html,2217,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,cola/evento,8,__init__; close_application; connect; init; main; reconnect,add; api; drawPlan; lockTabs; updateListUI,
-HMI.onRobotEvent,desktop_app/robot_app/hmi/index.html,2232,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,consumeBackend,,
-HMI.onMission,desktop_app/robot_app/hmi/index.html,2233,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,12,consumeBackend,add; drawPlan; failRoute; unlockTabs; updateListUI,
-HMI.onFsmIdle,desktop_app/robot_app/hmi/index.html,2255,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,_process,,
-HMI.failRoute,desktop_app/robot_app/hmi/index.html,2256,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,onMission,add; unlockTabs; updateListUI,
-HMI.stopAndReset,desktop_app/robot_app/hmi/index.html,2261,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,cola/evento,7,init,add; api; clearTelemetryTrail; drawPlan; unlockTabs; updateListUI,telemetría
-HMI.clearRobotMemory,desktop_app/robot_app/hmi/index.html,2282,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,4,init,add; api; drawPlan; unlockTabs; updateListUI,
-HMI.ockhamReturn,desktop_app/robot_app/hmi/index.html,2292,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,cola/evento,7,init,add; api; autoScale; clearTelemetryTrail; drawPlan; lockTabs; updateListUI,telemetría
-HMI.init,desktop_app/robot_app/hmi/index.html,2314,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
-HMI.init,desktop_app/robot_app/hmi/index.html,2333,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,3,,end; move; start,
-HMI._pos,desktop_app/robot_app/hmi/index.html,2347,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,move,,
-HMI._sendManual,desktop_app/robot_app/hmi/index.html,2352,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,8,end; move; start,send,
-HMI.start,desktop_app/robot_app/hmi/index.html,2361,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,12,__init__; close_application; connect; init; main; reconnect,_sendManual; add; move,estado
-HMI.move,desktop_app/robot_app/hmi/index.html,2372,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,13,init; start,_bars; _dirName; _pos; _sendManual; end,
-HMI.end,desktop_app/robot_app/hmi/index.html,2398,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,3,guardarCheckpoint; inicializarPersistenciaMision; init; liberarMisionAutonoma; move,_bars; _resetVis; _sendManual,
-HMI._resetVis,desktop_app/robot_app/hmi/index.html,2408,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,end,,
-HMI._bars,desktop_app/robot_app/hmi/index.html,2414,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,5,end; move,,
-HMI._dirName,desktop_app/robot_app/hmi/index.html,2428,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,18,move,,
-HMI.init,desktop_app/robot_app/hmi/index.html,2440,hmi/canonica,Windows/Android,HMI / operador,Alto,sin llamada interna detectada,asíncrona,31,,add; clear; closeApplication; downloadTXT; end; initChart; loadHistory; send; setFilter; toggleCinema; update,telemetría; parada/cierre
+HMI.initChart,desktop_app/robot_app/hmi/index.html,1340,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,5,init,actualizarBarra; sendMove; update,
+HMI.actualizarBarra,desktop_app/robot_app/hmi/index.html,1436,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,initChart,update,
+HMI.init,desktop_app/robot_app/hmi/index.html,1472,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,2,,add; connectBackend,
+HMI.api,desktop_app/robot_app/hmi/index.html,1479,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,asíncrona,6,change; clearRobotMemory; closeApplication; connectBackend; loadHistory; ockhamReturn; send; sendMove; start; stopAndReset,,
+HMI.closeApplication,desktop_app/robot_app/hmi/index.html,1491,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,10,init,add; api; close; closeApp,
+HMI.connectBackend,desktop_app/robot_app/hmi/index.html,1516,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,asíncrona,3,init,add; api; consumeBackend,
+HMI.consumeBackend,desktop_app/robot_app/hmi/index.html,1527,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,11,connectBackend,add; applyBackendTelemetry; applyConnection; applySession; applySnapshot; loadHistory; onMission; onRobotEvent,telemetría; sesión
+HMI.applyBackendTelemetry,desktop_app/robot_app/hmi/index.html,1545,hmi/canonica,Windows/Android,HMI / operador,Alto,interno,síncrona,145,consumeBackend,_process; add; applyIdentity; applyTelemetry; update,estado; telemetría; parada/cierre
+HMI.send,desktop_app/robot_app/hmi/index.html,1613,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,7,_drain_one; _run; _sendManual; init,add; api,parada/cierre
+HMI.sendMove,desktop_app/robot_app/hmi/index.html,1627,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,initChart,add; api,
+HMI.init,desktop_app/robot_app/hmi/index.html,1641,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,asíncrona,4,,add; send; setState,
+HMI.setState,desktop_app/robot_app/hmi/index.html,1659,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,applyTelemetry; init; onRobotEvent,,
+HMI.applyTelemetry,desktop_app/robot_app/hmi/index.html,1666,hmi/canonica,Windows/Android,HMI / operador,Alto,interno,síncrona,54,applyBackendTelemetry,add; setState,parada/cierre
+HMI.onRobotEvent,desktop_app/robot_app/hmi/index.html,1720,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,19,consumeBackend,add; setState,
+HMI.init,desktop_app/robot_app/hmi/index.html,1746,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,change; loadHistory,
+HMI.change,desktop_app/robot_app/hmi/index.html,1752,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,asíncrona,4,init,add; api; applySnapshot,
+HMI.applySnapshot,desktop_app/robot_app/hmi/index.html,1762,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,8,change; consumeBackend,applyConnection; applyIdentity; applySession,telemetría
+HMI.applyConnection,desktop_app/robot_app/hmi/index.html,1769,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,5,applySnapshot; consumeBackend,_ui,telemetría
+HMI.applySession,desktop_app/robot_app/hmi/index.html,1779,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,2,applySnapshot; consumeBackend,,sesión
+HMI.applyIdentity,desktop_app/robot_app/hmi/index.html,1780,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,applyBackendTelemetry; applySnapshot,,telemetría
+HMI.esc,desktop_app/robot_app/hmi/index.html,1785,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,loadHistory,,
+HMI.loadHistory,desktop_app/robot_app/hmi/index.html,1786,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,4,consumeBackend; init,add; api; esc,telemetría; sesión
+HMI.init,desktop_app/robot_app/hmi/index.html,1802,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
+HMI.add,desktop_app/robot_app/hmi/index.html,1803,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,7,_process; addStep; applyBackendTelemetry; applyTelemetry; cancel; change; clearRobotMemory; closeApplication; connectBackend; consumeBackend; dependency_cycles; failRoute; hlStep; init; initResize; loadHistory; lockTabs; loop; mainW; mermaid_for_folder; ockhamReturn; onDown; onMission; onRobotEvent; pL; pR; removeLastStep; send; sendMove; send_command; start; startC; stopAndReset; subscribe; update; visit,,
+HMI.clear,desktop_app/robot_app/hmi/index.html,1820,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,_run; init; liberarMisionAutonoma; start,,
+HMI.setFilter,desktop_app/robot_app/hmi/index.html,1826,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,init,,
+HMI.downloadTXT,desktop_app/robot_app/hmi/index.html,1827,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,init,,estado
+HMI.init,desktop_app/robot_app/hmi/index.html,1839,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,2,,_ticks; loop,
+HMI._ticks,desktop_app/robot_app/hmi/index.html,1852,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,init,,
+HMI.loop,desktop_app/robot_app/hmi/index.html,1862,hmi/canonica,Windows/Android,HMI / operador,Alto,entrada/framework,síncrona,19,init,add,estado; telemetría
+HMI.init,desktop_app/robot_app/hmi/index.html,1912,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,render,
+HMI.update,desktop_app/robot_app/hmi/index.html,1913,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,13,_process; _uiTelem; actualizarBarra; applyBackendTelemetry; autoScale; clearTelemetryTrail; create_app; drawPlan; init; initChart; updateTelemetryMap,render,
+HMI.render,desktop_app/robot_app/hmi/index.html,1934,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,10,_ui; init; main; update,,telemetría
+HMI._process,desktop_app/robot_app/hmi/index.html,1953,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,6,applyBackendTelemetry,_uiPos; _uiTelem; add; onFsmIdle; update; updateTelemetryMap,estado; telemetría
+HMI._uiTelem,desktop_app/robot_app/hmi/index.html,1970,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,43,_process,update,estado; telemetría
+HMI._uiPos,desktop_app/robot_app/hmi/index.html,2023,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,_process,,telemetría
+HMI._ui,desktop_app/robot_app/hmi/index.html,2038,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,applyConnection,render,
+HMI.update,desktop_app/robot_app/hmi/index.html,2046,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,5,_process; _uiTelem; actualizarBarra; applyBackendTelemetry; autoScale; clearTelemetryTrail; create_app; drawPlan; init; initChart; updateTelemetryMap,add,parada/cierre
+HMI.init,desktop_app/robot_app/hmi/index.html,2061,hmi/canonica,Windows/Android,HMI / operador,Medio,sin llamada interna detectada,síncrona,1,,_initCharts; addStep; clearRobotMemory; completarEjeRectangular; ockhamReturn; removeLastStep; start; stopAndReset; updateLabels; updatePreview,
+HMI._chartOptions,desktop_app/robot_app/hmi/index.html,2089,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,_initCharts,,
+HMI._initCharts,desktop_app/robot_app/hmi/index.html,2106,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,6,init,_chartOptions; afterDatasetsDraw,
+HMI.afterDatasetsDraw,desktop_app/robot_app/hmi/index.html,2122,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,_initCharts,,
+HMI.resizeCharts,desktop_app/robot_app/hmi/index.html,2146,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,toggleCinema,,
+HMI.clearTelemetryTrail,desktop_app/robot_app/hmi/index.html,2150,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,addStep; ockhamReturn; stopAndReset,update,
+HMI.updateLabels,desktop_app/robot_app/hmi/index.html,2154,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,init,updatePreview,
+HMI.completarEjeRectangular,desktop_app/robot_app/hmi/index.html,2172,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,8,init,,
+HMI.updatePreview,desktop_app/robot_app/hmi/index.html,2186,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,init; updateLabels,,
+HMI.addStep,desktop_app/robot_app/hmi/index.html,2193,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,8,init,add; appendLimited; autoScale; clearTelemetryTrail; drawPlan; updateListUI,telemetría
+HMI.removeLastStep,desktop_app/robot_app/hmi/index.html,2221,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,4,init,add; autoScale; drawPlan; updateListUI,telemetría
+HMI.appendLimited,desktop_app/robot_app/hmi/index.html,2232,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,2,addStep,,
+HMI.updateListUI,desktop_app/robot_app/hmi/index.html,2239,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,9,addStep; clearRobotMemory; failRoute; ockhamReturn; onMission; removeLastStep; start; stopAndReset,,
+HMI.drawPlan,desktop_app/robot_app/hmi/index.html,2253,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,5,addStep; clearRobotMemory; ockhamReturn; onMission; removeLastStep; start; stopAndReset,update,
+HMI.autoScale,desktop_app/robot_app/hmi/index.html,2267,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,cola/evento,4,addStep; ockhamReturn; removeLastStep,update,
+HMI.updateTelemetryMap,desktop_app/robot_app/hmi/index.html,2282,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,4,_process,update,
+HMI.toggleCinema,desktop_app/robot_app/hmi/index.html,2295,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,init,resizeCharts,
+HMI.lockTabs,desktop_app/robot_app/hmi/index.html,2300,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,2,ockhamReturn; start,add,
+HMI.unlockTabs,desktop_app/robot_app/hmi/index.html,2306,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,clearRobotMemory; failRoute; onMission; stopAndReset,,
+HMI.start,desktop_app/robot_app/hmi/index.html,2310,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,cola/evento,8,__init__; close_application; connect; init; main; reconnect,add; api; drawPlan; lockTabs; updateListUI,
+HMI.onRobotEvent,desktop_app/robot_app/hmi/index.html,2325,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,consumeBackend,,
+HMI.onMission,desktop_app/robot_app/hmi/index.html,2326,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,12,consumeBackend,add; drawPlan; failRoute; unlockTabs; updateListUI,
+HMI.onFsmIdle,desktop_app/robot_app/hmi/index.html,2348,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,_process,,
+HMI.failRoute,desktop_app/robot_app/hmi/index.html,2349,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,onMission,add; unlockTabs; updateListUI,
+HMI.stopAndReset,desktop_app/robot_app/hmi/index.html,2354,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,cola/evento,7,init,add; api; clearTelemetryTrail; drawPlan; unlockTabs; updateListUI,telemetría
+HMI.clearRobotMemory,desktop_app/robot_app/hmi/index.html,2375,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,asíncrona,4,init,add; api; drawPlan; unlockTabs; updateListUI,
+HMI.ockhamReturn,desktop_app/robot_app/hmi/index.html,2385,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,cola/evento,7,init,add; api; autoScale; clearTelemetryTrail; drawPlan; lockTabs; updateListUI,telemetría
+HMI.init,desktop_app/robot_app/hmi/index.html,2407,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,1,,,
+HMI.init,desktop_app/robot_app/hmi/index.html,2426,hmi/canonica,Windows/Android,HMI / operador,Bajo,sin llamada interna detectada,síncrona,3,,end; move; start,
+HMI._pos,desktop_app/robot_app/hmi/index.html,2440,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,3,move,,
+HMI._sendManual,desktop_app/robot_app/hmi/index.html,2445,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,8,end; move; start,send,
+HMI.start,desktop_app/robot_app/hmi/index.html,2454,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,12,__init__; close_application; connect; init; main; reconnect,_sendManual; add; move,estado
+HMI.move,desktop_app/robot_app/hmi/index.html,2465,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,13,init; start,_bars; _dirName; _pos; _sendManual; end,
+HMI.end,desktop_app/robot_app/hmi/index.html,2491,hmi/canonica,Windows/Android,HMI / operador,Medio,interno,síncrona,3,guardarCheckpoint; inicializarPersistenciaMision; init; liberarMisionAutonoma; move,_bars; _resetVis; _sendManual,
+HMI._resetVis,desktop_app/robot_app/hmi/index.html,2501,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,1,end,,
+HMI._bars,desktop_app/robot_app/hmi/index.html,2507,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,5,end; move,,
+HMI._dirName,desktop_app/robot_app/hmi/index.html,2521,hmi/canonica,Windows/Android,HMI / operador,Bajo,interno,síncrona,18,move,,
+HMI.init,desktop_app/robot_app/hmi/index.html,2533,hmi/canonica,Windows/Android,HMI / operador,Alto,sin llamada interna detectada,asíncrona,31,,add; clear; closeApplication; downloadTXT; end; initChart; loadHistory; send; setFilter; toggleCinema; update,telemetría; parada/cierre

@@ -10,7 +10,7 @@ skinparam ArrowColor #5BD8FF
 title frontend/typescript — grafo funcional
 component "constructor\nCC=1 · Bajo" as n965d6db927
 component "status\nCC=2 · Bajo" as n71584cfab9
-component "isRobotStatus\nCC=1 · Bajo" as n53ecf45228
+component "isRobotStatus\nCC=1 · Bajo" as nc52961b61a
 legend
 |= Flecha |= Interacción |
 | --> | síncrona |

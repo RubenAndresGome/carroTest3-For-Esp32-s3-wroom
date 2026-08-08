@@ -10,6 +10,8 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[2]
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+LEGACY_DOCS = ROOT / "docs_markdowns"
+LEGACY_SITE = ROOT / "documentacion_completa_localServer"
 
 
 def markdown_files() -> list[Path]:
@@ -33,6 +35,29 @@ def normalize_target(raw: str) -> str | None:
     return target or None
 
 
+def candidates_for(document: Path, target: str) -> list[Path]:
+    """Acepta enlaces históricos mientras las fuentes viven en docs_markdowns."""
+    local_target = (document.parent / target).resolve()
+    candidates = [local_target]
+    try:
+        local_parts = local_target.relative_to(ROOT).parts
+    except ValueError:
+        local_parts = ()
+    if local_parts and local_parts[0] == "docs":
+        candidates.append(LEGACY_DOCS.joinpath(*local_parts[1:]).resolve())
+    if local_parts and local_parts[0] == "documentacionCompleta":
+        candidates.append(LEGACY_SITE.joinpath(*local_parts[1:]).resolve())
+    root_target = (ROOT / target).resolve()
+    parts = Path(target).parts
+    if parts and parts[0] == "docs":
+        candidates.append(LEGACY_DOCS.joinpath(*parts[1:]).resolve())
+    if parts and parts[0] == "documentacionCompleta":
+        candidates.append(LEGACY_SITE.joinpath(*parts[1:]).resolve())
+    if root_target not in candidates:
+        candidates.append(root_target)
+    return candidates
+
+
 def main() -> int:
     missing: list[tuple[Path, int, str]] = []
     checked = 0
@@ -48,9 +73,8 @@ def main() -> int:
                 # Los enlaces Markdown admiten un título opcional después del destino.
                 if ' "' in target:
                     target = target.split(' "', 1)[0]
-                candidate = (document.parent / target).resolve()
                 checked += 1
-                if not candidate.exists():
+                if not any(candidate.exists() for candidate in candidates_for(document, target)):
                     missing.append((document.relative_to(ROOT), line_number, target))
 
     if missing:

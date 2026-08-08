@@ -8,15 +8,57 @@ skinparam componentBorderColor #39E6AA
 skinparam componentFontColor white
 skinparam ArrowColor #5BD8FF
 title firmware/include — grafo funcional
-component "tipo\nCC=1 · Bajo" as n52fd560f83
-component "seq\nCC=1 · Bajo" as ndfcaf3f3be
-component "heading\nCC=1 · Bajo" as n2723cbcf48
-component "distanciaCm\nCC=1 · Bajo" as ne704d1ed5d
-component "factor\nCC=1 · Bajo" as n2135af2d5f
+component "tipo\nCC=1 · Bajo" as nb9d52df174
+component "seq\nCC=1 · Bajo" as n54e28a7808
+component "heading\nCC=1 · Bajo" as na384e552ee
+component "distanciaCm\nCC=1 · Bajo" as n19302bb7c7
+component "factor\nCC=1 · Bajo" as n1a150105f0
+component "targetXCm\nCC=1 · Bajo" as n359e3192c8
+component "targetYCm\nCC=1 · Bajo" as n3ddd954461
+component "tieneObjetivoAbsoluto\nCC=1 · Bajo" as nd0867b25a6
+component "modoPaso\nCC=1 · Bajo" as n475cac3a15
+component "longitudinalCm\nCC=1 · Bajo" as naf5b9be116
+component "lateralCm\nCC=1 · Bajo" as n7d8fcdccb4
+component "euclidianoCm\nCC=1 · Bajo" as n56c5928aa3
+component "integralGradoS\nCC=1 · Bajo" as n443a3bfa6b
+component "p\nCC=1 · Bajo" as nd35097c3a5
+component "i\nCC=1 · Bajo" as n7314fc80d8
+component "d\nCC=1 · Bajo" as nbb3bcd73ea
+component "total\nCC=1 · Bajo" as n05c7a68a3c
+component "integralGradoS\nCC=1 · Bajo" as n2e3822c0b7
+component "limitar\nCC=3 · Bajo" as nfd68ebbf51
+component "normalizar360\nCC=2 · Bajo" as n055e6556b4
+component "errorAngularDeg\nCC=3 · Bajo" as n40c8cb2eef
+component "reversaAutomatica\nCC=1 · Bajo" as nbe93f15ded
+component "rumboCuerpoParaTrayecto\nCC=2 · Bajo" as nb3b8b073ec
+component "correccionLateralParaDireccion\nCC=2 · Bajo" as n0fcdf5f124
+component "frenarLadoIzquierdoParaRumbo\nCC=1 · Bajo" as n8079dd1716
+component "distanciaPorTick\nCC=2 · Bajo" as nabeea36787
+component "distanciaFrenoPrevista\nCC=1 · Bajo" as nc92c4c3dbd
+component "calcularErroresTrayectoria\nCC=1 · Bajo" as n77bb7c210f
+component "correccionLateralRumboDeg\nCC=1 · Bajo" as n2ed90afeb2
+component "actualizarPI\nCC=6 · Bajo" as na4be9f82eb
+component "endpointAceptable\nCC=3 · Bajo" as n6686d80e74
+component "agotoIntentosEndpoint\nCC=1 · Bajo" as n123b18d6f2
+component "decidirEndpoint\nCC=4 · Bajo" as n2e65f908c7
+component "decidirEndpointSeguro\nCC=3 · Bajo" as n14c5e62500
+component "imuApta\nCC=2 · Bajo" as nc112944dbf
+component "estopSolicitado\nCC=1 · Bajo" as neefa84e65c
+component "encoderEsOutlier\nCC=1 · Bajo" as na3d5c6af71
+component "confiable\nCC=1 · Bajo" as n015925b31b
+component "mediana\nCC=1 · Bajo" as n1dd147497d
+component "modoDegradado\nCC=1 · Bajo" as n4af4da39bf
+component "ladoIzquierdoValido\nCC=1 · Bajo" as nbc1218dd16
+component "ladoDerechoValido\nCC=1 · Bajo" as n641bb93d5b
+component "medianaCuatro\nCC=4 · Bajo" as nd631f6f320
+component "clasificarEncoders\nCC=14 · Alto" as n6a1353563a
+component "promedioConfiableLado\nCC=6 · Bajo" as n35f31e7c43
+component "ladoEnStall\nCC=3 · Bajo" as ndd6f549d25
 component "tipo\nCC=1 · Bajo" as nae6550dc08
 component "seq\nCC=1 · Bajo" as na459c2b651
-component "detalle\nCC=1 · Bajo" as n8ee7331898
-component "progreso\nCC=1 · Bajo" as n7c591dc3c6
+component "run_id\nCC=1 · Bajo" as nf13fbcc40f
+component "detalle\nCC=1 · Bajo" as n76ea421fa2
+component "progreso\nCC=1 · Bajo" as n62d9f5cb98
 component "x_cm\nCC=1 · Bajo" as nb9914d7cbb
 component "y_cm\nCC=1 · Bajo" as n95dbe740db
 component "step_id\nCC=1 · Bajo" as nfd79d6b1ab
@@ -63,6 +105,16 @@ component "mpu_present\nCC=1 · Bajo" as n6d2232461b
 component "mpu_stale\nCC=1 · Bajo" as n588b6ba92e
 component "mpu_calibrated\nCC=1 · Bajo" as n7c7ebe4c92
 component "sequence\nCC=1 · Bajo" as n19143883c9
+n40c8cb2eef --> n055e6556b4 : síncrona
+nbe93f15ded --> n40c8cb2eef : síncrona
+nb3b8b073ec --> n055e6556b4 : síncrona
+nc92c4c3dbd --> nfd68ebbf51 : síncrona
+n2ed90afeb2 --> nfd68ebbf51 : síncrona
+na4be9f82eb --> nfd68ebbf51 : síncrona
+n2e65f908c7 --> n123b18d6f2 : síncrona
+n14c5e62500 --> n2e65f908c7 : síncrona
+n6a1353563a --> na3d5c6af71 : síncrona
+n6a1353563a --> nd631f6f320 : síncrona
 legend
 |= Flecha |= Interacción |
 | --> | síncrona |

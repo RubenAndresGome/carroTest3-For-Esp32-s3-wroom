@@ -39,14 +39,17 @@ component "onUp\nCC=3 · Bajo" as n6703467174
 component "initEv\nCC=11 · Bajo" as naa0319038c
 component "rsz\nCC=2 · Bajo" as n756c4c6df7
 component "init\nCC=4 · Bajo" as n4df1dd2897
-component "connect_db\nCC=2 · Bajo" as n49043c79a3
-component "show_summary\nCC=6 · Bajo" as n5e0a00e68d
-component "list_sessions\nCC=3 · Bajo" as nbf82b6eba0
-component "list_commands\nCC=4 · Bajo" as n9c7418a419
-component "list_events\nCC=2 · Bajo" as n2434d50d95
-component "list_telemetry\nCC=3 · Alto" as n34bb24da56
-component "search_all\nCC=12 · Bajo" as nce7e9f10a5
-component "main\nCC=11 · Bajo" as n48e4577564
+component "connect_db\nCC=2 · Bajo" as n6460493b44
+component "show_summary\nCC=6 · Bajo" as n04c91c6a18
+component "list_sessions\nCC=3 · Bajo" as nfacd9846a2
+component "list_commands\nCC=4 · Bajo" as n9650665764
+component "list_events\nCC=2 · Bajo" as na9ad2a9d1f
+component "list_telemetry\nCC=3 · Alto" as n16f6e17546
+component "_angular_delta_deg\nCC=1 · Bajo" as n787493f06e
+component "list_segments\nCC=20 · Medio" as na9f06bcaa7
+component "trace_command\nCC=34 · Alto" as n38674aab32
+component "search_all\nCC=12 · Bajo" as n09f1b821fc
+component "main\nCC=15 · Bajo" as n20efb6c71f
 component "active_files\nCC=6 · Bajo" as nafd356db32
 component "subsystem\nCC=8 · Bajo" as nbe76a713c4
 component "language\nCC=1 · Bajo" as n7c3b78fe6d
@@ -138,13 +141,17 @@ n4df1dd2897 --> n505bfe6358 : síncrona
 n4df1dd2897 --> n198e0e1e49 : síncrona
 n4df1dd2897 --> n756c4c6df7 : síncrona
 n4df1dd2897 --> nc0f3636e27 : síncrona
-n48e4577564 --> n49043c79a3 : síncrona
-n48e4577564 --> n9c7418a419 : síncrona
-n48e4577564 --> n2434d50d95 : síncrona
-n48e4577564 --> nbf82b6eba0 : síncrona
-n48e4577564 --> n34bb24da56 : síncrona
-n48e4577564 --> nce7e9f10a5 : síncrona
-n48e4577564 --> n5e0a00e68d : síncrona
+na9f06bcaa7 --> n787493f06e : síncrona
+n38674aab32 --> n787493f06e : síncrona
+n20efb6c71f --> n6460493b44 : síncrona
+n20efb6c71f --> n9650665764 : síncrona
+n20efb6c71f --> na9ad2a9d1f : síncrona
+n20efb6c71f --> na9f06bcaa7 : síncrona
+n20efb6c71f --> nfacd9846a2 : síncrona
+n20efb6c71f --> n16f6e17546 : síncrona
+n20efb6c71f --> n09f1b821fc : síncrona
+n20efb6c71f --> n04c91c6a18 : síncrona
+n20efb6c71f --> n38674aab32 : síncrona
 n8581868fe2 ..> n6c940fadb8 : asíncrona
 nf0f6e15fe6 --> n7c3b78fe6d : síncrona
 nf0f6e15fe6 --> nbe76a713c4 : síncrona

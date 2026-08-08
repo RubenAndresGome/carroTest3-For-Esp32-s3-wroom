@@ -1,6 +1,6 @@
 # UML funcional: `herramientas/scripts`
 
-Funciones detectadas: **72**. Tipos detectados: **0**.
+Funciones detectadas: **75**. Tipos detectados: **0**.
 
 ## Grafo de llamadas
 
@@ -40,14 +40,17 @@ flowchart LR
     n4df1dd2897["init()"]
   end
   subgraph f1["consultar_db.py"]
-    n49043c79a3["connect_db(db_path: str)"]
-    n5e0a00e68d["show_summary(conn: sqlite3.Connection)"]
-    nbf82b6eba0["list_sessions(conn: sqlite3.Connection, limit: int)"]
-    n9c7418a419["list_commands(conn: sqlite3.Connection, limit: int)"]
-    n2434d50d95["list_events(conn: sqlite3.Connection, limit: int)"]
-    n34bb24da56["list_telemetry(conn: sqlite3.Connection, limit: int)"]
-    nce7e9f10a5["search_all(conn: sqlite3.Connection, term: str)"]
-    n48e4577564["main()"]
+    n6460493b44["connect_db(db_path: str)"]
+    n04c91c6a18["show_summary(conn: sqlite3.Connection)"]
+    nfacd9846a2["list_sessions(conn: sqlite3.Connection, limit: int)"]
+    n9650665764["list_commands(conn: sqlite3.Connection, limit: int)"]
+    na9ad2a9d1f["list_events(conn: sqlite3.Connection, limit: int)"]
+    n16f6e17546["list_telemetry(conn: sqlite3.Connection, limit: int)"]
+    n787493f06e["_angular_delta_deg(reference: float, value: float)"]
+    na9f06bcaa7["list_segments(conn: sqlite3.Connection, limit: int)"]
+    n38674aab32["trace_command(conn: sqlite3.Connection, command_prefix: str)"]
+    n09f1b821fc["search_all(conn: sqlite3.Connection, term: str)"]
+    n20efb6c71f["main()"]
   end
   subgraph f2["generar_catalogo.py"]
     nafd356db32["active_files()"]
@@ -105,6 +108,15 @@ flowchart LR
   n1aaec6a3f2 --> n09bc0b5b13
   n1c9814c081 --> n9eab49d8ad
   n1c9814c081 --> ncb8c29961f
+  n20efb6c71f --> n04c91c6a18
+  n20efb6c71f --> n09f1b821fc
+  n20efb6c71f --> n16f6e17546
+  n20efb6c71f --> n38674aab32
+  n20efb6c71f --> n6460493b44
+  n20efb6c71f --> n9650665764
+  n20efb6c71f --> na9ad2a9d1f
+  n20efb6c71f --> na9f06bcaa7
+  n20efb6c71f --> nfacd9846a2
   n29119f8e5f --> ne7fd0cdcfd
   n315958bad0 --> n09bc0b5b13
   n315958bad0 --> n14f1ef6e7b
@@ -113,15 +125,9 @@ flowchart LR
   n315958bad0 --> nc767be9aa0
   n315958bad0 --> ndf4f4132cd
   n33bac7ac43 --> na83aea5101
+  n38674aab32 --> n787493f06e
   n489ce3258b --> n5483b456cb
   n489ce3258b --> nf237d76ace
-  n48e4577564 --> n2434d50d95
-  n48e4577564 --> n34bb24da56
-  n48e4577564 --> n49043c79a3
-  n48e4577564 --> n5e0a00e68d
-  n48e4577564 --> n9c7418a419
-  n48e4577564 --> nbf82b6eba0
-  n48e4577564 --> nce7e9f10a5
   n4cbf77c493 --> n593102974c
   n4df1dd2897 --> n09bc0b5b13
   n4df1dd2897 --> n198e0e1e49
@@ -161,6 +167,7 @@ flowchart LR
   n9c3c116062 --> nc0f3636e27
   n9c3c116062 --> nc767be9aa0
   n9c3c116062 --> ndf4f4132cd
+  na9f06bcaa7 --> n787493f06e
   naa0319038c --> n09bc0b5b13
   nb32f8aebc6 --> n82d755956d
   nb32f8aebc6 --> n982ba39366
@@ -219,14 +226,17 @@ flowchart LR
   class naa0319038c bajo
   class n756c4c6df7 bajo
   class n4df1dd2897 bajo
-  class n49043c79a3 bajo
-  class n5e0a00e68d bajo
-  class nbf82b6eba0 bajo
-  class n9c7418a419 bajo
-  class n2434d50d95 bajo
-  class n34bb24da56 alto
-  class nce7e9f10a5 bajo
-  class n48e4577564 bajo
+  class n6460493b44 bajo
+  class n04c91c6a18 bajo
+  class nfacd9846a2 bajo
+  class n9650665764 bajo
+  class na9ad2a9d1f bajo
+  class n16f6e17546 alto
+  class n787493f06e bajo
+  class na9f06bcaa7 medio
+  class n38674aab32 alto
+  class n09f1b821fc bajo
+  class n20efb6c71f bajo
   class nafd356db32 bajo
   class nbe76a713c4 bajo
   class n7c3b78fe6d bajo
@@ -299,14 +309,17 @@ Fuentes: [Mermaid](mermaid/herramientas_scripts.mmd) · [PlantUML](plantuml/herr
 | `SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.initEv` | [`SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html`](../../SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html#L562) | 11 | Mantenimiento / herramientas | Bajo; interno; síncrona | `init` | `draw` | — |
 | `SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.rsz` | [`SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html`](../../SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html#L589) | 2 | Mantenimiento / herramientas | Bajo; interno; síncrona | `init`, `initResize`, `onMove` | `draw` | — |
 | `SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.init` | [`SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html`](../../SistemaDeDescomposicionDePuntosAVectoresYARutaOrtogonal.html#L597) | 4 | Mantenimiento / herramientas | Bajo; sin llamada interna detectada; síncrona | — | `addPt`, `draw`, `genRoute`, `initEv`, `initResize`, `loop`, `rPts`, `rsz`, `upSt` | — |
-| `connect_db` | [`consultar_db.py`](../../consultar_db.py#L21) | 2 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | `connect` | — |
-| `show_summary` | [`consultar_db.py`](../../consultar_db.py#L32) | 6 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | estado |
-| `list_sessions` | [`consultar_db.py`](../../consultar_db.py#L54) | 3 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
-| `list_commands` | [`consultar_db.py`](../../consultar_db.py#L64) | 4 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | estado |
-| `list_events` | [`consultar_db.py`](../../consultar_db.py#L75) | 2 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
-| `list_telemetry` | [`consultar_db.py`](../../consultar_db.py#L83) | 3 | Mantenimiento / herramientas | Alto; interno; síncrona | `main` | — | estado, telemetría |
-| `search_all` | [`consultar_db.py`](../../consultar_db.py#L96) | 12 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
-| `main` | [`consultar_db.py`](../../consultar_db.py#L118) | 11 | Mantenimiento / herramientas | Bajo; entrada/framework; síncrona | — | `close`, `connect_db`, `list_commands`, `list_events`, `list_sessions`, `list_telemetry`, `parse_args`, `search_all`, `show_summary` | telemetría |
+| `connect_db` | [`consultar_db.py`](../../consultar_db.py#L22) | 2 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | `connect` | — |
+| `show_summary` | [`consultar_db.py`](../../consultar_db.py#L33) | 6 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | estado |
+| `list_sessions` | [`consultar_db.py`](../../consultar_db.py#L55) | 3 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
+| `list_commands` | [`consultar_db.py`](../../consultar_db.py#L65) | 4 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | estado |
+| `list_events` | [`consultar_db.py`](../../consultar_db.py#L76) | 2 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
+| `list_telemetry` | [`consultar_db.py`](../../consultar_db.py#L84) | 3 | Mantenimiento / herramientas | Alto; interno; síncrona | `main` | — | estado, telemetría |
+| `_angular_delta_deg` | [`consultar_db.py`](../../consultar_db.py#L97) | 1 | Mantenimiento / herramientas | Bajo; interno; síncrona | `list_segments`, `trace_command` | — | — |
+| `list_segments` | [`consultar_db.py`](../../consultar_db.py#L101) | 20 | Mantenimiento / herramientas | Medio; interno; síncrona | `main` | `_angular_delta_deg` | telemetría |
+| `trace_command` | [`consultar_db.py`](../../consultar_db.py#L168) | 34 | Mantenimiento / herramientas | Alto; interno; síncrona | `main` | `_angular_delta_deg` | telemetría |
+| `search_all` | [`consultar_db.py`](../../consultar_db.py#L265) | 12 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
+| `main` | [`consultar_db.py`](../../consultar_db.py#L287) | 15 | Mantenimiento / herramientas | Bajo; entrada/framework; síncrona | — | `close`, `connect_db`, `list_commands`, `list_events`, `list_segments`, `list_sessions`, `list_telemetry`, `parse_args`, `search_all`, `show_summary`, `trace_command` | telemetría |
 | `active_files` | [`scripts/documentacion/generar_catalogo.py`](../../scripts/documentacion/generar_catalogo.py#L36) | 6 | Mantenimiento / herramientas | Bajo; interno; síncrona | `main` | — | — |
 | `subsystem` | [`scripts/documentacion/generar_catalogo.py`](../../scripts/documentacion/generar_catalogo.py#L64) | 8 | Mantenimiento / herramientas | Bajo; interno; síncrona | `normalize_tags` | — | — |
 | `language` | [`scripts/documentacion/generar_catalogo.py`](../../scripts/documentacion/generar_catalogo.py#L83) | 1 | Mantenimiento / herramientas | Bajo; interno; síncrona | `normalize_tags` | — | — |
