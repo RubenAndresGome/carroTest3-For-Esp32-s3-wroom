@@ -1,15 +1,18 @@
 import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
+const repoName = "carroTest3-For-Esp32-s3-wroom";
+const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
+
 export default defineConfig({
-  base: "./",
+  base: isGitHubPages ? `/${repoName}/` : "./",
   publicDir: false,
   build: {
     outDir: resolve(import.meta.dirname, ".."),
     emptyOutDir: true,
     sourcemap: false,
-    // El portal se compila a /docs/ directamente para GitHub Pages
-    // Conserva el catálogo y las librerías de diagramado sin CDN ni Internet
+    // El portal se compila a /docs/ directamente para GitHub Pages.
+    // En GitHub Pages el proyecto vive bajo /<repo>/, no bajo una ruta relativa local.
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       input: {

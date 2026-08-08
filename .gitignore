@@ -125,6 +125,13 @@ logs_mensajes/
 **/logcat*.txt
 
 # -----------------------------------------------------------------------------
+# Salidas documentales y artefactos de despliegue generados
+# -----------------------------------------------------------------------------
+documentacionCompleta/site/
+docs/portal/package-lock.json
+docs_markdowns/portal/package-lock.json
+
+# -----------------------------------------------------------------------------
 # Snapshots regenerables del legado
 # -----------------------------------------------------------------------------
 archive/legacy/generados/*.ino
