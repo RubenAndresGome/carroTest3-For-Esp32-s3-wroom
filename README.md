@@ -75,6 +75,9 @@ Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
 
 ## Documentación adicional
 
+- [Recuperación de endpoint y reversa](docs/rutina_recuperacion_endpoint_y_reversa.md):
+  criterio de recuperación acotada, reversa sin pivote innecesario y trazabilidad.
+
 - [docs/manual_usuario.md](docs/manual_usuario.md) para operación,
   recuperación de desconexiones y cierre seguro
 - [docs/auditoria_estado_actual.md](docs/auditoria_estado_actual.md) para el

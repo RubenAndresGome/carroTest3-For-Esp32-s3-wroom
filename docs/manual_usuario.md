@@ -239,6 +239,14 @@ La grabación no sustituye medición física ni telemetría SQLite.
 
 ## 9. Retorno Ockham
 
+El retorno usa los mismos pasos atómicos que una ruta normal. Si al finalizar
+un tramo queda un residuo pequeño, el robot puede continuar con
+`step_ok_endpoint_soft` en vez de iniciar una cadena de giros. Para un objetivo
+claramente detrás selecciona reversa y conserva el rumbo del chasis; un giro a
+180° sólo corresponde a una orden explícita de orientación. La explicación de
+límites, telemetría y criterios de aceptación está en
+[Rutina de recuperación de endpoint y reversa](rutina_recuperacion_endpoint_y_reversa.md).
+
 El retorno sólo está disponible después de completar una ruta saliente. Python
 guarda el origen y los puntos subdivididos realmente aceptados.
 
@@ -311,13 +319,12 @@ significa que el robot se haya detenido.
 
 ## 13. Consultar SQLite y recopilar evidencia
 
-Para extraer la copia de depuración desde Android, comprobar primero el serial
-real y usar la ruta externa configurada por la aplicación:
+Para extraer la copia de depuración desde Android, autorizar la depuración USB
+y usar el serial real. El script lee la SQLite interna del APK debug sin
+sobrescribir evidencia anterior:
 
 ```powershell
-$adb = 'C:\Users\IK\AppData\Local\Android\Sdk\platform-tools\adb.exe'
-& $adb devices -l
-& $adb -s '<SERIAL_ACTUAL>' pull '/sdcard/Android/data/mx.ik.robots3/files/debug/robot.sqlite3' 'tmp_db/robot.sqlite3'
+& '.\android_app\extraer_db_tablet.ps1' -Serial '<SERIAL_ACTUAL>'
 ```
 
 Desde la raíz:
@@ -366,6 +373,9 @@ Con ruedas elevadas y protección de corriente:
 1. Medir corriente de arranque y rotor bloqueado de cada motor.
 2. Verificar corriente sostenida menor de 1 A.
 3. Validar encoders FL, FR, BL y BR por separado.
+   Si la HMI muestra un encoder `excluded`, el robot usa el otro encoder del
+   mismo lado y la mediana robusta para continuar sólo si ambos lados conservan
+   una lectura. No ajustar distancia por pulso mientras exista esa exclusión.
 4. Calibrar y ejecutar giros a 0°, 90°, 180° y 270°.
 5. Incluir sobrepaso y corrección de polaridad.
 6. Ejecutar `Y+100, Y+50, X+190, X−190`.
