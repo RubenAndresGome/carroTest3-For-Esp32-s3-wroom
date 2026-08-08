@@ -236,7 +236,7 @@ export const diagrams = {
     W --> F["Flask + HMI canónica"]
     A --> V["WebView local"]
     V -->|"HTTP/SSE + X-App-Token"| F
-    F -->|"propietario único WS"| E["ESP32 &lt;IP_ROBOT&gt;"]
+    F -->|"propietario único WS"| E["ESP32 (IP del robot)"]
     N["Notificación Detener"] -->|"mismo cierre seguro"| F
     F -->|"safe_to_close"| B["RobotHost bridge restringido"]
     B --> S
@@ -279,7 +279,7 @@ export const manuals = [
       "Elevar las ruedas y mantener VMOT apagado durante boot o carga de firmware.",
       "Confirmar capacitores, fusible o polyfuse y fuente limitada a 0.5 A.",
       "Encender el ESP32 y comprobar PWM izquierdo/derecho en cero.",
-      "Conectar únicamente Windows o Android a <SSID_ROBOT>; nunca ambos.",
+      "Conectar únicamente Windows o Android al SSID del robot; nunca ambos.",
       "Abrir la HMI y verificar protocolo robot-s3-steps-v3 y telemetría fresca.",
     ],
   },
