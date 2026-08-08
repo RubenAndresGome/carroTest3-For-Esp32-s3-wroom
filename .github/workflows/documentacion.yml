@@ -2,9 +2,16 @@ name: Documentación reproducible
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "docs_markdowns/**"
+      - "evidencia/**"
+      - "scripts/documentacion/**"
+      - ".github/workflows/documentacion.yml"
   pull_request:
     paths:
-      - "docs/**"
+      - "docs_markdowns/**"
       - "documentacionCompleta/**"
       - "evidencia/**"
       - "scripts/documentacion/**"
@@ -41,7 +48,7 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
-          cache-dependency-path: docs/portal/pnpm-lock.yaml
+          cache-dependency-path: docs_markdowns/portal/pnpm-lock.yaml
 
       - uses: actions/setup-java@v4
         with:
@@ -55,7 +62,7 @@ jobs:
 
       - name: Conservar fecha documental versionada
         run: |
-          CATALOG_DATE=$(python -c 'import json; print(json.load(open("docs/catalogo_funciones.json", encoding="utf-8"))["generated_at"])')
+          CATALOG_DATE=$(python -c 'import json; print(json.load(open("docs_markdowns/catalogo_funciones.json", encoding="utf-8"))["generated_at"])')
           echo "CATALOG_GENERATED_AT=$CATALOG_DATE" >> "$GITHUB_ENV"
 
       - name: Regenerar catálogo y UML
@@ -64,25 +71,47 @@ jobs:
           python scripts/documentacion/renderizar_uml.py
           python scripts/documentacion/validar_enlaces.py
 
-      - name: Validar y construir portal
-        working-directory: docs/portal
+      - name: Validar y construir portal para Pages
+        working-directory: docs_markdowns/portal
         run: |
           pnpm install --frozen-lockfile
           pnpm run check
           pnpm run build
 
-      - name: Exigir artefactos actualizados
-        run: git diff --exit-code
+      - name: Exigir fuentes documentales actualizadas
+        run: git diff --exit-code -- docs_markdowns
 
   deploy-pages:
     needs: verificar
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: docs_markdowns/portal/pnpm-lock.yaml
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: Configurar Pages
         uses: actions/configure-pages@v5
+
+      - name: Construir artefacto autosuficiente
+        working-directory: docs_markdowns/portal
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+          pnpm run build
 
       - name: Publicar artefacto de la web documental
         uses: actions/upload-pages-artifact@v3

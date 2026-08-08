@@ -18,8 +18,8 @@ VERSION = "1.2025.4"
 TOOL_DIR = ROOT / ".codex_tools"
 JAR = TOOL_DIR / f"plantuml-{VERSION}.jar"
 BASE_URL = "https://repo1.maven.org/maven2/net/sourceforge/plantuml/plantuml"
-SOURCE_DIR = ROOT / "docs" / "uml" / "plantuml"
-OUTPUT_DIR = ROOT / "docs" / "uml" / "exportados"
+SOURCE_DIR = ROOT / "docs_markdowns" / "uml" / "plantuml"
+OUTPUT_DIR = ROOT / "docs_markdowns" / "uml" / "exportados"
 
 
 def download_if_needed() -> None:

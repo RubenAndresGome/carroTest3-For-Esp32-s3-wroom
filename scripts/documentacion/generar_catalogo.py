@@ -21,9 +21,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT_JSON = ROOT / "docs" / "catalogo_funciones.json"
-OUTPUT_CSV = ROOT / "docs" / "catalogo_funciones.csv"
-OUTPUT_UML = ROOT / "docs" / "uml"
+OUTPUT_JSON = ROOT / "docs_markdowns" / "catalogo_funciones.json"
+OUTPUT_CSV = ROOT / "docs_markdowns" / "catalogo_funciones.csv"
+OUTPUT_UML = ROOT / "docs_markdowns" / "uml"
 OUTPUT_MERMAID = OUTPUT_UML / "mermaid"
 OUTPUT_PLANTUML = OUTPUT_UML / "plantuml"
 

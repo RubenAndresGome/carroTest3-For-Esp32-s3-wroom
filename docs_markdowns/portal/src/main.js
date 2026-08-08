@@ -11,8 +11,10 @@ const iconSet = { Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard
 const app = document.querySelector("#app");
 
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const assetPath = (path) => import.meta.env.DEV ? path : `../../evidencia/${path}`;
-const repoPath = (path) => import.meta.env.DEV ? `../../${path}` : `../../${path}`;
+// Los recursos de evidencia se copian por Vite desde /evidencia al artefacto
+// publicado. La misma ruta relativa funciona en local y bajo /<repositorio>/.
+const assetPath = (path) => `./${path}`;
+const repoPath = (path) => `../../${path}`;
 const severityClass = (severity) => ["Crítica", "Alta", "Pendiente"].includes(severity) ? "badge-high" : severity === "Media" ? "badge-medium" : "badge-low";
 const navItems = [
   ["resumen", "activity", "Estado actual"],
@@ -171,7 +173,7 @@ app.innerHTML = `
         <p class="eyebrow">Tutorial audiovisual</p><h2 class="section-title">Evidencia y fotogramas guiados</h2>
         <p class="section-copy">Las versiones comprimidas y normalizadas cuentan con SHA-256 y Git LFS. Sus 24 fotogramas por video sirven como guía visual, no como sustituto de telemetría o medición física.</p>
         <article class="card mt-8 border-amber/30">
-          <div class="flex items-start gap-4"><i data-lucide="activity" class="mt-1 shrink-0 text-amber"></i><div><h3 class="text-lg font-semibold">Caso trazable de reconexión</h3><p class="mt-2 leading-7 text-slate-400">La sesión Python se conservó, pero el ESP32 reapareció desarmado, sin calibración y con <code>last_seq=0</code>. La ruta fue rechazada antes de crear un <code>step</code>; la recalibración posterior terminó en <code>cal_stall_left</code> con PWM 0/0.</p><a class="mt-3 inline-flex font-mono text-xs text-mint hover:underline" href="../../evidencia/incidentes/2026-07-30_reinicio_y_calibracion.md">Abrir extracto SQLite y límites de interpretación →</a></div></div>
+          <div class="flex items-start gap-4"><i data-lucide="activity" class="mt-1 shrink-0 text-amber"></i><div><h3 class="text-lg font-semibold">Caso trazable de reconexión</h3><p class="mt-2 leading-7 text-slate-400">La sesión Python se conservó, pero el ESP32 reapareció desarmado, sin calibración y con <code>last_seq=0</code>. La ruta fue rechazada antes de crear un <code>step</code>; la recalibración posterior terminó en <code>cal_stall_left</code> con PWM 0/0.</p><a class="mt-3 inline-flex font-mono text-xs text-mint hover:underline" href="./incidentes/2026-07-30_reinicio_y_calibracion.md">Abrir extracto SQLite y límites de interpretación →</a></div></div>
         </article>
         <div class="mt-8 grid gap-8 xl:grid-cols-2">
           ${evidence.map((item) => `<article class="video-card card"><div class="flex items-start justify-between gap-4"><div><h3 class="text-xl font-semibold">${item.title}</h3><p class="mt-1 font-mono text-xs text-slate-500">${item.duration} · SHA ${item.hash}</p></div><img class="h-28 w-20 rounded-lg object-cover" src="${assetPath(item.thumbnail)}" alt="Miniatura animada de ${item.title}"></div><video class="mt-5" controls preload="metadata"><source src="${encodeURI(assetPath(item.src))}" type="video/mp4" />Tu navegador no puede reproducir este video.</video><div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">${item.frames.map(([time, src, caption]) => `<figure><img class="timeline-img" loading="lazy" src="${assetPath(src)}" alt="${caption} a ${time}" /><figcaption class="mt-2 text-xs text-slate-500"><span class="font-mono text-cyan">${time}</span> · ${caption}</figcaption></figure>`).join("")}</div></article>`).join("")}

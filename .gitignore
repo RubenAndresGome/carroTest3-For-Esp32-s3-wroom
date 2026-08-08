@@ -96,6 +96,7 @@ desktop_app/vendor/wheels/**/*.whl
 **/node_modules/
 .tools/
 .npm/
+.pnpm-store/
 desktop_app/frontend/dist/
 desktop_app/robot_app/static/vite-dist/
 docs/portal/dist/
@@ -130,6 +131,9 @@ logs_mensajes/
 documentacionCompleta/site/
 docs/portal/package-lock.json
 docs_markdowns/portal/package-lock.json
+docs/videos/
+docs/fotogramas/
+docs/incidentes/
 
 # -----------------------------------------------------------------------------
 # Snapshots regenerables del legado

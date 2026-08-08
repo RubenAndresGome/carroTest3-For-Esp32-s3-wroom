@@ -14,7 +14,7 @@ LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 def markdown_files() -> list[Path]:
     files = [ROOT / "README.md", ROOT / "DIAGRAMA_SISTEMA_GENERAL.md", ROOT / "scripts" / "README.md"]
-    for folder in (ROOT / "docs", ROOT / "evidencia", ROOT / "documentacionCompleta"):
+    for folder in (ROOT / "docs_markdowns", ROOT / "evidencia", ROOT / "documentacionCompleta"):
         files.extend(
             path
             for path in folder.rglob("*.md")

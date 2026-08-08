@@ -25,6 +25,7 @@ Este directorio reúne la documentación técnica vigente, esquemas de funcionam
 - 📐 [**Especificación de Objetos y Módulos del Sistema**](especificacion_objetos_sistema.md): Detalle técnico de clases, objetos, structs, enumeraciones y APIs en la versión actual.
 - 📡 [**Protocolo de Pasos V3 entre HMI y ESP32**](protocolo_json_steps_v3_hmi_esp32.md): Pasos y giros absolutos atómicos mediante `robot-s3-steps-v3`.
 - 🧭 [**Recuperación de endpoint y reversa**](rutina_recuperacion_endpoint_y_reversa.md): decisiones acotadas al final de un paso, reversa sin pivote innecesario y telemetría para su auditoría.
+- 📍 [**Estado actual de mejoras**](estado_actual_mejoras.md): alcance vigente de rutas, telemetría y publicación en GitHub Pages.
 - 📚 [**Protocolo V2 histórico**](protocolo_json_steps_v2_hmi_esp32.md): Contrato anterior, conservado como referencia.
 - ⚙️ [**Arquitectura de Control Cinemático y Rumbo**](arquitectura_control_cinematica.md): Desacoplamiento de giro/avance y lazo PD de rumbo.
 - 🧪 [**Validación Física del Sistema Final**](validacion_sistema_final.md): Protocolos de pruebas de corriente y marcha en suelo.
