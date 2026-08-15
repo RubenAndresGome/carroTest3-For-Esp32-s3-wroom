@@ -158,7 +158,7 @@ bool validarInterlockMotores() {
   if (prueba.estado != EstadoInterlock::APAGADO || prueba.signoPendiente != 0 || prueba.signoActivo != 0) return false;
 
   prueba = InterlockLado{};
-  if (prueba.actualizar(PWM_SAFE_HARD_LIMIT + 100, 5000) != PWM_SAFE_HARD_LIMIT) return false;
+  if (prueba.actualizar(PWM_TURN_MAX_LIMIT + 100, 5000) != PWM_TURN_MAX_LIMIT) return false;
 
   prueba = InterlockLado{};
   if (prueba.actualizar(60, UINT32_MAX - 50U) != 60) return false;

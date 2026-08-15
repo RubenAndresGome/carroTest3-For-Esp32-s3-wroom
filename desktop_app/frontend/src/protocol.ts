@@ -118,6 +118,23 @@ export interface Telemetry {
     readonly right_reliable_count: number;
     readonly left_no_progress_ms: number;
     readonly right_no_progress_ms: number;
+    readonly left_delta?: number;
+    readonly right_delta?: number;
+    readonly left_sources?: string;
+    readonly right_sources?: string;
+    readonly warning?: boolean;
+  };
+  readonly anti_friction: {
+    readonly active: boolean;
+    readonly pulse_on: boolean;
+    readonly pulse_index: number;
+    readonly pulse_total: number;
+    readonly target_pwm: number;
+    readonly target_8bit: number;
+    readonly target_percent: number;
+    readonly pulse_on_ms: number;
+    readonly pulse_off_ms: number;
+    readonly movement_confirmed: boolean;
   };
   readonly mpu: {
     readonly present: boolean | null;

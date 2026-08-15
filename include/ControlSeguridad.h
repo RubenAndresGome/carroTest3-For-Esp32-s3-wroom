@@ -108,4 +108,33 @@ inline bool ladoEnStall(bool ladoExigido, bool pulsoFrontalCero,
   return ladoExigido && pulsoFrontalCero && pulsoPosteriorCero;
 }
 
+inline bool fuentesPorLadoValidas(const bool confiable[4]) {
+  return (confiable[0] || confiable[2]) && (confiable[1] || confiable[3]);
+}
+
+// Un desacuerdo de magnitud entre dos ruedas que sí producen pulsos puede ser
+// deslizamiento, carga o distinta resolución mecánica. No permite excluir las
+// dos fuentes del mismo lado. La evidencia inequívoca de cable/encoder ausente
+// es el cero aislado mientras su pareja sí avanza bajo PWM.
+inline bool encoderSinRespuestaAislada(int64_t delta, int64_t deltaPareja,
+                                       bool ladoExigido) {
+  return ladoExigido && delta == 0 && deltaPareja > 0;
+}
+
+inline uint8_t nivelAntiFriccion8Bit(uint8_t indice) {
+  static const uint8_t niveles[7] = {161, 168, 176, 184, 191, 216, 242};
+  if (indice < 1) indice = 1;
+  if (indice > 7) indice = 7;
+  return niveles[indice - 1];
+}
+
+inline bool movimientoAntiFriccionConfirmado(float deltaIzq, float deltaDer,
+                                               float minimoTicks) {
+  return deltaIzq >= minimoTicks && deltaDer >= minimoTicks;
+}
+
+inline bool stopDebePreservarFallo(bool fallo, bool estop) {
+  return fallo || estop;
+}
+
 }  // namespace ControlSeguridad

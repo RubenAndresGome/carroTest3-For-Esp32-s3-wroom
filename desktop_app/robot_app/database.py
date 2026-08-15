@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -50,7 +51,13 @@ class Database:
                 "telemetry": {
                     "pfl": "INTEGER", "pfr": "INTEGER", "pbl": "INTEGER", "pbr": "INTEGER",
                     "pwm_l": "INTEGER", "pwm_r": "INTEGER", "mpu_present": "INTEGER",
-                    "mpu_stale": "INTEGER", "i2c_ok": "INTEGER", "pin_state_json": "TEXT"
+                    "mpu_stale": "INTEGER", "i2c_ok": "INTEGER", "pin_state_json": "TEXT",
+                    "last_received_at": "TEXT", "source_seq_end": "INTEGER",
+                    "repeat_count": "INTEGER NOT NULL DEFAULT 1", "fingerprint": "TEXT"
+                },
+                "events": {
+                    "last_seen_at": "TEXT", "repeat_count": "INTEGER NOT NULL DEFAULT 1",
+                    "dedupe_key": "TEXT"
                 },
             }
             for table, columns in additions.items():
@@ -58,7 +65,11 @@ class Database:
                 for name, declaration in columns.items():
                     if name not in existing:
                         connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}")
-            connection.execute("PRAGMA user_version=2")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_telemetry_session_last "
+                "ON telemetry(session_id, source_seq_end)"
+            )
+            connection.execute("PRAGMA user_version=3")
         finally:
             connection.close()
 
@@ -133,28 +144,148 @@ class Database:
             return int(cursor.rowcount)
 
     def insert_event(self, session_id: int | None, kind: str, severity: str, payload: dict[str, Any]) -> None:
+        encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        dedupe_key = hashlib.sha256(f"{kind}\0{severity}\0{encoded}".encode("utf-8")).hexdigest()[:24]
+        terminal_kinds = {"accepted", "completed", "already_done", "rejected", "fault", "estop"}
         with self.transaction() as connection:
+            if severity in {"info", "warning"} and kind not in terminal_kinds:
+                last = connection.execute(
+                    "SELECT id,dedupe_key,payload_json FROM events WHERE session_id IS ? ORDER BY id DESC LIMIT 1",
+                    (session_id,),
+                ).fetchone()
+                if kind == "progress" and last is not None:
+                    try:
+                        previous = json.loads(last["payload_json"])
+                        same_progress = all(previous.get(key) == payload.get(key)
+                                            for key in ("seq", "run_id", "detail"))
+                        current_pct = float(payload.get("pct"))
+                        previous_pct = float(previous.get("pct"))
+                        threshold = 2.0 if max(abs(current_pct), abs(previous_pct)) > 1.0 else 0.02
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        same_progress = False
+                        current_pct = previous_pct = threshold = 0.0
+                    if same_progress and abs(current_pct - previous_pct) < threshold:
+                        connection.execute(
+                            "UPDATE events SET repeat_count=COALESCE(repeat_count,1)+1,"
+                            "last_seen_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (last["id"],),
+                        )
+                        return
+                if last is not None and (
+                    last["dedupe_key"] == dedupe_key
+                    or (last["dedupe_key"] is None and last["payload_json"] == encoded)
+                ):
+                    connection.execute(
+                        "UPDATE events SET repeat_count=COALESCE(repeat_count,1)+1,"
+                        "last_seen_at=CURRENT_TIMESTAMP,dedupe_key=? WHERE id=?",
+                        (dedupe_key, last["id"]),
+                    )
+                    return
             connection.execute(
-                "INSERT INTO events(session_id,kind,severity,payload_json,created_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP)",
-                (session_id, kind, severity, json.dumps(payload, ensure_ascii=False, separators=(",", ":"))),
+                "INSERT INTO events(session_id,kind,severity,payload_json,created_at,last_seen_at,repeat_count,dedupe_key) "
+                "VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,1,?)",
+                (session_id, kind, severity, encoded, dedupe_key),
             )
 
+    @staticmethod
+    def _quantize(value: Any, quantum: float) -> float | None:
+        try:
+            return round(float(value) / quantum) * quantum
+        except (TypeError, ValueError):
+            return None
+
+    @classmethod
+    def telemetry_priority_signature(cls, snapshot: Any) -> str:
+        """Firma de cambios que deben persistirse inmediatamente."""
+        data = {
+            "state": str(snapshot.state).lower(),
+            "pwm": tuple(int(value) for value in snapshot.pwm),
+            "command": (snapshot.active_command_id, snapshot.active_command_name),
+            "phases": (snapshot.move_phase, snapshot.alignment_stage, snapshot.arc_phase,
+                       snapshot.turn_braking_phase),
+            "encoder_health": tuple(snapshot.encoder_health),
+            "fusion": snapshot.encoder_fusion,
+            "recovery": (snapshot.autonomous_recovery_reason, snapshot.recovery,
+                         snapshot.anti_friction, tuple(snapshot.stall_accumulated_ms)),
+            "terminal": snapshot.last_terminal,
+        }
+        encoded = json.dumps(data, sort_keys=True, default=str, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def telemetry_fingerprint(cls, snapshot: Any) -> str:
+        """Firma diagnóstica; ignora reloj, secuencia y ruido submilimétrico."""
+        data = {
+            "priority": cls.telemetry_priority_signature(snapshot),
+            "pose": (cls._quantize(snapshot.x_mm, 5.0), cls._quantize(snapshot.y_mm, 5.0),
+                     cls._quantize(snapshot.yaw_deg, 0.5)),
+            "encoder_delta": tuple(cls._quantize(value, 0.5) for value in snapshot.encoder_delta_avg),
+            "speed": tuple(cls._quantize(value, 0.5) for value in snapshot.wheel_speed_cm_s),
+            "imu": (snapshot.mpu_present, snapshot.mpu_stale, snapshot.i2c_ok),
+            "target": snapshot.target,
+            "control": (snapshot.turn_attempt, snapshot.drive_attempt, snapshot.turn_pwm_target_8bit,
+                        cls._quantize(snapshot.command_progress, 1.0)),
+        }
+        encoded = json.dumps(data, sort_keys=True, default=str, separators=(",", ":"))
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _compact_payload(snapshot: Any) -> dict[str, Any]:
+        """Quita del JSON campos ya normalizados en columnas SQL."""
+        payload = dict(snapshot.raw)
+        nested = payload.get("payload") if payload.get("type") == "telemetry" else payload
+        if isinstance(nested, dict):
+            nested = dict(nested)
+            for key in (
+                "state", "x", "x_mm", "y", "y_mm", "yaw", "yaw_deg", "enc", "pwm",
+                "uptime_ms", "robot_uptime_ms", "mpu_present", "mpu_stale", "i2c_ok", "pin_state",
+            ):
+                nested.pop(key, None)
+            if payload.get("type") == "telemetry":
+                payload["payload"] = nested
+            else:
+                payload = nested
+        return payload
+
     def insert_telemetry(self, session_id: int, snapshot: Any) -> None:
+        fingerprint = self.telemetry_fingerprint(snapshot)
+        compact_payload = json.dumps(
+            self._compact_payload(snapshot), ensure_ascii=False, separators=(",", ":")
+        )
         with self.transaction() as connection:
+            last = connection.execute(
+                "SELECT id,fingerprint FROM telemetry WHERE session_id=? ORDER BY seq DESC LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if last is not None and last["fingerprint"] == fingerprint:
+                connection.execute(
+                    "UPDATE telemetry SET last_received_at=datetime(?,'unixepoch'),source_seq_end=?,"
+                    "repeat_count=COALESCE(repeat_count,1)+1,robot_uptime_ms=?,payload_json=? WHERE id=?",
+                    (snapshot.received_at, snapshot.sequence, snapshot.uptime_ms, compact_payload, last["id"]),
+                )
+                return
             connection.execute(
-                "INSERT OR IGNORE INTO telemetry(session_id,seq,received_at,robot_uptime_ms,state,x_mm,y_mm,yaw_deg,pfl,pfr,pbl,pbr,pwm_l,pwm_r,mpu_present,mpu_stale,i2c_ok,pin_state_json,payload_json) "
-                "VALUES (?, ?, datetime(?,'unixepoch'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (session_id, snapshot.sequence, snapshot.received_at, snapshot.uptime_ms, snapshot.state,
+                "INSERT OR IGNORE INTO telemetry("
+                "session_id,seq,received_at,last_received_at,source_seq_end,repeat_count,fingerprint,"
+                "robot_uptime_ms,state,x_mm,y_mm,yaw_deg,pfl,pfr,pbl,pbr,pwm_l,pwm_r,"
+                "mpu_present,mpu_stale,i2c_ok,pin_state_json,payload_json) "
+                "VALUES(?,?,datetime(?,'unixepoch'),datetime(?,'unixepoch'),?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (session_id, snapshot.sequence, snapshot.received_at, snapshot.received_at,
+                 snapshot.sequence, fingerprint, snapshot.uptime_ms, snapshot.state,
                  snapshot.x_mm, snapshot.y_mm, snapshot.yaw_deg, *snapshot.pulses, *snapshot.pwm,
                  snapshot.mpu_present, snapshot.mpu_stale, snapshot.i2c_ok,
                  json.dumps(snapshot.pin_state, ensure_ascii=False, separators=(",", ":")),
-                 json.dumps(snapshot.raw, ensure_ascii=False, separators=(",", ":"))),
+                 compact_payload),
             )
 
     def telemetry_rows(self, session_id: int) -> list[sqlite3.Row]:
         with contextlib.closing(self.connect()) as connection:
             return list(connection.execute(
-                "SELECT seq,received_at,robot_uptime_ms,state,x_mm,y_mm,yaw_deg,pfl,pfr,pbl,pbr,pwm_l,pwm_r,mpu_present,mpu_stale,i2c_ok,pin_state_json,payload_json FROM telemetry WHERE session_id=? ORDER BY seq",
+                "SELECT seq,COALESCE(source_seq_end,seq) AS source_seq_end,received_at,"
+                "COALESCE(last_received_at,received_at) AS last_received_at,"
+                "COALESCE(repeat_count,1) AS repeat_count,robot_uptime_ms,state,x_mm,y_mm,yaw_deg,"
+                "pfl,pfr,pbl,pbr,pwm_l,pwm_r,mpu_present,mpu_stale,i2c_ok,pin_state_json,payload_json "
+                "FROM telemetry WHERE session_id=? ORDER BY seq",
                 (session_id,),
             ))
 
@@ -162,7 +293,9 @@ class Database:
         with contextlib.closing(self.connect()) as connection:
             return list(connection.execute(
                 "SELECT s.*," 
-                "(SELECT COUNT(*) FROM telemetry t WHERE t.session_id=s.id) AS samples," 
+                "(SELECT COALESCE(SUM(COALESCE(t.repeat_count,1)),0) FROM telemetry t "
+                "WHERE t.session_id=s.id) AS samples,"
+                "(SELECT COUNT(*) FROM telemetry t WHERE t.session_id=s.id) AS stored_samples,"
                 "(SELECT COUNT(*) FROM commands c WHERE c.session_id=s.id) AS commands," 
                 "(SELECT COUNT(*) FROM events e WHERE e.session_id=s.id) AS events "
                 "FROM sessions s ORDER BY s.id DESC"
@@ -182,7 +315,9 @@ class Database:
     def event_rows(self, session_id: int) -> list[sqlite3.Row]:
         with contextlib.closing(self.connect()) as connection:
             return list(connection.execute(
-                "SELECT id,kind,severity,payload_json,created_at FROM events WHERE session_id=? ORDER BY id",
+                "SELECT id,kind,severity,payload_json,created_at,"
+                "COALESCE(last_seen_at,created_at) AS last_seen_at,"
+                "COALESCE(repeat_count,1) AS repeat_count FROM events WHERE session_id=? ORDER BY id",
                 (session_id,),
             ))
 
@@ -206,3 +341,24 @@ class Database:
             connection.execute(f"DELETE FROM events WHERE session_id IN ({placeholders})", target_ids)
             cursor = connection.execute(f"DELETE FROM sessions WHERE id IN ({placeholders})", target_ids)
             return cursor.rowcount
+
+    def optimize_storage(self, full: bool = False) -> dict[str, int]:
+        """Recupera páginas libres; el VACUUM completo debe ejecutarse sin sesión activa."""
+        before = self.path.stat().st_size if self.path.exists() else 0
+        connection = self.connect()
+        try:
+            connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            connection.execute("PRAGMA optimize")
+            if full:
+                connection.execute("PRAGMA auto_vacuum=INCREMENTAL")
+                connection.execute("VACUUM")
+            else:
+                connection.execute("PRAGMA incremental_vacuum(2048)")
+        finally:
+            connection.close()
+        after = self.path.stat().st_size if self.path.exists() else 0
+        return {
+            "before_bytes": before,
+            "after_bytes": after,
+            "reclaimed_bytes": max(0, before - after),
+        }

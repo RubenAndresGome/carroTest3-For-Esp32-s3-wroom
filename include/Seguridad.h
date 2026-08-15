@@ -6,13 +6,19 @@
 class Seguridad {
 public:
     Seguridad();
+    void actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, int pwm_R);
     bool auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R);
     void forzarEStop();
     void resetFallo();
+    void reiniciarSaludEncoders();
 
 private:
     unsigned long inicio_movimiento_ms;
     int64_t pulsos_movimiento_iniciales[4];
+    uint32_t inicio_ventana_encoder_ms;
+    int64_t pulsos_ventana_encoder[4];
+    int64_t pulsos_lado_anteriores[2];
+    uint32_t ultimo_progreso_lado_ms[2];
 };
 
 extern Seguridad WatchdogSeguridad;

@@ -61,13 +61,13 @@ constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
 constexpr int PWM_FORWARD_POLARITY = -1;
-constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10); // Límite global seguro 90%
+constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
 
 // --- PARÁMETROS DE AVANCE RECTO (DRIVE) ---
 constexpr int VELOCIDAD_BASE_RECTO = PWM_SAFE_HARD_LIMIT;
 // En pruebas de suelo, un torque inicial cercano a 65 % evita que el avance
 // fino quede zumbando por debajo de la fricción estática. Sigue por debajo del
-// tope seguro de avance (230/255).
+// tope de avance solicitado (242/255, ~95 %).
 constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(200 * PWM_SCALE_8_TO_10);
 constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(165 * PWM_SCALE_8_TO_10);
 // La reversa no entra directamente a crucero: después del interlock se rampa
@@ -148,7 +148,7 @@ constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 8.0f;
 constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 135.0f;
 
-// Calibración y rampa incremental por búsqueda continua de torque (140 a 230/255).
+// Calibración y rampa incremental por búsqueda continua de torque (140 a 247/255).
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
 constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
@@ -166,6 +166,23 @@ constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;
 constexpr int64_t TICKS_MINIMOS_AUDITORIA = 20;
 constexpr float ERROR_MAX_CLASIFICAR_DEG = 3.0f;
+
+// Salud persistente de encoders. La ventana no depende del tramo activo para
+// que una recuperacion de endpoint no vuelva a declarar sano un cable abierto.
+constexpr uint32_t ENCODER_HEALTH_WINDOW_MS = 250;
+constexpr uint32_t ENCODER_SUSPECT_MS = 250;
+constexpr uint32_t ENCODER_EXCLUDE_MS = 500;
+constexpr uint8_t ENCODER_REJOIN_WINDOWS = 8;
+constexpr int ENCODER_HEALTH_PWM_MIN = static_cast<int>(60 * PWM_SCALE_8_TO_10);
+
+// Recuperacion de friccion estatica: siete pulsos breves, separados por una
+// ventana sin PWM para observar pulsos e inercia. El ultimo nivel conserva el
+// limite de avance (242/255, ~95 %).
+constexpr uint32_t ANTIFRICTION_TRIGGER_MS = 750;
+constexpr uint32_t ANTIFRICTION_PULSE_ON_MS = 300;
+constexpr uint32_t ANTIFRICTION_PULSE_OFF_MS = 250;
+constexpr uint8_t ANTIFRICTION_PULSE_COUNT = 7;
+constexpr int64_t ANTIFRICTION_SUCCESS_TICKS = 2;
 
 // Timeouts del Watchdog de Seguridad por fase (Seguridad.cpp)
 constexpr uint32_t TIMEOUT_STALL_CALIBRANDO_MS = 20000; // 20 segundos para calibración

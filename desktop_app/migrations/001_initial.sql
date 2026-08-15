@@ -29,7 +29,10 @@ CREATE TABLE IF NOT EXISTS events (
     kind TEXT NOT NULL,
     severity TEXT NOT NULL CHECK(severity IN ('info','warning','error','critical')),
     payload_json TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    last_seen_at TEXT,
+    repeat_count INTEGER NOT NULL DEFAULT 1,
+    dedupe_key TEXT
 );
 CREATE TABLE IF NOT EXISTS telemetry (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +45,10 @@ CREATE TABLE IF NOT EXISTS telemetry (
     y_mm REAL NOT NULL,
     yaw_deg REAL NOT NULL,
     payload_json TEXT NOT NULL,
+    last_received_at TEXT,
+    source_seq_end INTEGER,
+    repeat_count INTEGER NOT NULL DEFAULT 1,
+    fingerprint TEXT,
     UNIQUE(session_id, seq)
 );
 CREATE INDEX IF NOT EXISTS idx_commands_session ON commands(session_id, created_at);

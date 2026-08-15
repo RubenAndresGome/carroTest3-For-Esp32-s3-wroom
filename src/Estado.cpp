@@ -23,6 +23,21 @@ float heading360 = 0.0f;
 
 bool modoDegradado = false;
 bool encoderConfiableGlobal[4] = {true, true, true, true};
+EstadoSaludEncoder estadoSaludEncoderGlobal[4] = {
+    EstadoSaludEncoder::HEALTHY, EstadoSaludEncoder::HEALTHY,
+    EstadoSaludEncoder::HEALTHY, EstadoSaludEncoder::HEALTHY
+};
+uint32_t encoderSinPulsosMs[4] = {};
+float encoderDesviacionPct[4] = {};
+uint8_t encoderMuestrasReingreso[4] = {};
+float encoderFusionDeltaL = 0.0f;
+float encoderFusionDeltaR = 0.0f;
+uint32_t encoderSinProgresoLadoMs[2] = {};
+bool antiFriccionActiva = false;
+bool antiFriccionPulsoEncendido = false;
+uint8_t antiFriccionPulsoIndice = 0;
+int antiFriccionPwmObjetivo = 0;
+bool antiFriccionMovimientoConfirmado = false;
 
 float factorCompensacionDer = 1.0f;
 

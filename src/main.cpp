@@ -99,6 +99,7 @@ static void ejecutarCicloControl() {
     bool fresco = snap.sequence != ultimoSensorSeq;
     if (fresco) {
         ultimoSensorSeq = snap.sequence;
+        WatchdogSeguridad.actualizarSaludEncoders(snap, pwm_aplicado_L, pwm_aplicado_R);
         heading360 = normalizar360(anguloZ);
         PoseGlobal.actualizarOrientacion(snap.imu_deltaZ_rad);
         if (estadoActual == LISTO || estadoActual == DESARMADO) {

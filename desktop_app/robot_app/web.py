@@ -178,7 +178,11 @@ def cleanup_sessions() -> Response:
 def export_telemetry(session_id: int) -> Response:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["seq", "received_at", "robot_uptime_ms", "state", "x_mm", "y_mm", "yaw_deg", "pfl", "pfr", "pbl", "pbr", "pwm_l", "pwm_r", "mpu_present", "mpu_stale", "i2c_ok", "pin_state_json", "payload_json"])
+    writer.writerow([
+        "seq", "source_seq_end", "received_at", "last_received_at", "repeat_count",
+        "robot_uptime_ms", "state", "x_mm", "y_mm", "yaw_deg", "pfl", "pfr", "pbl", "pbr",
+        "pwm_l", "pwm_r", "mpu_present", "mpu_stale", "i2c_ok", "pin_state_json", "payload_json",
+    ])
     for row in _service().database.telemetry_rows(session_id):
         writer.writerow(tuple(row))
     return Response(

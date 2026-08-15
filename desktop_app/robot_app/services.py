@@ -88,6 +88,8 @@ class RobotService:
     TELEMETRY_FRESHNESS_S = 2.0
     CLOSE_STOP_TIMEOUT_S = 5.0
     PROTOCOL = "steps-v3"
+    ACTIVE_TELEMETRY_PERIOD_S = 0.2
+    IDLE_TELEMETRY_PERIOD_S = 10.0
 
     def __init__(self, database: Database, start_gateway: bool = True, max_message_bytes: int = 4096) -> None:
         self.database = database
@@ -98,6 +100,8 @@ class RobotService:
         self._last_telemetry: TelemetrySnapshot | None = None
         self._telemetry_sequence = 0
         self._last_recorded_at = 0.0
+        self._last_recorded_session_id: int | None = None
+        self._last_recorded_signature: str | None = None
         self._identity_session_id: int | None = None
         self._last_terminal_id: str | None = None
         self._last_manual_recorded_at = 0.0
@@ -701,6 +705,9 @@ class RobotService:
             if self._session_id is None:
                 self._session_id = self.database.create_session()
                 self._identity_session_id = None
+                self._last_recorded_at = 0.0
+                self._last_recorded_session_id = None
+                self._last_recorded_signature = None
             session_id = self._session_id
         self.events.publish("session", {"recording": True, "session_id": session_id})
         return session_id
@@ -758,9 +765,19 @@ class RobotService:
             public_snapshot["protocol"] = self.gateway.snapshot()["protocol"]
             self.events.publish("telemetry", public_snapshot)
             self._expire_stalled_mission()
-            if session_id is not None and snapshot.received_at - self._last_recorded_at >= 0.2:
-                self._last_recorded_at = snapshot.received_at
-                self._recorder.submit(session_id, snapshot)
+            if session_id is not None:
+                signature = self.database.telemetry_priority_signature(snapshot)
+                active = snapshot.state.lower() in {"ejecutando", "calibrando", "fallo", "estop"} or any(snapshot.pwm)
+                period = self.ACTIVE_TELEMETRY_PERIOD_S if active else self.IDLE_TELEMETRY_PERIOD_S
+                force = (
+                    session_id != self._last_recorded_session_id
+                    or signature != self._last_recorded_signature
+                )
+                if force or snapshot.received_at - self._last_recorded_at >= period:
+                    self._last_recorded_at = snapshot.received_at
+                    self._last_recorded_session_id = session_id
+                    self._last_recorded_signature = signature
+                    self._recorder.submit(session_id, snapshot)
             return
 
         seq = int(message.get("seq", 0) or 0)

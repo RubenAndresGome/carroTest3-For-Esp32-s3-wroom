@@ -32,7 +32,7 @@ El firmware divide sus funciones estrictamente entre los dos núcleos del ESP32-
 | :--- | :--- |
 | [`main.cpp`](main.cpp) | Inicialización del sistema, arranque de FreeRTOS, pinning de tareas y súper-ciclo de 100 Hz. |
 | [`Cinematica.cpp`](Cinematica.cpp) | Controladores de lazo cerrado (giro pivote dinámico con rampa adaptativa + ráfagas de exactitud <5° y avance PD de rumbo). |
-| [`Motores.cpp`](Motores.cpp) | Driver de bajo nivel para DRV8833, clamp PWM (max 230/255 en avance, max 247/255 en giros) e interlock de 250 ms al invertir sentido. |
+| [`Motores.cpp`](Motores.cpp) | Driver de bajo nivel para DRV8833, clamp PWM (max 242/255 en avance, max 247/255 en giros) e interlock de 250 ms al invertir sentido. |
 | [`Sensores.cpp`](Sensores.cpp) | Lectura síncrona de encoders hardware PCNT e integración I2C con MPU6050. |
 | [`PoseEstimator.cpp`](PoseEstimator.cpp) | Odometría diferencial $(X, Y)$ y recienteado dinámico de yaw en reposo. |
 | [`Seguridad.cpp`](Seguridad.cpp) | Watchdogs de hardware, atascamiento (stall) y corte de emergencia (E-STOP). |
@@ -43,7 +43,7 @@ El firmware divide sus funciones estrictamente entre los dos núcleos del ESP32-
 
 ## Especificaciones de Seguridad Eléctrica (DRV8833)
 
-- **Tope PWM Global**: Max 230/255 (~90%) en avance rectilíneo y 247/255 (~97%) en giros/pivotes/calibración.
+- **Topes PWM**: máximo 242/255 (~95%) en avance rectilíneo y 247/255 (~97%) en giros/pivotes/calibración.
 - **Tiempo Muerto al Invertir Giro**: Pausa obligatoria de 250 ms en `Motores.cpp`.
 - **Rampa Adaptativa de Torque**: Incremento paulatino de torque de 140 a 247/255 para vencer la fricción estática de la reductora.
 - **Micro-Pulsos de Exactitud (<5°)**: Ráfagas de 50 ms ON / 100 ms OFF con `pwmObj = 0` para estabilizar inercia e integración IMU.

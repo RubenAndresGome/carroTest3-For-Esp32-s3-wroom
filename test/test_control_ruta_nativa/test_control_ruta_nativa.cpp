@@ -144,6 +144,38 @@ void test_stall_por_lado_exige_dos_encoders_sin_pulsos() {
   TEST_ASSERT_FALSE(ControlSeguridad::ladoEnStall(false, true, true));
 }
 
+void test_cualquier_encoder_individual_puede_fallar_sin_perder_un_lado() {
+  for (int excluido = 0; excluido < 4; ++excluido) {
+    bool confiable[4] = {true, true, true, true};
+    confiable[excluido] = false;
+    TEST_ASSERT_TRUE(ControlSeguridad::fuentesPorLadoValidas(confiable));
+  }
+  const bool solo_fr_bl[4] = {false, true, true, false};
+  const bool solo_fl_br[4] = {true, false, false, true};
+  const bool sin_izquierda[4] = {false, true, false, true};
+  TEST_ASSERT_TRUE(ControlSeguridad::fuentesPorLadoValidas(solo_fr_bl));
+  TEST_ASSERT_TRUE(ControlSeguridad::fuentesPorLadoValidas(solo_fl_br));
+  TEST_ASSERT_FALSE(ControlSeguridad::fuentesPorLadoValidas(sin_izquierda));
+}
+
+void test_antifriccion_escala_siete_pulsos_y_exige_ambos_lados() {
+  TEST_ASSERT_EQUAL_UINT8(161, ControlSeguridad::nivelAntiFriccion8Bit(1));
+  TEST_ASSERT_EQUAL_UINT8(191, ControlSeguridad::nivelAntiFriccion8Bit(5));
+  TEST_ASSERT_EQUAL_UINT8(242, ControlSeguridad::nivelAntiFriccion8Bit(7));
+  TEST_ASSERT_EQUAL_UINT8(242, ControlSeguridad::nivelAntiFriccion8Bit(99));
+  TEST_ASSERT_TRUE(ControlSeguridad::encoderSinRespuestaAislada(0, 6, true));
+  TEST_ASSERT_FALSE(ControlSeguridad::encoderSinRespuestaAislada(3, 6, true));
+  TEST_ASSERT_FALSE(ControlSeguridad::encoderSinRespuestaAislada(0, 6, false));
+  TEST_ASSERT_TRUE(ControlSeguridad::movimientoAntiFriccionConfirmado(2, 2, 2));
+  TEST_ASSERT_FALSE(ControlSeguridad::movimientoAntiFriccionConfirmado(2, 1, 2));
+}
+
+void test_stop_no_borra_fallo_o_estop_enclavado() {
+  TEST_ASSERT_TRUE(ControlSeguridad::stopDebePreservarFallo(true, false));
+  TEST_ASSERT_TRUE(ControlSeguridad::stopDebePreservarFallo(false, true));
+  TEST_ASSERT_FALSE(ControlSeguridad::stopDebePreservarFallo(false, false));
+}
+
 void test_estop_se_reconoce() {
   TEST_ASSERT_TRUE(ControlSeguridad::estopSolicitado(true));
   TEST_ASSERT_FALSE(ControlSeguridad::estopSolicitado(false));
@@ -169,6 +201,9 @@ int main(int, char**) {
   RUN_TEST(test_fusion_descarta_cero_aislado_sin_sesgar_distancia);
   RUN_TEST(test_fusion_falla_si_un_lado_completo_no_es_confiable);
   RUN_TEST(test_stall_por_lado_exige_dos_encoders_sin_pulsos);
+  RUN_TEST(test_cualquier_encoder_individual_puede_fallar_sin_perder_un_lado);
+  RUN_TEST(test_antifriccion_escala_siete_pulsos_y_exige_ambos_lados);
+  RUN_TEST(test_stop_no_borra_fallo_o_estop_enclavado);
   RUN_TEST(test_estop_se_reconoce);
   return UNITY_END();
 }

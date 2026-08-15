@@ -8,7 +8,7 @@ Este directorio contiene las definiciones de tipos, constantes de configuración
 
 | Cabecera | Descripción y Contenido |
 | :--- | :--- |
-| [`Config.h`](Config.h) | Definición central de constantes del sistema: dimensiones físicas, constantes PD, puertos GPIO, límites PWM (230/255), tiempos muertos (250 ms) y umbrales de seguridad. |
+| [`Config.h`](Config.h) | Definición central de constantes del sistema: dimensiones físicas, constantes PD, puertos GPIO, límite de avance 242/255, tiempos muertos (250 ms) y umbrales de seguridad. |
 | [`Estado.h`](Estado.h) | Enumeración `EstadoSistema` (`DESARMADO`, `CALIBRANDO`, `LISTO`, `EJECUTANDO`, `PAUSADO`, `FALLO`) y variables de progreso. |
 | [`Comandos.h`](Comandos.h) | Structs y enumeraciones para la cola de comandos entrantes de red (`ComandoRed`, `TipoComando`). |
 | [`Eventos.h`](Eventos.h) | Structs y enumeraciones para la cola de eventos salientes hacia el cliente (`EventoRed`, `TipoEventoRed`). |
@@ -27,7 +27,7 @@ Este directorio contiene las definiciones de tipos, constantes de configuración
 
 ```cpp
 #define WHEEL_DIAMETER_CM       6.60f
-#define PWM_SAFE_HARD_LIMIT    230   // Límite seguro avance rectilíneo (90%)
+#define PWM_SAFE_HARD_LIMIT    242   // Límite de avance rectilíneo (~95%)
 #define PWM_TURN_MAX_LIMIT     247   // Límite seguro giros y calibración (97%)
 #define PWM_DIRECTION_PAUSE_MS 250   // Interlock al invertir sentido
 #define CONTROL_LOOP_PERIOD_US 10000 // Súper-ciclo 100 Hz (10 ms)

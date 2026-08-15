@@ -212,16 +212,39 @@ static void drenarEventos() {
 }
 
 // ------ telemetría 10 Hz ------
+static const char* textoSaludEncoder(EstadoSaludEncoder estado) {
+  switch (estado) {
+    case EstadoSaludEncoder::HEALTHY: return "healthy";
+    case EstadoSaludEncoder::SUSPECT: return "suspect";
+    case EstadoSaludEncoder::EXCLUDED: return "excluded";
+    case EstadoSaludEncoder::RECOVERING: return "recovering";
+  }
+  return "unknown";
+}
+
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  StaticJsonDocument<2048> doc;
+  StaticJsonDocument<3072> doc;
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
   doc["x"] = roundf(PoseGlobal.getX()*10)/10;
   doc["y"] = roundf(PoseGlobal.getY()*10)/10;
   doc["pwm_l"] = pwm_aplicado_L; doc["pwm_r"] = pwm_aplicado_R;
+  JsonObject motores = doc.createNestedObject("motor_control");
+  JsonObject pwmSolicitado = motores.createNestedObject("requested");
+  pwmSolicitado["left"] = pwm_solicitado_L;
+  pwmSolicitado["right"] = pwm_solicitado_R;
+  JsonObject pwmFisico = motores.createNestedObject("physical");
+  pwmFisico["left"] = pwm_aplicado_L;
+  pwmFisico["right"] = pwm_aplicado_R;
+  pwmFisico["left_8bit"] = lroundf(pwm_aplicado_L / PWM_SCALE_8_TO_10);
+  pwmFisico["right_8bit"] = lroundf(pwm_aplicado_R / PWM_SCALE_8_TO_10);
+  pwmFisico["left_percent"] = roundf(1000.0f * pwm_aplicado_L / PWM_MAX) / 10.0f;
+  pwmFisico["right_percent"] = roundf(1000.0f * pwm_aplicado_R / PWM_MAX) / 10.0f;
+  motores["hard_limit"] = PWM_SAFE_HARD_LIMIT;
+  motores["limit_reason"] = "drv8833_forward_242_255";
   JsonArray enc = doc.createNestedArray("enc");
   SensorSnapshot s = {};
   obtenerUltimoSnapshotSensores(s);
@@ -233,14 +256,38 @@ static void enviarTelemetria() {
   doc["encoder_scale_factor"] = FACTOR_ESCALA_ENCODER;
   doc["encoder_error_pct"] = ENCODER_ERROR_PORCENTAJE;
   JsonObject saludEncoders = doc.createNestedObject("encoder_health");
-  saludEncoders["fl"] = encoderConfiableGlobal[0] ? "ok" : "excluded";
-  saludEncoders["fr"] = encoderConfiableGlobal[1] ? "ok" : "excluded";
-  saludEncoders["bl"] = encoderConfiableGlobal[2] ? "ok" : "excluded";
-  saludEncoders["br"] = encoderConfiableGlobal[3] ? "ok" : "excluded";
+  saludEncoders["fl"] = textoSaludEncoder(estadoSaludEncoderGlobal[0]);
+  saludEncoders["fr"] = textoSaludEncoder(estadoSaludEncoderGlobal[1]);
+  saludEncoders["bl"] = textoSaludEncoder(estadoSaludEncoderGlobal[2]);
+  saludEncoders["br"] = textoSaludEncoder(estadoSaludEncoderGlobal[3]);
+  JsonObject sinPulsos = doc.createNestedObject("stall_accumulated_ms");
+  sinPulsos["fl"] = encoderSinPulsosMs[0];
+  sinPulsos["fr"] = encoderSinPulsosMs[1];
+  sinPulsos["bl"] = encoderSinPulsosMs[2];
+  sinPulsos["br"] = encoderSinPulsosMs[3];
   JsonObject fusionEncoders = doc.createNestedObject("encoder_fusion");
   fusionEncoders["estimator"] = "mediana_robusta_por_lado";
   fusionEncoders["left_reliable_count"] = int(encoderConfiableGlobal[0]) + int(encoderConfiableGlobal[2]);
   fusionEncoders["right_reliable_count"] = int(encoderConfiableGlobal[1]) + int(encoderConfiableGlobal[3]);
+  fusionEncoders["left_delta"] = encoderFusionDeltaL;
+  fusionEncoders["right_delta"] = encoderFusionDeltaR;
+  fusionEncoders["left_no_progress_ms"] = encoderSinProgresoLadoMs[0];
+  fusionEncoders["right_no_progress_ms"] = encoderSinProgresoLadoMs[1];
+  fusionEncoders["left_sources"] = encoderConfiableGlobal[0] && encoderConfiableGlobal[2]
+      ? "FL+BL" : (encoderConfiableGlobal[0] ? "FL" : (encoderConfiableGlobal[2] ? "BL" : "none"));
+  fusionEncoders["right_sources"] = encoderConfiableGlobal[1] && encoderConfiableGlobal[3]
+      ? "FR+BR" : (encoderConfiableGlobal[1] ? "FR" : (encoderConfiableGlobal[3] ? "BR" : "none"));
+  fusionEncoders["warning"] = modoDegradado;
+  JsonObject desviaciones = fusionEncoders.createNestedObject("deviation_pct");
+  desviaciones["fl"] = roundf(encoderDesviacionPct[0] * 10.0f) / 10.0f;
+  desviaciones["fr"] = roundf(encoderDesviacionPct[1] * 10.0f) / 10.0f;
+  desviaciones["bl"] = roundf(encoderDesviacionPct[2] * 10.0f) / 10.0f;
+  desviaciones["br"] = roundf(encoderDesviacionPct[3] * 10.0f) / 10.0f;
+  JsonObject reingreso = fusionEncoders.createNestedObject("rejoin_samples");
+  reingreso["fl"] = encoderMuestrasReingreso[0];
+  reingreso["fr"] = encoderMuestrasReingreso[1];
+  reingreso["bl"] = encoderMuestrasReingreso[2];
+  reingreso["br"] = encoderMuestrasReingreso[3];
   fusionEncoders["distance_scale_factor"] = FACTOR_ESCALA_ENCODER;
   fusionEncoders["distance_error_pct"] = ENCODER_ERROR_PORCENTAJE;
   JsonObject movimiento = doc.createNestedObject("motion");
@@ -279,6 +326,17 @@ static void enviarTelemetria() {
   recuperacion["direction"] = pasoRecuperacionUsaReversa ? "reverse" : "forward";
   recuperacion["pivot_avoided"] = pasoRecuperacionUsaReversa;
   recuperacion["min_distance_cm"] = DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM;
+  JsonObject antiFriccion = doc.createNestedObject("anti_friction");
+  antiFriccion["active"] = antiFriccionActiva;
+  antiFriccion["pulse_on"] = antiFriccionPulsoEncendido;
+  antiFriccion["pulse_index"] = antiFriccionPulsoIndice;
+  antiFriccion["pulse_total"] = ANTIFRICTION_PULSE_COUNT;
+  antiFriccion["target_pwm"] = antiFriccionPwmObjetivo;
+  antiFriccion["target_8bit"] = lroundf(antiFriccionPwmObjetivo / PWM_SCALE_8_TO_10);
+  antiFriccion["target_percent"] = roundf(1000.0f * antiFriccionPwmObjetivo / PWM_MAX) / 10.0f;
+  antiFriccion["pulse_on_ms"] = ANTIFRICTION_PULSE_ON_MS;
+  antiFriccion["pulse_off_ms"] = ANTIFRICTION_PULSE_OFF_MS;
+  antiFriccion["movement_confirmed"] = antiFriccionMovimientoConfirmado;
   JsonObject control = doc.createNestedObject("drive_control");
   control["dynamic_heading_deg"] = pasoRumboDinamicoDeg;
   control["heading_error_deg"] = pasoErrorRumboDeg;

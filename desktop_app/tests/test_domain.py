@@ -67,6 +67,14 @@ class DomainTests(unittest.TestCase):
             "motion": {"effective_mode": "reverse", "coast_cm": 2.4, "settle_elapsed_ms": 320},
             "recovery": {"decision": "reverse_no_pivot", "distance_cm": 24.0,
                          "pivot_avoided": True},
+            "anti_friction": {"active": True, "pulse_index": 4, "pulse_total": 7,
+                              "target_pwm": 736, "target_percent": 72.0},
+            "encoder_health": {"fl": "excluded", "fr": "healthy",
+                               "bl": "healthy", "br": "healthy"},
+            "encoder_fusion": {"left_sources": "BL", "right_sources": "FR+BR",
+                               "left_reliable_count": 1, "right_reliable_count": 2},
+            "motor_control": {"requested": {"left": 736, "right": 736},
+                              "physical": {"left": 736, "right": 736}},
             "firmware": "robot-s3-v2", "reset_reason": "power_on",
             "stack_web": 2048, "stack_control": 3072,
         }, 17)
@@ -81,6 +89,10 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(public["drive_control"]["i"], 3)
         self.assertEqual(public["motion"]["effective_mode"], "reverse")
         self.assertTrue(public["recovery"]["pivot_avoided"])
+        self.assertEqual(public["anti_friction"]["pulse_index"], 4)
+        self.assertEqual(public["encoder_health"]["fl"], "excluded")
+        self.assertEqual(public["encoder_fusion"]["left_sources"], "BL")
+        self.assertEqual(public["motor_control"]["physical"]["left"], 736)
         self.assertEqual(public["rtos"]["stack_min_free_bytes"]["control"], 3072)
 
     def test_legacy_telemetry_remains_readable_for_exports(self) -> None:

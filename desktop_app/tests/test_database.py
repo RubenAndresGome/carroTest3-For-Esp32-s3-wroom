@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import time
+from dataclasses import replace
 from pathlib import Path
 
 from robot_app.database import Database
@@ -51,6 +52,60 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(database.close_orphan_sessions("restart"), 1)
             self.assertEqual(database.command_rows(session_id)[0]["status"], "failed")
             self.assertEqual(database.session_row(session_id)["disconnect_reason"], "restart")
+
+    def test_consecutive_telemetry_is_compacted_with_time_and_sequence_range(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "test.sqlite3")
+            database.initialize()
+            session_id = database.create_session()
+            first = TelemetrySnapshot(
+                sequence=1, received_at=time.time(), uptime_ms=100, state="listo",
+                x_mm=10.0, y_mm=20.0, yaw_deg=3.0, pulses=(1, 1, 1, 1), pwm=(0, 0),
+                wheel_speed_cm_s=(0.0, 0.0), encoder_delta_avg=(0.0, 0.0, 0.0, 0.0),
+                gyro_z_filtered_rad_s=0.0, gyro_z_offset_rad_s=0.0, theta_error_deg=0.0,
+                mpu_present=True, mpu_stale=False, mpu_calibrated=True, i2c_ok=True,
+                robot_id="robot", firmware_version="v1", raw={"evt": "telemetry", "seq": 1, "x": 1},
+            )
+            second = replace(first, sequence=2, received_at=first.received_at + 1.0,
+                             uptime_ms=1100, raw={"evt": "telemetry", "seq": 2, "x": 1})
+            database.insert_telemetry(session_id, first)
+            database.insert_telemetry(session_id, second)
+            rows = database.telemetry_rows(session_id)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["repeat_count"], 2)
+            self.assertEqual(rows[0]["source_seq_end"], 2)
+            self.assertNotEqual(rows[0]["received_at"], rows[0]["last_received_at"])
+
+            database.insert_telemetry(session_id, replace(second, sequence=3, pwm=(180, 180)))
+            self.assertEqual(len(database.telemetry_rows(session_id)), 2)
+
+    def test_repeated_nonterminal_events_are_aggregated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "test.sqlite3")
+            database.initialize()
+            session_id = database.create_session()
+            database.insert_event(session_id, "connection", "warning", {"detail": "timeout"})
+            database.insert_event(session_id, "connection", "warning", {"detail": "timeout"})
+            rows = database.event_rows(session_id)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["repeat_count"], 2)
+
+            database.insert_event(session_id, "fault", "error", {"reason": "stall"})
+            database.insert_event(session_id, "fault", "error", {"reason": "stall"})
+            self.assertEqual(len(database.event_rows(session_id)), 3)
+
+    def test_progress_is_saved_at_two_percent_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "test.sqlite3")
+            database.initialize()
+            session_id = database.create_session()
+            base = {"evt": "progress", "seq": 7, "run_id": 2, "detail": "avance"}
+            database.insert_event(session_id, "progress", "info", {**base, "pct": 0.10})
+            database.insert_event(session_id, "progress", "info", {**base, "pct": 0.115})
+            database.insert_event(session_id, "progress", "info", {**base, "pct": 0.121})
+            rows = database.event_rows(session_id)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["repeat_count"], 2)
 
 
 if __name__ == "__main__":

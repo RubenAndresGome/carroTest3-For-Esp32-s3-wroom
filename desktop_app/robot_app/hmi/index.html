@@ -1582,7 +1582,9 @@
             document.getElementById('telem-turn-control').textContent=`${raw.turn_braking_phase||'OFF'} · progreso ${Number(raw.turn_progress_deg||0).toFixed(2)}° · error ${Number(raw.turn_error_deg||0).toFixed(2)}° · predicho ${Number(raw.turn_predicted_error_deg||0).toFixed(2)}° · gyro ${Number(raw.turn_gyro_deg_s||0).toFixed(1)}°/s · PWM ${Number(raw.turn_pwm_target_8bit||0)}/255 (${Number(raw.turn_pwm_target||0)}/1023)`;
             document.getElementById('route-live-arc').textContent=`${Number(raw.turn_arc_path_cm||0).toFixed(1)} cm`;
             document.getElementById('route-live-turn-xy').textContent=`${Number(raw.turn_translation_x_cm||0).toFixed(1)} / ${Number(raw.turn_translation_y_cm||0).toFixed(1)} cm`;
-            document.getElementById('telem-stall').textContent=`ruedas ${Number(stall.fl||0)} / ${Number(stall.fr||0)} / ${Number(stall.bl||0)} / ${Number(stall.br||0)} ms · lados ${Number(fusion.left_no_progress_ms||0)} / ${Number(fusion.right_no_progress_ms||0)} ms · confiables ${Number(fusion.left_reliable_count||0)}L/${Number(fusion.right_reliable_count||0)}R · ${fusion.estimator||'sin estimador'}`;
+            const anti=raw.anti_friction||{};
+            const antiText=anti.active ? ` · ANTIFRICCIÓN ${Number(anti.pulse_index||0)}/${Number(anti.pulse_total||7)} ${anti.pulse_on?'ON':'OFF'} · ${Number(anti.target_8bit||0)}/255 (${Number(anti.target_percent||0).toFixed(1)}%)` : '';
+            document.getElementById('telem-stall').textContent=`ruedas ${Number(stall.fl||0)} / ${Number(stall.fr||0)} / ${Number(stall.bl||0)} / ${Number(stall.br||0)} ms · lados ${Number(fusion.left_no_progress_ms||0)} / ${Number(fusion.right_no_progress_ms||0)} ms · fuentes ${fusion.left_sources||'none'} / ${fusion.right_sources||'none'} · confiables ${Number(fusion.left_reliable_count||0)}L/${Number(fusion.right_reliable_count||0)}R · ${fusion.estimator||'sin estimador'}${antiText}`;
             document.getElementById('telem-interlock').textContent=`${interlockL.state||'OFF'} (${Number(interlockL.energized_sign||0)}→${Number(interlockL.pending_sign||0)}) / ${interlockR.state||'OFF'} (${Number(interlockR.energized_sign||0)}→${Number(interlockR.pending_sign||0)})`;
             document.getElementById('telem-cal-pulse').textContent=`${health.fl||'unknown'}/${health.fr||'unknown'}/${health.bl||'unknown'}/${health.br||'unknown'} · pivot continuo · pausa por sobrepaso 300 ms · verificación en rango 300 ms`;
             const stackText=`stack ${stackMin.web??'—'} / ${stackMin.control??'—'} bytes · período ${Number(timing.last_period_us||0)} / ${Number(timing.target_period_us||10000)} µs · jitter máx ${Number(timing.max_jitter_us||0)} µs · ciclo máx ${Number(timing.max_cycle_duration_us||0)} µs · muestra máx ${Number(timing.max_sample_age_us||0)} µs · deadlines ${Number(timing.missed_deadlines||0)} · reset ${rtos.reset_reason||'unknown'}${rtos.stack_warning?' · STACK BAJO':''}`;
@@ -1637,7 +1639,7 @@
         calibrated:false, commandId:null, selfTestCommandId:null, selfTestPassed:true,
         lastTurnMode:'PIVOT_CONTINUOUS', lastRequestedTurnMode:'AUTO', lastPowerKey:'',
         lastRobotState:'', lastTerminalKey:'', lastBrakingPhase:'OFF', lastAlignmentStage:'OFF',
-        lastDegradedMode:null, lastEncoderHealthKey:'',
+        lastDegradedMode:null, lastEncoderHealthKey:'', lastAntiFrictionKey:'',
         init() {
             document.body.classList.add('calibration-locked');
             document.getElementById('btn-calibrate').disabled=true;
@@ -1693,15 +1695,29 @@
             this.lastAlignmentStage=alignmentStage;
             const encoderHealth=raw.encoder_health||{};
             const encoderHealthKey=['fl','fr','bl','br'].map(k=>String(encoderHealth[k]||'unknown')).join('/');
+            const encoderWarning=['fl','fr','bl','br'].some(k=>{
+                const status=String(encoderHealth[k]||'unknown');
+                return !['healthy','ok'].includes(status);
+            });
             const degraded=Boolean(raw.degraded_mode);
             if(this.lastDegradedMode!==null && degraded!==this.lastDegradedMode){
                 if(degraded) LogSystem.add('WARN',`Modo degradado activo: ${encoderHealthKey}. La ruta continúa porque queda al menos un encoder confiable por lado.`);
                 else LogSystem.add('INFO',`Fusión de encoders restaurada: ${encoderHealthKey}.`);
             } else if(degraded && encoderHealthKey!==this.lastEncoderHealthKey){
                 LogSystem.add('WARN',`Salud de encoders en modo degradado: ${encoderHealthKey}.`);
+            } else if(encoderWarning && encoderHealthKey!==this.lastEncoderHealthKey){
+                LogSystem.add('WARN',`Encoder sin respuesta estable: ${encoderHealthKey}. Se mantiene vigilancia antes de excluirlo.`);
             }
             this.lastDegradedMode=degraded;
             this.lastEncoderHealthKey=encoderHealthKey;
+            const antiState=raw.anti_friction||{};
+            const antiKey=`${Boolean(antiState.active)}:${Number(antiState.pulse_index||0)}:${Boolean(antiState.pulse_on)}`;
+            if(antiState.active && antiKey!==this.lastAntiFrictionKey){
+                LogSystem.add('WARN',`Antifricción ${Number(antiState.pulse_index||0)}/${Number(antiState.pulse_total||7)} ${antiState.pulse_on?'ON':'OFF'}: PWM ${Number(antiState.target_8bit||0)}/255 (${Number(antiState.target_percent||0).toFixed(1)}%).`);
+            } else if(!antiState.active && this.lastAntiFrictionKey.startsWith('true') && antiState.movement_confirmed){
+                LogSystem.add('INFO','Antifricción terminada: movimiento confirmado en ambos lados.');
+            }
+            this.lastAntiFrictionKey=antiKey;
             const robotState=String(raw.state||'').toUpperCase();
             const terminal=raw.last_terminal||{};
             const terminalReason=String(terminal.detail||terminal.reason||'sin causa reportada');

@@ -32,6 +32,21 @@ extern float heading360;
 // Encoders
 extern bool modoDegradado;
 extern bool encoderConfiableGlobal[4];
+enum class EstadoSaludEncoder : uint8_t { HEALTHY, SUSPECT, EXCLUDED, RECOVERING };
+extern EstadoSaludEncoder estadoSaludEncoderGlobal[4];
+extern uint32_t encoderSinPulsosMs[4];
+extern float encoderDesviacionPct[4];
+extern uint8_t encoderMuestrasReingreso[4];
+extern float encoderFusionDeltaL;
+extern float encoderFusionDeltaR;
+extern uint32_t encoderSinProgresoLadoMs[2];
+
+// Estado observable de la recuperacion de friccion estatica.
+extern bool antiFriccionActiva;
+extern bool antiFriccionPulsoEncendido;
+extern uint8_t antiFriccionPulsoIndice;
+extern int antiFriccionPwmObjetivo;
+extern bool antiFriccionMovimientoConfirmado;
 
 // Compensación ajustable de asimetría mecánica. Por defecto neutra: el sesgo
 // residual se corrige con el término integral, no con un valor adivinado.

@@ -28,7 +28,7 @@
 ### Protección eléctrica del DRV8833
 
 #### Límites por firmware (todas las rutas de control)
-- PWM máximo global: 230/255 (~90%) en avance rectilíneo y 247/255 (~97%) en giros autónomos, calibración y pivote continuo para vencer fricción en superficies difíciles.
+- PWM máximo de avance: 242/255 (~95%); giros autónomos, calibración y pivote continuo conservan 247/255 (~97%) para vencer fricción en superficies difíciles.
 - Tiempo muerto universal de 250 ms en `Motores.cpp:aplicarVelocidades()` al
   invertir sentido de giro. Aplica a joystick, giro autónomo y calibración.
 - Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog

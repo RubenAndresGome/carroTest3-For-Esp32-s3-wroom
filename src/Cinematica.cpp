@@ -85,6 +85,9 @@ void deltas(const int64_t base[4], const SensorSnapshot& s, int64_t out[4]) {
 // ===== terminar / fallar =====
 void fin(TipoEvento t, const char* d) {
   frenarMotores(); fase = Fase::NINGUNA;
+  antiFriccionActiva = false;
+  antiFriccionPulsoEncendido = false;
+  antiFriccionPwmObjetivo = 0;
   reiniciarControlRumbo();
   registrarMotivoFinalizacion(d);
   if (t == EVT_COMPLETED) { estadoActual = LISTO; progresoComando = 1.0f; }
@@ -454,12 +457,13 @@ int64_t ticksLadoAvAnt[2] = {};
 uint32_t ultimoPulsoLadoAvMs[2] = {};
 uint32_t inicioErrorRumboMs = 0;
 uint8_t intentosRecup = 0;
-bool encoderConfiable[4] = {true,true,true,true};
 uint8_t saludEnc[4] = {};
 uint32_t inicioOutlierEncMs[4] = {};
 int64_t ticksPausaClasif[4] = {};
 uint32_t inicioPausaReevalMs = 0;
 float errorRumboMaxTramo = 0.0f;
+uint32_t inicioFaseAntiFriccionMs = 0;
+int64_t ticksBaseAntiFriccion[4] = {};
 
 void actualizarErroresTrayectoria() {
   if (!tieneTargetEspacial) return;
@@ -481,22 +485,19 @@ bool objetivoAbsolutoAlcanzado() {
 float mediana4(const int64_t v[4]) {
   return ControlSeguridad::medianaCuatro(v);
 }
-bool hayPorLado() { return (encoderConfiable[0]||encoderConfiable[2]) && (encoderConfiable[1]||encoderConfiable[3]); }
+bool hayPorLado() { return ControlSeguridad::fuentesPorLadoValidas(encoderConfiableGlobal); }
 float promedioLado(const int64_t v[4], bool izq) {
-  return ControlSeguridad::promedioConfiableLado(v, encoderConfiable, izq);
+  return ControlSeguridad::promedioConfiableLado(v, encoderConfiableGlobal, izq);
 }
 float estimarTicksAvance(const int64_t v[4]) {
-  float med = mediana4(v);
-  if (!modoDegradado) return med;
   if (!hayPorLado()) return -1.0f;
+  // La mediana decide que canales son coherentes; la distancia siempre se
+  // calcula como promedio de las fuentes confiables de cada lado.
   return 0.5f*(promedioLado(v,true)+promedioLado(v,false));
 }
 void resetConfEncoders() {
-  modoDegradado = false;
   for (int i = 0; i < 4; ++i) {
-    encoderConfiable[i] = true;
-    encoderConfiableGlobal[i] = true;
-    saludEnc[i] = 0;
+    saludEnc[i] = encoderConfiableGlobal[i] ? 0 : 2;
     inicioOutlierEncMs[i] = 0;
   }
   resetFiltrosEncoder();
@@ -510,6 +511,11 @@ void iniciarAvance(bool conservar) {
   // Una recuperación o reevaluación debe preservar los canales que ya fueron
   // descartados. Sólo un paso nuevo vuelve a dar oportunidad a los cuatro.
   if (!conservar) resetConfEncoders();
+  antiFriccionActiva = false;
+  antiFriccionPulsoEncendido = false;
+  antiFriccionPulsoIndice = 0;
+  antiFriccionPwmObjetivo = 0;
+  antiFriccionMovimientoConfirmado = false;
   conservarAcumulado = conservar;
   distObjetivoCm = pasoDistanciaCm;  // global del paso
   pasoDistanciaObjetivoCm = distObjetivoCm;
@@ -566,7 +572,6 @@ void completarPausaReeval() {
       ControlSeguridad::clasificarEncoders(ticksPausaClasif, DESACUERDO_MAXIMO_PAR);
   modoDegradado = clasificacion.modoDegradado;
   for (int i=0;i<4;++i) {
-    encoderConfiable[i]=clasificacion.confiable[i];
     encoderConfiableGlobal[i]=clasificacion.confiable[i];
     saludEnc[i]=clasificacion.confiable[i]?0:2;
     inicioOutlierEncMs[i]=0;
@@ -577,6 +582,73 @@ void completarPausaReeval() {
   }
   inicioAvanceMs = millis();
   iniciarAvance(true);
+}
+
+int pwmAntiFriccion(uint8_t indice) {
+  return min(PWM_SAFE_HARD_LIMIT,
+             static_cast<int>(ControlSeguridad::nivelAntiFriccion8Bit(indice) *
+                              PWM_SCALE_8_TO_10));
+}
+
+void iniciarAntiFriccion(const SensorSnapshot& s) {
+  frenarMotores();
+  copiarBase(ticksBaseAntiFriccion, s);
+  antiFriccionActiva = true;
+  antiFriccionPulsoEncendido = true;
+  antiFriccionPulsoIndice = 1;
+  antiFriccionPwmObjetivo = pwmAntiFriccion(antiFriccionPulsoIndice);
+  antiFriccionMovimientoConfirmado = false;
+  inicioFaseAntiFriccionMs = millis();
+  strncpy(faseComando, "anti_friccion", sizeof(faseComando));
+}
+
+bool controlarAntiFriccion(const SensorSnapshot& s) {
+  if (!antiFriccionActiva) return false;
+  int64_t delta[4] = {};
+  deltas(ticksBaseAntiFriccion, s, delta);
+  const float deltaL = promedioLado(delta, true);
+  const float deltaR = promedioLado(delta, false);
+  if (ControlSeguridad::movimientoAntiFriccionConfirmado(
+          deltaL, deltaR, ANTIFRICTION_SUCCESS_TICKS)) {
+    antiFriccionActiva = false;
+    antiFriccionPulsoEncendido = false;
+    antiFriccionMovimientoConfirmado = true;
+    antiFriccionPwmObjetivo = 0;
+    ultimoPulsoLadoAvMs[0] = ultimoPulsoLadoAvMs[1] = millis();
+    ticksLadoAvAnt[0] = ticksLadoAvAnt[1] = 0;
+    strncpy(faseComando, "avance", sizeof(faseComando));
+    return false;
+  }
+
+  const uint32_t transcurrido = millis() - inicioFaseAntiFriccionMs;
+  if (antiFriccionPulsoEncendido) {
+    if (transcurrido < ANTIFRICTION_PULSE_ON_MS) {
+      aplicarVelocidades(direccionTraslacion * antiFriccionPwmObjetivo,
+                         direccionTraslacion * antiFriccionPwmObjetivo);
+      return true;
+    }
+    frenarMotores();
+    antiFriccionPulsoEncendido = false;
+    inicioFaseAntiFriccionMs = millis();
+    return true;
+  }
+
+  frenarMotores();
+  if (transcurrido < ANTIFRICTION_PULSE_OFF_MS) return true;
+  if (antiFriccionPulsoIndice >= ANTIFRICTION_PULSE_COUNT) {
+    antiFriccionActiva = false;
+    antiFriccionPwmObjetivo = 0;
+    const bool sinIzquierda = deltaL < ANTIFRICTION_SUCCESS_TICKS;
+    fallo(sinIzquierda ? "drive_stall_left[anti_friction]"
+                       : "drive_stall_right[anti_friction]");
+    return true;
+  }
+  ++antiFriccionPulsoIndice;
+  antiFriccionPwmObjetivo = pwmAntiFriccion(antiFriccionPulsoIndice);
+  antiFriccionPulsoEncendido = true;
+  copiarBase(ticksBaseAntiFriccion, s);
+  inicioFaseAntiFriccionMs = millis();
+  return true;
 }
 
 bool controlarAvance() {
@@ -636,15 +708,23 @@ bool controlarAvance() {
   }
 
 
-  // outlier persistence
-  if (detectarOutliers(d)) { iniciarPausaReeval(d); return false; }
-
   // stall per side
-  int64_t ladoTicks[2]={(encoderConfiable[0]?d[0]:0)+(encoderConfiable[2]?d[2]:0),
-                         (encoderConfiable[1]?d[1]:0)+(encoderConfiable[3]?d[3]:0)};
+  if (!hayPorLado()) { fallo("enc_no_side"); return false; }
+  int64_t ladoTicks[2]={(encoderConfiableGlobal[0]?d[0]:0)+(encoderConfiableGlobal[2]?d[2]:0),
+                         (encoderConfiableGlobal[1]?d[1]:0)+(encoderConfiableGlobal[3]?d[3]:0)};
   for (int i=0; i<2; ++i) {
     if (ladoTicks[i]!=ticksLadoAvAnt[i]) { ticksLadoAvAnt[i]=ladoTicks[i]; ultimoPulsoLadoAvMs[i]=millis(); }
-    else if (millis()-ultimoPulsoLadoAvMs[i] > DRIVE_STALL_MS) {
+  }
+  if (controlarAntiFriccion(s)) return false;
+  const bool sinProgreso = millis()-ultimoPulsoLadoAvMs[0] > ANTIFRICTION_TRIGGER_MS ||
+                           millis()-ultimoPulsoLadoAvMs[1] > ANTIFRICTION_TRIGGER_MS;
+  if (sinProgreso) {
+    iniciarAntiFriccion(s);
+    controlarAntiFriccion(s);
+    return false;
+  }
+  for (int i=0; i<2; ++i) {
+    if (millis()-ultimoPulsoLadoAvMs[i] > DRIVE_STALL_MS) {
       if (intentosRecup < INTENTOS_RECUPERACION_MAX) {
         ++intentosRecup;
         frenarMotores();
@@ -1100,8 +1180,19 @@ bool iniciarGiroAbsoluto(float heading, int seq) {
 
 void cancelarMovimiento(const char* detalle) {
   const int cancelado = seqActivo;
+  const bool falloEnclavado = ControlSeguridad::stopDebePreservarFallo(
+      estadoActual == FALLO, estadoActual == ESTOP);
   frenarMotores(); fase = Fase::NINGUNA;
   reiniciarControlRumbo();
+  antiFriccionActiva = false;
+  antiFriccionPulsoEncendido = false;
+  antiFriccionPwmObjetivo = 0;
+  if (falloEnclavado) {
+    // STOP siempre desenergiza, pero nunca rearma silenciosamente un fallo.
+    // El operador debe usar CLEAR_FAULT para volver a LISTO.
+    progresoComando = 0.0f;
+    return;
+  }
   registrarMotivoFinalizacion(detalle ? detalle : "stopped");
   estadoActual = robotCalibrado ? LISTO : DESARMADO;
   progresoComando = 0.0f;

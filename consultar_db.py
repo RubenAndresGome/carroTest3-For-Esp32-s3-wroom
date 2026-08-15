@@ -76,9 +76,16 @@ def list_commands(conn: sqlite3.Connection, limit: int) -> None:
 def list_events(conn: sqlite3.Connection, limit: int) -> None:
     cursor = conn.cursor()
     print(f"\n=== ÚLTIMOS {limit} EVENTOS ===")
-    cursor.execute(f"SELECT id, session_id, kind, severity, payload_json, created_at FROM events ORDER BY id DESC LIMIT {limit};")
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(events)")}
+    repeat_expr = "COALESCE(repeat_count,1)" if "repeat_count" in columns else "1"
+    last_expr = "COALESCE(last_seen_at,created_at)" if "last_seen_at" in columns else "created_at"
+    cursor.execute(
+        f"SELECT id,session_id,kind,severity,payload_json,created_at,{repeat_expr} AS repeat_count,"
+        f"{last_expr} AS last_seen_at FROM events ORDER BY id DESC LIMIT {limit};"
+    )
     for row in cursor.fetchall():
-        print(f"  [{row['created_at']}] Evt #{row['id']} ({row['severity']}): {row['kind']} | {row['payload_json']}")
+        repetition = f" x{row['repeat_count']} hasta {row['last_seen_at']}" if row["repeat_count"] > 1 else ""
+        print(f"  [{row['created_at']}] Evt #{row['id']} ({row['severity']}): {row['kind']}{repetition} | {row['payload_json']}")
 
 
 def list_telemetry(conn: sqlite3.Connection, limit: int) -> None:
@@ -89,9 +96,16 @@ def list_telemetry(conn: sqlite3.Connection, limit: int) -> None:
         print(f"  • Estado '{row['state']}': {row['count']} muestras")
 
     print(f"\n=== ÚLTIMAS {limit} MUESTRAS DE TELEMETRÍA ===")
-    cursor.execute(f"SELECT session_id, received_at, state, x_mm, y_mm, yaw_deg, pwm_l, pwm_r FROM telemetry ORDER BY id DESC LIMIT {limit};")
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(telemetry)")}
+    repeat_expr = "COALESCE(repeat_count,1)" if "repeat_count" in columns else "1"
+    end_expr = "COALESCE(last_received_at,received_at)" if "last_received_at" in columns else "received_at"
+    cursor.execute(
+        f"SELECT session_id,received_at,{end_expr} AS last_received_at,{repeat_expr} AS repeat_count,"
+        f"state,x_mm,y_mm,yaw_deg,pwm_l,pwm_r FROM telemetry ORDER BY id DESC LIMIT {limit};"
+    )
     for row in cursor.fetchall():
-        print(f"  [Sesh #{row['session_id']}] {row['state']} | Pos: ({row['x_mm']/10:.1f}, {row['y_mm']/10:.1f}) cm | Yaw: {row['yaw_deg']:.1f}° | PWM L/R: {row['pwm_l']}/{row['pwm_r']}")
+        repetition = f" x{row['repeat_count']} hasta {row['last_received_at']}" if row["repeat_count"] > 1 else ""
+        print(f"  [Sesh #{row['session_id']}{repetition}] {row['state']} | Pos: ({row['x_mm']/10:.1f}, {row['y_mm']/10:.1f}) cm | Yaw: {row['yaw_deg']:.1f}° | PWM L/R: {row['pwm_l']}/{row['pwm_r']}")
 
 
 def _angular_delta_deg(reference: float, value: float) -> float:

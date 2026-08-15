@@ -231,6 +231,7 @@ class TelemetrySnapshot:
     drive_control: dict[str, Any] = field(default_factory=dict)
     motion: dict[str, Any] = field(default_factory=dict)
     recovery: dict[str, Any] = field(default_factory=dict)
+    anti_friction: dict[str, Any] = field(default_factory=dict)
     last_terminal: dict[str, Any] = field(default_factory=dict)
     mission: dict[str, Any] = field(default_factory=dict)
     encoder_health: tuple[str, str, str, str] = ("unknown", "unknown", "unknown", "unknown")
@@ -395,6 +396,8 @@ class TelemetrySnapshot:
             if isinstance(payload.get("motion", {}), Mapping) else {},
             recovery=dict(payload.get("recovery", {}))
             if isinstance(payload.get("recovery", {}), Mapping) else {},
+            anti_friction=dict(payload.get("anti_friction", {}))
+            if isinstance(payload.get("anti_friction", {}), Mapping) else {},
             last_terminal=dict(payload.get("last_terminal", {})) if isinstance(payload.get("last_terminal", {}), Mapping) else {},
             mission=dict(payload.get("mission", {})) if isinstance(payload.get("mission", {}), Mapping) else {},
             encoder_health=tuple(
@@ -432,6 +435,7 @@ class TelemetrySnapshot:
             "command_progress": self.command_progress, "target": self.target,
             "drive_control": self.drive_control, "motion": self.motion,
             "recovery": self.recovery,
+            "anti_friction": self.anti_friction,
             "mission": self.mission,
             "turn_attempt": self.turn_attempt, "turn_attempt_max": self.turn_attempt_max,
             "retry_pause_remaining_ms": self.retry_pause_remaining_ms,
