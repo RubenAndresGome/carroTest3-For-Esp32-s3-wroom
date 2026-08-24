@@ -19,7 +19,19 @@ Este directorio contiene las definiciones de tipos, constantes de configuración
 | [`Seguridad.h`](Seguridad.h) | Clase `WatchdogSeguridadClass` para prevención de atascamiento y E-STOP. |
 | [`Red.h`](Red.h) | Interfaz del servidor WebSocket y manejadores de Wi-Fi AP. |
 | [`DiagnosticoRTOS.h`](DiagnosticoRTOS.h) | Funciones de monitoreo de pilas FreeRTOS y métricas de latencia. |
-| [`Secrets.h`](Secrets.h) | Configuración local de SSID y contraseña Wi-Fi (creado desde [`Secrets.example.h`](Secrets.example.h)). |
+| [`Secrets.h`](Secrets.h) | Configuración local de SSID y contraseña Wi-Fi; debe crearse desde [`Secrets.example.h`](Secrets.example.h) y nunca confirmarse. |
+
+### Secrets y compilación
+
+`src/Estado.cpp` exige que exista `include/Secrets.h`; si falta, la
+compilación termina deliberadamente. También valida en tiempo de compilación
+los límites de `WiFi.softAP()` del ESP32: SSID de 1 a 32 bytes y contraseña
+WPA de 8 a 63 bytes, sin terminadores NUL embebidos. La plantilla contiene
+valores vacíos para impedir que se use accidentalmente sin configuración.
+
+La validación modular aislada (`scripts/firmware/validar_firmware_modular.ps1`)
+excluye el `Secrets.h` local y genera un archivo sintético sólo dentro de
+`.pio/modular-validation/include/`; no copia ni expone credenciales locales.
 
 ---
 

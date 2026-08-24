@@ -13,9 +13,10 @@ auditar qué se implementó.
   lógica del robot.
 - El público es académico, técnico y operativo. El idioma es español, con una
   vista básica y otra avanzada.
-- Se documentan configuración, APK, compilación, scripts, SQLite, pruebas,
-  `Mision.cpp`, el descomponedor HTML independiente y la existencia histórica
-  de `.disabled`/`archive/legacy`.
+- Se documentan configuración, APK, compilación, scripts, SQLite, pruebas, el
+  módulo histórico `archive/legacy/firmware_mission/Mision.cpp`, el
+  descomponedor HTML independiente y la existencia histórica de
+  `.disabled`/`archive/legacy`.
 
 ## Inventario y UML
 
@@ -27,8 +28,9 @@ auditar qué se implementó.
 - Los diagramas se agrupan por subsistema, conservan fuente Mermaid y PlantUML
   y se exportan a SVG y PNG.
 - Se excluyen dependencias, `.pio`, `build`, `dist`, entornos, pruebas e
-  históricos del conteo activo. Se documentan aparte para no confundirlos con
-  el ejecutable actual.
+  históricos del conteo activo. El catálogo y los UML se regeneran desde el
+  árbol operativo; el código archivado se documenta aparte para no confundirlo
+  con el ejecutable actual.
 
 ## Portal
 
@@ -95,4 +97,3 @@ auditar qué se implementó.
   opciones; el manual cubre ambos casos.
 - Los identificadores de sesión se consideran datos internos: se enmascaran en
   material publicable junto con IP, SSID, token y dispositivo.
-

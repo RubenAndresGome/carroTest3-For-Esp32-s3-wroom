@@ -31,6 +31,7 @@ EXCLUDED_PARTS = {
     "archive", "build", "dist", "node_modules", "vendor", ".pio",
     "__pycache__", ".venv", ".test-venv", ".build-venv", "tests",
 }
+EXCLUDED_RELATIVE_PATHS = {"include/Secrets.h"}
 
 
 def active_files() -> list[Path]:
@@ -53,7 +54,10 @@ def active_files() -> list[Path]:
             if not path.is_file() or path.suffix.lower() not in allowed:
                 continue
             relative_parts = set(path.relative_to(ROOT).parts)
+            relative_path = path.relative_to(ROOT).as_posix()
             if relative_parts & EXCLUDED_PARTS or path.name.endswith(".disabled"):
+                continue
+            if relative_path in EXCLUDED_RELATIVE_PATHS:
                 continue
             if "static" in relative_parts or ("hmi" in relative_parts and "vendor" in relative_parts):
                 continue
@@ -534,7 +538,7 @@ def main() -> None:
     payload = {
         "generated_at": os.environ.get("CATALOG_GENERATED_AT", datetime.now(timezone.utc).isoformat()),
         "generator": "Universal Ctags 6.x + scripts/documentacion/generar_catalogo.py",
-        "scope": "Código operativo; excluye archive, pruebas, vendor, build, dist y .disabled",
+        "scope": "Código operativo; excluye secretos, archive, pruebas, vendor, build, dist y .disabled",
         "files": [path.relative_to(ROOT).as_posix() for path in files],
         "stats": {
             "files": len(files), "functions": len(functions), "types": len(types), "routes": len(routes),

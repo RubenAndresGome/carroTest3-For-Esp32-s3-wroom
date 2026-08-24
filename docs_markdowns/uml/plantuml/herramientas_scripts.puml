@@ -43,46 +43,47 @@ component "connect_db\nCC=2 · Bajo" as n6460493b44
 component "show_summary\nCC=6 · Bajo" as n04c91c6a18
 component "list_sessions\nCC=3 · Bajo" as nfacd9846a2
 component "list_commands\nCC=4 · Bajo" as n9650665764
-component "list_events\nCC=2 · Bajo" as na9ad2a9d1f
-component "list_telemetry\nCC=3 · Alto" as n16f6e17546
-component "_angular_delta_deg\nCC=1 · Bajo" as n787493f06e
-component "list_segments\nCC=20 · Medio" as na9f06bcaa7
-component "trace_command\nCC=34 · Alto" as n38674aab32
-component "search_all\nCC=12 · Bajo" as n09f1b821fc
-component "main\nCC=15 · Bajo" as n20efb6c71f
-component "active_files\nCC=6 · Bajo" as nafd356db32
-component "subsystem\nCC=8 · Bajo" as nbe76a713c4
-component "language\nCC=1 · Bajo" as n7c3b78fe6d
-component "run_ctags\nCC=7 · Bajo" as n1cb0d8a18e
-component "embedded_html_functions\nCC=22 · Bajo" as n8581868fe2
-component "find_end\nCC=5 · Bajo" as n6c940fadb8
-component "scripted_functions\nCC=8 · Bajo" as n80d4f33be9
-component "visibility\nCC=2 · Bajo" as n771ad39ac6
-component "normalize_tags\nCC=8 · Bajo" as nf0f6e15fe6
-component "_function_body\nCC=1 · Bajo" as nb4286ff169
-component "_owner\nCC=5 · Bajo" as nb9f51e6533
-component "_platform\nCC=5 · Bajo" as n82d755956d
-component "_complexity\nCC=12 · Bajo" as n9e90b74861
-component "_interaction\nCC=7 · Medio" as ndf31e443c8
-component "_shared_state\nCC=9 · Medio" as n982ba39366
-component "infer_calls\nCC=18 · Alto" as nb32f8aebc6
-component "dependency_cycles\nCC=12 · Bajo" as n03f09ef830
-component "visit\nCC=9 · Bajo" as n20291b9270
-component "extract_routes\nCC=9 · Bajo" as n256df7dfce
-component "node_id\nCC=1 · Bajo" as na83aea5101
-component "mermaid_for_folder\nCC=15 · Bajo" as ncfaa75265c
-component "plantuml_for_folder\nCC=8 · Bajo" as n33bac7ac43
-component "write_markdown\nCC=10 · Alto" as ne8f50e770a
-component "main\nCC=10 · Bajo" as n709c592fef
+component "list_events\nCC=6 · Bajo" as na9ad2a9d1f
+component "list_telemetry\nCC=7 · Alto" as n2e4c463a2b
+component "_angular_delta_deg\nCC=1 · Bajo" as n6a2af42b30
+component "list_segments\nCC=20 · Medio" as n51949693e6
+component "trace_command\nCC=34 · Alto" as nf7e56de919
+component "search_all\nCC=12 · Bajo" as n3bb7a88720
+component "main\nCC=15 · Bajo" as nd2eac5ac8e
+component "active_files\nCC=7 · Bajo" as nd51f2a6408
+component "subsystem\nCC=8 · Bajo" as n210980a486
+component "language\nCC=1 · Bajo" as n07fe6a944c
+component "run_ctags\nCC=7 · Bajo" as n86defff6e6
+component "embedded_html_functions\nCC=22 · Bajo" as n05fd952c15
+component "find_end\nCC=5 · Bajo" as n94a1c6f5a1
+component "scripted_functions\nCC=8 · Bajo" as n928ef6a5ea
+component "visibility\nCC=2 · Bajo" as n6d08e8ebec
+component "normalize_tags\nCC=8 · Bajo" as ncffa2c3ca5
+component "_function_body\nCC=1 · Bajo" as nb3d6afc324
+component "_owner\nCC=5 · Bajo" as n4d3e366351
+component "_platform\nCC=5 · Bajo" as n9ae4e62892
+component "_complexity\nCC=12 · Bajo" as nd6c9e4adfc
+component "_interaction\nCC=7 · Medio" as n4fea69e755
+component "_shared_state\nCC=9 · Medio" as n695976a230
+component "infer_calls\nCC=18 · Alto" as ne8ee46a3f6
+component "dependency_cycles\nCC=12 · Bajo" as nc3694a75e3
+component "visit\nCC=9 · Bajo" as nd4668bb680
+component "extract_routes\nCC=9 · Bajo" as n7a6a2826bf
+component "node_id\nCC=1 · Bajo" as n4e3d415426
+component "mermaid_for_folder\nCC=15 · Bajo" as n108afd9284
+component "plantuml_for_folder\nCC=8 · Bajo" as nab4165c4d6
+component "write_markdown\nCC=10 · Alto" as n36c7594300
+component "main\nCC=10 · Bajo" as nee872e3d0e
 component "rows\nCC=1 · Bajo" as n9eab49d8ad
 component "elapsed_seconds\nCC=1 · Bajo" as ncb8c29961f
 component "main\nCC=11 · Medio" as n1c9814c081
 component "download_if_needed\nCC=3 · Bajo" as n5483b456cb
 component "render\nCC=3 · Bajo" as nf237d76ace
 component "main\nCC=3 · Bajo" as n489ce3258b
-component "markdown_files\nCC=4 · Bajo" as n3d5d392d32
-component "normalize_target\nCC=3 · Bajo" as n3d26275b4a
-component "main\nCC=10 · Bajo" as n5d2522213b
+component "markdown_files\nCC=4 · Bajo" as n5f476609c0
+component "normalize_target\nCC=3 · Bajo" as ne1a2132fe2
+component "candidates_for\nCC=7 · Bajo" as n42af9ef3dd
+component "main\nCC=11 · Bajo" as n2e8d1b06ae
 n4cbf77c493 --> n593102974c : síncrona
 n622aa6745d --> n09bc0b5b13 : síncrona
 n622aa6745d --> n593102974c : síncrona
@@ -141,47 +142,48 @@ n4df1dd2897 --> n505bfe6358 : síncrona
 n4df1dd2897 --> n198e0e1e49 : síncrona
 n4df1dd2897 --> n756c4c6df7 : síncrona
 n4df1dd2897 --> nc0f3636e27 : síncrona
-na9f06bcaa7 --> n787493f06e : síncrona
-n38674aab32 --> n787493f06e : síncrona
-n20efb6c71f --> n6460493b44 : síncrona
-n20efb6c71f --> n9650665764 : síncrona
-n20efb6c71f --> na9ad2a9d1f : síncrona
-n20efb6c71f --> na9f06bcaa7 : síncrona
-n20efb6c71f --> nfacd9846a2 : síncrona
-n20efb6c71f --> n16f6e17546 : síncrona
-n20efb6c71f --> n09f1b821fc : síncrona
-n20efb6c71f --> n04c91c6a18 : síncrona
-n20efb6c71f --> n38674aab32 : síncrona
-n8581868fe2 ..> n6c940fadb8 : asíncrona
-nf0f6e15fe6 --> n7c3b78fe6d : síncrona
-nf0f6e15fe6 --> nbe76a713c4 : síncrona
-nf0f6e15fe6 --> n771ad39ac6 : síncrona
-nb32f8aebc6 ..> n9e90b74861 : asíncrona
-nb32f8aebc6 ..> nb4286ff169 : asíncrona
-nb32f8aebc6 ..> ndf31e443c8 : asíncrona
-nb32f8aebc6 ..> nb9f51e6533 : asíncrona
-nb32f8aebc6 ..> n82d755956d : asíncrona
-nb32f8aebc6 ..> n982ba39366 : asíncrona
-n03f09ef830 --> n20291b9270 : síncrona
-ncfaa75265c --> na83aea5101 : síncrona
-n33bac7ac43 --> na83aea5101 : síncrona
-ne8f50e770a --> ncfaa75265c : síncrona
-ne8f50e770a --> n33bac7ac43 : síncrona
-n709c592fef --> nafd356db32 : síncrona
-n709c592fef --> n03f09ef830 : síncrona
-n709c592fef --> n8581868fe2 : síncrona
-n709c592fef --> n256df7dfce : síncrona
-n709c592fef --> nb32f8aebc6 : síncrona
-n709c592fef --> nf0f6e15fe6 : síncrona
-n709c592fef --> n1cb0d8a18e : síncrona
-n709c592fef --> n80d4f33be9 : síncrona
-n709c592fef --> ne8f50e770a : síncrona
+n51949693e6 --> n6a2af42b30 : síncrona
+nf7e56de919 --> n6a2af42b30 : síncrona
+nd2eac5ac8e --> n6460493b44 : síncrona
+nd2eac5ac8e --> n9650665764 : síncrona
+nd2eac5ac8e --> na9ad2a9d1f : síncrona
+nd2eac5ac8e --> n51949693e6 : síncrona
+nd2eac5ac8e --> nfacd9846a2 : síncrona
+nd2eac5ac8e --> n2e4c463a2b : síncrona
+nd2eac5ac8e --> n3bb7a88720 : síncrona
+nd2eac5ac8e --> n04c91c6a18 : síncrona
+nd2eac5ac8e --> nf7e56de919 : síncrona
+n05fd952c15 ..> n94a1c6f5a1 : asíncrona
+ncffa2c3ca5 --> n07fe6a944c : síncrona
+ncffa2c3ca5 --> n210980a486 : síncrona
+ncffa2c3ca5 --> n6d08e8ebec : síncrona
+ne8ee46a3f6 ..> nd6c9e4adfc : asíncrona
+ne8ee46a3f6 ..> nb3d6afc324 : asíncrona
+ne8ee46a3f6 ..> n4fea69e755 : asíncrona
+ne8ee46a3f6 ..> n4d3e366351 : asíncrona
+ne8ee46a3f6 ..> n9ae4e62892 : asíncrona
+ne8ee46a3f6 ..> n695976a230 : asíncrona
+nc3694a75e3 --> nd4668bb680 : síncrona
+n108afd9284 --> n4e3d415426 : síncrona
+nab4165c4d6 --> n4e3d415426 : síncrona
+n36c7594300 --> n108afd9284 : síncrona
+n36c7594300 --> nab4165c4d6 : síncrona
+nee872e3d0e --> nd51f2a6408 : síncrona
+nee872e3d0e --> nc3694a75e3 : síncrona
+nee872e3d0e --> n05fd952c15 : síncrona
+nee872e3d0e --> n7a6a2826bf : síncrona
+nee872e3d0e --> ne8ee46a3f6 : síncrona
+nee872e3d0e --> ncffa2c3ca5 : síncrona
+nee872e3d0e --> n86defff6e6 : síncrona
+nee872e3d0e --> n928ef6a5ea : síncrona
+nee872e3d0e --> n36c7594300 : síncrona
 n1c9814c081 --> ncb8c29961f : síncrona
 n1c9814c081 --> n9eab49d8ad : síncrona
 n489ce3258b --> n5483b456cb : síncrona
 n489ce3258b --> nf237d76ace : síncrona
-n5d2522213b --> n3d5d392d32 : síncrona
-n5d2522213b --> n3d26275b4a : síncrona
+n2e8d1b06ae --> n42af9ef3dd : síncrona
+n2e8d1b06ae --> n5f476609c0 : síncrona
+n2e8d1b06ae --> ne1a2132fe2 : síncrona
 legend
 |= Flecha |= Interacción |
 | --> | síncrona |

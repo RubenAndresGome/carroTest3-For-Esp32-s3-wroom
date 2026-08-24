@@ -31,10 +31,10 @@ en [`uml/`](uml/README.md); la escala, esfuerzos y riesgos aceptados están en
 
 | Subsistema | Funciones/prototipos detectados | Propietario operativo |
 |---|---:|---|
-| `firmware/src` | 106 | ESP32, Core 0 y súper-ciclo Core 1 |
-| `firmware/include` | 55 | Contratos y configuración de firmware |
-| `backend/python` | 118 | Misiones, validación, SQLite y gateway |
-| `hmi/canonica` | 74 | Interacción del operador |
+| `firmware/src` | 107 | ESP32, Core 0 y súper-ciclo Core 1 |
+| `firmware/include` | 103 | Contratos y configuración de firmware |
+| `backend/python` | 128 | Misiones, validación, SQLite y gateway |
+| `hmi/canonica` | 76 | Interacción del operador |
 | `frontend/typescript` | 3 | Base Vite aislada; no es la HMI desplegada |
 | `android/kotlin` | 28 | WebView, servicio y ciclo de vida Android |
 | `android/python` | 4 | Waitress/Flask embebido |
@@ -116,16 +116,17 @@ encoders en cero y fallo `cal_stall_left`.
 - Recomendación: prueba con ruedas elevadas, inspección de GPIO/PCNT y conectores,
   alimentación limitada y registro simultáneo de cada encoder.
 
-### A-07 — Media: módulo de misión firmware compilado pero desconectado
+### A-07 — Resuelto: módulo de misión completa retirado del firmware activo
 
-`src/Mision.cpp` implementa persistencia y ejecución de rutas completas, pero
-`main.cpp` no llama a `procesarMisionAutonoma()` ni inicializa ese módulo. La
-arquitectura operativa usa pasos atómicos propiedad de Python.
+`Mision.cpp` implementaba persistencia y ejecución de rutas completas, pero no
+participaba en el flujo operativo. Se movió, junto con `Mision.h`, a
+`archive/legacy/firmware_mission/` como referencia histórica. La arquitectura
+operativa usa pasos atómicos propiedad de Python.
 
-- Efecto: dos modelos incompatibles permanecen en fuentes activas y elevan el
-  riesgo de documentación o mantenimiento incorrectos.
-- Recomendación: moverlo a referencia histórica o integrarlo únicamente tras
-  una decisión arquitectónica explícita.
+- Efecto corregido: el firmware activo ya no contiene dos modelos de propiedad
+  de misión; ESP32 conserva sólo la ejecución atómica y sus protecciones.
+- Condición de mantenimiento: no copiar el módulo archivado al árbol activo
+  sin revisión arquitectónica explícita.
 
 ### A-08 — Media: sesiones SQLite se fragmentan durante cada `BACKOFF`
 
@@ -194,9 +195,10 @@ descartar la precondición de escritores/checkpoints concurrentes.
 
 ## Código histórico, pruebas y herramientas no operativas
 
-- `src/Mision.cpp` es fuente activa y compilada, pero no gobierna la misión
-  desplegada: `main.cpp` no invoca su máquina de ruta. Python envía una sola
-  maniobra atómica por vez. Esta diferencia está registrada en A-07.
+- `archive/legacy/firmware_mission/Mision.cpp` conserva la implementación
+  histórica de misión completa sólo como referencia; no forma parte del
+  firmware activo. Python envía una sola maniobra atómica por vez. A-07 queda
+  resuelto.
 - Los `*.cpp.disabled` son ensayos físicos aprobados o candidatos archivados.
   No entran al firmware normal; se compilan sólo mediante el script de staging
   documentado en `CONTRIBUTING.md`.

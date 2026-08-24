@@ -16,37 +16,47 @@ component "create_app\nCC=1 · Bajo" as nfb667eae25
 component "create_app\nCC=2 · Bajo" as nfb676358e5
 component "create_csp_nonce\nCC=1 · Bajo" as n8019a4b26e
 component "secure_headers\nCC=1 · Bajo" as n7502f63d12
+component "_quantize\nCC=2 · Bajo" as n8d63ce830a
+component "_normalized_payload\nCC=8 · Bajo" as n332e428c8f
+component "clean\nCC=7 · Bajo" as n91f6dd4e52
+component "_telemetry_key\nCC=2 · Bajo" as nc654c3b31c
+component "compact_database\nCC=32 · Medio" as n9ca71c4ce2
 component "normalize_robot_host\nCC=6 · Bajo" as n2c28dde60e
 component "from_environment\nCC=1 · Medio" as n9e2127431d
-component "__init__\nCC=1 · Bajo" as n86f7e28f5c
-component "connect\nCC=1 · Bajo" as n05766f4679
-component "transaction\nCC=3 · Bajo" as n23fb7c8d16
-component "initialize\nCC=5 · Bajo" as ne45be1344d
-component "get_setting\nCC=3 · Bajo" as n9666ef0659
-component "set_setting\nCC=3 · Bajo" as n69d89b1d8c
-component "create_session\nCC=1 · Bajo" as n3898e6f467
-component "update_session_identity\nCC=5 · Bajo" as ne90d71830a
-component "stop_session\nCC=3 · Bajo" as n83d5115c83
-component "insert_command\nCC=6 · Bajo" as n27ae570fe9
-component "update_command\nCC=6 · Bajo" as n76e8386fea
-component "fail_nonterminal_commands\nCC=2 · Bajo" as n46dc5cc68e
-component "close_orphan_sessions\nCC=2 · Bajo" as ncead72cfeb
-component "insert_event\nCC=5 · Bajo" as n9200c1431e
-component "insert_telemetry\nCC=20 · Bajo" as nceb90c202f
-component "telemetry_rows\nCC=2 · Bajo" as na62e9c42fc
-component "session_rows\nCC=1 · Bajo" as nb756e00a7f
-component "session_row\nCC=2 · Bajo" as nb561ffbc05
-component "command_rows\nCC=2 · Bajo" as n719abc7e65
-component "event_rows\nCC=2 · Bajo" as n091ba89cf1
-component "purge_sessions\nCC=9 · Bajo" as n16e08bed59
+component "__init__\nCC=1 · Bajo" as n6ce90dcc53
+component "connect\nCC=1 · Bajo" as n9d54627ca5
+component "transaction\nCC=3 · Bajo" as n11d586ec95
+component "initialize\nCC=5 · Bajo" as nacb3ceafef
+component "get_setting\nCC=3 · Bajo" as n18b8c76447
+component "set_setting\nCC=3 · Bajo" as n47dbbcd128
+component "create_session\nCC=1 · Bajo" as nf7a3fd3fa7
+component "update_session_identity\nCC=5 · Bajo" as n0bf80517b4
+component "stop_session\nCC=3 · Bajo" as n60b0cf8cad
+component "insert_command\nCC=6 · Bajo" as naf02b1bc78
+component "update_command\nCC=6 · Bajo" as n6541552cc2
+component "fail_nonterminal_commands\nCC=2 · Bajo" as nf41c46053c
+component "close_orphan_sessions\nCC=2 · Bajo" as n3a66901c11
+component "insert_event\nCC=17 · Medio" as n199de97a81
+component "_quantize\nCC=2 · Bajo" as n52da51b66e
+component "telemetry_priority_signature\nCC=2 · Bajo" as nbc806381e8
+component "telemetry_fingerprint\nCC=3 · Bajo" as n9bd103dfd7
+component "_compact_payload\nCC=5 · Bajo" as n070eea3cc7
+component "insert_telemetry\nCC=30 · Bajo" as nc8500bc751
+component "telemetry_rows\nCC=2 · Bajo" as n5f84836d20
+component "session_rows\nCC=1 · Bajo" as n2030e2bd2f
+component "session_row\nCC=2 · Bajo" as n272da64f6c
+component "command_rows\nCC=2 · Bajo" as nc44d70c1da
+component "event_rows\nCC=2 · Bajo" as ndbedf3f906
+component "purge_sessions\nCC=9 · Bajo" as n8106c54b68
+component "optimize_storage\nCC=4 · Bajo" as n62c2af3d19
 component "_finite_number\nCC=3 · Bajo" as nb983649585
 component "_heading_degrees\nCC=1 · Bajo" as n5dae047b8f
 component "validate_command_payload\nCC=10 · Bajo" as n8e2fbfdb5d
 component "create\nCC=3 · Bajo" as n67c3bdbb31
 component "protocol_envelope\nCC=2 · Bajo" as nede5d2494e
 component "split_segment_mm\nCC=3 · Bajo" as n918003cd14
-component "from_message\nCC=37 · Medio" as na677870675
-component "public_dict\nCC=1 · Medio" as ndf8487517c
+component "from_message\nCC=38 · Medio" as n51981cbeb3
+component "public_dict\nCC=1 · Medio" as n46775125a7
 component "__init__\nCC=1 · Bajo" as n768722c274
 component "start\nCC=3 · Medio" as n9c7f87a274
 component "stop\nCC=2 · Medio" as n06e0517455
@@ -66,44 +76,44 @@ component "__init__\nCC=1 · Medio" as n34e81b855a
 component "submit\nCC=3 · Bajo" as n55583f40a2
 component "stop\nCC=1 · Medio" as nf78d3ee8b1
 component "_run\nCC=4 · Bajo" as n76f6a478db
-component "__init__\nCC=11 · Bajo" as n896832408a
-component "close\nCC=3 · Medio" as n332b622517
-component "get_robot_host\nCC=1 · Bajo" as ne14be5f2cb
-component "set_robot_host\nCC=2 · Bajo" as ndc211d5b95
-component "connect\nCC=1 · Bajo" as n248d2dce7d
-component "disconnect\nCC=1 · Medio" as nc52dd740aa
-component "reconnect\nCC=2 · Bajo" as n129ecd6bf8
-component "status\nCC=2 · Medio" as n7d5ebbc8b4
-component "mission_status\nCC=4 · Bajo" as n3b759c213f
-component "_persist_mission\nCC=2 · Bajo" as n9a0f6ac366
-component "_mission_wire_points\nCC=2 · Bajo" as nf24d5e6c21
-component "_require_ready_robot\nCC=7 · Bajo" as ndddad585fb
-component "_build_segments\nCC=9 · Bajo" as n230292e845
-component "_activate_mission\nCC=4 · Medio" as n5904f4d532
-component "start_mission\nCC=2 · Bajo" as n35e10ad2f6
-component "start_return_home\nCC=8 · Bajo" as n1d52dd4c0f
-component "stop_mission\nCC=7 · Medio" as n19d904450d
-component "clear_robot_mission_memory\nCC=1 · Bajo" as nd8734ad52f
-component "_advance_mission\nCC=10 · Medio" as n1a9e2ce29f
-component "_set_return_state\nCC=2 · Bajo" as n5b7c497ab8
-component "_queue_current_mission_step\nCC=5 · Bajo" as nf0737ba032
-component "_queue_final_alignment\nCC=3 · Bajo" as n244f8444b7
-component "_expire_stalled_mission\nCC=2 · Bajo" as nf5cff9c6eb
-component "_block_mission\nCC=6 · Medio" as n4979c10981
-component "_reconcile_mission_snapshot\nCC=8 · Medio" as nef2199af78
-component "_reconcile_firmware_mission\nCC=9 · Medio" as n072122a3f8
-component "send_command\nCC=13 · Medio" as nc6fa0f1a20
-component "start_session\nCC=2 · Medio" as n96e7060441
-component "stop_session\nCC=2 · Medio" as nf0c0061b26
-component "_on_connection_state\nCC=4 · Bajo" as nbd9caf92eb
-component "_on_command_sent\nCC=4 · Bajo" as n3aea915da2
-component "_on_robot_message\nCC=17 · Bajo" as n57ad37b856
-component "_reconcile_short_memory_hello\nCC=9 · Medio" as n3bc9ebfff8
-component "_movement_requires_stop\nCC=3 · Bajo" as n37e61be468
-component "_archive_mission_for_close\nCC=3 · Medio" as n1bca975513
-component "_finish_close_preparation\nCC=6 · Medio" as n5f7b2f0f67
-component "prepare_close\nCC=11 · Medio" as ne446ac80b8
-component "purge_sessions\nCC=1 · Bajo" as nea26546a12
+component "__init__\nCC=11 · Bajo" as n21b7e67766
+component "close\nCC=3 · Medio" as nd7c4778c17
+component "get_robot_host\nCC=1 · Bajo" as n1d227e920d
+component "set_robot_host\nCC=2 · Bajo" as n2837494ee6
+component "connect\nCC=1 · Bajo" as n1957ce84e6
+component "disconnect\nCC=1 · Medio" as n7c02a4d30d
+component "reconnect\nCC=2 · Bajo" as n7dc9552171
+component "status\nCC=2 · Medio" as n97af93f1c6
+component "mission_status\nCC=4 · Bajo" as ne78aa088df
+component "_persist_mission\nCC=2 · Bajo" as ne007ec69a2
+component "_mission_wire_points\nCC=2 · Bajo" as n25d658f999
+component "_require_ready_robot\nCC=7 · Bajo" as nf1aeb31b3d
+component "_build_segments\nCC=9 · Bajo" as naaf08a29e6
+component "_activate_mission\nCC=4 · Medio" as n50fa861f35
+component "start_mission\nCC=2 · Bajo" as nc72c80f198
+component "start_return_home\nCC=8 · Bajo" as n46a3c3f292
+component "stop_mission\nCC=7 · Medio" as n7401223799
+component "clear_robot_mission_memory\nCC=1 · Bajo" as n076a4f2906
+component "_advance_mission\nCC=10 · Medio" as n65629473d0
+component "_set_return_state\nCC=2 · Bajo" as n66d0abd223
+component "_queue_current_mission_step\nCC=5 · Bajo" as n94c7e22137
+component "_queue_final_alignment\nCC=3 · Bajo" as needc821158
+component "_expire_stalled_mission\nCC=2 · Bajo" as n024ecb3a08
+component "_block_mission\nCC=6 · Medio" as n3e6b3beaca
+component "_reconcile_mission_snapshot\nCC=8 · Medio" as n2087b5efc4
+component "_reconcile_firmware_mission\nCC=9 · Medio" as n9153356e4f
+component "send_command\nCC=13 · Medio" as n81d8816604
+component "start_session\nCC=2 · Medio" as n1eec8828b6
+component "stop_session\nCC=2 · Medio" as n4958fad6d4
+component "_on_connection_state\nCC=4 · Bajo" as nbb05040b56
+component "_on_command_sent\nCC=4 · Bajo" as nff78a2797d
+component "_on_robot_message\nCC=19 · Medio" as n9a57989029
+component "_reconcile_short_memory_hello\nCC=9 · Medio" as na32a4ec87e
+component "_movement_requires_stop\nCC=3 · Bajo" as nc0689735c6
+component "_archive_mission_for_close\nCC=3 · Medio" as n1b57255582
+component "_finish_close_preparation\nCC=6 · Medio" as n517df21a27
+component "prepare_close\nCC=11 · Medio" as n62f8d1d95e
+component "purge_sessions\nCC=1 · Bajo" as nb45f7f7fe9
 component "_service\nCC=1 · Bajo" as n11a7fd3b87
 component "_require_token\nCC=2 · Bajo" as n9768753665
 component "wrapper\nCC=2 · Bajo" as nab39be2bb6
@@ -122,228 +132,244 @@ component "start_session\nCC=1 · Bajo" as n5f28d62235
 component "stop_session\nCC=1 · Bajo" as n1ef8b6f8a4
 component "cleanup_sessions\nCC=2 · Bajo" as na5e8d26bb3
 component "export_telemetry\nCC=2 · Medio" as n13eb31c6b3
-component "sessions\nCC=2 · Bajo" as nefd77277fd
-component "export_session_json\nCC=5 · Medio" as n2ce00fdeb1
-component "events\nCC=3 · Bajo" as n40caa891fe
-component "stream\nCC=3 · Bajo" as n2a6d149e68
+component "sessions\nCC=2 · Bajo" as n4316fdd446
+component "export_session_json\nCC=5 · Medio" as n8e8dc327c9
+component "events\nCC=3 · Bajo" as n67714987c3
+component "stream\nCC=3 · Bajo" as n25871ada17
 n9222a02d25 --> n4303201550 : síncrona
-n9222a02d25 --> n332b622517 : síncrona
+n9222a02d25 --> nd7c4778c17 : síncrona
 n9222a02d25 --> nfb667eae25 : síncrona
 n9222a02d25 --> nd5db088795 : síncrona
 n9222a02d25 --> n3e89fea1ba : síncrona
 n9222a02d25 --> n9c7f87a274 : síncrona
-n3e89fea1ba --> n332b622517 : síncrona
+n3e89fea1ba --> nd7c4778c17 : síncrona
 nfb676358e5 --> n8019a4b26e : síncrona
 nfb676358e5 --> n9e2127431d : síncrona
-nfb676358e5 --> n9666ef0659 : síncrona
-nfb676358e5 --> ne45be1344d : síncrona
+nfb676358e5 --> n18b8c76447 : síncrona
+nfb676358e5 --> nacb3ceafef : síncrona
 nfb676358e5 --> n7502f63d12 : síncrona
-nfb676358e5 --> n69d89b1d8c : síncrona
+nfb676358e5 --> n47dbbcd128 : síncrona
+n332e428c8f --> n91f6dd4e52 : síncrona
+nc654c3b31c --> n332e428c8f : síncrona
+nc654c3b31c --> n8d63ce830a : síncrona
+n9ca71c4ce2 --> n332e428c8f : síncrona
+n9ca71c4ce2 --> nc654c3b31c : síncrona
+n9ca71c4ce2 --> nd7c4778c17 : síncrona
+n9ca71c4ce2 --> n9d54627ca5 : síncrona
+n9ca71c4ce2 --> nacb3ceafef : síncrona
+n9ca71c4ce2 --> n62c2af3d19 : síncrona
 n9e2127431d ..> n2c28dde60e : asíncrona
-n23fb7c8d16 --> n332b622517 : síncrona
-n23fb7c8d16 --> n05766f4679 : síncrona
-ne45be1344d --> n332b622517 : síncrona
-ne45be1344d --> n05766f4679 : síncrona
-n9666ef0659 --> n05766f4679 : síncrona
-n69d89b1d8c --> n23fb7c8d16 : síncrona
-n3898e6f467 --> nefd77277fd : síncrona
-n3898e6f467 --> n23fb7c8d16 : síncrona
-ne90d71830a --> n23fb7c8d16 : síncrona
-n83d5115c83 --> n23fb7c8d16 : síncrona
-n27ae570fe9 --> n23fb7c8d16 : síncrona
-n76e8386fea --> n23fb7c8d16 : síncrona
-n46dc5cc68e --> n23fb7c8d16 : síncrona
-ncead72cfeb --> n23fb7c8d16 : síncrona
-n9200c1431e --> n40caa891fe : síncrona
-n9200c1431e --> n23fb7c8d16 : síncrona
-nceb90c202f --> n23fb7c8d16 : síncrona
-na62e9c42fc --> n05766f4679 : síncrona
-nb756e00a7f --> n05766f4679 : síncrona
-nb561ffbc05 --> n05766f4679 : síncrona
-n719abc7e65 --> n05766f4679 : síncrona
-n091ba89cf1 --> n05766f4679 : síncrona
-n16e08bed59 --> n23fb7c8d16 : síncrona
+n11d586ec95 --> nd7c4778c17 : síncrona
+n11d586ec95 --> n9d54627ca5 : síncrona
+nacb3ceafef --> nd7c4778c17 : síncrona
+nacb3ceafef --> n9d54627ca5 : síncrona
+n18b8c76447 --> n9d54627ca5 : síncrona
+n47dbbcd128 --> n11d586ec95 : síncrona
+nf7a3fd3fa7 --> n4316fdd446 : síncrona
+nf7a3fd3fa7 --> n11d586ec95 : síncrona
+n0bf80517b4 --> n11d586ec95 : síncrona
+n60b0cf8cad --> n11d586ec95 : síncrona
+naf02b1bc78 --> n11d586ec95 : síncrona
+n6541552cc2 --> n11d586ec95 : síncrona
+nf41c46053c --> n11d586ec95 : síncrona
+n3a66901c11 --> n11d586ec95 : síncrona
+n199de97a81 --> n67714987c3 : síncrona
+n199de97a81 --> n11d586ec95 : síncrona
+n9bd103dfd7 --> n8d63ce830a : síncrona
+n9bd103dfd7 --> nbc806381e8 : síncrona
+nc8500bc751 --> n070eea3cc7 : síncrona
+nc8500bc751 --> n9bd103dfd7 : síncrona
+nc8500bc751 --> n11d586ec95 : síncrona
+n5f84836d20 --> n9d54627ca5 : síncrona
+n2030e2bd2f --> n9d54627ca5 : síncrona
+n272da64f6c --> n9d54627ca5 : síncrona
+nc44d70c1da --> n9d54627ca5 : síncrona
+ndbedf3f906 --> n9d54627ca5 : síncrona
+n8106c54b68 --> n11d586ec95 : síncrona
+n62c2af3d19 --> nd7c4778c17 : síncrona
+n62c2af3d19 --> n9d54627ca5 : síncrona
 n5dae047b8f --> nb983649585 : síncrona
 n8e2fbfdb5d --> nb983649585 : síncrona
 n8e2fbfdb5d --> n5dae047b8f : síncrona
 n67c3bdbb31 --> n8e2fbfdb5d : síncrona
 n918003cd14 --> nb983649585 : síncrona
-na677870675 --> nb983649585 : síncrona
-na677870675 --> n5dae047b8f : síncrona
+n51981cbeb3 --> nb983649585 : síncrona
+n51981cbeb3 --> n5dae047b8f : síncrona
 n9c7f87a274 ..> nc197fe04ab : asíncrona
 n06e0517455 --> n75cdaae440 : síncrona
 n1520d57fd8 ..> n5a1cf90c3e : asíncrona
 n1520d57fd8 ..> n4aa436b2b5 : asíncrona
 n1520d57fd8 ..> n75cdaae440 : asíncrona
-n1520d57fd8 ..> n332b622517 : asíncrona
+n1520d57fd8 ..> nd7c4778c17 : asíncrona
 n5a1cf90c3e ..> nede5d2494e : cola/evento
 n34e81b855a ..> n9c7f87a274 : cola/evento
-n76f6a478db ..> nceb90c202f : cola/evento
-n896832408a --> n9a0f6ac366 : síncrona
-n896832408a --> ncead72cfeb : síncrona
-n896832408a --> n46dc5cc68e : síncrona
-n896832408a --> n9666ef0659 : síncrona
-n896832408a --> n9200c1431e : síncrona
-n896832408a --> n2c28dde60e : síncrona
-n896832408a --> n69d89b1d8c : síncrona
-n896832408a --> n9c7f87a274 : síncrona
-n332b622517 --> n06e0517455 : síncrona
-n332b622517 --> n83d5115c83 : síncrona
-ndc211d5b95 --> n2c28dde60e : síncrona
-ndc211d5b95 --> n4c576330b1 : síncrona
-ndc211d5b95 --> n7e9b9be06c : síncrona
-ndc211d5b95 --> n69d89b1d8c : síncrona
-n248d2dce7d --> n9c7f87a274 : síncrona
-nc52dd740aa --> n06e0517455 : síncrona
-n129ecd6bf8 --> n7e9b9be06c : síncrona
-n129ecd6bf8 --> nc197fe04ab : síncrona
-n129ecd6bf8 --> n9c7f87a274 : síncrona
-n7d5ebbc8b4 --> n3b759c213f : síncrona
-n7d5ebbc8b4 --> ndf8487517c : síncrona
-n7d5ebbc8b4 --> nc197fe04ab : síncrona
-n9a0f6ac366 --> n69d89b1d8c : síncrona
-ndddad585fb --> nc197fe04ab : síncrona
-n230292e845 --> n67c3bdbb31 : síncrona
-n230292e845 --> n918003cd14 : síncrona
-n5904f4d532 --> n9a0f6ac366 : síncrona
-n5904f4d532 --> nf0737ba032 : síncrona
-n5904f4d532 --> n9666ef0659 : síncrona
-n5904f4d532 --> n3b759c213f : síncrona
-n5904f4d532 --> n4c576330b1 : síncrona
-n5904f4d532 --> n69d89b1d8c : síncrona
-n35e10ad2f6 --> n5904f4d532 : síncrona
-n35e10ad2f6 --> n230292e845 : síncrona
-n35e10ad2f6 --> ndddad585fb : síncrona
-n1d52dd4c0f --> n5904f4d532 : síncrona
-n1d52dd4c0f --> ndddad585fb : síncrona
-n1d52dd4c0f --> n9666ef0659 : síncrona
-n1d52dd4c0f --> n69d89b1d8c : síncrona
-n19d904450d --> n9a0f6ac366 : síncrona
-n19d904450d --> n5b7c497ab8 : síncrona
-n19d904450d --> nd7487f13c1 : síncrona
-n19d904450d --> n9666ef0659 : síncrona
-n19d904450d --> n3b759c213f : síncrona
-n19d904450d --> n4c576330b1 : síncrona
-n19d904450d --> nc6fa0f1a20 : síncrona
-n19d904450d --> n69d89b1d8c : síncrona
-n19d904450d --> n76e8386fea : síncrona
-nd8734ad52f --> n19d904450d : síncrona
-n1a9e2ce29f --> n9a0f6ac366 : síncrona
-n1a9e2ce29f --> nf0737ba032 : síncrona
-n1a9e2ce29f --> n244f8444b7 : síncrona
-n1a9e2ce29f --> n5b7c497ab8 : síncrona
-n1a9e2ce29f --> n3b759c213f : síncrona
-n1a9e2ce29f --> n4c576330b1 : síncrona
-n1a9e2ce29f --> n69d89b1d8c : síncrona
-n5b7c497ab8 --> n9666ef0659 : síncrona
-n5b7c497ab8 --> n69d89b1d8c : síncrona
-nf0737ba032 --> n9a0f6ac366 : síncrona
-nf0737ba032 --> nc6fa0f1a20 : síncrona
-n244f8444b7 --> n9a0f6ac366 : síncrona
-n244f8444b7 --> nc6fa0f1a20 : síncrona
-nf5cff9c6eb --> n4979c10981 : síncrona
-n4979c10981 --> n9a0f6ac366 : síncrona
-n4979c10981 --> n5b7c497ab8 : síncrona
-n4979c10981 --> nd7487f13c1 : síncrona
-n4979c10981 --> n3b759c213f : síncrona
-n4979c10981 --> n4c576330b1 : síncrona
-n4979c10981 --> nc6fa0f1a20 : síncrona
-n4979c10981 --> n76e8386fea : síncrona
-nef2199af78 --> n4979c10981 : síncrona
-nef2199af78 --> n072122a3f8 : síncrona
-n072122a3f8 --> n9a0f6ac366 : síncrona
-n072122a3f8 --> n3b759c213f : síncrona
-n072122a3f8 --> n4c576330b1 : síncrona
-nc6fa0f1a20 --> n67c3bdbb31 : síncrona
-nc6fa0f1a20 --> ne1b1b4ed58 : síncrona
-nc6fa0f1a20 --> n27ae570fe9 : síncrona
-nc6fa0f1a20 --> n4c576330b1 : síncrona
-nc6fa0f1a20 --> n69d89b1d8c : síncrona
-nc6fa0f1a20 --> n76e8386fea : síncrona
-n96e7060441 --> n3898e6f467 : síncrona
-n96e7060441 --> n4c576330b1 : síncrona
-nf0c0061b26 --> n4c576330b1 : síncrona
-nbd9caf92eb --> n9200c1431e : síncrona
-nbd9caf92eb --> n4c576330b1 : síncrona
-nbd9caf92eb --> n96e7060441 : síncrona
-nbd9caf92eb --> n83d5115c83 : síncrona
-n3aea915da2 --> n4c576330b1 : síncrona
-n3aea915da2 --> n76e8386fea : síncrona
-n57ad37b856 --> n1a9e2ce29f : síncrona
-n57ad37b856 --> n4979c10981 : síncrona
-n57ad37b856 --> nf5cff9c6eb : síncrona
-n57ad37b856 --> n3bc9ebfff8 : síncrona
-n57ad37b856 --> na677870675 : síncrona
-n57ad37b856 --> n9200c1431e : síncrona
-n57ad37b856 --> ndf8487517c : síncrona
-n57ad37b856 --> n4c576330b1 : síncrona
-n57ad37b856 --> nc197fe04ab : síncrona
-n57ad37b856 --> n55583f40a2 : síncrona
-n57ad37b856 --> n76e8386fea : síncrona
-n57ad37b856 --> ne90d71830a : síncrona
-n3bc9ebfff8 --> n1a9e2ce29f : síncrona
-n3bc9ebfff8 --> n4979c10981 : síncrona
-n3bc9ebfff8 --> nf0737ba032 : síncrona
-n3bc9ebfff8 --> n244f8444b7 : síncrona
-n3bc9ebfff8 --> n9200c1431e : síncrona
-n3bc9ebfff8 --> nc6fa0f1a20 : síncrona
-n3bc9ebfff8 --> n76e8386fea : síncrona
-n1bca975513 --> n9a0f6ac366 : síncrona
-n1bca975513 --> n5b7c497ab8 : síncrona
-n1bca975513 --> nd7487f13c1 : síncrona
-n1bca975513 --> n3b759c213f : síncrona
-n1bca975513 --> n4c576330b1 : síncrona
-n5f7b2f0f67 --> n1bca975513 : síncrona
-n5f7b2f0f67 --> n46dc5cc68e : síncrona
-n5f7b2f0f67 --> n9200c1431e : síncrona
-n5f7b2f0f67 --> n3b759c213f : síncrona
-n5f7b2f0f67 --> n83d5115c83 : síncrona
-ne446ac80b8 --> n5f7b2f0f67 : síncrona
-ne446ac80b8 --> n37e61be468 : síncrona
-ne446ac80b8 --> n9200c1431e : síncrona
-ne446ac80b8 --> nc6fa0f1a20 : síncrona
-ne446ac80b8 --> nc197fe04ab : síncrona
+n76f6a478db ..> nc8500bc751 : cola/evento
+n21b7e67766 --> ne007ec69a2 : síncrona
+n21b7e67766 --> n3a66901c11 : síncrona
+n21b7e67766 --> nf41c46053c : síncrona
+n21b7e67766 --> n18b8c76447 : síncrona
+n21b7e67766 --> n199de97a81 : síncrona
+n21b7e67766 --> n2c28dde60e : síncrona
+n21b7e67766 --> n47dbbcd128 : síncrona
+n21b7e67766 --> n9c7f87a274 : síncrona
+nd7c4778c17 --> n06e0517455 : síncrona
+nd7c4778c17 --> n60b0cf8cad : síncrona
+n2837494ee6 --> n2c28dde60e : síncrona
+n2837494ee6 --> n4c576330b1 : síncrona
+n2837494ee6 --> n7e9b9be06c : síncrona
+n2837494ee6 --> n47dbbcd128 : síncrona
+n1957ce84e6 --> n9c7f87a274 : síncrona
+n7c02a4d30d --> n06e0517455 : síncrona
+n7dc9552171 --> n7e9b9be06c : síncrona
+n7dc9552171 --> nc197fe04ab : síncrona
+n7dc9552171 --> n9c7f87a274 : síncrona
+n97af93f1c6 --> ne78aa088df : síncrona
+n97af93f1c6 --> n46775125a7 : síncrona
+n97af93f1c6 --> nc197fe04ab : síncrona
+ne007ec69a2 --> n47dbbcd128 : síncrona
+nf1aeb31b3d --> nc197fe04ab : síncrona
+naaf08a29e6 --> n67c3bdbb31 : síncrona
+naaf08a29e6 --> n918003cd14 : síncrona
+n50fa861f35 --> ne007ec69a2 : síncrona
+n50fa861f35 --> n94c7e22137 : síncrona
+n50fa861f35 --> n18b8c76447 : síncrona
+n50fa861f35 --> ne78aa088df : síncrona
+n50fa861f35 --> n4c576330b1 : síncrona
+n50fa861f35 --> n47dbbcd128 : síncrona
+nc72c80f198 --> n50fa861f35 : síncrona
+nc72c80f198 --> naaf08a29e6 : síncrona
+nc72c80f198 --> nf1aeb31b3d : síncrona
+n46a3c3f292 --> n50fa861f35 : síncrona
+n46a3c3f292 --> nf1aeb31b3d : síncrona
+n46a3c3f292 --> n18b8c76447 : síncrona
+n46a3c3f292 --> n47dbbcd128 : síncrona
+n7401223799 --> ne007ec69a2 : síncrona
+n7401223799 --> n66d0abd223 : síncrona
+n7401223799 --> nd7487f13c1 : síncrona
+n7401223799 --> n18b8c76447 : síncrona
+n7401223799 --> ne78aa088df : síncrona
+n7401223799 --> n4c576330b1 : síncrona
+n7401223799 --> n81d8816604 : síncrona
+n7401223799 --> n47dbbcd128 : síncrona
+n7401223799 --> n6541552cc2 : síncrona
+n076a4f2906 --> n7401223799 : síncrona
+n65629473d0 --> ne007ec69a2 : síncrona
+n65629473d0 --> n94c7e22137 : síncrona
+n65629473d0 --> needc821158 : síncrona
+n65629473d0 --> n66d0abd223 : síncrona
+n65629473d0 --> ne78aa088df : síncrona
+n65629473d0 --> n4c576330b1 : síncrona
+n65629473d0 --> n47dbbcd128 : síncrona
+n66d0abd223 --> n18b8c76447 : síncrona
+n66d0abd223 --> n47dbbcd128 : síncrona
+n94c7e22137 --> ne007ec69a2 : síncrona
+n94c7e22137 --> n81d8816604 : síncrona
+needc821158 --> ne007ec69a2 : síncrona
+needc821158 --> n81d8816604 : síncrona
+n024ecb3a08 --> n3e6b3beaca : síncrona
+n3e6b3beaca --> ne007ec69a2 : síncrona
+n3e6b3beaca --> n66d0abd223 : síncrona
+n3e6b3beaca --> nd7487f13c1 : síncrona
+n3e6b3beaca --> ne78aa088df : síncrona
+n3e6b3beaca --> n4c576330b1 : síncrona
+n3e6b3beaca --> n81d8816604 : síncrona
+n3e6b3beaca --> n6541552cc2 : síncrona
+n2087b5efc4 --> n3e6b3beaca : síncrona
+n2087b5efc4 --> n9153356e4f : síncrona
+n9153356e4f --> ne007ec69a2 : síncrona
+n9153356e4f --> ne78aa088df : síncrona
+n9153356e4f --> n4c576330b1 : síncrona
+n81d8816604 --> n67c3bdbb31 : síncrona
+n81d8816604 --> ne1b1b4ed58 : síncrona
+n81d8816604 --> naf02b1bc78 : síncrona
+n81d8816604 --> n4c576330b1 : síncrona
+n81d8816604 --> n47dbbcd128 : síncrona
+n81d8816604 --> n6541552cc2 : síncrona
+n1eec8828b6 --> nf7a3fd3fa7 : síncrona
+n1eec8828b6 --> n4c576330b1 : síncrona
+n4958fad6d4 --> n4c576330b1 : síncrona
+nbb05040b56 --> n199de97a81 : síncrona
+nbb05040b56 --> n4c576330b1 : síncrona
+nbb05040b56 --> n1eec8828b6 : síncrona
+nbb05040b56 --> n60b0cf8cad : síncrona
+nff78a2797d --> n4c576330b1 : síncrona
+nff78a2797d --> n6541552cc2 : síncrona
+n9a57989029 --> n65629473d0 : síncrona
+n9a57989029 --> n3e6b3beaca : síncrona
+n9a57989029 --> n024ecb3a08 : síncrona
+n9a57989029 --> na32a4ec87e : síncrona
+n9a57989029 --> n51981cbeb3 : síncrona
+n9a57989029 --> n199de97a81 : síncrona
+n9a57989029 --> n46775125a7 : síncrona
+n9a57989029 --> n4c576330b1 : síncrona
+n9a57989029 --> nc197fe04ab : síncrona
+n9a57989029 --> n55583f40a2 : síncrona
+n9a57989029 --> nbc806381e8 : síncrona
+n9a57989029 --> n6541552cc2 : síncrona
+n9a57989029 --> n0bf80517b4 : síncrona
+na32a4ec87e --> n65629473d0 : síncrona
+na32a4ec87e --> n3e6b3beaca : síncrona
+na32a4ec87e --> n94c7e22137 : síncrona
+na32a4ec87e --> needc821158 : síncrona
+na32a4ec87e --> n199de97a81 : síncrona
+na32a4ec87e --> n81d8816604 : síncrona
+na32a4ec87e --> n6541552cc2 : síncrona
+n1b57255582 --> ne007ec69a2 : síncrona
+n1b57255582 --> n66d0abd223 : síncrona
+n1b57255582 --> nd7487f13c1 : síncrona
+n1b57255582 --> ne78aa088df : síncrona
+n1b57255582 --> n4c576330b1 : síncrona
+n517df21a27 --> n1b57255582 : síncrona
+n517df21a27 --> nf41c46053c : síncrona
+n517df21a27 --> n199de97a81 : síncrona
+n517df21a27 --> ne78aa088df : síncrona
+n517df21a27 --> n60b0cf8cad : síncrona
+n62f8d1d95e --> n517df21a27 : síncrona
+n62f8d1d95e --> nc0689735c6 : síncrona
+n62f8d1d95e --> n199de97a81 : síncrona
+n62f8d1d95e --> n81d8816604 : síncrona
+n62f8d1d95e --> nc197fe04ab : síncrona
 n9768753665 --> nab39be2bb6 : síncrona
 n815823909d --> n11a7fd3b87 : síncrona
 n1eb416b959 --> n11a7fd3b87 : síncrona
-n1eb416b959 --> ne14be5f2cb : síncrona
-n1eb416b959 --> ndc211d5b95 : síncrona
+n1eb416b959 --> n1d227e920d : síncrona
+n1eb416b959 --> n2837494ee6 : síncrona
 n73c8d4811c --> n11a7fd3b87 : síncrona
-n73c8d4811c --> n7d5ebbc8b4 : síncrona
+n73c8d4811c --> n97af93f1c6 : síncrona
 n93a37929af --> n11a7fd3b87 : síncrona
-n93a37929af --> nc6fa0f1a20 : síncrona
+n93a37929af --> n81d8816604 : síncrona
 nd45a072485 --> n11a7fd3b87 : síncrona
-nd45a072485 --> nc6fa0f1a20 : síncrona
+nd45a072485 --> n81d8816604 : síncrona
 n8fdba82311 --> n11a7fd3b87 : síncrona
-n8fdba82311 --> n3b759c213f : síncrona
-n8fdba82311 --> n35e10ad2f6 : síncrona
-n8fdba82311 --> n19d904450d : síncrona
+n8fdba82311 --> ne78aa088df : síncrona
+n8fdba82311 --> nc72c80f198 : síncrona
+n8fdba82311 --> n7401223799 : síncrona
 n69f79285a5 --> n11a7fd3b87 : síncrona
 na13c11dcdf --> n11a7fd3b87 : síncrona
-na13c11dcdf --> n1d52dd4c0f : síncrona
+na13c11dcdf --> n46a3c3f292 : síncrona
 n18b113cef4 --> n11a7fd3b87 : síncrona
-n18b113cef4 --> ne446ac80b8 : síncrona
+n18b113cef4 --> n62f8d1d95e : síncrona
 n18b113cef4 --> n9c7f87a274 : síncrona
 n5f28d62235 --> n11a7fd3b87 : síncrona
 n1ef8b6f8a4 --> n11a7fd3b87 : síncrona
 na5e8d26bb3 --> n11a7fd3b87 : síncrona
-na5e8d26bb3 --> n16e08bed59 : síncrona
+na5e8d26bb3 --> n8106c54b68 : síncrona
 n13eb31c6b3 --> n11a7fd3b87 : síncrona
-n13eb31c6b3 --> na62e9c42fc : síncrona
-nefd77277fd --> n11a7fd3b87 : síncrona
-nefd77277fd --> nb756e00a7f : síncrona
-n2ce00fdeb1 --> n11a7fd3b87 : síncrona
-n2ce00fdeb1 --> n719abc7e65 : síncrona
-n2ce00fdeb1 --> n091ba89cf1 : síncrona
-n2ce00fdeb1 --> nb561ffbc05 : síncrona
-n2ce00fdeb1 --> na62e9c42fc : síncrona
-n40caa891fe ..> n11a7fd3b87 : cola/evento
-n40caa891fe ..> n7d5ebbc8b4 : cola/evento
-n40caa891fe ..> n2a6d149e68 : cola/evento
-n40caa891fe ..> na9729b1c67 : cola/evento
-n40caa891fe ..> n88563040de : cola/evento
-n2a6d149e68 ..> n7d5ebbc8b4 : cola/evento
-n2a6d149e68 ..> n88563040de : cola/evento
+n13eb31c6b3 --> n5f84836d20 : síncrona
+n4316fdd446 --> n11a7fd3b87 : síncrona
+n4316fdd446 --> n2030e2bd2f : síncrona
+n8e8dc327c9 --> n11a7fd3b87 : síncrona
+n8e8dc327c9 --> nc44d70c1da : síncrona
+n8e8dc327c9 --> ndbedf3f906 : síncrona
+n8e8dc327c9 --> n272da64f6c : síncrona
+n8e8dc327c9 --> n5f84836d20 : síncrona
+n67714987c3 ..> n11a7fd3b87 : cola/evento
+n67714987c3 ..> n97af93f1c6 : cola/evento
+n67714987c3 ..> n25871ada17 : cola/evento
+n67714987c3 ..> na9729b1c67 : cola/evento
+n67714987c3 ..> n88563040de : cola/evento
+n25871ada17 ..> n97af93f1c6 : cola/evento
+n25871ada17 ..> n88563040de : cola/evento
 legend
 |= Flecha |= Interacción |
 | --> | síncrona |

@@ -147,7 +147,10 @@ void calTorque(bool primera) {
   const bool ladoDerOk = (d[1]+d[3])/2 >= CAL_TICKS_MOVIMIENTO;
   bool ticksOk = ladoIzqOk && ladoDerOk;
   bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
-  aplicarVelocidades(-candidatoCal * pwmCal, candidatoCal * pwmCal);
+  if (!aplicarVelocidades(-candidatoCal * pwmCal, candidatoCal * pwmCal)) {
+    fallo("motor_output_error");
+    return;
+  }
 
   if (ticksOk && gyroOk) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
@@ -417,7 +420,10 @@ void controlarGiro() {
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? -1 : 1;
     }
-    aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct);
+    if (!aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct)) {
+      fallo("motor_output_error");
+      return;
+    }
   } else frenarMotores();
 
   if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S || (ladoTicks[0]>=4&&ladoTicks[1]>=4)) {
@@ -623,8 +629,11 @@ bool controlarAntiFriccion(const SensorSnapshot& s) {
   const uint32_t transcurrido = millis() - inicioFaseAntiFriccionMs;
   if (antiFriccionPulsoEncendido) {
     if (transcurrido < ANTIFRICTION_PULSE_ON_MS) {
-      aplicarVelocidades(direccionTraslacion * antiFriccionPwmObjetivo,
-                         direccionTraslacion * antiFriccionPwmObjetivo);
+      if (!aplicarVelocidades(direccionTraslacion * antiFriccionPwmObjetivo,
+                              direccionTraslacion * antiFriccionPwmObjetivo)) {
+        fallo("motor_output_error");
+        return true;
+      }
       return true;
     }
     frenarMotores();
@@ -841,7 +850,10 @@ bool controlarAvance() {
   int magL = constrain(base - redL, VELOCIDAD_PRECISION_RECTO, PWM_MAX);
   int magR = constrain(baseDer - redR, VELOCIDAD_PRECISION_RECTO, PWM_MAX);
 
-  aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR);
+  if (!aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR)) {
+    fallo("motor_output_error");
+    return false;
+  }
 
   if (ticksEst >= 2.0f) { /* movimiento ok: se resetea watchdog externo via pulsos */ }
   return false;
@@ -1069,6 +1081,8 @@ bool iniciarCalibracion(int seq) {
 bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float targetY,
                  bool objetivoAbsoluto, ModoPaso modoPaso) {
   if (estadoActual != LISTO) return false;
+  // Rechazar NaN/Inf antes de normalizar o tocar cualquier estado del paso.
+  if (!std::isfinite(heading) || !std::isfinite(distanciaCm)) return false;
   if (distanciaCm < 0.5f || distanciaCm > STEP_MAX_DISTANCE_CM) return false;
   if (objetivoAbsoluto && (!std::isfinite(targetX) || !std::isfinite(targetY) ||
                            fabsf(targetX) > STEP_TARGET_MAX_ABS_CM ||
@@ -1128,7 +1142,7 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   recuperacionEndpointActiva = false;
   distanciaPlanificadaCm = distanciaCm;
 
-  if (std::isfinite(targetX) && std::isfinite(targetY)) {
+  if (objetivoAbsoluto) {
     pasoTargetX = targetX;
     pasoTargetY = targetY;
     tieneTargetEspacial = true;
@@ -1154,6 +1168,9 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
 
 bool iniciarGiroAbsoluto(float heading, int seq) {
   if (estadoActual != LISTO) return false;
+  // normalizar360(NaN) conserva NaN; validarlo aquí evita contaminar el
+  // objetivo y el estado global del giro.
+  if (!std::isfinite(heading)) return false;
   heading = normalizar360(heading);
   if (seq == 1) ultimoSeqCompletado = 0;
   if (seq <= ultimoSeqCompletado) {

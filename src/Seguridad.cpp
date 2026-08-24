@@ -238,6 +238,12 @@ void Seguridad::resetFallo() {
         LOG_CORE("Rearme ignorado: sin fallo activo.");
         return;
     }
+    if (!motoresListos()) {
+        LOG_CORE("Rearme rechazado: salida de motores no disponible.");
+        estadoActual = FALLO;
+        registrarMotivoFinalizacion("motor_output_unavailable");
+        return;
+    }
     LOG_CORE("Sistema rearmado.");
     estadoActual = robotCalibrado ? LISTO : DESARMADO;
     inicio_movimiento_ms = 0;

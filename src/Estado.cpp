@@ -1,9 +1,32 @@
 #include "Estado.h"
+#include <stddef.h>
 #if __has_include("Secrets.h")
 #include "Secrets.h"
 #else
-#include "Secrets.example.h"
+#error "Falta include/Secrets.h; configure credenciales locales antes de compilar el firmware."
 #endif
+
+// Limites de Arduino-ESP32 para WiFi.softAP(): SSID de 1..32 bytes y
+// contrasena WPA de 8..63 bytes. Se valida el tamano del arreglo literal
+// (incluye el terminador NUL) sin imprimir ni copiar los valores.
+constexpr bool contenidoSinNul(const char* valor, size_t longitud) {
+  return longitud == 0 ||
+         (valor[longitud - 1] != '\0' && contenidoSinNul(valor, longitud - 1));
+}
+
+template <size_t N>
+constexpr bool cadenaConfiguracionValida(const char (&valor)[N]) {
+  return N > 0 && valor[N - 1] == '\0' && contenidoSinNul(valor, N - 1);
+}
+
+static_assert(sizeof(WIFI_AP_SSID) >= 2 && sizeof(WIFI_AP_SSID) <= 33,
+              "WIFI_AP_SSID debe tener entre 1 y 32 bytes para ESP32 SoftAP");
+static_assert(sizeof(WIFI_AP_PASSWORD) >= 9 && sizeof(WIFI_AP_PASSWORD) <= 64,
+              "WIFI_AP_PASSWORD debe tener entre 8 y 63 bytes para ESP32 SoftAP");
+static_assert(cadenaConfiguracionValida(WIFI_AP_SSID),
+              "WIFI_AP_SSID no puede contener bytes NUL embebidos");
+static_assert(cadenaConfiguracionValida(WIFI_AP_PASSWORD),
+              "WIFI_AP_PASSWORD no puede contener bytes NUL embebidos");
 
 const char* ssid_AP = WIFI_AP_SSID;
 const char* password_AP = WIFI_AP_PASSWORD;

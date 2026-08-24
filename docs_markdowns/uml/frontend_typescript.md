@@ -11,14 +11,14 @@ flowchart LR
     n71584cfab9["status()"]
   end
   subgraph f1["protocol.ts"]
-    nc52961b61a["isRobotStatus()"]
+    n634920a897["isRobotStatus()"]
   end
   classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
   classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
   classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
   class n965d6db927 bajo
   class n71584cfab9 bajo
-  class nc52961b61a bajo
+  class n634920a897 bajo
 ```
 
 Fuentes: [Mermaid](mermaid/frontend_typescript.mmd) · [PlantUML](plantuml/frontend_typescript.puml). Las flechas continuas son llamadas síncronas; las discontinuas representan asincronía, eventos o colas. El color del nodo indica riesgo estático.
@@ -29,4 +29,4 @@ Fuentes: [Mermaid](mermaid/frontend_typescript.mmd) · [PlantUML](plantuml/front
 |---|---|---:|---|---|---|---|---|
 | `RobotApi.constructor` | [`desktop_app/frontend/src/api.ts`](../../desktop_app/frontend/src/api.ts#L4) | 1 | HMI / operador | Bajo; sin llamada interna detectada; síncrona | — | — | — |
 | `RobotApi.status` | [`desktop_app/frontend/src/api.ts`](../../desktop_app/frontend/src/api.ts#L6) | 2 | HMI / operador | Bajo; entrada/framework; asíncrona | `connection`, `events`, `stream` | — | — |
-| `isRobotStatus` | [`desktop_app/frontend/src/protocol.ts`](../../desktop_app/frontend/src/protocol.ts#L142) | 1 | HMI / operador | Bajo; sin llamada interna detectada; síncrona | — | — | — |
+| `isRobotStatus` | [`desktop_app/frontend/src/protocol.ts`](../../desktop_app/frontend/src/protocol.ts#L159) | 1 | HMI / operador | Bajo; sin llamada interna detectada; síncrona | — | — | — |

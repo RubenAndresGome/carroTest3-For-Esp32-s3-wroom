@@ -50,6 +50,11 @@ flowchart LR
     n6a1353563a["clasificarEncoders(const int64_t valores[4],float desacuerdoMaximo)"]
     n35f31e7c43["promedioConfiableLado(const int64_t valores[4],const bool confiable[4],bool izquierdo)"]
     ndd6f549d25["ladoEnStall(bool ladoExigido,bool pulsoFrontalCero,bool pulsoPosteriorCero)"]
+    ned19fbf336["fuentesPorLadoValidas(const bool confiable[4])"]
+    n5097db7551["encoderSinRespuestaAislada(int64_t delta,int64_t deltaPareja,bool ladoExigido)"]
+    n92bcf0cf35["nivelAntiFriccion8Bit(uint8_t indice)"]
+    n812e2668e9["movimientoAntiFriccionConfirmado(float deltaIzq,float deltaDer,float minimoTicks)"]
+    n55f597d38b["stopDebePreservarFallo(bool fallo,bool estop)"]
   end
   subgraph f3["Eventos.h"]
     nae6550dc08["tipo()"]
@@ -58,12 +63,7 @@ flowchart LR
     n76ea421fa2["detalle()"]
     n62d9f5cb98["progreso()"]
   end
-  subgraph f4["Mision.h"]
-    nb9914d7cbb["x_cm()"]
-    n95dbe740db["y_cm()"]
-    nfd79d6b1ab["step_id()"]
-  end
-  subgraph f5["PoseEstimator.h"]
+  subgraph f4["PoseEstimator.h"]
     n3bb4d1fc5e["getX() const"]
     n9130f7fc90["getY() const"]
     n1834fa7be3["getThetaRad() const"]
@@ -86,11 +86,15 @@ flowchart LR
     n6bc5cba68b["traslacion_giro_y_cm()"]
     nedb05230fb["DISTANCIA_EJES_CM()"]
   end
-  subgraph f6["Seguridad.h"]
-    nb8a33f8356["inicio_movimiento_ms()"]
-    nfcd2379a57["pulsos_movimiento_iniciales()"]
+  subgraph f5["Seguridad.h"]
+    n21514037cb["inicio_movimiento_ms()"]
+    nd68d40171a["pulsos_movimiento_iniciales()"]
+    ne0be1a0dfd["inicio_ventana_encoder_ms()"]
+    n0f5c6a90b0["pulsos_ventana_encoder()"]
+    n86a0c33a6e["pulsos_lado_anteriores()"]
+    n9ae96fe14f["ultimo_progreso_lado_ms()"]
   end
-  subgraph f7["Sensores.h"]
+  subgraph f6["Sensores.h"]
     na1bb2d9854["pulsosFL()"]
     nd1a857052e["pulsosFR()"]
     n9d7f448fe0["pulsosBL()"]
@@ -171,14 +175,16 @@ flowchart LR
   class n6a1353563a alto
   class n35f31e7c43 bajo
   class ndd6f549d25 bajo
+  class ned19fbf336 bajo
+  class n5097db7551 bajo
+  class n92bcf0cf35 bajo
+  class n812e2668e9 bajo
+  class n55f597d38b medio
   class nae6550dc08 bajo
   class na459c2b651 bajo
   class nf13fbcc40f bajo
   class n76ea421fa2 bajo
   class n62d9f5cb98 bajo
-  class nb9914d7cbb bajo
-  class n95dbe740db bajo
-  class nfd79d6b1ab bajo
   class n3bb4d1fc5e bajo
   class n9130f7fc90 bajo
   class n1834fa7be3 bajo
@@ -200,8 +206,12 @@ flowchart LR
   class nf4fed91bea bajo
   class n6bc5cba68b bajo
   class nedb05230fb bajo
-  class nb8a33f8356 bajo
-  class nfcd2379a57 bajo
+  class n21514037cb bajo
+  class nd68d40171a bajo
+  class ne0be1a0dfd bajo
+  class n0f5c6a90b0 bajo
+  class n86a0c33a6e bajo
+  class n9ae96fe14f bajo
   class na1bb2d9854 bajo
   class nd1a857052e bajo
   class n9d7f448fe0 bajo

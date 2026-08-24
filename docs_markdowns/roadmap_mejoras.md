@@ -40,7 +40,7 @@ Este documento recopila la evaluación casuística y detallada de los cuestionam
 
 #### 7. Alineación Cardinal Final a Yaw 0°
 - **Origen y Racional**: Los tramos ortogonales individuales concluyen manteniendo el rumbo del segmento ($\theta = 0^\circ, 90^\circ, 180^\circ, 270^\circ$) para permitir encadenamientos fluidos de pasos sin detener el robot ni girar innecesariamente a $0^\circ$ entre segmentos.
-- **Estado Actual**: Python conserva la misión y, al terminar la Ruta Ockham, envía el comando atómico `turn_to` a 0°. `Mision.cpp` no participa en la arquitectura operativa de pasos cortos.
+- **Estado Actual**: Python conserva la misión y, al terminar la Ruta Ockham, envía el comando atómico `turn_to` a 0°. El antiguo `Mision.cpp` fue retirado del firmware activo y se conserva sólo como referencia en `archive/legacy/firmware_mission/`.
 
 #### 8. Bug en Reorientación Final HMI (`index.html:2218`)
 - **Diagnóstico Confirmado**: `index.html` leía `orientacion` y la comparaba contra `3.5` como si fueran grados (mientras la variable telemetría se procesaba en radianes), e invocaba el envío de micro-desplazamientos de 0.5–1 cm.

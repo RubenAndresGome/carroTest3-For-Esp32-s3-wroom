@@ -237,4 +237,3 @@ const char* estadoMisionAutonoma() {
 }
 const char* idPasoMisionActual() { return stepIdPersistido; }
 bool misionAutonomaInterrumpida() { return interrumpida; }
-

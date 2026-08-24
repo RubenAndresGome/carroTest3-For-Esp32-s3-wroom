@@ -10,10 +10,19 @@ if (Test-Path $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $StageSrc, $StageInclude | Out-Null
 Copy-Item -Force (Join-Path $Root "platformio.ini") (Join-Path $Stage "platformio.ini")
 Copy-Item -Force (Join-Path $Root "partitions.csv") (Join-Path $Stage "partitions.csv")
-Copy-Item -Force (Join-Path $Root "include\*.h") $StageInclude
-if (-not (Test-Path (Join-Path $StageInclude "Secrets.h"))) {
-    Copy-Item -Force (Join-Path $Root "include\Secrets.example.h") (Join-Path $StageInclude "Secrets.h")
-}
+Get-ChildItem -LiteralPath (Join-Path $Root "include") -Filter "*.h" -File |
+    Where-Object { $_.Name -ne "Secrets.h" } |
+    ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $StageInclude -Force }
+
+# El staging siempre usa credenciales sintéticas y nunca lee ni copia el
+# include/Secrets.h local. El archivo vive sólo dentro de .pio.
+$ValidationSecrets = @'
+#pragma once
+constexpr char WIFI_AP_SSID[] = "ROBOT_S3_VALIDATION";
+constexpr char WIFI_AP_PASSWORD[] = "validation-only";
+'@
+Set-Content -LiteralPath (Join-Path $StageInclude "Secrets.h") `
+    -Value $ValidationSecrets -Encoding ascii
 
 $Modules = @(
     "main.cpp", "Estado.cpp", "Eventos.cpp", "Motores.cpp", "Sensores.cpp",

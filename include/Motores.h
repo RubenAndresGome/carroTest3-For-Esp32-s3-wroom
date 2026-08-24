@@ -6,10 +6,16 @@ extern int pwm_aplicado_R;
 extern int pwm_solicitado_L;
 extern int pwm_solicitado_R;
 
+// La salida PWM sólo queda habilitada después de setup_Motores(). El estado
+// permite distinguir un mapa inválido de un controlador aún no inicializado.
+bool validarMapaMotores();
+bool motoresListos();
+const char* estadoMotores();
+
 void setup_MotorPinsLow();
 bool validarInterlockMotores();
-void setup_Motores();
-void aplicarVelocidades(int velIzq, int velDer);
+bool setup_Motores();
+bool aplicarVelocidades(int velIzq, int velDer);
 void frenarMotores();
 const char *estadoInterlockL();
 const char *estadoInterlockR();

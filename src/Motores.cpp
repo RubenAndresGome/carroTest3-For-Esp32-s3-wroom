@@ -13,6 +13,16 @@ static const int MOTOR_PINS[8] = {
   PIN_FL_FWD, PIN_FL_REV, PIN_FR_FWD, PIN_FR_REV
 };
 
+enum class EstadoMotores : uint8_t {
+  NO_CONFIGURADOS,
+  MAPA_INVALIDO,
+  LISTOS,
+  ERROR_SALIDA
+};
+
+static EstadoMotores estadoSalidaMotores = EstadoMotores::NO_CONFIGURADOS;
+static uint8_t mascaraCanalesPWM = 0;
+
 enum class EstadoInterlock : uint8_t { APAGADO, ACTIVO, ESPERANDO_INVERSION };
 
 struct InterlockLado {
@@ -83,10 +93,42 @@ static InterlockLado interlockR;
 
 static int canalParaPin(int pin) {
   for (int i = 0; i < 8; ++i) if (MOTOR_PINS[i] == pin) return i;
-  return 0;
+  // Nunca asumir canal 0: un pin desconocido no debe energizar otra salida.
+  return -1;
 }
 
-static void setMotorPWM(int pinFwd, int pinRev, int vel) {
+static bool parMotorValido(int pinFwd, int pinRev) {
+  const int canalFwd = canalParaPin(pinFwd);
+  const int canalRev = canalParaPin(pinRev);
+  return pinFwd >= 0 && pinRev >= 0 && canalFwd >= 0 && canalRev >= 0 &&
+         canalFwd != canalRev;
+}
+
+bool validarMapaMotores() {
+  for (int i = 0; i < 8; ++i) {
+    if (MOTOR_PINS[i] < 0 || MOTOR_PINS[i] > 48) return false;
+    for (int j = i + 1; j < 8; ++j) {
+      if (MOTOR_PINS[i] == MOTOR_PINS[j]) return false;
+    }
+  }
+  return parMotorValido(PIN_FL_FWD, PIN_FL_REV) &&
+         parMotorValido(PIN_BL_FWD, PIN_BL_REV) &&
+         parMotorValido(PIN_FR_FWD, PIN_FR_REV) &&
+         parMotorValido(PIN_BR_FWD, PIN_BR_REV);
+}
+
+static void apagarCanalesPWM() {
+  // Apagado directo e idempotente: no depende del mapa ni llama a
+  // frenarMotores(), evitando recursión durante una ruta de error. Antes de
+  // ledcSetup los GPIO ya están en LOW por setup_MotorPinsLow(); no se escribe
+  // sobre canales que aún no existen.
+  for (int canal = 0; canal < 8; ++canal) {
+    if ((mascaraCanalesPWM & (1U << canal)) != 0U) ledcWrite(canal, 0);
+  }
+}
+
+static bool setMotorPWM(int pinFwd, int pinRev, int vel) {
+  if (!parMotorValido(pinFwd, pinRev)) return false;
   const int canalFwd = canalParaPin(pinFwd);
   const int canalRev = canalParaPin(pinRev);
   if (vel > 0) {
@@ -99,31 +141,64 @@ static void setMotorPWM(int pinFwd, int pinRev, int vel) {
     ledcWrite(canalFwd, 0);
     ledcWrite(canalRev, 0);
   }
+  return true;
 }
 
-static void aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
+static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
   vel = constrain(vel, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  setMotorPWM(pinFwd, pinRev, vel * PWM_FORWARD_POLARITY);
+  return setMotorPWM(pinFwd, pinRev, vel * PWM_FORWARD_POLARITY);
 }
 
-void aplicarVelocidades(int velIzq, int velDer) {
+bool aplicarVelocidades(int velIzq, int velDer) {
+  // Preflight completo: si el mapa o la inicialización son inválidos, no se
+  // permite ninguna escritura parcial ni se elige un canal por defecto.
+  const bool mapaValido = validarMapaMotores();
+  const bool paresValidos = mapaValido &&
+      parMotorValido(PIN_FL_FWD, PIN_FL_REV) &&
+      parMotorValido(PIN_BL_FWD, PIN_BL_REV) &&
+      parMotorValido(PIN_FR_FWD, PIN_FR_REV) &&
+      parMotorValido(PIN_BR_FWD, PIN_BR_REV);
+  if (!motoresListos() || !paresValidos) {
+    if (!mapaValido || !paresValidos) {
+      estadoSalidaMotores = EstadoMotores::MAPA_INVALIDO;
+    } else if (estadoSalidaMotores != EstadoMotores::ERROR_SALIDA) {
+      // ERROR_SALIDA queda enclavado hasta una nueva inicialización explícita.
+      estadoSalidaMotores = EstadoMotores::NO_CONFIGURADOS;
+    }
+    pwm_solicitado_L = 0;
+    pwm_solicitado_R = 0;
+    pwm_aplicado_L = 0;
+    pwm_aplicado_R = 0;
+    apagarCanalesPWM();
+    return false;
+  }
   const uint32_t ahora = millis();
   pwm_solicitado_L = constrain(velIzq, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
   pwm_solicitado_R = constrain(velDer, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
   pwm_aplicado_L = interlockL.actualizar(pwm_solicitado_L, ahora);
   pwm_aplicado_R = interlockR.actualizar(pwm_solicitado_R, ahora);
 
-  aplicarLadoUnico(PIN_FL_FWD, PIN_FL_REV, pwm_aplicado_L);
-  aplicarLadoUnico(PIN_BL_FWD, PIN_BL_REV, pwm_aplicado_L);
-  aplicarLadoUnico(PIN_FR_FWD, PIN_FR_REV, pwm_aplicado_R);
-  aplicarLadoUnico(PIN_BR_FWD, PIN_BR_REV, pwm_aplicado_R);
+  const bool escrito = aplicarLadoUnico(PIN_FL_FWD, PIN_FL_REV, pwm_aplicado_L) &&
+                       aplicarLadoUnico(PIN_BL_FWD, PIN_BL_REV, pwm_aplicado_L) &&
+                       aplicarLadoUnico(PIN_FR_FWD, PIN_FR_REV, pwm_aplicado_R) &&
+                       aplicarLadoUnico(PIN_BR_FWD, PIN_BR_REV, pwm_aplicado_R);
+  if (!escrito) {
+    estadoSalidaMotores = EstadoMotores::ERROR_SALIDA;
+    pwm_solicitado_L = 0;
+    pwm_solicitado_R = 0;
+    pwm_aplicado_L = 0;
+    pwm_aplicado_R = 0;
+    apagarCanalesPWM();
+    return false;
+  }
+  return true;
 }
 
 void frenarMotores() {
   const uint32_t ahora = millis();
   interlockL.detener(ahora);
   interlockR.detener(ahora);
-  for (int canal = 0; canal < 8; ++canal) ledcWrite(canal, 0);
+  apagarCanalesPWM();
   pwm_aplicado_L = 0;
   pwm_aplicado_R = 0;
   pwm_solicitado_L = 0;
@@ -183,18 +258,53 @@ int signoEnergizadoR() { return interlockR.signoActivo; }
 int signoPendienteL() { return interlockL.signoPendiente; }
 int signoPendienteR() { return interlockR.signoPendiente; }
 
-void setup_MotorPinsLow() {
-  for (int i = 0; i < 8; ++i) {
-    pinMode(MOTOR_PINS[i], OUTPUT);
-    digitalWrite(MOTOR_PINS[i], LOW);
+bool motoresListos() { return estadoSalidaMotores == EstadoMotores::LISTOS; }
+
+const char* estadoMotores() {
+  switch (estadoSalidaMotores) {
+    case EstadoMotores::MAPA_INVALIDO: return "MAPA_INVALIDO";
+    case EstadoMotores::LISTOS: return "LISTOS";
+    case EstadoMotores::ERROR_SALIDA: return "ERROR_SALIDA";
+    default: return "NO_CONFIGURADOS";
   }
 }
 
-void setup_Motores() {
-  LOG_CORE("Inicializando Motores DRV8833...");
-  for (int canal = 0; canal < 8; ++canal) {
-    ledcSetup(canal, PWM_FREQUENCY, PWM_RESOLUTION_BITS);
-    ledcAttachPin(MOTOR_PINS[canal], canal);
+void setup_MotorPinsLow() {
+  // Bajar todos los GPIO físicamente representables incluso si el mapa tiene
+  // duplicados. Un error de configuración no debe impedir desenergizar el
+  // resto de entradas del driver durante el arranque.
+  for (int i = 0; i < 8; ++i) {
+    if (MOTOR_PINS[i] < 0 || MOTOR_PINS[i] > 48) continue;
+    pinMode(MOTOR_PINS[i], OUTPUT);
+    digitalWrite(MOTOR_PINS[i], LOW);
   }
+  if (!validarMapaMotores()) estadoSalidaMotores = EstadoMotores::MAPA_INVALIDO;
+}
+
+bool setup_Motores() {
+  LOG_CORE("Inicializando Motores DRV8833...");
+  // Una reinicialización debe desenergizar primero cualquier canal válido de
+  // la configuración anterior. La máscara también permite apagar un setup
+  // parcial sin escribir sobre canales que nunca se configuraron.
+  apagarCanalesPWM();
+  mascaraCanalesPWM = 0;
+  if (!validarMapaMotores()) {
+    estadoSalidaMotores = EstadoMotores::MAPA_INVALIDO;
+    return false;
+  }
+  for (int canal = 0; canal < 8; ++canal) {
+    const double frecuenciaReal = ledcSetup(canal, PWM_FREQUENCY, PWM_RESOLUTION_BITS);
+    if (frecuenciaReal <= 0.0) {
+      apagarCanalesPWM();
+      estadoSalidaMotores = EstadoMotores::ERROR_SALIDA;
+      return false;
+    }
+    mascaraCanalesPWM |= static_cast<uint8_t>(1U << canal);
+    ledcAttachPin(MOTOR_PINS[canal], canal);
+    // No depender del duty inicial que deje la implementación de LEDC.
+    ledcWrite(canal, 0);
+  }
+  estadoSalidaMotores = EstadoMotores::LISTOS;
   frenarMotores();
+  return true;
 }

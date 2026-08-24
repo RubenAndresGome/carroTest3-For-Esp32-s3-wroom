@@ -137,7 +137,12 @@ void setup() {
     colaComandos = xQueueCreate(4, sizeof(ComandoRed));
     colaEventosRed = xQueueCreate(8, sizeof(EventoRed));
     PoseGlobal.inicializar(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
-    setup_Motores();
+    if (!setup_Motores()) {
+        estadoActual = FALLO;
+        strncpy(ultimoFalloDetalle, "motor_setup_error", sizeof(ultimoFalloDetalle) - 1);
+        ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
+        Serial.printf("FALLO: salida de motores no inicializada (%s).\n", estadoMotores());
+    }
     setup_Red();
     setup_Sensores();
     Serial.println("Sistema listo. Iniciando FreeRTOS...");

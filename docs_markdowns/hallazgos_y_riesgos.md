@@ -22,7 +22,7 @@ probabilidad y dificultad de detección, no el esfuerzo de corregir.
 | A-04 | 8.5 | Crítico | No aceptado | 2–4 días | Reservar terminales en cola, contar pérdidas y reconciliar por telemetría. |
 | A-05 | 7.0 | Crítico documental | Aceptación condicionada | 1–3 días | Convertir constantes aprobadas en fuente única y probar que documento y binario coincidan. |
 | A-06 | 9.5 | Crítico no aceptable | No aceptado | 0.5–2 días físicos | Medir cada encoder, revisar PCNT/cableado y repetir calibración con corriente limitada. |
-| A-07 | 4.0 | Medio | Aceptado temporal | 0.5–1 día | Mover `Mision.cpp` a referencia o marcarlo fuera del flujo en build/documentación. |
+| A-07 | 4.0 | Medio | Resuelto | 0.5–1 día | Retirado de `src/` e `include/`; conservar sólo en `archive/legacy/firmware_mission/`. |
 | A-08 | 5.5 | Alto | No aceptado | 1–2 días | Conservar una sesión lógica y registrar cortes como eventos de transporte. |
 | A-09 | 5.5 | Alto | No aceptado | 3–5 días | Ejecutar validaciones puras en host o self-test con VMOT deshabilitado. |
 | A-10 | 4.0 | Medio | Aceptado temporal | 10–20 días | Migrar gradualmente HMI a TypeScript empezando por cierre, sesión y misión. |
@@ -39,7 +39,7 @@ el repositorio; no incluyen compra de hardware ni repetición de ensayos físico
 |---|---|---|
 | Stall de avance configurado en 6000 ms y recuperaciones | Aceptado empíricamente para priorizar completar misión. No equivale a aceptar PWM indefinido ni anula E-STOP/watchdogs. | Revisar cuando exista medición de corriente y una especificación única; hoy contradice el texto de 450 ms de `AGENTS.md`. |
 | Límites PWM, interlock de 250 ms y tolerancias calibradas actuales | Se mantienen; esta auditoría no cambia firmware. | Reabrir sólo con prueba física comparativa y control de corriente. |
-| `Mision.cpp` compilado pero no operativo | Aceptado temporalmente como deuda visible. Python continúa siendo propietario único de misión. | Retirar o integrar mediante decisión arquitectónica explícita. |
+| `Mision.cpp` histórico no operativo | Resuelto: se movió a `archive/legacy/firmware_mission/` y no se compila desde el árbol activo. Python continúa siendo propietario único de misión. | Reabrir sólo mediante decisión arquitectónica explícita y revisión completa. |
 | HMI HTML/JS monolítica | Aceptada temporalmente porque es la interfaz canónica desplegada. | Migración incremental cuando las pruebas cubran los flujos críticos. |
 
 ## Riesgos que no pueden aceptarse sólo por software
