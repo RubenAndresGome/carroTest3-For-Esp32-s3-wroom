@@ -1,0 +1,12 @@
+# Bundles y portales generados; sus fuentes permanecen indexadas.
+docs/assets/
+documentacion_completa_localServer/site/
+documentacionCompleta/site/
+docs_markdowns/portal/dist/
+
+# Catálogos derivados que duplican miles de símbolos del código fuente.
+docs_markdowns/catalogo_funciones.json
+docs_markdowns/catalogo_funciones.csv
+
+# Mockups históricos no operativos.
+archive/legacy/

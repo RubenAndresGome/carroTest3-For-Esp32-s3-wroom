@@ -122,6 +122,7 @@ pnpm-debug.log*
 *.bak
 *.stackdump
 logs_mensajes/
+veredictos/
 **/crash*.txt
 **/logcat*.txt
 

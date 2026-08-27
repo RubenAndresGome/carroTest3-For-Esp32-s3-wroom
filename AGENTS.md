@@ -88,8 +88,16 @@ operativa obligatoria durante carga y reinicio.
 
 ## Herramientas
 
-- Si codebase-memory-mcp está disponible, usarlo antes de búsquedas amplias.
-  Si no está disponible, usar `rg` y documentar el hallazgo sin bloquearse.
+- Antes de una búsqueda amplia, consultar `codebase-memory-mcp` en este orden:
+  `list_projects`, `index_status` y después `search_graph`, `query_graph` o
+  `get_architecture`, según la pregunta. Usar `get_code_snippet` para recuperar
+  solamente el contexto necesario.
+- Si el proyecto no está indexado o `detect_changes` informa cambios, ejecutar
+  `scripts\desarrollo\actualizar_memoria_codigo.bat` desde la raíz antes de
+  continuar. El índice es una caché local: nunca se confirma en Git.
+- Si `codebase-memory-mcp` no está instalado o falla, usar `rg` y documentar el
+  hallazgo sin bloquearse. La memoria complementa `AGENTS.md`; no reemplaza las
+  fuentes canónicas ni las reglas de seguridad de este archivo.
 - Para inspeccionar la base de datos SQLite extraída por ADB (`tmp_db/robot.sqlite3`), usar la herramienta CLI canónica en la raíz:
   - `python consultar_db.py` (resumen general de tablas y sesiones)
   - `python consultar_db.py --commands 15` (últimos 15 comandos con su estado y payload)
