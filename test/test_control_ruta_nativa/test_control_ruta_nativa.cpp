@@ -2,6 +2,7 @@
 
 #include "ControlRuta.h"
 #include "ControlSeguridad.h"
+#include "ControlCalibracion.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -181,6 +182,45 @@ void test_estop_se_reconoce() {
   TEST_ASSERT_FALSE(ControlSeguridad::estopSolicitado(false));
 }
 
+void test_calibracion_conserva_promedio_de_ambos_encoders_por_lado() {
+  const int64_t deltas[4] = {0, 4, 4, 4};
+  const auto evaluacion = ControlCalibracion::evaluarEncoders(deltas, 2);
+  TEST_ASSERT_EQUAL_INT64(2, evaluacion.promedioIzquierdo);
+  TEST_ASSERT_TRUE(evaluacion.ladoIzquierdoValido);
+  TEST_ASSERT_TRUE(evaluacion.ladoDerechoValido);
+  TEST_ASSERT_TRUE(evaluacion.sinRespuestaAislada[0]);
+  TEST_ASSERT_FALSE(evaluacion.sinRespuestaAislada[2]);
+}
+
+void test_calibracion_rechaza_un_lado_completo_sin_pulsos() {
+  const int64_t deltas[4] = {0, 8, 1, 9};
+  const auto evaluacion = ControlCalibracion::evaluarEncoders(deltas, 2);
+  TEST_ASSERT_FALSE(evaluacion.ladoIzquierdoValido);
+  TEST_ASSERT_TRUE(evaluacion.ladoDerechoValido);
+  TEST_ASSERT_FALSE(evaluacion.sinRespuestaAislada[0]);
+  TEST_ASSERT_FALSE(evaluacion.sinRespuestaAislada[2]);
+}
+
+void test_calibracion_identifica_cualquier_encoder_aislado() {
+  for (int aislado = 0; aislado < 4; ++aislado) {
+    int64_t deltas[4] = {8, 8, 8, 8};
+    deltas[aislado] = 0;
+    const auto evaluacion = ControlCalibracion::evaluarEncoders(deltas, 2);
+    TEST_ASSERT_TRUE(evaluacion.ladoIzquierdoValido);
+    TEST_ASSERT_TRUE(evaluacion.ladoDerechoValido);
+    for (int i = 0; i < 4; ++i)
+      TEST_ASSERT_EQUAL(i == aislado, evaluacion.sinRespuestaAislada[i]);
+  }
+}
+
+void test_rampa_calibracion_expone_todos_los_niveles() {
+  TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::totalPasosRampa(140, 247, 5));
+  TEST_ASSERT_EQUAL_UINT8(1, ControlCalibracion::pasoRampaActual(140, 140, 247, 5));
+  TEST_ASSERT_EQUAL_UINT8(2, ControlCalibracion::pasoRampaActual(145, 140, 247, 5));
+  TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::pasoRampaActual(247, 140, 247, 5));
+  TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::pasoRampaActual(255, 140, 247, 5));
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -205,5 +245,9 @@ int main(int, char**) {
   RUN_TEST(test_antifriccion_escala_siete_pulsos_y_exige_ambos_lados);
   RUN_TEST(test_stop_no_borra_fallo_o_estop_enclavado);
   RUN_TEST(test_estop_se_reconoce);
+  RUN_TEST(test_calibracion_conserva_promedio_de_ambos_encoders_por_lado);
+  RUN_TEST(test_calibracion_rechaza_un_lado_completo_sin_pulsos);
+  RUN_TEST(test_calibracion_identifica_cualquier_encoder_aislado);
+  RUN_TEST(test_rampa_calibracion_expone_todos_los_niveles);
   return UNITY_END();
 }

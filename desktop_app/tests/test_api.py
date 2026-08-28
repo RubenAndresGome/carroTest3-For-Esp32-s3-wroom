@@ -56,6 +56,29 @@ class ApiTests(unittest.TestCase):
             with self.subTest(diagnostic=diagnostic):
                 self.assertIn(diagnostic, html)
 
+    def test_hmi_exposes_safe_rearm_and_calibration_diagnostics(self) -> None:
+        html = self.client.get("/").get_data(as_text=True)
+        for contract in (
+            'id="btn-clear-fault" hidden disabled',
+            "cmd:'clear_fault'",
+            "['FALLO','ESTOP'].includes(this.robotState)",
+            "['DESARMADO','LISTO'].includes(this.robotState)",
+            "this.mpuReady",
+            "this.commandPending",
+            "raw.allowed_commands",
+            "raw.calibration_diagnostics",
+            "diag.ramp_level",
+            "diag.pwm_10bit",
+            "diag.encoder_delta",
+            "diag.encoder_responding",
+            "diag.encoder_isolated",
+            "diag.sides",
+            "Causa exacta:",
+            "FALLO:'tv-fault',ESTOP:'tv-estop'",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, html)
+
     def test_event_seq_is_mapped_back_to_python_command_id(self) -> None:
         self.service.start_session()
         response = self.client.post(

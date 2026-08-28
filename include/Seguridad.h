@@ -3,13 +3,19 @@
 #include "Estado.h"
 #include "Sensores.h"
 
+enum class ResultadoRearme : uint8_t {
+    REARMADO,
+    SIN_FALLO_ACTIVO,
+    MOTORES_NO_DISPONIBLES
+};
+
 class Seguridad {
 public:
     Seguridad();
     void actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, int pwm_R);
     bool auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R);
     void forzarEStop();
-    void resetFallo();
+    ResultadoRearme resetFallo();
     void reiniciarSaludEncoders();
 
 private:

@@ -226,6 +226,8 @@ class TelemetrySnapshot:
     rtos_diagnostics: dict[str, Any] = field(default_factory=dict)
     motor_control: dict[str, Any] = field(default_factory=dict)
     calibration_diagnostics: dict[str, Any] = field(default_factory=dict)
+    fault: dict[str, Any] = field(default_factory=dict)
+    allowed_commands: tuple[str, ...] = ()
     self_test: dict[str, Any] = field(default_factory=dict)
     target: dict[str, Any] = field(default_factory=dict)
     drive_control: dict[str, Any] = field(default_factory=dict)
@@ -387,6 +389,11 @@ class TelemetrySnapshot:
             if isinstance(payload.get("motor_control", {}), Mapping) else {},
             calibration_diagnostics=dict(payload.get("calibration_diagnostics", {}))
             if isinstance(payload.get("calibration_diagnostics", {}), Mapping) else {},
+            fault=dict(payload.get("fault", {}))
+            if isinstance(payload.get("fault", {}), Mapping) else {},
+            allowed_commands=tuple(
+                str(command)[:32] for command in payload.get("allowed_commands", ())
+            ) if isinstance(payload.get("allowed_commands", ()), (list, tuple)) else (),
             self_test=dict(payload.get("self_test", {}))
             if isinstance(payload.get("self_test", {}), Mapping) else {},
             target=dict(payload.get("target", {})) if isinstance(payload.get("target", {}), Mapping) else {},
@@ -495,6 +502,8 @@ class TelemetrySnapshot:
             "rtos": self.rtos_diagnostics,
             "motor_control": self.motor_control,
             "calibration_diagnostics": self.calibration_diagnostics,
+            "fault": self.fault,
+            "allowed_commands": list(self.allowed_commands),
             "self_test": self.self_test,
             "last_terminal": self.last_terminal,
             "encoder_health": {

@@ -2,6 +2,7 @@
 #include "Comandos.h"
 #include "Config.h"
 #include "ControlRuta.h"
+#include "ControlCalibracion.h"
 #include "ControlSeguridad.h"
 #include "Debug.h"
 #include "Eventos.h"
@@ -102,7 +103,6 @@ int  pwmCal = 0;
 uint32_t ultimoRampaCalMs = 0;
 uint32_t inicioMovCalMs = 0;
 uint32_t inicioPausaReintentoCalMs = 0;
-uint8_t intentoCal = 1;
 uint32_t ultimaAuditoriaMaxCalMs = 0;
 uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
@@ -110,6 +110,48 @@ int64_t ticksBaseCal[4] = {};
 float yawInicioCalDeg = 0.0f;
 int  candidatoGiroPos = -1, candidatoGiroNeg = 1;
 int  pwmMinGiroPos = static_cast<int>(148 * PWM_SCALE_8_TO_10), pwmMinGiroNeg = static_cast<int>(148 * PWM_SCALE_8_TO_10);
+DiagnosticoCalibracion diagnosticoCal = {};
+
+void reiniciarDiagnosticoCalibracion() {
+  diagnosticoCal = {};
+  diagnosticoCal.activa = true;
+  diagnosticoCal.pasosRampaTotal = ControlCalibracion::totalPasosRampa(
+      CALIBRATION_PWM_START, CALIBRATION_PWM_END, CALIBRATION_PWM_STEP);
+}
+
+void actualizarDiagnosticoCalibracion(
+    const int64_t deltasEncoder[4],
+    const ControlCalibracion::EvaluacionEncoders& evaluacion) {
+  diagnosticoCal.activa = estadoActual == CALIBRANDO;
+  diagnosticoCal.pasoRampa = ControlCalibracion::pasoRampaActual(
+      pwmCal, CALIBRATION_PWM_START, CALIBRATION_PWM_END,
+      CALIBRATION_PWM_STEP);
+  diagnosticoCal.pwmObjetivo = pwmCal;
+  diagnosticoCal.candidatoDireccion = candidatoCal;
+  diagnosticoCal.promedioLados[0] = evaluacion.promedioIzquierdo;
+  diagnosticoCal.promedioLados[1] = evaluacion.promedioDerecho;
+  diagnosticoCal.ladosValidos[0] = evaluacion.ladoIzquierdoValido;
+  diagnosticoCal.ladosValidos[1] = evaluacion.ladoDerechoValido;
+  diagnosticoCal.stallAcumuladoMs[0] = stallMaxCalAcumMs[0];
+  diagnosticoCal.stallAcumuladoMs[1] = stallMaxCalAcumMs[1];
+  for (int i = 0; i < 4; ++i) {
+    diagnosticoCal.deltaEncoders[i] = deltasEncoder[i];
+    diagnosticoCal.encoderResponde[i] = evaluacion.responde[i];
+    diagnosticoCal.encoderAislado[i] = evaluacion.sinRespuestaAislada[i];
+  }
+}
+
+void conservarEncodersAisladosDelDiagnostico() {
+  bool degradado = false;
+  for (int i = 0; i < 4; ++i) {
+    if (diagnosticoCal.encoderAislado[i]) {
+      encoderConfiableGlobal[i] = false;
+      estadoSaludEncoderGlobal[i] = EstadoSaludEncoder::EXCLUDED;
+    }
+    degradado |= !encoderConfiableGlobal[i];
+  }
+  modoDegradado = degradado;
+}
 
 
 void iniciarFaseCal(Fase f) { fase = f; inicioFaseMs = millis(); }
@@ -120,8 +162,9 @@ void calCuenta() {
   if (!s.mpu_present || s.mpu_stale || !s.mpu_calibrated) { fallo("mpu_unavailable_cal"); return; }
   yawInicioCalDeg = normalizar360(anguloZ);
   pwmMinGiroPos=0; pwmMinGiroNeg=0; candidatoGiroPos=0; candidatoGiroNeg=0;
-  intentoCal=1; candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
+  candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
   ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
+  reiniciarDiagnosticoCalibracion();
   copiarBase(ticksBaseCal, s);
   iniciarFaseCal(Fase::CAL_A);
   strncpy(faseComando, "cal_a", sizeof(faseComando));
@@ -143,10 +186,13 @@ void calTorque(bool primera) {
   }
   const SensorSnapshot s = sensar();
   int64_t d[4]; deltas(ticksBaseCal, s, d);
-  const bool ladoIzqOk = (d[0]+d[2])/2 >= CAL_TICKS_MOVIMIENTO;
-  const bool ladoDerOk = (d[1]+d[3])/2 >= CAL_TICKS_MOVIMIENTO;
+  const ControlCalibracion::EvaluacionEncoders evaluacion =
+      ControlCalibracion::evaluarEncoders(d, CAL_TICKS_MOVIMIENTO);
+  const bool ladoIzqOk = evaluacion.ladoIzquierdoValido;
+  const bool ladoDerOk = evaluacion.ladoDerechoValido;
   bool ticksOk = ladoIzqOk && ladoDerOk;
   bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
+  actualizarDiagnosticoCalibracion(d, evaluacion);
   if (!aplicarVelocidades(-candidatoCal * pwmCal, candidatoCal * pwmCal)) {
     fallo("motor_output_error");
     return;
@@ -155,6 +201,7 @@ void calTorque(bool primera) {
   if (ticksOk && gyroOk) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
+      conservarEncodersAisladosDelDiagnostico();
       int guardado = min(PWM_TURN_MAX_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
       if (s.gyro_z_filtrado_rad_s > 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
       else { candidatoGiroNeg=candidatoCal; pwmMinGiroNeg=guardado; }
@@ -206,7 +253,7 @@ void controlarCalibracion() {
     case Fase::CAL_VALIDAR_25: controlarGiro(); break;
     case Fase::CAL_PAUSA:
       frenarMotores();
-      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) { candidatoCal=-candidatoGiroPos; pwmCal=CALIBRATION_PWM_START; intentoCal=1; inicioPausaReintentoCalMs=0; inicioMovCalMs=0; ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0; copiarBase(ticksBaseCal,s); ultimoRampaCalMs=millis(); iniciarFaseCal(Fase::CAL_B); strncpy(faseComando,"cal_b",sizeof(faseComando)); progresoComando=0.60f; }
+      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) { candidatoCal=-candidatoGiroPos; pwmCal=CALIBRATION_PWM_START; inicioPausaReintentoCalMs=0; inicioMovCalMs=0; ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0; copiarBase(ticksBaseCal,s); ultimoRampaCalMs=millis(); iniciarFaseCal(Fase::CAL_B); strncpy(faseComando,"cal_b",sizeof(faseComando)); progresoComando=0.60f; }
       break;
     case Fase::CAL_B: calTorque(false); break;
     case Fase::CAL_PAUSA_RETORNO:
@@ -1061,6 +1108,11 @@ bool enFaseGiro() {
 bool enFaseCalibracion() {
   return estadoActual == CALIBRANDO;
 }
+DiagnosticoCalibracion obtenerDiagnosticoCalibracion() {
+  DiagnosticoCalibracion copia = diagnosticoCal;
+  copia.activa = estadoActual == CALIBRANDO;
+  return copia;
+}
 
 bool iniciarCalibracion(int seq) {
   if (estadoActual != DESARMADO && estadoActual != LISTO) return false;
@@ -1071,6 +1123,7 @@ bool iniciarCalibracion(int seq) {
   pasoObjetivoAbsoluto = false;
   tieneTargetEspacial = false;
   registrarMotivoFinalizacion("");
+  reiniciarDiagnosticoCalibracion();
   fase = Fase::CAL_CUENTA; inicioFaseMs = millis();
   strncpy(faseComando, "cal", sizeof(faseComando));
   estadoActual = CALIBRANDO; progresoComando = 0.0f;

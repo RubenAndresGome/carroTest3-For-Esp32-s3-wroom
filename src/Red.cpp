@@ -225,7 +225,7 @@ static const char* textoSaludEncoder(EstadoSaludEncoder estado) {
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  StaticJsonDocument<3072> doc;
+  StaticJsonDocument<4096> doc;
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
@@ -248,6 +248,10 @@ static void enviarTelemetria() {
   JsonArray enc = doc.createNestedArray("enc");
   SensorSnapshot s = {};
   obtenerUltimoSnapshotSensores(s);
+  doc["mpu_present"] = s.mpu_present;
+  doc["mpu_stale"] = s.mpu_stale;
+  doc["mpu_calibrated"] = s.mpu_calibrated;
+  doc["i2c_ok"] = s.mpu_present;
   enc.add(s.pulsosFL); enc.add(s.pulsosFR); enc.add(s.pulsosBL); enc.add(s.pulsosBR);
   doc["degraded"] = modoDegradado;
   doc["degraded_mode"] = modoDegradado;
@@ -290,6 +294,56 @@ static void enviarTelemetria() {
   reingreso["br"] = encoderMuestrasReingreso[3];
   fusionEncoders["distance_scale_factor"] = FACTOR_ESCALA_ENCODER;
   fusionEncoders["distance_error_pct"] = ENCODER_ERROR_PORCENTAJE;
+  const DiagnosticoCalibracion diagnosticoCal = obtenerDiagnosticoCalibracion();
+  JsonObject calDiag = doc.createNestedObject("calibration_diagnostics");
+  calDiag["active"] = diagnosticoCal.activa;
+  calDiag["phase"] = faseComando;
+  calDiag["ramp_level"] = diagnosticoCal.pasoRampa;
+  calDiag["ramp_level_count"] = diagnosticoCal.pasosRampaTotal;
+  calDiag["pwm_10bit"] = diagnosticoCal.pwmObjetivo;
+  calDiag["pwm_8bit"] = lroundf(diagnosticoCal.pwmObjetivo / PWM_SCALE_8_TO_10);
+  calDiag["direction_candidate"] = diagnosticoCal.candidatoDireccion;
+  JsonArray calDelta = calDiag.createNestedArray("encoder_delta");
+  JsonArray calResponse = calDiag.createNestedArray("encoder_responding");
+  JsonArray calIsolated = calDiag.createNestedArray("encoder_isolated");
+  for (int i = 0; i < 4; ++i) {
+    calDelta.add(diagnosticoCal.deltaEncoders[i]);
+    calResponse.add(diagnosticoCal.encoderResponde[i]);
+    calIsolated.add(diagnosticoCal.encoderAislado[i]);
+  }
+  JsonObject calSides = calDiag.createNestedObject("sides");
+  JsonObject calLeft = calSides.createNestedObject("left");
+  calLeft["average"] = diagnosticoCal.promedioLados[0];
+  calLeft["ok"] = diagnosticoCal.ladosValidos[0];
+  calLeft["stall_ms"] = diagnosticoCal.stallAcumuladoMs[0];
+  JsonObject calRight = calSides.createNestedObject("right");
+  calRight["average"] = diagnosticoCal.promedioLados[1];
+  calRight["ok"] = diagnosticoCal.ladosValidos[1];
+  calRight["stall_ms"] = diagnosticoCal.stallAcumuladoMs[1];
+  calDiag["ticks_required"] = CAL_TICKS_MOVIMIENTO;
+  calDiag["stall_limit_ms"] = CAL_MAX_PWM_STALL_MS;
+  JsonObject fault = doc.createNestedObject("fault");
+  fault["active"] = estadoActual == FALLO || estadoActual == ESTOP;
+  fault["state"] = estadoActual == ESTOP ? "estop" : (estadoActual == FALLO ? "fallo" : "none");
+  fault["detail"] = ultimoFalloDetalle;
+  fault["rearm_required"] = estadoActual == FALLO || estadoActual == ESTOP;
+  JsonObject terminal = doc.createNestedObject("last_terminal");
+  terminal["detail"] = pasoMotivoFinalizacion;
+  terminal["active_seq"] = seqActivo;
+  JsonArray permitidos = doc.createNestedArray("allowed_commands");
+  permitidos.add("estop");
+  permitidos.add("stop");
+  if (estadoActual == FALLO || estadoActual == ESTOP) permitidos.add("clear_fault");
+  if (estadoActual == DESARMADO || estadoActual == LISTO) {
+    permitidos.add("reset_pose");
+    permitidos.add("set_comp");
+  }
+  if ((estadoActual == DESARMADO || estadoActual == LISTO) &&
+      s.mpu_present && s.mpu_calibrated && !s.mpu_stale) permitidos.add("calibrate");
+  if (estadoActual == LISTO && robotCalibrado) {
+    permitidos.add("step");
+    permitidos.add("turn_to");
+  }
   JsonObject movimiento = doc.createNestedObject("motion");
   movimiento["requested_mode"] = pasoModoSolicitado;
   movimiento["effective_mode"] = pasoModoEfectivo;

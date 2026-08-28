@@ -98,6 +98,8 @@ desktop_app/vendor/wheels/**/*.whl
 .npm/
 .pnpm-store/
 desktop_app/frontend/dist/
+desktop_app/frontend/playwright-report/
+desktop_app/frontend/test-results/
 desktop_app/robot_app/static/vite-dist/
 docs/portal/dist/
 .codex_tools/

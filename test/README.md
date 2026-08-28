@@ -13,9 +13,11 @@ inicializa ni energiza motores. Las pruebas manuales que reemplazan
 temporalmente el firmware viven en `src/` y deben tener un nombre
 `test_<función>.cpp`; solamente una puede permanecer activa.
 
-`test_control_ruta_nativa` ejecuta las comprobaciones de ruta y los predicados
-de seguridad (IMU, fusión robusta de encoder, stall y E-STOP) en el host, sin USB,
-Arduino ni PWM:
+`test_control_ruta_nativa` ejecuta las comprobaciones de ruta, calibración y
+los predicados de seguridad (IMU, fusión robusta de encoder, stall y E-STOP)
+en el host, sin USB, Arduino ni PWM. La calibración cubre la rampa incremental,
+el promedio obligatorio por lado y la identificación de un encoder individual
+sin respuesta:
 
 ```powershell
 C:\Users\IK\.platformio\penv\Scripts\platformio.exe test -e pruebas_control_ruta_nativas

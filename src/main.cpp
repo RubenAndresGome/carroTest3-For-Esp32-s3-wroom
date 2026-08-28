@@ -22,11 +22,15 @@ volatile int seq_ESTOP_pendiente = 0;
 void procesarComandos() {
     if (ControlSeguridad::estopSolicitado(flag_ESTOP_ISR)) {
         const int seq = seq_ESTOP_pendiente;
+        const int seqInterrumpido = seqActivo;
         flag_ESTOP_ISR = false;
         seq_ESTOP_pendiente = 0;
         WatchdogSeguridad.forzarEStop();
         xQueueReset(colaComandos);
-        encolarEvento(EVT_FAULT, seq, "estop");
+        if (seqInterrumpido > 0 && seqInterrumpido != seq) {
+            encolarEvento(EVT_FAULT, seqInterrumpido, "stopped_by_estop");
+        }
+        encolarEvento(EVT_COMPLETED, seq, "estop_latched");
         return;
     }
     ComandoRed cmd;
@@ -50,12 +54,28 @@ void procesarComandos() {
                 encolarEvento(EVT_COMPLETED, cmd.seq, "stop_ok");
                 break;
             case CMD_ESTOP:
+                {
+                const int seqInterrumpido = seqActivo;
                 WatchdogSeguridad.forzarEStop();
+                xQueueReset(colaComandos);
+                if (seqInterrumpido > 0 && seqInterrumpido != cmd.seq)
+                    encolarEvento(EVT_FAULT, seqInterrumpido, "stopped_by_estop");
+                encolarEvento(EVT_COMPLETED, cmd.seq, "estop_latched");
+                return;
+                }
                 break;
             case CMD_CLEAR_FAULT:
-                WatchdogSeguridad.resetFallo();
-                encolarEvento(EVT_COMPLETED, cmd.seq, "fault_cleared");
-                break;
+                {
+                const ResultadoRearme resultado = WatchdogSeguridad.resetFallo();
+                if (resultado == ResultadoRearme::REARMADO)
+                    encolarEvento(EVT_COMPLETED, cmd.seq, "fault_cleared");
+                else if (resultado == ResultadoRearme::SIN_FALLO_ACTIVO)
+                    encolarEvento(EVT_REJECTED, cmd.seq, "no_fault_active");
+                else
+                    encolarEvento(EVT_REJECTED, cmd.seq, "motor_output_unavailable");
+                xQueueReset(colaComandos);
+                return;
+                }
             case CMD_RESET_POSE:
                 if (estadoActual == LISTO || estadoActual == DESARMADO) {
                     PoseGlobal.reset();
@@ -64,7 +84,9 @@ void procesarComandos() {
                 } else encolarEvento(EVT_REJECTED, cmd.seq, "busy");
                 break;
             case CMD_SET_COMP:
-                if (cmd.factor >= COMP_FACTOR_MIN && cmd.factor <= COMP_FACTOR_MAX) {
+                if (estadoActual != DESARMADO && estadoActual != LISTO) {
+                    encolarEvento(EVT_REJECTED, cmd.seq, "busy");
+                } else if (cmd.factor >= COMP_FACTOR_MIN && cmd.factor <= COMP_FACTOR_MAX) {
                     factorCompensacionDer = cmd.factor;
                     encolarEvento(EVT_COMPLETED, cmd.seq, "comp_ok");
                 } else encolarEvento(EVT_REJECTED, cmd.seq, "comp_range");

@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.1";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 
@@ -154,13 +154,12 @@ constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
 constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
 constexpr int      CALIBRATION_PWM_END   = PWM_TURN_MAX_LIMIT;
-constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(13 * PWM_SCALE_8_TO_10); // ~5% de incremento por paso
-constexpr uint32_t CAL_RAMP_INTERVAL_MS = 500; // 500 ms de delay por paso de rampa
+constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
+constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
-constexpr uint8_t  CAL_MAX_ATTEMPTS = 7;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
-constexpr uint32_t CAL_MAX_PWM_STALL_MS = 1000;
+constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;

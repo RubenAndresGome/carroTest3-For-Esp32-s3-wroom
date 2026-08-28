@@ -10,9 +10,14 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude e2e/**",
+    "test:hmi-responsive": "vitest run tests/hmi-responsive-contract.test.ts",
+    "test:hmi-browser": "playwright test",
+    "test:hmi-browser:install": "playwright install chromium"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
     "@types/node": "24.13.3",
     "typescript": "7.0.2",
     "vite": "8.1.5",

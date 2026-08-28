@@ -25,8 +25,8 @@
             --border: #243040;
             --border-light: #2d3d50;
             --text-primary: #d8e2ec;
-            --text-secondary: #5a7088;
-            --text-muted: #3a4d60;
+            --text-secondary: #aab9c8;
+            --text-muted: #8fa3b7;
             --accent: #00e676;
             --accent-dim: rgba(0,230,118,0.12);
             --accent-glow: rgba(0,230,118,0.35);
@@ -40,11 +40,20 @@
             --reverse-dim: rgba(255,109,0,0.12);
             --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             --font-mono: 'SF Mono','Fira Code','Cascadia Code', Consolas, monospace;
-            --radius: 8px;
-            --radius-sm: 4px;
+            --glass-surface: rgba(18, 27, 39, 0.78);
+            --glass-surface-strong: rgba(22, 32, 46, 0.92);
+            --glass-border: rgba(151, 176, 202, 0.2);
+            --glass-highlight: rgba(255, 255, 255, 0.055);
+            --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.28);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --touch-target-min: 44px;
+            --touch-target-critical: 48px;
+            --font-size-min: 12px;
+            --font-size-operational: 14px;
             /* Alturas de elementos fijos */
-            --header-h: 46px;
-            --tabbar-h: 38px;
+            --header-h: 52px;
+            --tabbar-h: 48px;
             --fsm-h: auto;
         }
 
@@ -52,6 +61,7 @@
            2. RESET & BASE
            ============================================ */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display:none !important; }
         html {
             font-size: 14px;
             touch-action: manipulation;
@@ -64,12 +74,13 @@
             min-height: 100vh;
             min-height: 100dvh;
             background-image:
-                radial-gradient(ellipse at 50% 0%, rgba(0,230,118,0.025) 0%, transparent 60%),
+                radial-gradient(circle at 18% 2%, rgba(0,230,118,0.09) 0%, transparent 28%),
+                radial-gradient(circle at 88% 12%, rgba(0,176,255,0.075) 0%, transparent 32%),
                 linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-            background-size: 100% 100%, 32px 32px, 32px 32px;
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+            background-attachment: fixed;
             line-height: 1.5;
-            overflow-x: hidden;
         }
 
         /* ============================================
@@ -81,8 +92,11 @@
             justify-content: space-between;
             height: var(--header-h);
             padding: 0 12px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
+            background: rgba(10, 17, 26, 0.82);
+            border-bottom: 1px solid var(--glass-border);
+            box-shadow: 0 8px 28px rgba(0,0,0,.18);
+            backdrop-filter: blur(18px) saturate(135%);
+            -webkit-backdrop-filter: blur(18px) saturate(135%);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -98,7 +112,12 @@
         .brand-title { font-size: 13px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
         .brand-sub { font-size: 8px; color: var(--text-secondary); letter-spacing: 0.8px; text-transform: uppercase; display: none; }
         .header-center { display: flex; align-items: center; gap: 8px; }
-        .conn-status { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-secondary); white-space: nowrap; }
+        .conn-status {
+            display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 10px;
+            border: 1px solid var(--glass-border); border-radius: 999px;
+            background: rgba(9,14,22,.72); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 6px 18px rgba(0,0,0,.2);
+            font-size: 10px; color: var(--text-secondary); white-space: nowrap;
+        }
         .conn-dot {
             width: 6px; height: 6px; border-radius: 50%; background: var(--error);
             transition: background 0.3s, box-shadow 0.3s; flex-shrink: 0;
@@ -116,18 +135,27 @@
         .tab-bar {
             display: flex;
             height: var(--tabbar-h);
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(10, 17, 26, 0.72);
+            border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px) saturate(130%);
+            -webkit-backdrop-filter: blur(16px) saturate(130%);
             position: sticky;
             top: var(--header-h);
             z-index: 99;
             flex-shrink: 0;
         }
         .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
             flex: 1;
             padding: 0 10px;
-            border: none;
-            background: transparent;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            background: linear-gradient(180deg, rgba(42,57,75,.74), rgba(23,33,47,.78));
             color: var(--text-muted);
             font-family: var(--font-ui);
             font-size: 11px;
@@ -136,13 +164,23 @@
             text-transform: uppercase;
             cursor: pointer;
             transition: all 0.2s;
-            border-bottom: 2px solid transparent;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .tab-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.02); }
-        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+        .tab-btn:hover { color: var(--text-primary); border-color: rgba(170,194,219,.35); background: rgba(48,65,84,.86); }
+        .tab-btn.active {
+            color: #73f5b1; border-color: rgba(0,230,118,.58);
+            background: linear-gradient(180deg, rgba(0,230,118,.18), rgba(0,145,83,.13));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 18px rgba(0,230,118,.2);
+        }
+        .tab-bar::-webkit-scrollbar, .session-table-wrap::-webkit-scrollbar,
+        .data-table-wrap::-webkit-scrollbar, .fsm-panel::-webkit-scrollbar { width: 6px; height: 6px; }
+        .tab-bar::-webkit-scrollbar-track, .session-table-wrap::-webkit-scrollbar-track,
+        .data-table-wrap::-webkit-scrollbar-track, .fsm-panel::-webkit-scrollbar-track { background: rgba(5,9,14,.72); }
+        .tab-bar::-webkit-scrollbar-thumb, .session-table-wrap::-webkit-scrollbar-thumb,
+        .data-table-wrap::-webkit-scrollbar-thumb, .fsm-panel::-webkit-scrollbar-thumb { background: #40536a; border-radius: 999px; }
+        .tab-bar, .session-table-wrap, .data-table-wrap, .fsm-panel { scrollbar-width: thin; scrollbar-color: #40536a rgba(5,9,14,.72); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
@@ -151,26 +189,27 @@
            ============================================ */
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-            padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-            background: var(--bg-card); color: var(--text-primary); font-family: var(--font-ui);
+            padding: 6px 12px; border: 1px solid var(--glass-border); border-radius: 9px;
+            background: linear-gradient(180deg, rgba(48,63,82,.72), rgba(27,37,51,.82));
+            color: var(--text-primary); font-family: var(--font-ui);
             font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap;
             -webkit-tap-highlight-color: transparent;
         }
-        .btn:hover { background: var(--bg-card-hover); border-color: var(--border-light); }
+        .btn:hover { background: linear-gradient(180deg, rgba(62,79,101,.82), rgba(34,46,62,.9)); border-color: rgba(170,194,219,.35); box-shadow: 0 7px 18px rgba(0,0,0,.18); }
         .btn:active { transform: scale(0.97); }
-        .btn-accent { background: var(--accent-dim); border-color: rgba(0,230,118,0.3); color: var(--accent); }
-        .btn-accent:hover { background: rgba(0,230,118,0.2); }
+        .btn-accent { background: linear-gradient(135deg, #00a967, #007f69); border-color: rgba(80,255,181,.48); color: #fff; box-shadow: 0 8px 22px rgba(0,185,112,.2); }
+        .btn-accent:hover { background: linear-gradient(135deg, #00c477, #00947a); }
         .btn-reverse { background: var(--reverse-dim); border-color: rgba(255,109,0,0.3); color: var(--reverse); }
         .btn-reverse:hover { background: rgba(255,109,0,0.2); }
         .btn-stop { background: var(--warn-dim); border-color: rgba(255,171,0,0.3); color: var(--warn); }
         .btn-stop:hover { background: rgba(255,171,0,0.2); }
         .btn-estop {
-            background: var(--error); border: 2px solid var(--error); color: #fff;
+            background: #b00032; border: 2px solid #e75170; color: #fff;
             font-weight: 800; font-size: 10px; padding: 4px 12px;
             letter-spacing: 1.5px; text-transform: uppercase; border-radius: var(--radius);
             animation: estop-glow 2s ease-in-out infinite; flex-shrink: 0;
         }
-        .btn-estop:hover { background: #e6002e; }
+        .btn-estop:hover { background: #97002b; }
         .btn-sm { padding: 4px 8px; font-size: 10px; }
         .btn-flash { animation: cmd-flash 0.25s ease-out; }
 
@@ -178,8 +217,12 @@
            6. TARJETAS
            ============================================ */
         .card {
-            background: var(--bg-card); border: 1px solid var(--border);
-            border-radius: var(--radius); padding: 10px; margin-bottom: 8px;
+            background: linear-gradient(145deg, rgba(28,40,56,.82), rgba(15,23,34,.74));
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
+            box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-elevated);
+            backdrop-filter: blur(12px) saturate(120%);
+            -webkit-backdrop-filter: blur(12px) saturate(120%);
         }
         .card-title {
             font-size: 9px; font-weight: 600; text-transform: uppercase;
@@ -314,6 +357,7 @@
         .tv-turning { background: var(--info-dim); color: var(--info); }
         .tv-braking { background: var(--warn-dim); color: var(--warn); }
         .tv-reverse { background: var(--reverse-dim); color: var(--reverse); }
+        .tv-fault { background:rgba(255,171,0,.12); color:#ffd479; }
         .tv-estop { background: var(--error-dim); color: var(--error); animation: blink-estop 0.8s infinite; }
         .tv-calibrating { background: var(--info-dim); color: var(--info); }
         .tv-init { background: var(--border); color: var(--text-muted); }
@@ -339,66 +383,88 @@
            12. MAQUINA DE ESTADOS
            ============================================ */
         .fsm-panel {
-            padding: 8px 12px;
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-secondary);
+            margin: 10px 12px 0;
+            padding: 10px 12px;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            background: var(--glass-surface);
+            box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 26px rgba(0,0,0,.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             overflow-x: auto;
             flex-shrink: 0;
         }
         .fsm-flow {
-            display: flex; align-items: center; gap: 0;
-            justify-content: center; flex-wrap: wrap; min-width: fit-content;
+            display: flex; align-items: center; gap: 5px;
+            justify-content: center; flex-wrap: nowrap; min-width: fit-content;
         }
         .fsm-node {
-            padding: 3px 8px; font-size: 8px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-            background: var(--bg-card); color: var(--text-muted); white-space: nowrap; transition: all 0.3s;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 10px; font-size: 9px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.7px; border: 1px solid var(--glass-border); border-radius: 999px;
+            background: rgba(50,65,83,.62); color: var(--text-secondary); white-space: nowrap; transition: all 0.3s;
         }
+        .fsm-node::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .55; box-shadow: 0 0 0 3px rgba(255,255,255,.025); }
         .fsm-node.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 10px var(--accent-glow); }
         .fsm-node.active-reverse { border-color: var(--reverse); color: var(--reverse); background: var(--reverse-dim); box-shadow: 0 0 10px rgba(255,109,0,0.3); }
+        .fsm-node.active-fault { border-color:var(--warn); color:#ffd479; background:var(--warn-dim); box-shadow:0 0 12px rgba(255,171,0,.34); }
         .fsm-node.active-estop { border-color: var(--error); color: #fff; background: var(--error); box-shadow: 0 0 14px rgba(255,23,68,0.5); animation: blink-estop 0.8s infinite; }
-        .fsm-arrow { color: var(--text-muted); font-size: 11px; padding: 0 2px; user-select: none; }
+        .fsm-arrow { position: relative; width: 22px; height: 1px; padding: 0; background: var(--border-light); color: transparent; user-select: none; }
+        .fsm-arrow::after { content: ''; position: absolute; right: -1px; top: -3px; width: 6px; height: 6px; border-top: 1px solid var(--text-muted); border-right: 1px solid var(--text-muted); transform: rotate(45deg); }
         .fsm-sep { width: 12px; }
 
         /* ============================================
            13. SISTEMA DE LOGS
            ============================================ */
-        .log-panel { padding: 8px 12px 12px; flex-shrink: 0; }
-        .log-toolbar { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
-        .log-filters { display: flex; gap: 2px; }
+        .log-panel {
+            margin: 8px 12px 12px; padding: 0; flex-shrink: 0; overflow: hidden;
+            border: 1px solid var(--glass-border); border-radius: var(--radius);
+            background: var(--glass-surface); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-elevated);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .log-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; margin: 0; border-bottom: 1px solid var(--glass-border); flex-wrap: wrap; }
+        .log-toolbar-main, .log-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .log-filters { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--glass-border); border-radius: 10px; background: rgba(5,10,16,.6); }
         .log-filter-btn {
-            padding: 2px 6px; font-size: 9px; font-weight: 600; text-transform: uppercase;
-            letter-spacing: 0.3px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 5px 8px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.35px; border: 1px solid transparent; border-radius: 7px;
             background: transparent; color: var(--text-secondary); cursor: pointer;
             font-family: var(--font-ui); transition: all 0.15s;
         }
+        .log-filter-btn .ui-icon { width: 14px; height: 14px; }
         .log-filter-btn.active { color: var(--text-primary); border-color: var(--border-light); background: var(--bg-card); }
         .log-filter-btn.lf-info.active { color: var(--accent); border-color: rgba(0,230,118,0.4); background: var(--accent-dim); }
         .log-filter-btn.lf-warn.active { color: var(--warn); border-color: rgba(255,171,0,0.4); background: var(--warn-dim); }
         .log-filter-btn.lf-error.active { color: var(--error); border-color: rgba(255,23,68,0.4); background: var(--error-dim); }
         .log-filter-btn.lf-cmd.active { color: var(--info); border-color: rgba(0,176,255,0.4); background: var(--info-dim); }
-        .log-count { font-size: 9px; color: var(--text-muted); margin-left: auto; font-family: var(--font-mono); }
+        .log-count { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; min-height: 30px; padding: 0 7px; border: 1px solid rgba(0,176,255,.34); border-radius: 999px; background: var(--info-dim); color: #8fdcff; font: 700 11px var(--font-mono); }
+        .log-retention { display: inline-flex; align-items: center; gap: 6px; }
+        .log-select { min-width: 138px; padding: 6px 30px 6px 9px; border: 1px solid var(--glass-border); border-radius: 9px; background: rgba(10,16,24,.8); color: var(--text-primary); font: 11px var(--font-ui); }
+        .btn-log-danger { background: rgba(255,23,68,.08); color: #ff8da5; border-color: rgba(255,75,112,.42); }
+        .btn-log-danger:hover { background: rgba(255,23,68,.16); border-color: rgba(255,92,124,.68); }
+        .ui-icon { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
         .log-container {
-            background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm);
-            height: 120px; overflow-y: auto; font-family: var(--font-mono); font-size: 10px; line-height: 1.5;
+            background: rgba(5,9,14,.82); border: 0; border-radius: 0;
+            height: 144px; overflow-y: auto; font-family: var(--font-mono); font-size: 11px; line-height: 1.55;
+            scrollbar-color: #36475c transparent; scrollbar-width: thin;
         }
-        .log-container::-webkit-scrollbar { width: 4px; }
+        .log-container::-webkit-scrollbar { width: 8px; }
         .log-container::-webkit-scrollbar-track { background: transparent; }
-        .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-        .log-entry { padding: 1px 6px; border-left: 2px solid transparent; animation: log-in 0.2s ease-out; }
-        .log-entry:hover { background: rgba(255,255,255,0.02); }
+        .log-container::-webkit-scrollbar-thumb { background: #36475c; border: 2px solid transparent; background-clip: padding-box; border-radius: 999px; }
+        .log-entry { display: grid; grid-template-columns: 92px 62px minmax(0,1fr); align-items: start; gap: 8px; padding: 5px 10px; border-left: 3px solid transparent; border-bottom: 1px solid rgba(151,176,202,.055); animation: log-in 0.2s ease-out; }
+        .log-entry:hover { background: rgba(255,255,255,0.035); }
         .log-entry.log-info { border-left-color: var(--accent); }
         .log-entry.log-warn { border-left-color: var(--warn); background: rgba(255,171,0,0.03); }
         .log-entry.log-error { border-left-color: var(--error); background: rgba(255,23,68,0.05); }
         .log-entry.log-cmd { border-left-color: var(--info); }
-        .log-time { color: var(--text-muted); }
-        .log-level { font-weight: 700; display: inline-block; min-width: 38px; }
+        .log-time { color: #8295a8; white-space: nowrap; }
+        .log-level { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-width: 56px; padding: 1px 6px; border: 1px solid currentColor; border-radius: 5px; font-weight: 800; font-size: 9px; line-height: 1.5; letter-spacing: .4px; }
         .log-level.ll-info { color: var(--accent); }
         .log-level.ll-warn { color: var(--warn); }
         .log-level.ll-error { color: var(--error); }
         .log-level.ll-cmd { color: var(--info); }
-        .log-msg { color: var(--text-secondary); }
+        .log-msg { color: #dce6ef; overflow-wrap: anywhere; }
         .log-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 11px; font-family: var(--font-ui); }
 
         /* ============================================
@@ -816,9 +882,260 @@
         .calibration-card { border-color:var(--warning); }
         .calibration-state { font:700 13px var(--font-mono); color:var(--warning); margin:10px 0; }
         .calibration-state.ready { color:var(--accent); }
+        .calibration-state.fault { color:#ff8da5; }
+        .calibration-state.estop { color:#ff5375; animation:blink-estop .8s infinite; }
         .calibration-note { color:var(--text-secondary); font-size:11px; line-height:1.5; margin-bottom:10px; }
+        .calibration-cause {
+            display:none; margin:0 0 10px; padding:8px 10px; border:1px solid rgba(255,75,112,.38);
+            border-radius:9px; background:rgba(255,23,68,.08); color:#ffc2cf;
+            font:600 11px/1.45 var(--font-mono); overflow-wrap:anywhere;
+        }
+        .calibration-cause.visible { display:block; }
+        .calibration-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        .calibration-actions .btn { flex:1 1 180px; min-height:var(--touch-target-min); }
+        .btn-rearm { background:rgba(255,171,0,.10); border-color:rgba(255,171,0,.48); color:#ffd479; }
+        .btn-rearm:hover { background:rgba(255,171,0,.18); border-color:rgba(255,190,59,.68); }
+        .calibration-diagnostics {
+            margin:10px 0; padding:9px; border:1px solid var(--glass-border); border-radius:10px;
+            background:rgba(5,10,16,.48); font-family:var(--font-mono);
+        }
+        .cal-diag-summary { display:flex; flex-wrap:wrap; gap:6px 12px; color:var(--text-secondary); font-size:10px; }
+        .cal-diag-summary strong { color:var(--text-primary); font-weight:700; }
+        .cal-diag-wheels { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; margin-top:8px; }
+        .cal-diag-wheel { min-width:0; padding:6px; border:1px solid var(--glass-border); border-radius:8px; background:rgba(31,43,58,.55); }
+        .cal-diag-wheel strong, .cal-diag-wheel span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .cal-diag-wheel strong { font-size:10px; color:var(--text-primary); }
+        .cal-diag-wheel span { margin-top:2px; font-size:9px; color:var(--text-secondary); }
+        .cal-diag-wheel[data-status="ok"] { border-color:rgba(0,230,118,.34); }
+        .cal-diag-wheel[data-status="ok"] span { color:#73f5b1; }
+        .cal-diag-wheel[data-status="isolated"], .cal-diag-wheel[data-status="fault"] { border-color:rgba(255,75,112,.45); }
+        .cal-diag-wheel[data-status="isolated"] span, .cal-diag-wheel[data-status="fault"] span { color:#ff8da5; }
+        .cal-diag-wheel[data-status="unknown"] span { color:var(--text-muted); }
+        .cal-diag-sides { margin-top:7px; color:var(--text-secondary); font-size:9px; line-height:1.45; overflow-wrap:anywhere; }
+        @media (max-width:420px) {
+            .cal-diag-wheels { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .calibration-actions .btn { flex-basis:100%; }
+        }
         body.calibration-locked .tab-btn:not([data-tab="conexion"]) { opacity:.28; pointer-events:none; }
         @media(max-width:800px) { .connection-layout { grid-template-columns:1fr; } .connection-identity { grid-template-columns:1fr; } }
+
+        /* ============================================
+           17. RESPONSIVE P0/P1 — TACTO, REFLOW Y SAFE AREAS
+           Mantener al final: corrige las reglas compactas heredadas sin
+           alterar los bloqueos funcionales o de seguridad del HMI.
+           ============================================ */
+        html, body {
+            width: 100%;
+            max-width: 100%;
+        }
+        body {
+            min-width: 0;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            font-size: var(--font-size-operational);
+        }
+        img, svg, canvas { max-width: 100%; }
+        .tab-content, .tab-content > *, .testing-grid > *, .connection-layout > *,
+        .nav-layout > *, .route-content, .route-form > *, .log-panel { min-width: 0; max-width: 100%; }
+
+        /* Controles alcanzables con dedo y foco de teclado claramente visible. */
+        button, .btn, .dir-btn, .log-filter-btn, .sign-toggle,
+        input:not([type="range"]), select, .route-axis-toggle label {
+            min-height: var(--touch-target-min);
+        }
+        button, .btn, .dir-btn, .log-filter-btn, .sign-toggle { min-width: var(--touch-target-min); }
+        button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+            outline: 3px solid var(--info);
+            outline-offset: 2px;
+        }
+        .btn, .btn-sm, .dir-btn, .log-filter-btn, .tab-btn,
+        .cmd-input-group input, .cmd-input-group select, .route-axis-toggle label {
+            font-size: var(--font-size-min);
+        }
+        .cmd-input-group label, .card-title, .telem-label, .motor-name,
+        .motor-state-label, .data-table-title, .data-table th, .identity-value small,
+        .retention-note, .calibration-note, .nav-chip, .log-count, .joy-info-label,
+        .route-mode-chip, .testing-stage-title, .gyro-status, .esp32-caption {
+            font-size: var(--font-size-min);
+        }
+        .pwm-label span:first-child, .pwm-val, .telem-value, .motor-rpm,
+        .motor-data, .motor-data strong, .joy-info-value, .data-table,
+        .session-table, .nav-distance, .route-map-title, .log-container,
+        .pos-coords, .identity-value strong, .calibration-state {
+            font-size: var(--font-size-operational);
+        }
+        input[type="range"] { min-height: var(--touch-target-min); }
+        input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; }
+        input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; }
+        .drive-pad .btn, .nav-actions .btn, .route-form .btn { min-height: var(--touch-target-min); height: auto; }
+
+        /* E-STOP permanece siempre visible y supera el objetivo crítico. */
+        .btn-estop {
+            min-width: 76px;
+            min-height: var(--touch-target-critical);
+            padding: 8px 12px;
+            font-size: var(--font-size-operational);
+            line-height: 1;
+        }
+
+        /* Cabecera y navegación respetan recortes/notches. La barra de cinco
+           opciones se desplaza localmente, nunca ensancha el documento. */
+        .app-header {
+            box-sizing: content-box;
+            min-height: var(--header-h);
+            height: auto;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-right: max(12px, env(safe-area-inset-right, 0px));
+            padding-left: max(12px, env(safe-area-inset-left, 0px));
+        }
+        .header-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+        .tab-bar {
+            height: auto;
+            min-height: var(--tabbar-h);
+            top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+            max-width: 100%;
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+            overflow-x: auto;
+            overflow-y: hidden;
+            overscroll-behavior-x: contain;
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tab-btn {
+            flex: 1 0 max-content;
+            min-width: max(116px, var(--touch-target-min));
+            min-height: var(--touch-target-min);
+            padding: 8px 14px;
+            overflow: visible;
+            text-overflow: clip;
+            font-size: var(--font-size-min);
+        }
+        .tab-btn[aria-disabled="true"] {
+            opacity: 1;
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            border-bottom-style: dashed;
+        }
+        body.calibration-locked .tab-btn:not([data-tab="conexion"]),
+        .tab-btn.disabled {
+            opacity: 1;
+            color: var(--text-secondary);
+            background: rgba(143, 163, 183, .08);
+            border-bottom-style: dashed;
+            pointer-events: none;
+        }
+        .sr-only {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
+
+        /* El contenido técnico puede desplazarse dentro de su propio panel. */
+        .session-table-wrap, .data-table-wrap, .fsm-panel { max-width: 100%; overflow-x: auto; }
+        .log-toolbar { flex-wrap: wrap; }
+        .log-filters { display: flex; flex-wrap: wrap; gap: 4px; }
+        .log-toolbar-main, .log-actions { min-width: 0; }
+        .log-entry { min-height: 34px; }
+
+        /* Tablet y teléfono: una columna real, sin mínimos heredados. */
+        @media (max-width: 1100px) {
+            .testing-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+            .route-tables-grid { grid-template-columns: minmax(0, 1fr); }
+            .connection-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 768px) {
+            :root { --header-h: 64px; --tabbar-h: 48px; }
+            .app-header {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-rows: auto auto;
+                align-content: center;
+                gap: 6px 8px;
+                padding-right: max(8px, env(safe-area-inset-right, 0px));
+                padding-left: max(8px, env(safe-area-inset-left, 0px));
+            }
+            .header-brand { grid-column: 1; grid-row: 1; }
+            .header-actions { grid-column: 2; grid-row: 1; }
+            .header-center { grid-column: 1 / -1; grid-row: 2; min-width: 0; justify-content: space-between; }
+            .brand-title { font-size: var(--font-size-operational); }
+            .conn-status { font-size: var(--font-size-min); }
+            .conn-status span:not(.conn-dot) { display: inline; overflow: hidden; text-overflow: ellipsis; }
+            .testing-grid, .nav-layout, .connection-layout { grid-template-columns: minmax(0, 1fr); }
+            .col-controls, .col-telemetry { max-height: none; overflow: visible; }
+            .robot-blueprint {
+                grid-template-columns: minmax(74px, 1fr) minmax(112px, 1.2fr) minmax(74px, 1fr);
+            }
+            .connection-layout, .nav-layout, .route-content { padding: 10px; }
+            .route-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+            .nav-canvas-wrap, .route-map-container { min-height: 320px; height: min(52vh, 480px); }
+            .fsm-panel, .log-panel { margin-inline: 8px; }
+            .log-toolbar { align-items: stretch; }
+            .log-toolbar-main, .log-actions { width: 100%; }
+            .log-toolbar-main { justify-content: space-between; }
+            .log-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .log-retention { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0,1fr) auto; }
+            .log-select { width: 100%; }
+            .log-entry { grid-template-columns: 84px 58px minmax(0,1fr); gap: 6px; }
+        }
+        @media (max-width: 480px) {
+            :root { --header-h: 116px; --tabbar-h: 48px; }
+            html { font-size: var(--font-size-operational); }
+            .app-header { grid-template-columns: minmax(0, 1fr); }
+            .header-brand { grid-column: 1; grid-row: 1; }
+            .header-actions { grid-column: 1; grid-row: 2; width: 100%; }
+            .header-actions .btn { flex: 1 1 0; white-space: normal; }
+            .header-center { grid-column: 1; grid-row: 3; }
+            .brand-icon { width: 28px; height: 28px; }
+            .connection-actions, .nav-actions, .route-form, .telem-grid { grid-template-columns: minmax(0, 1fr); }
+            .route-form .btn, .route-form .cmd-input-group, .route-axis-toggle { grid-column: 1; }
+            .cmd-input-row { display: grid; grid-template-columns: minmax(0, 1fr); }
+            .robot-blueprint {
+                min-height: 500px;
+                grid-template-columns: minmax(62px, .9fr) minmax(100px, 1.2fr) minmax(62px, .9fr);
+                gap: 8px 2px;
+            }
+            .motor-station .motor-svg { width: min(100%, 76px); }
+            .route-program-header, .nav-status-card { align-items: flex-start; }
+            .route-program-header { flex-direction: column; }
+            .route-map-container, .nav-canvas-wrap { min-height: 280px; height: 44vh; }
+            .data-table { min-width: 420px; }
+            .tab-btn .ui-icon { width: 15px; height: 15px; }
+            .log-filters { width: calc(100% - 40px); display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .log-filter-btn { width: 100%; }
+            .log-actions { grid-template-columns: minmax(0,1fr); }
+            .log-retention { grid-column: 1; grid-template-columns: minmax(0,1fr); }
+            .log-entry { grid-template-columns: 1fr auto; gap: 3px 7px; padding: 7px 9px; }
+            .log-time { grid-column: 1; }
+            .log-level { grid-column: 2; grid-row: 1; }
+            .log-msg { grid-column: 1 / -1; }
+        }
+        @media (max-width: 360px) {
+            html { font-size: var(--font-size-operational); }
+            .brand-title { font-size: var(--font-size-operational); }
+            .robot-blueprint { grid-template-columns: minmax(58px, .85fr) minmax(92px, 1.15fr) minmax(58px, .85fr); }
+            .esp32-board { padding-inline: 5px; font-size: var(--font-size-min); letter-spacing: .4px; }
+        }
+        @media (max-height: 500px) and (orientation: landscape) {
+            :root { --header-h: 56px; --tabbar-h: 48px; }
+            .app-header {
+                display: flex;
+                flex-wrap: nowrap;
+                min-height: var(--header-h);
+            }
+            .header-center { margin-left: auto; }
+            .header-actions { width: auto; }
+            .header-actions .btn { flex: 0 0 auto; }
+            .testing-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+            .col-motors { grid-column: 1 / -1; }
+            .col-controls, .col-telemetry { max-height: none; overflow: visible; }
+            .touch-joystick-area { min-height: 280px; }
+        }
     </style>
 </head>
 <body>
@@ -840,45 +1157,65 @@
             </div>
             <span class="demo-badge" id="demo-badge">DEMO</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-            <button class="btn btn-stop btn-sm" id="btn-close-app" aria-label="Cerrar aplicación de forma segura">Cerrar aplicación</button>
-            <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia">E-STOP</button>
+        <div class="header-actions">
+            <button class="btn btn-stop btn-sm" id="btn-close-app" aria-label="Cerrar aplicación de forma segura"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>Cerrar aplicación</button>
+            <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>E-STOP</button>
         </div>
     </header>
 
     <!-- TAB BAR -->
     <nav class="tab-bar" role="tablist">
-        <button class="tab-btn active" data-tab="conexion" role="tab" aria-selected="true">Conexión</button>
-        <button class="tab-btn" data-tab="mapa" role="tab" aria-selected="false">Mapa de Navegación</button>
-        <button class="tab-btn" data-tab="testing" role="tab" aria-selected="false">Testing S3</button>
-        <button class="tab-btn" data-tab="touch" role="tab" aria-selected="false" disabled title="No disponible en robot-s3-steps-v3">Control Touch (no disponible)</button>
-        <button class="tab-btn" data-tab="rutas" role="tab" aria-selected="false">Rutas (Ockham)</button>
+        <button id="tab-control-conexion" class="tab-btn active" data-tab="conexion" role="tab" aria-controls="tab-conexion" aria-selected="true" tabindex="0"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 12a4 4 0 0 1 4-4h3"/><path d="M16 8l-2-2"/><path d="M16 8l-2 2"/><path d="M16 12a4 4 0 0 1-4 4H9"/><path d="M8 16l2-2"/><path d="M8 16l2 2"/></svg>Conexión</button>
+        <button id="tab-control-mapa" class="tab-btn" data-tab="mapa" role="tab" aria-controls="tab-mapa" aria-selected="false" tabindex="-1"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6l5-2 8 3 5-2v13l-5 2-8-3-5 2z"/><path d="M8 4v13M16 7v13"/></svg>Mapa de Navegación</button>
+        <button id="tab-control-testing" class="tab-btn" data-tab="testing" role="tab" aria-controls="tab-testing" aria-selected="false" tabindex="-1"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 14h8"/></svg>Testing S3</button>
+        <button id="tab-control-touch" class="tab-btn unavailable" data-tab="touch" role="tab" aria-controls="tab-touch" aria-selected="false" aria-disabled="true" aria-describedby="touch-unavailable-help" tabindex="-1" title="No disponible en robot-s3-steps-v3. Usa Testing S3 para control manual seguro."><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 18h4"/><path d="M4 4l16 16"/></svg>Control Touch (no disponible)</button>
+        <button id="tab-control-rutas" class="tab-btn" data-tab="rutas" role="tab" aria-controls="tab-rutas" aria-selected="false" tabindex="-1"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h3a3 3 0 0 0 3-3v-6a3 3 0 0 1 3-3"/></svg>Rutas (Ockham)</button>
     </nav>
+    <span id="touch-unavailable-help" class="sr-only">Control Touch está deshabilitado porque robot-s3-steps-v3 no lo admite. Usa Testing S3 como alternativa de control manual seguro.</span>
 
     <!-- TAB 1: CONEXIÓN Y SESIONES LOCALES -->
-    <div class="tab-content active" id="tab-conexion" role="tabpanel">
+    <div class="tab-content active" id="tab-conexion" role="tabpanel" aria-labelledby="tab-control-conexion">
         <div class="connection-layout">
             <aside class="connection-stack">
                 <section class="card calibration-card">
                     <div class="card-title">Control simple de ruta</div>
                     <div class="calibration-note">Autoevaluación lógica: <strong id="self-test-state">NO EJECUTADA</strong></div>
-                    <button type="button" class="btn" id="btn-self-test">Ejecutar autoevaluación segura</button>
-                    <div class="calibration-state" id="calibration-state">ESPERANDO CONEXIÓN</div>
+                    <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg>Ejecutar autoevaluación segura</button>
+                    <div class="calibration-state" id="calibration-state" role="status" aria-live="polite">ESPERANDO CONEXIÓN</div>
+                    <div class="calibration-cause" id="calibration-cause" role="alert"></div>
                     <div class="calibration-note" id="calibration-detail">Con ruedas elevadas y alimentación limitada, la calibración busca torque, valida +25°, reposa 2.5 s y vuelve a yaw 0°. La calibración moverá el robot.</div>
-                    <button type="button" class="btn btn-accent" id="btn-calibrate">Calibrar torque y giro</button>
+                    <div class="calibration-diagnostics" id="calibration-diagnostics" aria-label="Diagnóstico de calibración en vivo">
+                        <div class="cal-diag-summary">
+                            <span>Fase <strong id="cal-diag-phase">—</strong></span>
+                            <span>Rampa <strong id="cal-diag-ramp">—</strong></span>
+                            <span>PWM <strong id="cal-diag-pwm">—</strong></span>
+                            <span>Intento <strong id="cal-diag-attempt">—</strong></span>
+                        </div>
+                        <div class="cal-diag-wheels">
+                            <div class="cal-diag-wheel" id="cal-diag-fl" data-status="unknown"><strong>FL</strong><span id="cal-diag-delta-fl">Δ —</span><span id="cal-diag-status-fl">sin datos</span></div>
+                            <div class="cal-diag-wheel" id="cal-diag-fr" data-status="unknown"><strong>FR</strong><span id="cal-diag-delta-fr">Δ —</span><span id="cal-diag-status-fr">sin datos</span></div>
+                            <div class="cal-diag-wheel" id="cal-diag-bl" data-status="unknown"><strong>BL</strong><span id="cal-diag-delta-bl">Δ —</span><span id="cal-diag-status-bl">sin datos</span></div>
+                            <div class="cal-diag-wheel" id="cal-diag-br" data-status="unknown"><strong>BR</strong><span id="cal-diag-delta-br">Δ —</span><span id="cal-diag-status-br">sin datos</span></div>
+                        </div>
+                        <div class="cal-diag-sides" id="cal-diag-sides">L/R: sin diagnóstico · stall — / — ms</div>
+                    </div>
+                    <div class="calibration-actions">
+                        <button type="button" class="btn btn-accent" id="btn-calibrate"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>Calibrar torque y giro</button>
+                        <button type="button" class="btn btn-rearm" id="btn-clear-fault" hidden disabled><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 8v5M12 17h.01"/></svg><span id="btn-clear-fault-label">Rearmar sistema</span></button>
+                    </div>
                 </section>
                 <section class="card">
                     <div class="card-title">Enlace HMI → ESP32</div>
                     <div class="cmd-input-group">
-                        <label>Dirección del carrito</label>
+                        <label for="robot-host">Dirección del carrito</label>
                         <input type="text" id="robot-host" value="192.168.4.1" autocomplete="off" spellcheck="false">
                     </div>
                     <div class="connection-state-line"><span class="conn-dot" id="connection-panel-dot"></span><strong id="connection-panel-state">DESCONECTADO</strong></div>
                     <div class="calibration-note" id="connection-panel-detail">Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.</div>
                     <div class="connection-actions">
-                        <button class="btn btn-accent" id="btn-connect">Conectar</button>
-                        <button class="btn" id="btn-reconnect">Reconectar</button>
-                        <button class="btn btn-reverse" id="btn-disconnect">Desconectar</button>
+                        <button class="btn btn-accent" id="btn-connect"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 12a4 4 0 0 1 4-4h4a4 4 0 0 1 0 8h-2"/><path d="M16 12a4 4 0 0 1-4 4H8a4 4 0 0 1 0-8h2"/></svg>Conectar</button>
+                        <button class="btn" id="btn-reconnect"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 9A7 7 0 0 1 18 6l2 2M17.9 15A7 7 0 0 1 6 18l-2-2"/></svg>Reconectar</button>
+                        <button class="btn btn-reverse" id="btn-disconnect"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>Desconectar</button>
                     </div>
                     <div class="retention-note">Selecciona manualmente la red Wi‑Fi en Windows o Android. SSID esperado: <strong>ROBOT_S3_LOCAL</strong>. La aplicación administra únicamente el WebSocket y no cambia de red al iniciar.</div>
                 </section>
@@ -895,7 +1232,7 @@
             </aside>
             <section class="card">
                 <div class="card-title">Historial de sesiones y exportaciones</div>
-                <div class="session-table-wrap">
+                <div class="session-table-wrap" tabindex="0" role="region" aria-label="Historial de sesiones desplazable">
                     <table class="session-table">
                         <thead><tr><th>ID</th><th>Inicio</th><th>Fin</th><th>Robot</th><th>Muestras</th><th>Motivo</th><th>Exportar</th></tr></thead>
                         <tbody id="session-history"><tr><td colspan="7" class="session-empty">Sin sesiones registradas</td></tr></tbody>
@@ -906,13 +1243,13 @@
     </div>
 
     <!-- TAB 2: MAPA CHART.JS (Original UI Logic) -->
-    <div class="tab-content" id="tab-mapa" role="tabpanel">
+    <div class="tab-content" id="tab-mapa" role="tabpanel" aria-labelledby="tab-control-mapa">
         <div class="nav-layout">
             <aside class="card nav-control-card">
                 <div class="card-title">Coordenadas de destino</div>
                 <form id="chart-form" class="nav-form">
-                    <div class="cmd-input-group"><label>Coordenada X</label><div class="signed-number-control"><input type="number" inputmode="decimal" id="chart-x" step="0.1" required><button type="button" class="sign-toggle" data-toggle-sign="chart-x" aria-label="Cambiar signo de coordenada X">&plusmn;</button></div></div>
-                    <div class="cmd-input-group"><label>Coordenada Y</label><div class="signed-number-control"><input type="number" inputmode="decimal" id="chart-y" step="0.1" required><button type="button" class="sign-toggle" data-toggle-sign="chart-y" aria-label="Cambiar signo de coordenada Y">&plusmn;</button></div></div>
+                    <div class="cmd-input-group"><label for="chart-x">Coordenada X</label><div class="signed-number-control"><input type="number" inputmode="decimal" id="chart-x" step="0.1" required><button type="button" class="sign-toggle" data-toggle-sign="chart-x" aria-label="Cambiar signo de coordenada X">&plusmn;</button></div></div>
+                    <div class="cmd-input-group"><label for="chart-y">Coordenada Y</label><div class="signed-number-control"><input type="number" inputmode="decimal" id="chart-y" step="0.1" required><button type="button" class="sign-toggle" data-toggle-sign="chart-y" aria-label="Cambiar signo de coordenada Y">&plusmn;</button></div></div>
                     <div class="nav-actions">
                         <button type="submit" class="btn btn-accent" id="btn-chart-move">Mover robot</button>
                         <button type="button" class="btn btn-reverse" id="btn-chart-reset">Reiniciar trayectoria</button>
@@ -936,7 +1273,7 @@
     </div>
 
     <!-- TAB 2: TESTING CONFIG -->
-    <div class="tab-content" id="tab-testing" role="tabpanel">
+    <div class="tab-content" id="tab-testing" role="tabpanel" aria-labelledby="tab-control-testing">
         <div class="testing-grid">
             <aside class="col-controls">
                 <div class="card">
@@ -961,18 +1298,18 @@
                     </div>
                     <button class="btn btn-accent btn-sm" id="btn-apply-pwm" style="width:100%">Aplicar PWM</button>
                     <div class="cmd-input-group" style="margin-top:8px">
-                        <label>Duraci&oacute;n (ms):</label>
+                        <label for="test-duration">Duraci&oacute;n (ms):</label>
                         <input type="number" id="test-duration" value="500" min="100" max="1500" step="100">
                     </div>
                 </div>
                 <div class="card">
                     <div class="card-title">Control Movimiento S3</div>
                     <div class="cmd-input-row">
-                        <div class="cmd-input-group"><label>Dist (cm)</label><input type="number" id="cmd-dist" value="50" min="1" max="999"></div>
-                        <div class="cmd-input-group"><label>Ang (deg)</label><input type="number" id="cmd-angle" value="90" min="1" max="360"></div>
+                        <div class="cmd-input-group"><label for="cmd-dist">Dist (cm)</label><input type="number" id="cmd-dist" value="50" min="1" max="999"></div>
+                        <div class="cmd-input-group"><label for="cmd-angle">Ang (deg)</label><input type="number" id="cmd-angle" value="90" min="1" max="360"></div>
                     </div>
                     <div class="cmd-input-group" style="margin:8px 0">
-                        <label>Método de giro (solo Testing)</label>
+                        <label for="turn-mode">Método de giro (solo Testing)</label>
                         <select id="turn-mode">
                             <option value="auto">Automático — pivot continuo</option>
                             <option value="pivot">Pivot continuo</option>
@@ -1062,7 +1399,7 @@
                 </div>
             </section>
 
-            <aside class="col-telemetry">
+            <aside class="col-telemetry" tabindex="0" aria-label="Telemetría y estado desplazables">
                 <div class="card">
                     <div class="card-title">Telemetria (Live)</div>
                     <div class="telem-grid">
@@ -1115,7 +1452,7 @@
     </div>
 
     <!-- TAB 3: CONTROL TOUCH -->
-    <div class="tab-content" id="tab-touch" role="tabpanel">
+    <div class="tab-content" id="tab-touch" role="tabpanel" aria-labelledby="tab-control-touch">
         <div class="touch-layout">
             <div class="touch-joystick-area">
                 <div class="joystick-wrapper" id="joystick-wrapper">
@@ -1185,7 +1522,7 @@
     </div>
 
     <!-- TAB 4: RUTAS -->
-    <div class="tab-content" id="tab-rutas" role="tabpanel">
+    <div class="tab-content" id="tab-rutas" role="tabpanel" aria-labelledby="tab-control-rutas">
         <div class="card route-content">
             <div class="route-program-header">
                 <div class="card-title">Programador de rutas</div>
@@ -1194,7 +1531,7 @@
             
             <form id="route-form" class="route-form">
                 <div class="cmd-input-group">
-                    <label>Modo de Entrada:</label>
+                    <label for="route-mode">Modo de Entrada:</label>
                     <select id="route-mode" style="width: 100%; padding: 5px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
                         <option value="rect">Rectangular (X, Y)</option>
                         <option value="polar">Polar (Radio, Ángulo)</option>
@@ -1205,11 +1542,11 @@
                     <label for="route-axis-default">Eje único</label>
                 </div>
                 <div class="cmd-input-group">
-                    <label id="route-label-1">Coordenada Relativa X:</label>
+                    <label id="route-label-1" for="route-input-1">Coordenada Relativa X:</label>
                     <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-1" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-1" data-toggle-sign="route-input-1" aria-label="Cambiar signo del primer valor">&plusmn;</button></div>
                 </div>
                 <div class="cmd-input-group">
-                    <label id="route-label-2">Coordenada Relativa Y:</label>
+                    <label id="route-label-2" for="route-input-2">Coordenada Relativa Y:</label>
                     <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-2" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-2" data-toggle-sign="route-input-2" aria-label="Cambiar signo del segundo valor">&plusmn;</button></div>
                 </div>
                 <button type="submit" class="btn btn-accent">+ Agregar paso</button>
@@ -1251,7 +1588,7 @@
             </div>
 
             <div class="route-tables-grid">
-                <section class="data-table-wrap" aria-label="Telemetría de ruta en vivo">
+                <section class="data-table-wrap" tabindex="0" aria-label="Telemetría de ruta en vivo">
                     <div class="data-table-title">Telemetría de Ruta (Live)</div>
                     <table class="data-table">
                         <thead><tr><th>Dato</th><th>Valor</th><th>Dato</th><th>Valor</th></tr></thead>
@@ -1269,7 +1606,7 @@
                         </tbody>
                     </table>
                 </section>
-                <section class="data-table-wrap" aria-label="Cola de waypoints absolutos">
+                <section class="data-table-wrap" tabindex="0" aria-label="Cola de waypoints absolutos">
                     <div class="data-table-title">Cola de Comandos · Waypoints Absolutos</div>
                     <table class="data-table">
                         <thead><tr><th>#</th><th>Descripción</th><th>X</th><th>Y</th><th>Estado</th></tr></thead>
@@ -1283,45 +1620,53 @@
     </div>
 
     <!-- FSM -->
-    <section class="fsm-panel" aria-label="Maquina de estados">
+    <section class="fsm-panel" aria-label="Máquina de estados del robot" tabindex="0">
         <div class="fsm-flow" id="fsm-flow">
-            <div class="fsm-node active" data-state="INIT">INIT</div>
-            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-node active" data-state="INIT" aria-current="step">INIT</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
             <div class="fsm-node" data-state="IDLE">IDLE</div>
-            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
             <div class="fsm-node" data-state="GIRANDO">GIRANDO</div>
-            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
             <div class="fsm-node" data-state="ESPERANDO">ESPERANDO</div>
-            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
             <div class="fsm-node" data-state="AVANZANDO">AVANZANDO</div>
-            <div class="fsm-arrow">&rarr;</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
             <div class="fsm-node" data-state="TERMINADO">TERMINADO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="FALLO">FALLO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="ESTOP">ESTOP</div>
         </div>
     </section>
 
     <!-- LOGS -->
     <section class="log-panel" aria-label="Logs">
         <div class="log-toolbar">
-            <div class="log-filters">
-                <button class="log-filter-btn lf-info active" data-filter="info">Info</button>
-                <button class="log-filter-btn lf-warn active" data-filter="warn">Warn</button>
-                <button class="log-filter-btn lf-error active" data-filter="error">Error</button>
-                <button class="log-filter-btn lf-cmd active" data-filter="cmd">Cmd</button>
+            <div class="log-toolbar-main">
+                <div class="log-filters" role="group" aria-label="Filtrar registros por nivel">
+                    <button class="log-filter-btn lf-info active" data-filter="info" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Info</button>
+                    <button class="log-filter-btn lf-warn active" data-filter="warn" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17h.01"/></svg>Warn</button>
+                    <button class="log-filter-btn lf-error active" data-filter="error" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>Error</button>
+                    <button class="log-filter-btn lf-cmd active" data-filter="cmd" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Cmd</button>
+                </div>
+                <span class="log-count" id="log-count" aria-label="0 registros">0</span>
             </div>
-            <button class="btn btn-sm" id="btn-download-log">TXT</button>
-            <button class="btn btn-sm" id="btn-clear-log">Limpiar UI</button>
-            <div style="display:inline-flex; align-items:center; gap:4px; margin-left:8px;">
-                <select id="select-purge-days" style="font-size:11px; padding:2px 4px; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border); border-radius:4px; height:24px;">
-                    <option value="1">Más de 24h</option>
-                    <option value="7" selected>Más de 7 días</option>
-                    <option value="30">Más de 30 días</option>
-                    <option value="0">Todos los registros</option>
-                </select>
-                <button class="btn btn-sm" id="btn-purge-db-logs" style="background:var(--warn-dim); color:var(--warn); border:1px solid var(--warn); font-size:11px; padding:2px 6px;">🧹 Limpiar BD</button>
+            <div class="log-actions" aria-label="Acciones de registros">
+                <button class="btn btn-sm" id="btn-download-log"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 19h16"/></svg>Exportar TXT</button>
+                <button class="btn btn-sm" id="btn-clear-log"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Limpiar UI</button>
+                <div class="log-retention">
+                    <select class="log-select" id="select-purge-days" aria-label="Antigüedad de registros a eliminar">
+                        <option value="1">Más de 24h</option>
+                        <option value="7" selected>Más de 7 días</option>
+                        <option value="30">Más de 30 días</option>
+                        <option value="0">Todos los registros</option>
+                    </select>
+                    <button class="btn btn-sm btn-log-danger" id="btn-purge-db-logs"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3M19 5v5"/><path d="M16 16l5 5M21 16l-5 5"/></svg>Limpiar BD<span class="sr-only">, requiere confirmación</span></button>
+                </div>
             </div>
-            <span class="log-count" id="log-count">0</span>
         </div>
-        <div class="log-container" id="log-container" role="log" aria-live="polite">
+        <div class="log-container" id="log-container" role="log" aria-live="polite" aria-label="Visor de registros técnicos" tabindex="0">
             <div class="log-empty" id="log-empty">Esperando eventos...</div>
         </div>
     </section>
@@ -1551,13 +1896,15 @@
             if (Math.abs(dx) > .05 || Math.abs(dy) > .05) this._orientacionEstimada = Math.atan2(dy,dx);
             this._lastPos = {x:telemX,y:telemY};
             const yaw = Number(raw.heading_deg ?? raw.yaw_deg ?? 0);
-            const firmwareState = String(raw.state || '').toLowerCase();
+            const reportedFault=raw.fault&&typeof raw.fault==='object'?raw.fault:{};
+            const firmwareState = String(raw.state || (reportedFault.active?reportedFault.state:'') || '').toLowerCase();
             const activePhase = String(raw.active_command_name || '').toLowerCase();
             const uiState = firmwareState === 'listo' ? 'IDLE'
                 : firmwareState === 'desarmado' ? 'INIT'
                 : firmwareState === 'calibrando' ? 'ESPERANDO'
                 : firmwareState === 'ejecutando' ? (activePhase.includes('avance') ? 'AVANZANDO' : 'GIRANDO')
-                : firmwareState === 'estop' ? 'ESTOP' : firmwareState === 'fallo' ? 'ESTOP' : 'INIT';
+                : firmwareState === 'estop' ? 'ESTOP'
+                : ['fallo','fault','safe_stop'].includes(firmwareState) ? 'FALLO' : 'INIT';
             const pulses = raw.pulses || {};
             const pwmRaw = raw.pwm || {};
             const stall = raw.stall_accumulated_ms || {}, fusion = raw.encoder_fusion || {};
@@ -1636,8 +1983,9 @@
     };
 
     const Calibration = {
-        calibrated:false, commandId:null, selfTestCommandId:null, selfTestPassed:true,
-        lastTurnMode:'PIVOT_CONTINUOUS', lastRequestedTurnMode:'AUTO', lastPowerKey:'',
+        calibrated:false, commandId:null, commandPending:false, rearmCommandId:null, rearmPending:false,
+        selfTestCommandId:null, selfTestPassed:true, robotState:'', mpuReady:false, allowedCommands:null,
+        lastRaw:{}, lastTurnMode:'PIVOT_CONTINUOUS', lastRequestedTurnMode:'AUTO', lastPowerKey:'',
         lastRobotState:'', lastTerminalKey:'', lastBrakingPhase:'OFF', lastAlignmentStage:'OFF',
         lastDegradedMode:null, lastEncoderHealthKey:'', lastAntiFrictionKey:'',
         init() {
@@ -1647,25 +1995,149 @@
             document.getElementById('self-test-state').textContent='INTEGRADA EN FIRMWARE';
             document.getElementById('btn-calibrate').addEventListener('click',async()=>{
                 if(!state.connected) return LogSystem.add('WARN','Conecta primero con el carrito.');
+                if(!this.canCalibrate()) return LogSystem.add('WARN',this.calibrationBlockReason());
+                this.commandPending=true;
+                this.updateAvailability();
                 try {
                     LogSystem.add('INFO','Enviando comando de calibración al robot...');
                     const result=await WSControl.send({cmd:'calibrate'});
-                    if(!result)return;
+                    if(!result){ this.commandPending=false; this.updateAvailability(); return; }
                     this.commandId=result.id;
-                    this.setState('CALIBRANDO TORQUE Y GIRO',false);
+                    this.setState('CALIBRACIÓN SOLICITADA',false);
                 } catch(err) {
+                    this.commandPending=false;
+                    this.updateAvailability();
                     LogSystem.add('ERROR','Error enviando calibracion: ' + err.message);
                 }
             });
+            document.getElementById('btn-clear-fault').addEventListener('click',async()=>{
+                if(!this.canRearm()) return LogSystem.add('WARN','El rearme sólo está disponible conectado y en FALLO o ESTOP.');
+                this.rearmPending=true;
+                this.updateAvailability();
+                LogSystem.add('CMD',`Solicitando rearme desde ${this.robotState}...`);
+                const result=await WSControl.send({cmd:'clear_fault'});
+                if(!result){ this.rearmPending=false; this.updateAvailability(); return; }
+                this.rearmCommandId=result.id;
+            });
         },
-        setState(label,ready) {
+        normalizeRobotState(value) {
+            const current=String(value||'').trim().toUpperCase();
+            return ['FAULT','SAFE_STOP'].includes(current)?'FALLO':current;
+        },
+        hasAllowed(command) {
+            return !Array.isArray(this.allowedCommands) || this.allowedCommands.includes(command);
+        },
+        mpuStatus(raw) {
+            const mpu=raw && typeof raw.mpu==='object' && raw.mpu ? raw.mpu : {};
+            const present=raw.mpu_present ?? mpu.present;
+            const stale=raw.mpu_stale ?? mpu.stale;
+            const calibrated=raw.mpu_calibrated ?? mpu.calibrated;
+            const i2cOk=raw.i2c_ok ?? mpu.i2c_ok;
+            if(present!==true)return {ready:false,reason:present===false?'MPU no detectada.':'Esperando diagnóstico de la MPU.'};
+            if(i2cOk===false)return {ready:false,reason:'Bus I²C de la MPU con fallo.'};
+            if(stale!==false)return {ready:false,reason:stale===true?'Telemetría MPU obsoleta.':'Esperando vigencia de la MPU.'};
+            if(calibrated!==true)return {ready:false,reason:'MPU presente, pero aún no está calibrada.'};
+            return {ready:true,reason:'MPU apta para calibración física.'};
+        },
+        canCalibrate() {
+            return state.connected && ['DESARMADO','LISTO'].includes(this.robotState) && this.mpuReady &&
+                !this.commandPending && !this.rearmPending && this.hasAllowed('calibrate');
+        },
+        canRearm() {
+            return state.connected && ['FALLO','ESTOP'].includes(this.robotState) && !this.rearmPending &&
+                this.hasAllowed('clear_fault');
+        },
+        calibrationBlockReason() {
+            if(!state.connected)return 'Conecta primero con el carrito.';
+            if(this.commandPending)return 'Ya existe un comando de calibración pendiente.';
+            if(this.rearmPending)return 'Espera a que termine el rearme.';
+            if(['FALLO','ESTOP'].includes(this.robotState))return `El robot está en ${this.robotState}; rearma el sistema antes de calibrar.`;
+            if(!['DESARMADO','LISTO'].includes(this.robotState))return `Calibración no permitida durante ${this.robotState||'un estado desconocido'}.`;
+            const mpu=this.mpuStatus(this.lastRaw||{});
+            if(!mpu.ready)return mpu.reason;
+            if(!this.hasAllowed('calibrate'))return 'El firmware no habilita calibración en este instante.';
+            return 'Calibración temporalmente no disponible.';
+        },
+        updateAvailability() {
+            const calibrate=document.getElementById('btn-calibrate');
+            calibrate.disabled=!this.canCalibrate();
+            calibrate.title=calibrate.disabled?this.calibrationBlockReason():'Iniciar calibración física';
+            const rearm=document.getElementById('btn-clear-fault');
+            const faultState=['FALLO','ESTOP'].includes(this.robotState);
+            rearm.hidden=!faultState;
+            rearm.disabled=!this.canRearm();
+            document.getElementById('btn-clear-fault-label').textContent=this.rearmPending?'Rearmando…':`Rearmar ${this.robotState||'sistema'}`;
+        },
+        showCause(reason,visible) {
+            const node=document.getElementById('calibration-cause');
+            node.textContent=visible?`Causa exacta: ${reason||'sin causa reportada'}`:'';
+            node.classList.toggle('visible',Boolean(visible));
+        },
+        setState(label,ready,tone='') {
             this.calibrated=ready;
             const node=document.getElementById('calibration-state');
-            node.textContent=label; node.classList.toggle('ready',ready);
+            node.textContent=label;
+            node.classList.toggle('ready',ready);
+            node.classList.toggle('fault',tone==='fault');
+            node.classList.toggle('estop',tone==='estop');
             document.body.classList.toggle('calibration-locked',!ready);
-            document.getElementById('btn-calibrate').disabled=!state.connected;
+            this.updateAvailability();
+        },
+        valueAt(container,key,index,fallback=undefined) {
+            if(Array.isArray(container))return container[index] ?? fallback;
+            if(container && typeof container==='object')return container[key] ?? container[key.toUpperCase()] ?? fallback;
+            return fallback;
+        },
+        renderDiagnostics(raw) {
+            const diag=raw && typeof raw.calibration_diagnostics==='object' && raw.calibration_diagnostics
+                ? raw.calibration_diagnostics : {};
+            const phase=diag.phase ?? raw.active_command_name ?? '—';
+            const ramp=diag.ramp_level ?? diag.ramp_step ?? diag.pasoRampa;
+            const rampTotal=diag.ramp_level_count ?? diag.ramp_total ?? diag.pasosRampaTotal;
+            const pwm10=diag.pwm_10bit ?? diag.pwm_target ?? diag.pwmObjetivo;
+            const pwm8=diag.pwm_8bit ?? (Number.isFinite(Number(pwm10))?Math.round(Number(pwm10)*255/1023):undefined);
+            const attempt=diag.attempt ?? diag.retry_attempt;
+            const attemptMax=diag.attempt_max ?? diag.retry_attempt_max;
+            document.getElementById('cal-diag-phase').textContent=String(phase||'—').toUpperCase();
+            document.getElementById('cal-diag-ramp').textContent=ramp===undefined?'—':`${ramp}/${rampTotal??'—'}`;
+            document.getElementById('cal-diag-pwm').textContent=pwm10===undefined?'—':`${pwm8??'—'}/255 · ${pwm10}/1023`;
+            document.getElementById('cal-diag-attempt').textContent=attempt===undefined?'—':`${attempt}/${attemptMax??'—'}`;
+            const deltas=diag.encoder_delta ?? diag.deltas ?? diag.deltaEncoders;
+            const responding=diag.encoder_responding ?? diag.encoder_responds ?? diag.encoderResponde;
+            const isolated=diag.encoder_isolated ?? diag.isolated ?? diag.encoderAislado;
+            const trusted=diag.trusted;
+            ['fl','fr','bl','br'].forEach((wheel,index)=>{
+                const delta=this.valueAt(deltas,wheel,index);
+                const responds=this.valueAt(responding,wheel,index);
+                const isIsolated=Boolean(this.valueAt(isolated,wheel,index,false));
+                const isTrusted=this.valueAt(trusted,wheel,index);
+                let status='unknown',label='sin datos';
+                if(isIsolated || isTrusted===false){status='isolated';label='aislado';}
+                else if(responds===true || isTrusted===true){status='ok';label='responde';}
+                else if(responds===false){status='fault';label='sin respuesta';}
+                document.getElementById(`cal-diag-delta-${wheel}`).textContent=`Δ ${delta===undefined?'—':String(delta)}`;
+                document.getElementById(`cal-diag-status-${wheel}`).textContent=label;
+                document.getElementById(`cal-diag-${wheel}`).dataset.status=status;
+            });
+            const sides=diag.sides&&typeof diag.sides==='object'?diag.sides:{};
+            const averages=diag.side_average ?? diag.promedioLados;
+            const valid=diag.sides_valid ?? diag.ladosValidos;
+            const stalls=diag.stall_accumulated_ms ?? diag.stallAcumuladoMs;
+            const side=(name,index)=>{
+                const item=sides[name]&&typeof sides[name]==='object'?sides[name]:{};
+                return {
+                    average:item.average ?? item.delta ?? this.valueAt(averages,name,index,'—'),
+                    ok:item.ok ?? item.valid ?? this.valueAt(valid,name,index,undefined),
+                    stall:item.stall_ms ?? this.valueAt(stalls,name,index,'—'),
+                    sources:item.sources
+                };
+            };
+            const left=side('left',0), right=side('right',1);
+            const sideLabel=item=>`${item.average} Δ · ${item.ok===true?'OK':item.ok===false?'SIN MOV.':'—'}${item.sources?` · ${item.sources}`:''}`;
+            document.getElementById('cal-diag-sides').textContent=`L ${sideLabel(left)} / R ${sideLabel(right)} · stall ${left.stall} / ${right.stall} ms`;
         },
         applyTelemetry(raw) {
+            this.lastRaw=raw||{};
             this.selfTestPassed=true;
             const intento=Number(raw.turn_attempt||0), max=Number(raw.turn_attempt_max||0);
             const requestedMode=String(raw.turn_requested_mode||'AUTO');
@@ -1718,42 +2190,83 @@
                 LogSystem.add('INFO','Antifricción terminada: movimiento confirmado en ambos lados.');
             }
             this.lastAntiFrictionKey=antiKey;
-            const robotState=String(raw.state||'').toUpperCase();
+            const fault=raw.fault&&typeof raw.fault==='object'?raw.fault:{};
+            const robotState=this.normalizeRobotState(raw.state||(fault.active?fault.state:''));
+            this.robotState=robotState;
+            this.allowedCommands=Array.isArray(raw.allowed_commands)?raw.allowed_commands.map(value=>String(value).toLowerCase()):null;
+            this.mpuReady=this.mpuStatus(raw).ready;
+            this.renderDiagnostics(raw);
             const terminal=raw.last_terminal||{};
-            const terminalReason=String(terminal.detail||terminal.reason||'sin causa reportada');
+            const diagnostics=raw.calibration_diagnostics&&typeof raw.calibration_diagnostics==='object'?raw.calibration_diagnostics:{};
+            const terminalReason=String(fault.detail||terminal.detail||terminal.reason||diagnostics.reason||raw.finish_reason||'sin causa reportada');
             const terminalKey=`${terminal.id||''}:${terminal.type||''}:${terminalReason}`;
-            if(['FAULT','FALLO','SAFE_STOP','ESTOP'].includes(robotState) &&
+            if(['FALLO','ESTOP'].includes(robotState) &&
                (robotState!==this.lastRobotState || terminalKey!==this.lastTerminalKey)) {
                 LogSystem.add('ERROR',`Robot pasó a ${robotState}: ${terminalReason}. PWM físico detenido por seguridad.`);
                 this.lastTerminalKey=terminalKey;
             }
             this.lastRobotState=robotState;
             const intentoTexto=intento&&max?` — GIRO ${intento}/${max} · ${turnMode}`:'';
-            if(raw.calibrated) this.setState('LISTO — RUTAS HABILITADAS',true);
-            else if(raw.state && String(raw.state).toLowerCase().includes('calibr')) this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
-            else this.setState('ESPERANDO MPU DE ARRANQUE',false);
+            if(robotState==='ESTOP'){
+                this.commandPending=false;
+                this.setState('ESTOP — REARME REQUERIDO',false,'estop');
+                this.showCause(terminalReason,true);
+            } else if(robotState==='FALLO'){
+                this.commandPending=false;
+                this.setState('FALLO — REARME REQUERIDO',false,'fault');
+                this.showCause(terminalReason,true);
+            } else {
+                this.rearmPending=false;
+                this.rearmCommandId=null;
+                this.showCause('',false);
+                if(raw.calibrated)this.setState('LISTO — RUTAS HABILITADAS',true);
+                else if(robotState==='CALIBRANDO')this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
+                else if(['DESARMADO','LISTO'].includes(robotState) && this.mpuReady)this.setState('LISTO PARA CALIBRAR',false);
+                else this.setState(this.mpuStatus(raw).reason.toUpperCase(),false);
+            }
         },
         onRobotEvent(event) {
+            if(event.id===this.rearmCommandId){
+                if(event.type==='queued'||event.type==='accepted'||event.type==='progress')return;
+                this.rearmPending=false;
+                this.rearmCommandId=null;
+                if(event.type==='completed'){
+                    this.rearmPending=true;
+                    this.setState('REARME ACEPTADO — ESPERANDO TELEMETRÍA',false);
+                    LogSystem.add('INFO','Rearme aceptado; esperando confirmación del nuevo estado del robot.');
+                } else {
+                    const reason=event.detail||event.reason||'rearme rechazado';
+                    this.showCause(reason,true);
+                    LogSystem.add('ERROR',`No se pudo rearmar: ${reason}.`);
+                    this.updateAvailability();
+                }
+                return;
+            }
             if(event.id===this.selfTestCommandId){
                 if(event.type==='queued'||event.type==='accepted'||event.type==='progress')return;
                 const ok=event.type==='completed';
                 this.selfTestPassed=ok;
                 document.getElementById('self-test-state').textContent=ok?'APROBADA':`FALLO — ${event.detail||event.reason||'sin detalle'}`;
                 document.getElementById('btn-self-test').disabled=false;
-                document.getElementById('btn-calibrate').disabled=!state.connected;
+                this.updateAvailability();
                 LogSystem.add(ok?'INFO':'ERROR',ok?'Autoevaluación lógica aprobada.':`Autoevaluación falló: ${event.detail||event.reason||'sin detalle'}`);
                 return;
             }
             if(event.id!==this.commandId)return;
+            if(event.type==='queued'||event.type==='accepted'||event.type==='progress')return;
+            this.commandPending=false;
+            this.commandId=null;
             if(event.type==='completed'){
                 this.setState('LISTO — CONTROLES HABILITADOS',true);
                 LogSystem.add('INFO','Calibración física completada; rutas habilitadas.');
             }
             if(event.type==='fault'||event.type==='rejected'){
-                const reason=event.detail||event.reason||'recentrado rechazado';
-                this.setState(this.calibrated?'LISTO — RECENTRADO RECHAZADO':'ESPERANDO MPU DE ARRANQUE',this.calibrated);
-                LogSystem.add('ERROR',`No se pudo recentrar: ${reason}.`);
+                const reason=event.detail||event.reason||'calibración rechazada';
+                this.setState(this.calibrated?'LISTO — CALIBRACIÓN RECHAZADA':`CALIBRACIÓN FALLIDA — ${reason}`,this.calibrated,'fault');
+                this.showCause(reason,true);
+                LogSystem.add('ERROR',`No se pudo calibrar: ${reason}.`);
             }
+            this.updateAvailability();
         }
     };
 
@@ -1790,6 +2303,7 @@
             const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-steps-v3 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
             document.getElementById('connection-panel-detail').textContent=detail;
             document.getElementById('connection-panel-dot').classList.toggle('ok',state.connected);
+            Calibration.updateAvailability();
             Telemetry._ui();
         },
         applySession(session) { document.getElementById('active-session').textContent=session.recording ? `#${session.session_id}` : '—'; },
@@ -1816,28 +2330,43 @@
     const LogSystem = {
         entries: [], container: null, emptyMsg: null,
         init() { this.container = document.getElementById('log-container'); this.emptyMsg = document.getElementById('log-empty'); },
+        updateCount() {
+            const count = document.getElementById('log-count');
+            count.textContent = this.entries.length;
+            count.setAttribute('aria-label', `${this.entries.length} registros`);
+        },
         add(level, message) {
             const now = new Date();
             const ts = now.toTimeString().slice(0,8) + '.' + String(now.getMilliseconds()).padStart(3,'0');
             this.entries.push({ timestamp:ts, level, message });
             if (this.entries.length > CONFIG.LOG_MAX) this.entries.shift();
             if (this.emptyMsg) this.emptyMsg.style.display = 'none';
+            const levelKey = level.toLowerCase();
             const div = document.createElement('div');
-            div.className = `log-entry log-${level.toLowerCase()}`;
-            div.innerHTML = `<span class="log-time">${ts}</span> <span class="log-level ll-${level.toLowerCase()}">${level.padEnd(5)}</span> <span class="log-msg">${message}</span>`;
-            if (!state.logFilters[level.toLowerCase()]) div.style.display = 'none';
+            div.className = `log-entry log-${levelKey}`;
+            const time = document.createElement('time');
+            time.className = 'log-time';
+            time.textContent = ts;
+            const badge = document.createElement('span');
+            badge.className = `log-level ll-${levelKey}`;
+            badge.textContent = level;
+            const detail = document.createElement('span');
+            detail.className = 'log-msg';
+            detail.textContent = message;
+            div.append(time, badge, detail);
+            if (!state.logFilters[levelKey]) div.style.display = 'none';
             this.container.appendChild(div);
             if (this.container.scrollHeight - this.container.scrollTop - this.container.clientHeight < 50)
                 this.container.scrollTop = this.container.scrollHeight;
             while (this.container.children.length > CONFIG.LOG_MAX + 5)
                 if (this.container.children[0] !== this.emptyMsg) this.container.removeChild(this.container.children[0]);
-            document.getElementById('log-count').textContent = this.entries.length;
+            this.updateCount();
         },
         clear() {
             this.entries = [];
             while (this.container.children.length > 1) this.container.removeChild(this.container.lastChild);
             if (this.emptyMsg) this.emptyMsg.style.display = 'block';
-            document.getElementById('log-count').textContent = '0';
+            this.updateCount();
         },
         setFilter(l, a) { state.logFilters[l] = a; this.container.querySelectorAll(`.log-entry.log-${l}`).forEach(e => { e.style.display = a ? '' : 'none'; }); },
         downloadTXT() {
@@ -2061,11 +2590,15 @@
     const FSMDisplay = {
         update(s) {
             document.querySelectorAll('.fsm-node').forEach(n => {
-                n.classList.remove('active','active-reverse','active-estop');
-                if (n.dataset.state===s) n.classList.add(s==='REVERSE'?'active-reverse':s==='ESTOP'?'active-estop':'active');
+                n.classList.remove('active','active-reverse','active-fault','active-estop');
+                n.removeAttribute('aria-current');
+                if (n.dataset.state===s) {
+                    n.classList.add(s==='REVERSE'?'active-reverse':s==='ESTOP'?'active-estop':s==='FALLO'?'active-fault':'active');
+                    n.setAttribute('aria-current', 'step');
+                }
             });
             const el=document.getElementById('telem-state'); el.textContent=s;
-            el.className='telem-value state-val '+({INIT:'tv-init',IDLE:'tv-idle',AVANZANDO:'tv-advancing',GIRANDO:'tv-turning',ESPERANDO:'tv-calibrating',TERMINADO:'tv-init'}[s]||'tv-idle');
+            el.className='telem-value state-val '+({INIT:'tv-init',IDLE:'tv-idle',AVANZANDO:'tv-advancing',GIRANDO:'tv-turning',ESPERANDO:'tv-calibrating',TERMINADO:'tv-init',FALLO:'tv-fault',ESTOP:'tv-estop'}[s]||'tv-idle');
         }
     };
 
@@ -2420,13 +2953,34 @@
        TAB MANAGER
        ============================================== */
     const TabManager = {
-        init() { document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click',()=>this.switch(b.dataset.tab))); },
+        init() {
+            const tabs=[...document.querySelectorAll('.tab-btn')];
+            tabs.forEach((button,index)=>{
+                button.addEventListener('click',()=>{
+                    if(button.getAttribute('aria-disabled')==='true')return;
+                    this.switch(button.dataset.tab);
+                });
+                button.addEventListener('keydown',event=>{
+                    let targetIndex=null;
+                    if(event.key==='ArrowRight')targetIndex=(index+1)%tabs.length;
+                    if(event.key==='ArrowLeft')targetIndex=(index-1+tabs.length)%tabs.length;
+                    if(event.key==='Home')targetIndex=0;
+                    if(event.key==='End')targetIndex=tabs.length-1;
+                    if(targetIndex===null)return;
+                    event.preventDefault();
+                    tabs[targetIndex].focus();
+                    tabs[targetIndex].scrollIntoView({block:'nearest',inline:'nearest'});
+                });
+            });
+        },
         switch(id) {
+            const requestedTab=document.querySelector(`.tab-btn[data-tab="${id}"]`);
+            if(!requestedTab || requestedTab.getAttribute('aria-disabled')==='true')return;
             if(!Calibration.calibrated && id!=='conexion')return LogSystem.add('WARN','Completa primero la calibración física de torque y giro.');
             if (typeof RouteManager !== 'undefined' && RouteManager.isRunning && id !== 'rutas') return;
             if (state.activeTab === 'touch' && id !== 'touch') Touch.end();
             state.activeTab=id;
-            document.querySelectorAll('.tab-btn').forEach(b=>{const a=b.dataset.tab===id;b.classList.toggle('active',a);b.setAttribute('aria-selected',a);});
+            document.querySelectorAll('.tab-btn').forEach(b=>{const a=b.dataset.tab===id;b.classList.toggle('active',a);b.setAttribute('aria-selected',a);b.tabIndex=a?0:-1;});
             document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id===`tab-${id}`));
             if (id === 'rutas' && typeof RouteManager !== 'undefined') RouteManager.resizeCharts();
         }
@@ -2623,6 +3177,7 @@
 
         document.querySelectorAll('.log-filter-btn').forEach(b=>b.addEventListener('click',function(){
             this.classList.toggle('active');
+            this.setAttribute('aria-pressed', this.classList.contains('active') ? 'true' : 'false');
             LogSystem.setFilter(this.dataset.filter, this.classList.contains('active'));
         }));
         

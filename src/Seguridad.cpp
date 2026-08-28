@@ -228,24 +228,27 @@ void Seguridad::forzarEStop() {
     frenarMotores();
     reiniciarControlRumbo();
     registrarMotivoFinalizacion("estop");
+    strncpy(ultimoFalloDetalle, "estop", sizeof(ultimoFalloDetalle) - 1);
+    ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
     estadoActual = ESTOP;
 }
 
-void Seguridad::resetFallo() {
+ResultadoRearme Seguridad::resetFallo() {
     frenarMotores();
     reiniciarControlRumbo();
     if (estadoActual != ESTOP && estadoActual != FALLO) {
         LOG_CORE("Rearme ignorado: sin fallo activo.");
-        return;
+        return ResultadoRearme::SIN_FALLO_ACTIVO;
     }
     if (!motoresListos()) {
         LOG_CORE("Rearme rechazado: salida de motores no disponible.");
         estadoActual = FALLO;
         registrarMotivoFinalizacion("motor_output_unavailable");
-        return;
+        return ResultadoRearme::MOTORES_NO_DISPONIBLES;
     }
     LOG_CORE("Sistema rearmado.");
     estadoActual = robotCalibrado ? LISTO : DESARMADO;
     inicio_movimiento_ms = 0;
     reiniciarSaludEncoders();
+    return ResultadoRearme::REARMADO;
 }

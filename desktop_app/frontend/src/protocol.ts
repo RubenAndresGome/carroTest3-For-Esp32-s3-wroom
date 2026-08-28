@@ -6,6 +6,9 @@ export type CommandName =
   | "stop"
   | "reset_pose"
   | "clear_fault"
+  | "step"
+  | "turn_to"
+  | "set_comp"
   | "move"
   | "drive"
   | "turn"
@@ -38,6 +41,32 @@ export interface Telemetry {
   readonly active_command_id: string | null;
   readonly active_command_name: string | null;
   readonly command_progress: number;
+  readonly allowed_commands: readonly CommandName[];
+  readonly fault: {
+    readonly active?: boolean;
+    readonly state?: "none" | "fallo" | "estop" | string;
+    readonly detail?: string;
+    readonly rearm_required?: boolean;
+  };
+  readonly calibration_diagnostics: {
+    readonly active?: boolean;
+    readonly phase?: string;
+    readonly ramp_level?: number;
+    readonly ramp_level_count?: number;
+    readonly pwm_8bit?: number;
+    readonly pwm_10bit?: number;
+    readonly direction_candidate?: number;
+    readonly encoder_delta?: readonly [number, number, number, number];
+    readonly encoder_responding?: readonly [boolean, boolean, boolean, boolean];
+    readonly encoder_isolated?: readonly [boolean, boolean, boolean, boolean];
+    readonly sides?: Readonly<Record<"left" | "right", {
+      readonly average?: number;
+      readonly ok?: boolean;
+      readonly stall_ms?: number;
+    }>>;
+    readonly ticks_required?: number;
+    readonly stall_limit_ms?: number;
+  };
   readonly target: {
     readonly absolute?: boolean;
     readonly x_cm?: number;
