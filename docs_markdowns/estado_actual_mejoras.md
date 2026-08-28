@@ -14,6 +14,9 @@ pequeño, pero no oculta una desviación que requiere calibración física.
   `command_run_id` para separar ejecuciones incluso si cambia `seq`.
 - La HMI compacta el programador de ruta y conserva el modo de eje único para
   puntos rectangulares.
+- **Navegación Robusta y Watchdogs Dinámicos**: Se resolvió el estancamiento (stall) al rotar ajustando los watchdogs por fase de movimiento y una rampa de torque adaptativo sin sobrepasar la seguridad eléctrica (97% de PWM).
+- **Precisión de Alineación**: Los giros emplean ahora micropulsos para aproximación fina y logran tolerancia estricta (< 1.0°) en calibración.
+- **Corrección de Polaridad MPU**: Se estandarizó la polaridad del Yaw del sensor (antihorario positivo) coordinado con el sistema de coordenadas.
 
 ## Publicación en GitHub Pages
 

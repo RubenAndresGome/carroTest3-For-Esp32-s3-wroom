@@ -8,6 +8,17 @@ skinparam componentBorderColor #39E6AA
 skinparam componentFontColor white
 skinparam ArrowColor #5BD8FF
 title firmware/include — grafo funcional
+component "activa\nCC=1 · Bajo" as n9e3776ac33
+component "pasoRampa\nCC=1 · Bajo" as n698b99e4f4
+component "pasosRampaTotal\nCC=1 · Bajo" as n9dbc84f914
+component "pwmObjetivo\nCC=1 · Bajo" as n797389931b
+component "candidatoDireccion\nCC=1 · Bajo" as nbb0e17a0ad
+component "deltaEncoders\nCC=1 · Bajo" as n5330a2250b
+component "promedioLados\nCC=1 · Bajo" as n48a7b26404
+component "ladosValidos\nCC=1 · Bajo" as n4f0d47a345
+component "encoderResponde\nCC=1 · Bajo" as n418b09ee7c
+component "encoderAislado\nCC=1 · Bajo" as n75715afd01
+component "stallAcumuladoMs\nCC=1 · Bajo" as n635f7f950d
 component "tipo\nCC=1 · Bajo" as nb9d52df174
 component "seq\nCC=1 · Bajo" as n54e28a7808
 component "heading\nCC=1 · Bajo" as na384e552ee
@@ -17,6 +28,15 @@ component "targetXCm\nCC=1 · Bajo" as n359e3192c8
 component "targetYCm\nCC=1 · Bajo" as n3ddd954461
 component "tieneObjetivoAbsoluto\nCC=1 · Bajo" as nd0867b25a6
 component "modoPaso\nCC=1 · Bajo" as n475cac3a15
+component "promedioIzquierdo\nCC=1 · Bajo" as n9965dceebe
+component "promedioDerecho\nCC=1 · Bajo" as n24ed847d8c
+component "ladoIzquierdoValido\nCC=1 · Bajo" as nc2849d5e46
+component "ladoDerechoValido\nCC=1 · Bajo" as n0f7dafc2cb
+component "responde\nCC=1 · Bajo" as na9951eb8f9
+component "sinRespuestaAislada\nCC=1 · Bajo" as n36e4bf09f8
+component "evaluarEncoders\nCC=4 · Bajo" as nd20cfb564a
+component "totalPasosRampa\nCC=3 · Bajo" as na4925ad6d3
+component "pasoRampaActual\nCC=5 · Bajo" as nbd8492d45a
 component "longitudinalCm\nCC=1 · Bajo" as naf5b9be116
 component "lateralCm\nCC=1 · Bajo" as n7d8fcdccb4
 component "euclidianoCm\nCC=1 · Bajo" as n56c5928aa3
@@ -85,12 +105,12 @@ component "arco_centro_giro_cm\nCC=1 · Bajo" as n1188c6a6bf
 component "traslacion_giro_x_cm\nCC=1 · Bajo" as nf4fed91bea
 component "traslacion_giro_y_cm\nCC=1 · Bajo" as n6bc5cba68b
 component "DISTANCIA_EJES_CM\nCC=1 · Bajo" as nedb05230fb
-component "inicio_movimiento_ms\nCC=1 · Bajo" as n21514037cb
-component "pulsos_movimiento_iniciales\nCC=1 · Bajo" as nd68d40171a
-component "inicio_ventana_encoder_ms\nCC=1 · Bajo" as ne0be1a0dfd
-component "pulsos_ventana_encoder\nCC=1 · Bajo" as n0f5c6a90b0
-component "pulsos_lado_anteriores\nCC=1 · Bajo" as n86a0c33a6e
-component "ultimo_progreso_lado_ms\nCC=1 · Bajo" as n9ae96fe14f
+component "inicio_movimiento_ms\nCC=1 · Bajo" as n75114b0e9b
+component "pulsos_movimiento_iniciales\nCC=1 · Bajo" as n9dc454a10d
+component "inicio_ventana_encoder_ms\nCC=1 · Bajo" as ncb4c7b8712
+component "pulsos_ventana_encoder\nCC=1 · Bajo" as n659411dda3
+component "pulsos_lado_anteriores\nCC=1 · Bajo" as ne3bba715f8
+component "ultimo_progreso_lado_ms\nCC=1 · Bajo" as n949a7da5ad
 component "pulsosFL\nCC=1 · Bajo" as na1bb2d9854
 component "pulsosFR\nCC=1 · Bajo" as nd1a857052e
 component "pulsosBL\nCC=1 · Bajo" as n9d7f448fe0
@@ -111,6 +131,7 @@ component "mpu_present\nCC=1 · Bajo" as n6d2232461b
 component "mpu_stale\nCC=1 · Bajo" as n588b6ba92e
 component "mpu_calibrated\nCC=1 · Bajo" as n7c7ebe4c92
 component "sequence\nCC=1 · Bajo" as n19143883c9
+nbd8492d45a --> na4925ad6d3 : síncrona
 n40c8cb2eef --> n055e6556b4 : síncrona
 nbe93f15ded --> n40c8cb2eef : síncrona
 nb3b8b073ec --> n055e6556b4 : síncrona

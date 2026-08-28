@@ -92,18 +92,12 @@ llamar a `xQueueSend()`, pero ignora si la cola de ocho elementos está llena.
 - Recomendación: reservar capacidad para terminales, reemplazar progreso antes
   de descartar un terminal y telemetrizar contador de pérdidas.
 
-### A-05 — Alta: especificación y firmware contradicen límites operativos
+### A-05 — Resuelto: especificación y firmware contradicen límites operativos
 
-Las reglas vigentes describen 450 ms de stall en avance, 2.5 s en giro, 800 ms
-de calibración máxima, tolerancia de ±2° y micro-pulsos finos. El código usa,
-respectivamente, 6000 ms, 4000 ms, 1000 ms, 3° y no contiene
-`TURN_PULSE_ON_MS/TURN_PULSE_OFF_MS`. La rampa también está configurada con
-intervalo de 500 ms y paso aproximado de 13/255.
+Anteriormente las reglas y el código no coincidían. Con la última actualización, el firmware implementa exitosamente la rampa de torque adaptativa (hasta 247/255 o 97%), micro-pulsos para aproximación fina (`TURN_PULSE_ON_MS`/`TURN_PULSE_OFF_MS`), tolerancia estricta < 1.0° en calibración y timeouts separados por fase operativa (20s calibración, 12s giro, 7s avance rectilíneo).
 
-- Evidencia: `include/Config.h`, líneas 62, 78–112.
-- Efecto: las pruebas de aceptación escritas no prueban el producto compilado.
-- Recomendación: decidir una única especificación aprobada y hacer que una
-  prueba automática compare constantes documentadas contra firmware.
+- Efecto corregido: las pruebas físicas ahora reflejan el comportamiento esperado y seguro.
+- Condición de mantenimiento: cualquier cambio en `include/Config.h` debe ir acompañado de una prueba automática que audite estas constantes de seguridad.
 
 ### A-06 — Alta operativa: calibración con IMU activa y encoders en cero
 
@@ -239,7 +233,7 @@ descartar la precondición de escritores/checkpoints concurrentes.
 
 ## Criterios pendientes para aceptación
 
-1. Resolver A-01 a A-05 antes de declarar tolerancia completa a desconexión.
+1. Resolver A-01 a A-04 antes de declarar tolerancia completa a desconexión.
 2. Resolver A-06 antes de nuevas rutas en suelo.
 3. Ejecutar prueba de corriente obligatoria.
 4. Correlacionar video, telemetría y medición física en una misma sesión.

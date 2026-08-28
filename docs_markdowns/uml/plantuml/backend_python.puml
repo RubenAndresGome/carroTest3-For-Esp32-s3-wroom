@@ -55,8 +55,8 @@ component "validate_command_payload\nCC=10 · Bajo" as n8e2fbfdb5d
 component "create\nCC=3 · Bajo" as n67c3bdbb31
 component "protocol_envelope\nCC=2 · Bajo" as nede5d2494e
 component "split_segment_mm\nCC=3 · Bajo" as n918003cd14
-component "from_message\nCC=38 · Medio" as n51981cbeb3
-component "public_dict\nCC=1 · Medio" as n46775125a7
+component "from_message\nCC=41 · Medio" as nac62d79c87
+component "public_dict\nCC=1 · Medio" as nfefb321f8f
 component "__init__\nCC=1 · Bajo" as n768722c274
 component "start\nCC=3 · Medio" as n9c7f87a274
 component "stop\nCC=2 · Medio" as n06e0517455
@@ -193,8 +193,8 @@ n8e2fbfdb5d --> nb983649585 : síncrona
 n8e2fbfdb5d --> n5dae047b8f : síncrona
 n67c3bdbb31 --> n8e2fbfdb5d : síncrona
 n918003cd14 --> nb983649585 : síncrona
-n51981cbeb3 --> nb983649585 : síncrona
-n51981cbeb3 --> n5dae047b8f : síncrona
+nac62d79c87 --> nb983649585 : síncrona
+nac62d79c87 --> n5dae047b8f : síncrona
 n9c7f87a274 ..> nc197fe04ab : asíncrona
 n06e0517455 --> n75cdaae440 : síncrona
 n1520d57fd8 ..> n5a1cf90c3e : asíncrona
@@ -224,7 +224,7 @@ n7dc9552171 --> n7e9b9be06c : síncrona
 n7dc9552171 --> nc197fe04ab : síncrona
 n7dc9552171 --> n9c7f87a274 : síncrona
 n97af93f1c6 --> ne78aa088df : síncrona
-n97af93f1c6 --> n46775125a7 : síncrona
+n97af93f1c6 --> nfefb321f8f : síncrona
 n97af93f1c6 --> nc197fe04ab : síncrona
 ne007ec69a2 --> n47dbbcd128 : síncrona
 nf1aeb31b3d --> nc197fe04ab : síncrona
@@ -298,9 +298,9 @@ n9a57989029 --> n65629473d0 : síncrona
 n9a57989029 --> n3e6b3beaca : síncrona
 n9a57989029 --> n024ecb3a08 : síncrona
 n9a57989029 --> na32a4ec87e : síncrona
-n9a57989029 --> n51981cbeb3 : síncrona
+n9a57989029 --> nac62d79c87 : síncrona
 n9a57989029 --> n199de97a81 : síncrona
-n9a57989029 --> n46775125a7 : síncrona
+n9a57989029 --> nfefb321f8f : síncrona
 n9a57989029 --> n4c576330b1 : síncrona
 n9a57989029 --> nc197fe04ab : síncrona
 n9a57989029 --> n55583f40a2 : síncrona

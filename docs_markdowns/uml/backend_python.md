@@ -66,8 +66,8 @@ flowchart LR
     n67c3bdbb31["create(cls, name: object, payload: Mapping[str, Any] | None = None, seq: int = 0, command_id: str | None = None)"]
     nede5d2494e["protocol_envelope(self)"]
     n918003cd14["split_segment_mm( start_x_mm: float, start_y_mm: float, end_x_mm: float, end_y_mm: float, max_segment_mm: float = MAX_SEGMENT_MM, )"]
-    n51981cbeb3["from_message(cls, message: Mapping[str, Any], fallback_sequence: int)"]
-    n46775125a7["public_dict(self)"]
+    nac62d79c87["from_message(cls, message: Mapping[str, Any], fallback_sequence: int)"]
+    nfefb321f8f["public_dict(self)"]
   end
   subgraph f7["gateway.py"]
     n768722c274["__init__( self, host_getter: Callable[[], str], on_message: Callable[[dict[str, Any]], None], on_state: Callable[[ConnectionState, str | None], None], on_sent: Callable[[RobotCommand], None], session_getter: Callable[[], str] = lambda: '', max_message_bytes: int = 4096, )"]
@@ -232,8 +232,6 @@ flowchart LR
   n517df21a27 --> n60b0cf8cad
   n517df21a27 --> ne78aa088df
   n517df21a27 --> nf41c46053c
-  n51981cbeb3 --> n5dae047b8f
-  n51981cbeb3 --> nb983649585
   n5a1cf90c3e -.-> nede5d2494e
   n5dae047b8f --> nb983649585
   n5f28d62235 --> n11a7fd3b87
@@ -313,22 +311,22 @@ flowchart LR
   n94c7e22137 --> n81d8816604
   n94c7e22137 --> ne007ec69a2
   n9768753665 --> nab39be2bb6
-  n97af93f1c6 --> n46775125a7
   n97af93f1c6 --> nc197fe04ab
   n97af93f1c6 --> ne78aa088df
+  n97af93f1c6 --> nfefb321f8f
   n9a57989029 --> n024ecb3a08
   n9a57989029 --> n0bf80517b4
   n9a57989029 --> n199de97a81
   n9a57989029 --> n3e6b3beaca
-  n9a57989029 --> n46775125a7
   n9a57989029 --> n4c576330b1
-  n9a57989029 --> n51981cbeb3
   n9a57989029 --> n55583f40a2
   n9a57989029 --> n6541552cc2
   n9a57989029 --> n65629473d0
   n9a57989029 --> na32a4ec87e
+  n9a57989029 --> nac62d79c87
   n9a57989029 --> nbc806381e8
   n9a57989029 --> nc197fe04ab
+  n9a57989029 --> nfefb321f8f
   n9bd103dfd7 --> n8d63ce830a
   n9bd103dfd7 --> nbc806381e8
   n9c7f87a274 --> nc197fe04ab
@@ -352,6 +350,8 @@ flowchart LR
   na5e8d26bb3 --> n8106c54b68
   naaf08a29e6 --> n67c3bdbb31
   naaf08a29e6 --> n918003cd14
+  nac62d79c87 --> n5dae047b8f
+  nac62d79c87 --> nb983649585
   nacb3ceafef --> n9d54627ca5
   nacb3ceafef --> nd7c4778c17
   naf02b1bc78 --> n11d586ec95
@@ -438,8 +438,8 @@ flowchart LR
   class n67c3bdbb31 bajo
   class nede5d2494e bajo
   class n918003cd14 bajo
-  class n51981cbeb3 medio
-  class n46775125a7 medio
+  class nac62d79c87 medio
+  class nfefb321f8f medio
   class n768722c274 bajo
   class n9c7f87a274 medio
   class n06e0517455 medio
@@ -574,8 +574,8 @@ Fuentes: [Mermaid](mermaid/backend_python.mmd) · [PlantUML](plantuml/backend_py
 | `RobotCommand.create` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L101) | 3 | Python / misión e historial | Bajo; interno; síncrona | `_build_segments`, `send_command` | `validate_command_payload` | — |
 | `RobotCommand.protocol_envelope` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L115) | 2 | Python / misión e historial | Bajo; interno; síncrona | `_drain_one` | — | — |
 | `split_segment_mm` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L121) | 3 | Python / misión e historial | Bajo; interno; síncrona | `_build_segments` | `_finite_number` | — |
-| `TelemetrySnapshot.from_message` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L243) | 38 | Python / misión e historial | Medio; interno; síncrona | `_on_robot_message` | `_finite_number`, `_heading_degrees` | telemetría |
-| `TelemetrySnapshot.public_dict` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L414) | 1 | Python / misión e historial | Medio; interno; síncrona | `_on_robot_message`, `status` | — | — |
+| `TelemetrySnapshot.from_message` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L245) | 41 | Python / misión e historial | Medio; interno; síncrona | `_on_robot_message` | `_finite_number`, `_heading_degrees` | telemetría |
+| `TelemetrySnapshot.public_dict` | [`desktop_app/robot_app/domain.py`](../../desktop_app/robot_app/domain.py#L421) | 1 | Python / misión e historial | Medio; interno; síncrona | `_on_robot_message`, `status` | — | — |
 | `RobotGateway.__init__` | [`desktop_app/robot_app/gateway.py`](../../desktop_app/robot_app/gateway.py#L37) | 1 | Python / misión e historial | Bajo; sin llamada interna detectada; cola/evento | — | — | — |
 | `RobotGateway.start` | [`desktop_app/robot_app/gateway.py`](../../desktop_app/robot_app/gateway.py#L67) | 3 | Python / misión e historial | Medio; interno; asíncrona | `__init__`, `close_application`, `connect`, `init`, `main`, `reconnect` | `clear`, `snapshot` | — |
 | `RobotGateway.stop` | [`desktop_app/robot_app/gateway.py`](../../desktop_app/robot_app/gateway.py#L77) | 2 | Python / misión e historial | Medio; interno; síncrona | `close`, `disconnect` | `_set_state` | — |

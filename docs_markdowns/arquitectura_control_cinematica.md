@@ -9,18 +9,18 @@ Este documento describe la arquitectura de control, cinemática y desacoplamient
 Para evitar sobrepasos por inercia en maniobras de rotación y asegurar fuerza suficiente en rectas, el firmware desacopla los parámetros de potencia y tiempos entre ambas maniobras:
 
 ### Giro Pivote (`GIRO`)
-- **`PWM_TURN_MAX_LIMIT`**: Configurado en **247/255** (~97% de la potencia máxima). Entrega el torque necesario para vencer la resistencia y fricción estática del suelo en giros y pivotes exigentes (como el regreso a 0° de la Ruta Ockham).
-- **`PWM_TURN_START`**: **130/255** (Supera la zona muerta de fricción estática de la caja reductora).
-- **`TOLERANCIA_GIRO_DEG`**: **3.5°** (Banda de error permisible de ~3–5%).
-- **`TURN_BRAKING_ZONE_DEG`**: **25.0°** (Zona de rampa de desaceleración).
-- **`TURN_STALL_MS`**: **4000 ms** (Watchdog de atascamiento en giro).
-- **`TURN_TIMEOUT_MS`**: **60000 ms**.
+
+- **Control Híbrido y Rampa Adaptativa**: El giro inicia con una rampa suave de torque. Mientras no se confirme el movimiento físico mediante giroscopio y encoders, el torque escala en rampa adaptativa hasta alcanzar el **247/255** (~97%), venciendo la fricción estática de la caja reductora o superficies difíciles sin gatillar falsos stalls.
+- **Aproximación Fina (Micro-pulsos)**: Cuando el error angular es < 5°, el sistema transiciona a un régimen de micro-pulsos intermitentes (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia, integrar el IMU con alta fidelidad y evitar sobrepasos.
+- **Tolerancias y Finalización**: El margen durante navegación general se ubica alrededor de **3.5°** (`TOLERANCIA_GIRO_DEG`), pero la alineación fina y calibración final fuerzan una precisión < 1.0° antes de darse por completada. El signo de giro sigue continuamente el error real.
+- **Tiempos Límite (Watchdogs por fase)**: El sistema implementa timeouts según la fase: calibración (20s), giros regulares (12s) y avance (7s).
 
 ### Avance Rectilíneo (`AVANCE`)
+
 - **`VELOCIDAD_BASE_RECTO`**: **230/255** (~90% de potencia, tope global de seguridad según `AGENTS.md`).
 - **`VELOCIDAD_APROXIMACION`**: **180/255**.
 - **`VELOCIDAD_MINIMA_RECTO`**: **140/255**.
-- **`DRIVE_STALL_MS`**: **6000 ms**.
+- **`DRIVE_STALL_MS`**: Watchdog dinámico según fase (generalmente 7s en recorrido).
 
 ---
 
@@ -58,6 +58,6 @@ Para garantizar que el robot pueda rotar en lazo cerrado de forma simétrica des
 
 ## 5. Protecciones Eléctricas y Mecánicas Respetadas
 
-- **Tope de PWM Global**: **230/255** (~90%).
+- **Tope de PWM Global**: **230/255** (~95%).
 - **Tiempo Muerto de Inversión**: **250 ms** obligatorios en `Motores.cpp` (`PWM_DIRECTION_PAUSE_MS`) al cambiar de sentido de giro.
 - **Core Allocation**: `Task_Web` en Core 0; súper-ciclo de control síncrono a 100 Hz en Core 1.
