@@ -100,4 +100,27 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toContain("detail.textContent = message");
     expect(html).not.toMatch(/id=["']select-purge-days["'][^>]*\sstyle=/i);
   });
+
+  it("expone rectangular, angular descompuesto y angular vectorial experimental", () => {
+    expect(html).toContain('<option value="polar">Angular por descomposición (X→Y)</option>');
+    expect(html).toContain('<option value="vectorial">Angular vectorial (directa)</option>');
+    expect(html).toContain("class RoutePlanningMode");
+    expect(html).toContain("class RectangularRouteMode extends RoutePlanningMode");
+    expect(html).toContain("class AngularRouteMode extends RoutePlanningMode");
+    expect(html).toContain("class AngularDecompositionRouteMode extends AngularRouteMode");
+    expect(html).toContain("class AngularVectorialRouteMode extends AngularRouteMode");
+    expect(html).toContain("logicalSteps: []");
+    expect(html).toContain("routeAngularOverlay");
+    expect(html).toContain("Hipotenusa / vector");
+    expect(html).toContain("Componente X ejecutable");
+    expect(html).toContain("Componente Y ejecutable");
+    expect(html).toContain("Ángulo relativo");
+    expect(html).toContain("experimental_vectorial_routes");
+    expect(html).toContain("vectorialReadiness");
+  });
+
+  it("dimensiona hora y nivel del log por contenido antes del reflow móvil", () => {
+    expect(html).toMatch(/\.log-entry\s*\{[^}]*grid-template-columns:\s*max-content\s+max-content\s+minmax\(0,1fr\)/s);
+    expect(html).toMatch(/@media\s*\(max-width:\s*480px\)[\s\S]*?\.log-entry\s*\{[^}]*grid-template-columns:\s*1fr\s+auto/s);
+  });
 });

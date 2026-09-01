@@ -63,13 +63,18 @@ def status() -> Response:
 def robot_config() -> Response | tuple[Response, int]:
     service = _service()
     if request.method == "GET":
-        return jsonify({"robot_host": service.get_robot_host()})
+        return jsonify(service.robot_config())
     body = request.get_json(silent=True) or {}
     try:
-        host = service.set_robot_host(body.get("robot_host"))
+        if "robot_host" in body:
+            service.set_robot_host(body.get("robot_host"))
+        if "experimental_vectorial_routes" in body:
+            service.set_vectorial_routes_enabled(body.get("experimental_vectorial_routes"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify({"robot_host": host})
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify(service.robot_config())
 
 
 @web.post("/api/v1/connection/<action>")
@@ -114,7 +119,7 @@ def missions() -> Response | tuple[Response, int]:
         return jsonify(service.stop_mission())
     body = request.get_json(silent=True) or {}
     try:
-        return jsonify(service.start_mission(body.get("points"))), 202
+        return jsonify(service.start_mission(body)), 202
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:

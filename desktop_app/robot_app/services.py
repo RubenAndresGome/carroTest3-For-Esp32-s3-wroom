@@ -13,8 +13,9 @@ from typing import Any
 from .config import DEFAULT_ROBOT_HOST, normalize_robot_host
 from .database import Database
 from .domain import (MAX_SEGMENT_MM, CommandStatus, ConnectionState, RobotCommand, Severity,
-                     TelemetrySnapshot, split_segment_mm)
+                     TelemetrySnapshot)
 from .gateway import RobotGateway
+from .route_planning import RectangularRouteStrategy, strategy_for_request
 
 
 class EventHub:
@@ -120,7 +121,7 @@ class RobotService:
         self._startup_stop_required = False
         self._startup_stop_command_id: str | None = None
         self._mission_id: str | None = None
-        self._mission_points: list[dict[str, float]] = []
+        self._mission_points: list[dict[str, Any]] = []
         self._mission_index = 0
         self._mission_command_id: str | None = None
         self._mission_command_started_at: float | None = None
@@ -132,6 +133,12 @@ class RobotService:
         self._mission_seq: int | None = None
         self._mission_kind = "outbound"
         self._mission_final_heading: float | None = None
+        self._mission_mode = "rectangular"
+        self._mission_logical_steps: list[dict[str, Any]] = []
+        self._mission_warnings: list[dict[str, Any]] = []
+        self._vectorial_routes_enabled = bool(
+            database.get_setting("experimental_vectorial_routes", False)
+        )
         saved_mission = database.get_setting("active_mission", None)
         if isinstance(saved_mission, dict) and saved_mission.get("id") and isinstance(saved_mission.get("points"), list):
             self._mission_id = str(saved_mission["id"])
@@ -143,6 +150,11 @@ class RobotService:
             self._mission_error = str(saved_mission.get("error") or "") or None
             self._mission_command_id = str(saved_mission.get("active_command_id") or "") or None
             self._mission_kind = str(saved_mission.get("kind") or "outbound")
+            self._mission_mode = str(saved_mission.get("mode") or "rectangular")
+            logical_steps = saved_mission.get("logical_steps")
+            self._mission_logical_steps = list(logical_steps) if isinstance(logical_steps, list) else []
+            warnings = saved_mission.get("warnings")
+            self._mission_warnings = list(warnings) if isinstance(warnings, list) else []
             final_heading = saved_mission.get("final_heading")
             self._mission_final_heading = float(final_heading) if final_heading is not None else None
             origin = saved_mission.get("origin", {})
@@ -215,6 +227,24 @@ class RobotService:
         self.events.publish("config", {"robot_host": host})
         return host
 
+    def robot_config(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "robot_host": self._robot_host,
+                "experimental_vectorial_routes": self._vectorial_routes_enabled,
+            }
+
+    def set_vectorial_routes_enabled(self, value: object) -> bool:
+        if not isinstance(value, bool):
+            raise ValueError("experimental_vectorial_routes debe ser booleano")
+        with self._lock:
+            if self._mission_id is not None and self._mission_stage in {"executing", "aligning_final"}:
+                raise RuntimeError("No se puede cambiar el modo experimental durante una misión")
+            self._vectorial_routes_enabled = value
+        self.database.set_setting("experimental_vectorial_routes", value)
+        self.events.publish("config", self.robot_config())
+        return value
+
     def connect(self) -> None:
         self.gateway.start()
 
@@ -243,6 +273,12 @@ class RobotService:
             "mission": self.mission_status(),
             "controls_ready": not self._startup_stop_required and not self._closing,
             "closing": self._closing,
+            "capabilities": {
+                "angular_vectorial": {
+                    "enabled": self._vectorial_routes_enabled,
+                    "experimental": True,
+                }
+            },
         }
 
     def mission_status(self) -> dict[str, Any]:
@@ -265,6 +301,9 @@ class RobotService:
                 "active_seq": self._mission_seq,
                 "kind": self._mission_kind if self._mission_id else None,
                 "final_heading": self._mission_final_heading,
+                "mode": self._mission_mode if self._mission_id else None,
+                "logical_steps": list(self._mission_logical_steps),
+                "warnings": list(self._mission_warnings),
             }
 
     def _persist_mission(self) -> None:
@@ -277,6 +316,8 @@ class RobotService:
                 "blocked": self._mission_blocked, "error": self._mission_error,
                 "active_command_id": self._mission_command_id,
                 "kind": self._mission_kind, "final_heading": self._mission_final_heading,
+                "mode": self._mission_mode, "logical_steps": self._mission_logical_steps,
+                "warnings": self._mission_warnings,
             }
         self.database.set_setting("active_mission", value)
 
@@ -285,7 +326,10 @@ class RobotService:
             mission_id = self._mission_id or ""
             points = list(self._mission_points)
         return [
-            {**point, "step_id": f"{mission_id[:24]}{index:08x}"}
+            {
+                "x_mm": point["x_mm"], "y_mm": point["y_mm"],
+                "step_id": f"{mission_id[:24]}{index:08x}",
+            }
             for index, point in enumerate(points, start=1)
         ]
 
@@ -307,43 +351,35 @@ class RobotService:
             raise RuntimeError(f"El robot debe estar LISTO; estado actual: {telemetry.state}")
         return telemetry
 
-    def _build_segments(self, points: list[Any], mission_origin: dict[str, float]) -> list[dict[str, float]]:
-        origin_x, origin_y = mission_origin["x_mm"], mission_origin["y_mm"]
-        segments: list[dict[str, float]] = []
-        for point in points:
-            if not isinstance(point, dict):
-                raise ValueError("Cada punto debe ser un objeto")
-            validated = RobotCommand.create("move", point).payload
-            target_x, target_y = validated["x_mm"], validated["y_mm"]
-            dx = target_x - origin_x
-            dy = target_y - origin_y
-            
-            # Descomposición automática en 2 tramos ortogonales si el punto es diagonal
-            sub_targets = []
-            if abs(dx) > 1.0 and abs(dy) > 1.0:
-                sub_targets.append((target_x, origin_y))
-                sub_targets.append((target_x, target_y))
-            else:
-                sub_targets.append((target_x, target_y))
-                
-            for tx, ty in sub_targets:
-                sub_dx = tx - origin_x
-                sub_dy = ty - origin_y
-                if abs(sub_dx) <= 1.0:
-                    tx = origin_x
-                if abs(sub_dy) <= 1.0:
-                    ty = origin_y
-                new_segments = split_segment_mm(origin_x, origin_y, tx, ty)
-                segments.extend(new_segments)
-                origin_x, origin_y = tx, ty
-        if not segments:
-            raise ValueError("La misión no contiene desplazamiento")
-        if len(segments) > 32:
-            raise ValueError("La descomposición excede los 32 segmentos disponibles en el ESP32")
-        return segments
+    def _require_vectorial_ready(self, telemetry: TelemetrySnapshot | None = None) -> TelemetrySnapshot:
+        if not self._vectorial_routes_enabled:
+            raise RuntimeError("La ejecución angular vectorial experimental está deshabilitada")
+        snapshot = telemetry or self._require_ready_robot()
+        if snapshot.mpu_present is not True:
+            raise RuntimeError("Angular vectorial bloqueado: MPU no detectada")
+        if snapshot.mpu_calibrated is not True or snapshot.mpu_stale is not False:
+            raise RuntimeError("Angular vectorial bloqueado: MPU no calibrada o telemetría obsoleta")
+        if snapshot.degraded_mode:
+            raise RuntimeError("Angular vectorial bloqueado: el robot está en modo degradado")
+        unhealthy = [
+            wheel for wheel, health in zip(("FL", "FR", "BL", "BR"), snapshot.encoder_health)
+            if health.lower() != "healthy"
+        ]
+        if unhealthy:
+            raise RuntimeError(
+                "Angular vectorial bloqueado: encoders no saludables " + ", ".join(unhealthy)
+            )
+        return snapshot
 
-    def _activate_mission(self, segments: list[dict[str, float]], mission_origin: dict[str, float],
-                          kind: str, final_heading: float | None = None) -> dict[str, Any]:
+    def _build_segments(self, points: list[Any], mission_origin: dict[str, float]) -> list[dict[str, float]]:
+        return RectangularRouteStrategy().compile(
+            {"points": points}, mission_origin,
+        ).segments
+
+    def _activate_mission(self, segments: list[dict[str, Any]], mission_origin: dict[str, float],
+                          kind: str, final_heading: float | None = None,
+                          mode: str = "rectangular",
+                          logical_steps: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         if kind == "outbound":
             previous_route = self.database.get_setting("last_completed_route", None)
             if isinstance(previous_route, dict) and previous_route.get("return_state") == "available":
@@ -368,6 +404,9 @@ class RobotService:
             self._mission_stage = "executing"
             self._mission_kind = kind
             self._mission_final_heading = final_heading
+            self._mission_mode = mode
+            self._mission_logical_steps = list(logical_steps or [])
+            self._mission_warnings = []
             self._next_seq = 1
             self.database.set_setting("next_command_seq", 1)
         self._queue_current_mission_step()
@@ -376,13 +415,24 @@ class RobotService:
         self.events.publish("mission", snapshot)
         return snapshot
 
-    def start_mission(self, points: object) -> dict[str, Any]:
-        if not isinstance(points, list) or not points or len(points) > 32:
-            raise ValueError("La misión requiere entre 1 y 32 puntos")
+    def start_mission(self, request: object) -> dict[str, Any]:
+        body: dict[str, Any]
+        if isinstance(request, list):
+            body = {"points": request}
+        elif isinstance(request, dict):
+            body = dict(request)
+        else:
+            raise ValueError("La misión debe ser un objeto o una lista de puntos")
         telemetry = self._require_ready_robot()
+        strategy = strategy_for_request(body)
+        if strategy.mode == "angular_vectorial":
+            self._require_vectorial_ready(telemetry)
         mission_origin = {"x_mm": telemetry.x_mm, "y_mm": telemetry.y_mm}
-        segments = self._build_segments(points, mission_origin)
-        return self._activate_mission(segments, mission_origin, "outbound")
+        compilation = strategy.compile(body, mission_origin)
+        return self._activate_mission(
+            compilation.segments, mission_origin, "outbound",
+            mode=compilation.mode, logical_steps=compilation.logical_steps,
+        )
 
     def start_return_home(self) -> dict[str, Any]:
         telemetry = self._require_ready_robot()
@@ -393,6 +443,9 @@ class RobotService:
         source_points = route.get("points")
         if not isinstance(source_origin, dict) or not isinstance(source_points, list) or not source_points:
             raise RuntimeError("El registro de la ruta completada no es válido")
+        route_mode = str(route.get("mode") or "rectangular")
+        if route_mode == "angular_vectorial":
+            self._require_vectorial_ready(telemetry)
         try:
             previous = {"x_mm": float(source_origin["x_mm"]), "y_mm": float(source_origin["y_mm"])}
             vectors: list[tuple[float, float]] = []
@@ -404,23 +457,34 @@ class RobotService:
             raise RuntimeError("El registro de la ruta completada no es válido") from exc
         return_origin = {"x_mm": telemetry.x_mm, "y_mm": telemetry.y_mm}
         x_mm, y_mm = telemetry.x_mm, telemetry.y_mm
-        return_points: list[dict[str, float]] = []
-        for dx, dy in reversed(vectors):
+        return_points: list[dict[str, Any]] = []
+        for logical_id, (dx, dy) in enumerate(reversed(vectors), start=1):
             x_mm -= dx
             y_mm -= dy
-            return_points.append({"x_mm": x_mm, "y_mm": y_mm})
+            return_points.append({
+                "x_mm": x_mm, "y_mm": y_mm, "logical_step_id": logical_id,
+                "component": "vector" if route_mode == "angular_vectorial" else "return",
+                "heading_deg": math.degrees(math.atan2(-dx, -dy)) % 360.0,
+                "length_mm": math.hypot(dx, dy),
+            })
         if len(return_points) > 32:
             raise RuntimeError("La ruta inversa excede los 32 pasos atómicos")
         route["return_state"] = "in_progress"
         route["return_error"] = None
         self.database.set_setting("last_completed_route", route)
         try:
-            snapshot = self._activate_mission(return_points, return_origin, "ockham_return", final_heading=0.0)
+            snapshot = self._activate_mission(
+                return_points, return_origin, "ockham_return", final_heading=0.0,
+                mode=route_mode, logical_steps=list(route.get("logical_steps") or []),
+            )
         except Exception:
             route["return_state"] = "available"
             self.database.set_setting("last_completed_route", route)
             raise
-        snapshot["planned_points"] = return_points
+        snapshot["planned_points"] = [
+            {"x_mm": point["x_mm"], "y_mm": point["y_mm"]}
+            for point in return_points
+        ]
         return snapshot
 
     def stop_mission(self, reason: str = "operator_stop") -> dict[str, Any]:
@@ -447,6 +511,9 @@ class RobotService:
             self._mission_stage = "idle"
             self._mission_kind = "outbound"
             self._mission_final_heading = None
+            self._mission_mode = "rectangular"
+            self._mission_logical_steps = []
+            self._mission_warnings = []
         self.gateway.cancel(active_command_id)
         if active_command_id:
             self._tracked_command_ids.discard(active_command_id)
@@ -508,6 +575,8 @@ class RobotService:
                     "route_id": self._mission_id,
                     "origin": self._mission_origin,
                     "points": self._mission_points,
+                    "mode": self._mission_mode,
+                    "logical_steps": self._mission_logical_steps,
                     "return_state": "available",
                     "return_error": None,
                 }
@@ -533,10 +602,20 @@ class RobotService:
             dx = target["x_mm"] - start["x_mm"]
             dy = target["y_mm"] - start["y_mm"]
             reuse_command_id = self._mission_command_id if seq_override is not None else None
+            mission_mode = self._mission_mode
+            telemetry = self._last_telemetry
+        if mission_mode == "angular_vectorial":
+            try:
+                self._require_vectorial_ready(telemetry)
+            except RuntimeError as exc:
+                self._block_mission(str(exc))
+                return
         heading = math.degrees(math.atan2(dx, dy)) % 360.0
         distance_cm = math.hypot(dx, dy) / 10.0
-        if (abs(dx) > 1.0 and abs(dy) > 1.0) or not 0.5 <= distance_cm <= MAX_SEGMENT_MM / 10.0:
-            raise RuntimeError("Segmento de misión no ortogonal o fuera de rango")
+        if mission_mode != "angular_vectorial" and abs(dx) > 1.0 and abs(dy) > 1.0:
+            raise RuntimeError("Segmento de misión no ortogonal")
+        if not 0.5 <= distance_cm <= MAX_SEGMENT_MM / 10.0:
+            raise RuntimeError("Segmento de misión fuera de rango")
         # El waypoint no se reconstruye desde la odometría desviada: el ESP32
         # recibe el punto almacenado en la ruta para poder recuperar el
         # desplazamiento lateral antes de confirmar el paso.
@@ -827,7 +906,22 @@ class RobotService:
                     "command_id": command_id, "event": kind, "detail": detail,
                 })
         if mission_match and kind in {"completed", "already_done"}:
-            self._advance_mission()
+            detail = str(message.get("detail") or message.get("reason") or "")
+            with self._lock:
+                is_final_segment = (
+                    self._mission_stage == "executing"
+                    and self._mission_index == len(self._mission_points) - 1
+                )
+                if detail == "step_ok_endpoint_soft":
+                    self._mission_warnings.append({
+                        "segment_index": self._mission_index,
+                        "detail": detail,
+                        "final": is_final_segment,
+                    })
+            if detail == "step_ok_endpoint_soft" and is_final_segment:
+                self._block_mission("final_endpoint_out_of_tolerance")
+            else:
+                self._advance_mission()
         elif mission_match and kind in {"rejected", "fault"}:
             self._block_mission(str(message.get("detail") or message.get("reason") or kind))
 

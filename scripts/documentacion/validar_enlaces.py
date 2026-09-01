@@ -16,12 +16,16 @@ LEGACY_SITE = ROOT / "documentacion_completa_localServer"
 
 def markdown_files() -> list[Path]:
     files = [ROOT / "README.md", ROOT / "DIAGRAMA_SISTEMA_GENERAL.md", ROOT / "scripts" / "README.md"]
+    import os
     for folder in (ROOT / "docs_markdowns", ROOT / "evidencia", ROOT / "documentacionCompleta"):
-        files.extend(
-            path
-            for path in folder.rglob("*.md")
-            if "node_modules" not in path.parts and "dist" not in path.parts
-        )
+        for root_dir, dirs, filenames in os.walk(folder):
+            if "node_modules" in dirs:
+                dirs.remove("node_modules")
+            if "dist" in dirs:
+                dirs.remove("dist")
+            for filename in filenames:
+                if filename.endswith(".md"):
+                    files.append(Path(root_dir) / filename)
     return sorted(set(files))
 
 

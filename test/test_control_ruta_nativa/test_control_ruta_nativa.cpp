@@ -145,6 +145,23 @@ void test_stall_por_lado_exige_dos_encoders_sin_pulsos() {
   TEST_ASSERT_FALSE(ControlSeguridad::ladoEnStall(false, true, true));
 }
 
+void test_errores_vectoriales_son_consistentes_en_rumbos_diagonales() {
+  const float rumbos[] = {45.0f, 135.0f, 225.0f, 315.0f};
+  constexpr float kPi = 3.14159265358979323846f;
+  for (float rumbo : rumbos) {
+    const float rad = rumbo * kPi / 180.0f;
+    const float ux = sinf(rad), uy = cosf(rad);
+    const float objetivoX = 100.0f * ux, objetivoY = 100.0f * uy;
+    const float posicionX = 50.0f * ux + 4.0f * uy;
+    const float posicionY = 50.0f * uy - 4.0f * ux;
+    const auto errores = ControlRuta::calcularErroresTrayectoria(
+        posicionX, posicionY, objetivoX, objetivoY, rumbo, 100.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.002f, 50.0f, errores.longitudinalCm);
+    TEST_ASSERT_FLOAT_WITHIN(0.002f, 4.0f, errores.lateralCm);
+    TEST_ASSERT_FLOAT_WITHIN(0.002f, hypotf(50.0f, 4.0f), errores.euclidianoCm);
+  }
+}
+
 void test_cualquier_encoder_individual_puede_fallar_sin_perder_un_lado() {
   for (int excluido = 0; excluido < 4; ++excluido) {
     bool confiable[4] = {true, true, true, true};
@@ -227,6 +244,7 @@ int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_lateral_derecha_corrige_hacia_izquierda);
   RUN_TEST(test_lateral_izquierda_corrige_hacia_derecha);
+  RUN_TEST(test_errores_vectoriales_son_consistentes_en_rumbos_diagonales);
   RUN_TEST(test_reversa_automatica_conserva_el_chasis_ante_objetivo_detras);
   RUN_TEST(test_reversa_invierte_solo_la_correccion_lateral_del_chasis);
   RUN_TEST(test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo);

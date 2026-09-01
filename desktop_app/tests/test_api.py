@@ -32,6 +32,16 @@ class ApiTests(unittest.TestCase):
             "y": y_mm / 10, "yaw": 0, "cal": True, "enc": [0, 0, 0, 0],
         }, 1)
 
+    def _ready_vectorial(self, x_mm: float = 0, y_mm: float = 0,
+                          health: str = "healthy", degraded: bool = False) -> None:
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x": x_mm / 10,
+            "y": y_mm / 10, "yaw": 0, "cal": True, "enc": [1, 1, 1, 1],
+            "mpu_present": True, "mpu_stale": False, "mpu_calibrated": True,
+            "degraded_mode": degraded,
+            "encoder_health": {wheel: health for wheel in ("fl", "fr", "bl", "br")},
+        }, 1)
+
     def test_status_and_mutation_security(self) -> None:
         self.assertEqual(self.client.get("/api/v1/status").status_code, 200)
         denied = self.client.post("/api/v1/commands", json={"name": "stop"})
@@ -129,6 +139,101 @@ class ApiTests(unittest.TestCase):
         good = self.client.post("/api/v1/missions", json={"points": [{"x_mm": 1000, "y_mm": 1}]},
                                 headers={"X-App-Token": self.token})
         self.assertEqual(good.status_code, 202)
+
+    def test_angular_decomposition_and_vectorial_use_distinct_compilations(self) -> None:
+        self._ready()
+        decomposed = self.client.post("/api/v1/missions", json={
+            "mode": "angular_decomposition",
+            "vectors": [{"length_cm": 50, "relative_angle_deg": 135}],
+        }, headers={"X-App-Token": self.token})
+        self.assertEqual(decomposed.status_code, 202)
+        self.assertEqual(decomposed.json["total_segments"], 2)
+        first = self.service.gateway._outgoing.queue[-1].command
+        self.assertEqual(first.payload["heading"], 270.0)
+        self.service.stop_mission("test_replace")
+
+        self.service.set_vectorial_routes_enabled(True)
+        self._ready_vectorial()
+        vectorial = self.client.post("/api/v1/missions", json={
+            "mode": "angular_vectorial",
+            "vectors": [{"length_cm": 50, "relative_angle_deg": 135}],
+        }, headers={"X-App-Token": self.token})
+        self.assertEqual(vectorial.status_code, 202)
+        self.assertEqual(vectorial.json["total_segments"], 1)
+        self.assertEqual(vectorial.json["mode"], "angular_vectorial")
+        direct = self.service.gateway._outgoing.queue[-1].command
+        self.assertAlmostEqual(direct.payload["heading"], 315.0)
+        self.assertAlmostEqual(direct.payload["cm"], 50.0)
+        self.assertAlmostEqual(direct.payload["target_x_mm"], -353.5533906)
+        self.assertAlmostEqual(direct.payload["target_y_mm"], 353.5533906)
+
+    def test_vectorial_requires_flag_four_healthy_encoders_and_mpu(self) -> None:
+        request = {
+            "mode": "angular_vectorial",
+            "vectors": [{"length_cm": 10, "relative_angle_deg": 45}],
+        }
+        self._ready_vectorial()
+        disabled = self.client.post("/api/v1/missions", json=request,
+                                    headers={"X-App-Token": self.token})
+        self.assertEqual(disabled.status_code, 409)
+        self.assertIn("deshabilitada", disabled.json["error"])
+
+        enabled = self.client.put("/api/v1/config/robot", json={
+            "experimental_vectorial_routes": True,
+        }, headers={"X-App-Token": self.token})
+        self.assertEqual(enabled.status_code, 200)
+        self.assertTrue(enabled.json["experimental_vectorial_routes"])
+        self._ready_vectorial(health="excluded")
+        unhealthy = self.client.post("/api/v1/missions", json=request,
+                                     headers={"X-App-Token": self.token})
+        self.assertEqual(unhealthy.status_code, 409)
+        self.assertIn("FL", unhealthy.json["error"])
+        self._ready_vectorial(degraded=True)
+        degraded = self.client.post("/api/v1/missions", json=request,
+                                    headers={"X-App-Token": self.token})
+        self.assertEqual(degraded.status_code, 409)
+        self.assertIn("modo degradado", degraded.json["error"])
+
+    def test_soft_endpoint_advances_intermediate_but_blocks_final(self) -> None:
+        self._ready()
+        mission = self.service.start_mission([
+            {"x_mm": 1000, "y_mm": 0}, {"x_mm": 1000, "y_mm": 1000},
+        ])
+        self.service._on_robot_message({
+            "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok_endpoint_soft",
+        })
+        intermediate = self.service.mission_status()
+        self.assertEqual(intermediate["current_index"], 1)
+        self.assertFalse(intermediate["blocked"])
+        self.assertEqual(intermediate["warnings"][0]["final"], False)
+        self.service._on_robot_message({
+            "evt": "completed", "seq": intermediate["active_seq"], "detail": "step_ok_endpoint_soft",
+        })
+        final = self.service.mission_status()
+        self.assertTrue(final["blocked"])
+        self.assertEqual(final["error"], "final_endpoint_out_of_tolerance")
+        self.assertIsNone(self.service.database.get_setting("last_completed_route", None))
+
+    def test_vectorial_route_persists_metadata_and_returns_by_diagonal(self) -> None:
+        self.service.set_vectorial_routes_enabled(True)
+        self._ready_vectorial()
+        mission = self.service.start_mission({
+            "mode": "angular_vectorial",
+            "vectors": [{"length_cm": 50, "relative_angle_deg": 45}],
+        })
+        saved = self.service.database.get_setting("active_mission")
+        self.assertEqual(saved["mode"], "angular_vectorial")
+        self.assertEqual(saved["logical_steps"][0]["relative_angle_deg"], 45.0)
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        route = self.service.database.get_setting("last_completed_route")
+        self.assertEqual(route["mode"], "angular_vectorial")
+        target = route["points"][-1]
+        self._ready_vectorial(target["x_mm"], target["y_mm"])
+        response = self.service.start_return_home()
+        self.assertEqual(response["mode"], "angular_vectorial")
+        command = self.service.gateway._outgoing.queue[-1].command
+        self.assertAlmostEqual(command.payload["heading"], 225.0)
+        self.assertAlmostEqual(command.payload["cm"], 50.0)
 
     def test_fault_blocks_current_waypoint(self) -> None:
         self._ready()

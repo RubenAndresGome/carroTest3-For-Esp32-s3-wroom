@@ -138,6 +138,193 @@ test.describe("HMI responsive en navegador real", () => {
     expect(state).toEqual({ globalOverflow: false, estopVisible: true, headerOverlap: false });
   });
 
+  test("el modo angular encadena θ, conserva L=0 visual y envía sólo X→Y", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await isolateEventStream(page);
+    let missionPayload: unknown = null;
+    await page.route("**/api/v1/missions", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        missionPayload = request.postDataJSON();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ id: "angular-test", current_index: 0, active_command_id: "cmd-1", total_segments: 2 }),
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ blocked: false, id: null }) });
+    });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await openPanel(page, "rutas");
+    await page.locator("#route-mode").selectOption("polar");
+
+    const addVector = async (length: string, theta: string): Promise<void> => {
+      await page.locator("#route-input-1").fill(length);
+      await page.locator("#route-input-2").fill(theta);
+      await page.locator("#route-form button[type='submit']").click();
+    };
+    await addVector("10", "0");
+    await addVector("0", "90");
+    await addVector("10", "0");
+
+    await expect(page.locator("#route-mode")).toBeDisabled();
+    await expect(page.locator("#route-angular-meta")).toBeVisible();
+    await expect(page.locator("#route-angular-summary")).toContainText("punto final (10.00, 10.00) cm");
+    const model = await page.evaluate(`(() => ({
+      logical: RouteManager.logicalSteps.map(step => ({
+        length: step.length,
+        theta: step.theta,
+        absolute: step.absoluteAngleDeg,
+        end: step.end
+      })),
+      queue: RouteManager.queue.map(point => ({x: point.x, y: point.y, component: point.component})),
+      geometryCount: RouteManager.planChart.$angularGeometry.length,
+      datasetLabel: RouteManager.planChart.data.datasets[0].label,
+      datasetColor: RouteManager.planChart.data.datasets[0].borderColor
+    }))()`);
+    expect(model).toEqual({
+      logical: [
+        { length: 10, theta: 0, absolute: 0, end: { x: 10, y: 0 } },
+        { length: 0, theta: 90, absolute: 90, end: { x: 10, y: 0 } },
+        { length: 10, theta: 0, absolute: 90, end: { x: 10, y: 10 } },
+      ],
+      queue: [
+        { x: 10, y: 0, component: "x" },
+        { x: 10, y: 10, component: "y" },
+      ],
+      geometryCount: 3,
+      datasetLabel: "Hipotenusas angulares",
+      datasetColor: "#c56cff",
+    });
+
+    await page.locator("#btn-route-start").click();
+    await expect.poll(() => missionPayload).not.toBeNull();
+    expect(missionPayload).toEqual({
+      mode: "angular_decomposition",
+      vectors: [
+        { length_cm: 10, relative_angle_deg: 0 },
+        { length_cm: 0, relative_angle_deg: 90 },
+        { length_cm: 10, relative_angle_deg: 0 },
+      ],
+    });
+  });
+
+  test("Angular vectorial dibuja y envía una hipotenusa directa sólo con salud válida", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await isolateEventStream(page);
+    let missionPayload: unknown = null;
+    await page.route("**/api/v1/config/robot", async (route) => {
+      await route.fulfill({
+        status: 200, contentType: "application/json",
+        body: JSON.stringify({ robot_host: "192.168.4.1", experimental_vectorial_routes: true }),
+      });
+    });
+    await page.route("**/api/v1/missions", async (route) => {
+      if (route.request().method() === "POST") {
+        missionPayload = route.request().postDataJSON();
+        await route.fulfill({
+          status: 200, contentType: "application/json",
+          body: JSON.stringify({ id: "vectorial-test", mode: "angular_vectorial", current_index: 0, active_command_id: "cmd-v", total_segments: 1 }),
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ blocked: false, id: null }) });
+    });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await openPanel(page, "rutas");
+    await page.locator("#route-mode").selectOption("vectorial");
+    await page.locator("#route-vectorial-enabled").check();
+    await page.evaluate(`RouteManager.applyVectorialTelemetry({
+      state:'listo', degraded_mode:false,
+      mpu:{present:true,calibrated:true,stale:false},
+      encoder_health:{fl:'healthy',fr:'healthy',bl:'healthy',br:'healthy'}
+    })`);
+    await expect(page.locator("#route-vectorial-status")).toHaveClass(/ready/);
+    await page.locator("#route-input-1").fill("50");
+    await page.locator("#route-input-2").fill("135");
+    await page.locator("#route-form button[type='submit']").click();
+    expect(await page.evaluate("RouteManager.queue.map(point=>({component:point.component,x:point.x,y:point.y}))"))
+      .toEqual([{ component: "vector", x: -35.35533905932737, y: 35.35533905932738 }]);
+    await expect(page.locator("#route-angular-x-label")).toHaveText("Proyección matemática X");
+    await page.locator("#btn-route-start").click();
+    await expect.poll(() => missionPayload).not.toBeNull();
+    expect(missionPayload).toEqual({
+      mode: "angular_vectorial",
+      vectors: [{ length_cm: 50, relative_angle_deg: 135 }],
+    });
+  });
+
+  test("deshacer restaura la orientación angular anterior y desbloquea el modo al vaciar", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await isolateEventStream(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await openPanel(page, "rutas");
+    await page.locator("#route-mode").selectOption("polar");
+    for (const [length, theta] of [["5", "170"], ["5", "30"]]) {
+      await page.locator("#route-input-1").fill(length);
+      await page.locator("#route-input-2").fill(theta);
+      await page.locator("#route-form button[type='submit']").click();
+    }
+    expect(await page.evaluate("RouteManager.logicalSteps.map(step => step.absoluteAngleDeg)")).toEqual([170, -160]);
+    await page.locator("#btn-route-pop").click();
+    expect(await page.evaluate("RouteManager.logicalSteps.map(step => step.absoluteAngleDeg)")).toEqual([170]);
+    await page.locator("#btn-route-pop").click();
+    await expect(page.locator("#route-mode")).toBeEnabled();
+    expect(await page.evaluate("RouteManager.queue.length")).toBe(0);
+  });
+
+  test("conserva Rectangular X→Y y bloquea una ruta formada sólo por L=0", async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 900 });
+    await isolateEventStream(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await openPanel(page, "rutas");
+    await page.locator("#route-input-1").fill("12");
+    await page.locator("#route-input-2").fill("-4");
+    await page.locator("#route-form button[type='submit']").click();
+    expect(await page.evaluate("RouteManager.queue.map(point => ({x:point.x,y:point.y,component:point.component}))")).toEqual([
+      { x: 12, y: 0, component: "x" },
+      { x: 12, y: -4, component: "y" },
+    ]);
+    await page.locator("#btn-route-pop").click();
+    await page.locator("#route-mode").selectOption("polar");
+    await page.locator("#route-input-1").fill("0");
+    await page.locator("#route-input-2").fill("90");
+    await page.locator("#route-form button[type='submit']").click();
+    await page.locator("#btn-route-start").click();
+    expect(await page.evaluate("({logical:RouteManager.logicalSteps.length,queue:RouteManager.queue.length,running:RouteManager.isRunning})")).toEqual({ logical: 1, queue: 0, running: false });
+    await expect(page.locator("#log-container")).toContainText("sólo contiene orientaciones visuales");
+  });
+
+  test("hora, nivel y mensaje del log no se enciman en los viewports aceptados", async ({ page }) => {
+    await isolateEventStream(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.evaluate("LogSystem.add('INFO','Mensaje de prueba para verificar separación responsive.'); LogSystem.add('ERROR','Segundo mensaje técnico.');");
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+      { width: 1024, height: 768 },
+      { width: 1280, height: 720 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const metrics = await page.evaluate(() => {
+        const entry = document.querySelector<HTMLElement>(".log-entry");
+        const time = entry?.querySelector(".log-time")?.getBoundingClientRect();
+        const level = entry?.querySelector(".log-level")?.getBoundingClientRect();
+        const message = entry?.querySelector(".log-msg")?.getBoundingClientRect();
+        const intersects = (left?: DOMRect, right?: DOMRect): boolean => Boolean(left && right && left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top);
+        return {
+          timeLevel: intersects(time, level),
+          timeMessage: intersects(time, message),
+          levelMessage: intersects(level, message),
+          overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      });
+      expect(metrics, `${viewport.width}x${viewport.height}`).toEqual({ timeLevel: false, timeMessage: false, levelMessage: false, overflow: false });
+    }
+  });
+
   test("cumple presupuestos locales de arranque y cambio de pestaña", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await isolateEventStream(page);
