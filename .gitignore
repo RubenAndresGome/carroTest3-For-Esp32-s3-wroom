@@ -122,6 +122,27 @@ pnpm-debug.log*
 *.dump
 *.tmp
 *.bak
+docs/portal/dist/
+.codex_tools/
+android_app/.gradle/
+android_app/local.properties
+android_app/**/build/
+*.apk
+*.aab
+*.jks
+*.keystore
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# -----------------------------------------------------------------------------
+# Logs, volcados y temporales
+# -----------------------------------------------------------------------------
+*.log
+*.dump
+*.tmp
+*.bak
 *.stackdump
 logs_mensajes/
 veredictos/
@@ -137,12 +158,11 @@ docs_markdowns/portal/package-lock.json
 docs/videos/
 docs/fotogramas/
 docs/incidentes/
+intern_markdowns/
 
 # -----------------------------------------------------------------------------
 # Snapshots regenerables del legado
 # -----------------------------------------------------------------------------
-archive/legacy/generados/*.ino
-archive/legacy/generados/*.ino.disabled
 archive/legacy/generados/*.txt
 archive/legacy/IUInWeb/data/*.gz
 archive/legacy/IUInWeb/data/*.gz.disabled

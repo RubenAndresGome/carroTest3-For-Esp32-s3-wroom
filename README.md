@@ -77,6 +77,12 @@ Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
 
 - [Recuperación de endpoint y reversa](docs/rutina_recuperacion_endpoint_y_reversa.md):
   criterio de recuperación acotada, reversa sin pivote innecesario y trazabilidad.
+- [Skill Flujo Carro ESP32](.agents/skills/carro-esp32-workflow/SKILL.md):
+  skill de trabajo, diagnóstico, invariantes de seguridad y validación.
+- [Router MCP de Subagentes IA](docs/mcp_agent_router.md):
+  servidor MCP local para proveedores GPT, DeepSeek y OpenRouter.
+- [Documentación Interna Aditiva](intern_markdowns/estado_actual_sistema_2026.md):
+  síntesis técnica 2026, subagentes/rutas IA y guía del robot (excluida de Git).
 
 - [docs/manual_usuario.md](docs/manual_usuario.md) para operación,
   recuperación de desconexiones y cierre seguro

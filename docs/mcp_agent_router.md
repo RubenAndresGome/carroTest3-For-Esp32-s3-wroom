@@ -47,8 +47,18 @@ repositorio:
 ```powershell
 $env:DEEPSEEK_BACKEND = "cloud"
 $env:DEEPSEEK_API_KEY = "<tu-clave>"
-$env:DEEPSEEK_MODEL = "deepseek-chat"
+$env:DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+$env:DEEPSEEK_MODEL = "deepseek-v4-pro"
 ```
+
+La API oficial acepta `deepseek-v4-pro` y `deepseek-v4-flash`. Los alias
+anteriores `deepseek-chat` y `deepseek-reasoner` dejaron de estar disponibles
+el 24 de julio de 2026. En OpenRouter, el identificador equivalente debe llevar
+el namespace del proveedor: `deepseek/deepseek-v4-pro`.
+
+Ollama publica DeepSeek V4 como modelo cloud (`deepseek-v4-flash:cloud`); no se
+usa como fallback local en este equipo. `deepseek-r1:8b` se conserva para el
+backend `ollama` porque sí es un modelo local adecuado al hardware disponible.
 
 ## Backend GPT
 

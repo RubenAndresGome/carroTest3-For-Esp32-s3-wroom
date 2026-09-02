@@ -152,7 +152,7 @@ def _ask_deepseek_cloud(prompt: str, system: str, model: str, max_tokens: int, t
     result = _request_json(
         endpoint,
         {
-            "model": model or os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            "model": model or os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"),
             "messages": _messages(prompt, system),
             "max_tokens": max_tokens,
             "temperature": temperature,
@@ -200,7 +200,7 @@ def _ask_openrouter(prompt: str, system: str, model: str, max_tokens: int, tempe
     result = _request_json(
         endpoint,
         {
-            "model": model or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-r1"),
+            "model": model or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-pro"),
             "messages": _messages(prompt, system),
             "max_tokens": max_tokens,
             "temperature": temperature,
@@ -248,13 +248,13 @@ TOOLS = [
     },
     {
         "name": "ask_openrouter",
-        "description": "Consulta cualquier modelo disponible en OpenRouter (DeepSeek R1, GPT-4o, Claude 3.5, Llama 3.3, etc.). Requiere OPENROUTER_API_KEY.",
+        "description": "Consulta cualquier modelo disponible en OpenRouter. Requiere OPENROUTER_API_KEY.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "prompt": {"type": "string", "description": "Pregunta o tarea técnica."},
                 "system": {"type": "string", "description": "Instrucciones de sistema opcionales."},
-                "model": {"type": "string", "description": "ID del modelo en OpenRouter (ej: 'deepseek/deepseek-r1', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet')."},
+                "model": {"type": "string", "description": "ID del modelo en OpenRouter (ej: 'deepseek/deepseek-v4-pro' u 'openai/gpt-4o-mini')."},
                 "max_tokens": {"type": "integer", "minimum": 1, "maximum": 32768, "default": 2048},
                 "temperature": {"type": "number", "minimum": 0, "maximum": 2, "default": 0.2},
             },

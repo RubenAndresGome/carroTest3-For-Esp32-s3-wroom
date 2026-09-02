@@ -1,0 +1,1124 @@
+// === SYSTEM INCLUDES ===
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Arduino.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
+#include <WiFi.h>
+#include <Wire.h>
+#include <cmath>
+#include <math.h>
+
+// === CODE ===
+
+// WiFi
+extern const char* ssid_AP;
+extern const char* password_AP;
+
+// Motores (DRV8833)
+const int PIN_FL_FWD = 6;
+const int PIN_FL_REV = 7;
+const int PIN_BL_FWD = 4;
+const int PIN_BL_REV = 5;
+const int PIN_FR_FWD = 17;
+const int PIN_FR_REV = 18;
+const int PIN_BR_FWD = 15;
+const int PIN_BR_REV = 16;
+
+// Encoders
+const int PIN_ENC_FL = 10;
+const int PIN_ENC_FR = 11;
+const int PIN_ENC_BL = 12;
+const int PIN_ENC_BR = 13;
+
+const int PIN_I2C_SDA = 1;
+const int PIN_I2C_SCL = 2;
+
+// Calibración y PID
+const float CM_POR_PULSO = 1.0;
+const int VELOCIDAD_BASE_RECTO = 255;
+const int VELOCIDAD_BASE_GIRO = 255;
+const int VELOCIDAD_MINIMA_GIRO = 245;
+const float Kp_giro = 1.5;
+const float Kp_recto = 1.5;
+
+#define ENABLE_DEBUG 1 // Pon esto a 0 para modo producción
+
+#if ENABLE_DEBUG
+  #define LOG_CORE(msg) Serial.printf("[CORE %d] %s(): %s\n", xPortGetCoreID(), __func__, msg)
+  #define LOG_VAL(nombre, valor) Serial.printf("[CORE %d] %s(): %s = %.2f\n", xPortGetCoreID(), __func__, nombre, (float)valor)
+  
+  // Macro para loops de alta frecuencia (imprime 1 vez cada N llamadas)
+  #define LOG_THROTTLED(msg, n) \
+      static int _count_##__LINE__ = 0; \
+      if (++_count_##__LINE__ >= (n)) { \
+          Serial.printf("[CORE %d] %s(): %s\n", xPortGetCoreID(), __func__, msg); \
+          _count_##__LINE__ = 0; \
+      }
+
+  #define LOG_MEMORY() Serial.printf("[CORE %d] MEMORIA LIBRE: %d bytes\n", xPortGetCoreID(), ESP.getFreeHeap())
+#else
+  #define LOG_CORE(msg)
+  #define LOG_VAL(nombre, valor)
+  #define LOG_THROTTLED(msg, n)
+  #define LOG_MEMORY()
+#endif
+
+enum EstadoRobot {
+  IDLE,
+  GIRANDO,
+  ESPERANDO_ESTABILIZACION,
+  AVANZANDO,
+  MANUAL,
+  TESTING,
+  ESTOP_LATCHED,
+  SAFE_STOP_COMMS,
+  FAULT_SENSOR
+};
+
+// Odometría Cruda
+extern long pulsosIzquierdos;
+extern long pulsosDerechos;
+
+// Giroscopio
+extern float anguloZ;
+
+// Objetivos Autónomos
+extern float nuevoDestinoX;
+extern float nuevoDestinoY;
+
+// Testing y Manual
+extern int pwm_target_l;
+extern int pwm_target_r;
+extern unsigned long tiempoTestingInicio;
+extern unsigned long duracionTesting;
+
+// Máquina de estados
+extern EstadoRobot estadoActual;
+extern unsigned long tiempoEspera;
+extern unsigned long tiempoAnterior;
+extern unsigned long inicioGiro;
+
+enum TipoComando {
+    CMD_ESTOP,
+    CMD_STOP,
+    CMD_CLEAR_ROUTE,
+    CMD_RESET_POSE,
+    CMD_CLEAR_FAULT,
+    CMD_MOVE_ABS,
+    CMD_MANUAL,
+    CMD_TEST_PWM
+};
+
+struct ComandoRed {
+    uint32_t id;
+    TipoComando tipo;
+    float arg_x;
+    float arg_y;
+    int pwm_l;
+    int pwm_r;
+    uint32_t tiempo_ms;
+};
+
+extern QueueHandle_t colaComandos;
+extern QueueHandle_t buzonManual;
+extern volatile bool flag_ESTOP_ISR;
+
+enum TipoEvento {
+    EVT_COMPLETED,
+    EVT_FAULT,
+    EVT_TELEMETRY
+};
+
+struct EventoRed {
+    TipoEvento tipo;
+    uint32_t cmd_id;
+    char detalle[32];
+};
+
+extern QueueHandle_t colaEventosRed;
+
+void encolarEvento(TipoEvento tipo, uint32_t cmd_id, const char* detalle);
+
+class PoseEstimator {
+public:
+    PoseEstimator();
+
+    void inicializar(float rueda_diametro_cm, int encoder_ppr);
+
+    void reset();
+
+    void actualizarOdometria(long pulsosFL, long pulsosFR, EstadoRobot estado);
+
+    void actualizarOrientacion(float imu_delta_z);
+
+    float getX() const { return x_global; }
+    float getY() const { return y_global; }
+    float getThetaRad() const { return theta_rad; }
+    float getThetaDeg() const { return theta_rad * 180.0 / PI; }
+
+    float distanciaAlObjetivo(float obj_x, float obj_y);
+    float anguloAlObjetivoRad(float obj_x, float obj_y);
+
+private:
+    float x_global;
+    float y_global;
+    float theta_rad;
+
+    long last_pulsos_FL;
+    long last_pulsos_FR;
+
+    float cm_por_pulso;
+
+    static constexpr float DISTANCIA_EJES_CM = 18.0f;
+};
+
+extern PoseEstimator PoseGlobal;
+
+struct SensorSnapshot {
+    long pulsosFL;
+    long pulsosFR;
+    long pulsosBL;
+    long pulsosBR;
+    float imu_deltaZ_rad;
+    uint32_t timestamp_ms;
+    bool mpu_present;
+    bool mpu_stale;
+};
+
+extern QueueHandle_t colaSensores;
+
+void setup_Sensores();
+void Task_Sensors(void *pvParameters);
+
+extern int pwm_aplicado_L;
+extern int pwm_aplicado_R;
+
+void setup_Motores();
+void setMotorPWM(int pinFwd, int pinRev, int vel);
+void aplicarVelocidades(int velIzq, int velDer);
+void frenarMotores();
+
+
+extern unsigned long tiempoInicioGiro;
+extern unsigned long tiempoInicioAvance;
+
+constexpr unsigned long TIMEOUT_GIRO_MS = 8000;
+constexpr unsigned long TIMEOUT_AVANCE_MS = 15000;
+constexpr float DISTANCIA_MAX_CM = 100.0;
+constexpr unsigned long ESTABILIZACION_MS = 300;
+
+void calcularDestino(float x_destino, float y_destino);
+void controlarGiro();
+void controlarAvance();
+
+class Seguridad {
+public:
+    Seguridad();
+
+    void alimentarWatchdogRed();
+
+    bool auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R);
+
+    void forzarEStop();
+    void resetFallo();
+
+private:
+    unsigned long ultimo_comando_ms;
+    unsigned long inicio_movimiento_ms;
+    long pulsos_movimiento_iniciales;
+
+    const unsigned long TIMEOUT_WIFI_MANUAL_MS = 300;
+    const unsigned long TIMEOUT_STALL_MS = 500;
+};
+
+extern Seguridad WatchdogSeguridad;
+
+
+void setup_Red();
+void procesarWebSockets();
+void pushTelemetria();
+
+const char* ssid_AP = "Robot_Odometria";
+const char* password_AP = "123456789";
+
+long pulsosIzquierdos = 0;
+long pulsosDerechos = 0;
+
+float anguloZ = 0.0;
+
+float nuevoDestinoX = 0;
+float nuevoDestinoY = 0;
+
+int pwm_target_l = 0;
+int pwm_target_r = 0;
+unsigned long tiempoTestingInicio = 0;
+unsigned long duracionTesting = 0;
+
+EstadoRobot estadoActual = IDLE;
+unsigned long tiempoEspera = 0;
+unsigned long tiempoAnterior = 0;
+unsigned long inicioGiro = 0;
+
+QueueHandle_t colaEventosRed = nullptr;
+
+void encolarEvento(TipoEvento tipo, uint32_t cmd_id, const char* detalle) {
+    if (!colaEventosRed) return;
+    EventoRed evt;
+    evt.tipo = tipo;
+    evt.cmd_id = cmd_id;
+    if (detalle) {
+        strncpy(evt.detalle, detalle, sizeof(evt.detalle) - 1);
+        evt.detalle[sizeof(evt.detalle) - 1] = '\0';
+    } else {
+        evt.detalle[0] = '\0';
+    }
+    xQueueSend(colaEventosRed, &evt, 0);
+}
+
+PoseEstimator PoseGlobal;
+
+PoseEstimator::PoseEstimator() {
+    reset();
+}
+
+void PoseEstimator::inicializar(float rueda_diametro_cm, int encoder_ppr) {
+    cm_por_pulso = (PI * rueda_diametro_cm) / (float)encoder_ppr;
+}
+
+void PoseEstimator::reset() {
+    x_global = 0.0;
+    y_global = 0.0;
+    theta_rad = 0.0;
+    last_pulsos_FL = 0;
+    last_pulsos_FR = 0;
+}
+
+void PoseEstimator::actualizarOdometria(long pulsosFL, long pulsosFR, EstadoRobot estado) {
+    long deltaL = pulsosFL - last_pulsos_FL;
+    long deltaR = pulsosFR - last_pulsos_FR;
+
+    last_pulsos_FL = pulsosFL;
+    last_pulsos_FR = pulsosFR;
+
+    float distL = deltaL * cm_por_pulso;
+    float distR = deltaR * cm_por_pulso;
+
+    if (estado == GIRANDO) {
+        float delta_theta_odom = (distR - distL) / DISTANCIA_EJES_CM;
+        theta_rad += delta_theta_odom;
+    } else if (estado == AVANZANDO) {
+        float distCentro = (distL + distR) / 2.0;
+        x_global += distCentro * cos(theta_rad);
+        y_global += distCentro * sin(theta_rad);
+    }
+}
+
+void PoseEstimator::actualizarOrientacion(float imu_delta_z) {
+    theta_rad += imu_delta_z;
+
+    while (theta_rad < 0) theta_rad += 2 * PI;
+    while (theta_rad >= 2 * PI) theta_rad -= 2 * PI;
+}
+
+float PoseEstimator::distanciaAlObjetivo(float obj_x, float obj_y) {
+    float dx = obj_x - x_global;
+    float dy = obj_y - y_global;
+    return sqrt(dx*dx + dy*dy);
+}
+
+float PoseEstimator::anguloAlObjetivoRad(float obj_x, float obj_y) {
+    float dx = obj_x - x_global;
+    float dy = obj_y - y_global;
+    return atan2(dy, dx);
+}
+
+Adafruit_MPU6050 mpu;
+static bool mpu_inicializado = false;
+static int16_t last_FL = 0, last_FR = 0, last_BL = 0, last_BR = 0;
+static float anguloZ_acum = 0.0f;
+static unsigned long tiempoAnteriorIMU = 0;
+QueueHandle_t colaSensores = nullptr;
+
+static void setup_PCNT(int pin, pcnt_unit_t unit) {
+    pcnt_config_t pcnt_config = {};
+    pcnt_config.pulse_gpio_num = pin;
+    pcnt_config.ctrl_gpio_num = PCNT_PIN_NOT_USED;
+    pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
+    pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
+    pcnt_config.pos_mode = PCNT_COUNT_INC;
+    pcnt_config.neg_mode = PCNT_COUNT_INC;
+    pcnt_config.counter_h_lim = 32767;
+    pcnt_config.counter_l_lim = -32768;
+    pcnt_config.unit = unit;
+    pcnt_config.channel = PCNT_CHANNEL_0;
+    pcnt_unit_config(&pcnt_config);
+    pcnt_set_filter_value(unit, 100);
+    pcnt_filter_enable(unit);
+    pcnt_counter_pause(unit);
+    pcnt_counter_clear(unit);
+    pcnt_counter_resume(unit);
+}
+
+void setup_Sensores() {
+    LOG_CORE("Inicializando PCNT (4 encoders) y MPU6050...");
+    setup_PCNT(PIN_ENC_FL, PCNT_UNIT_0);
+    setup_PCNT(PIN_ENC_FR, PCNT_UNIT_1);
+    setup_PCNT(PIN_ENC_BL, PCNT_UNIT_2);
+    setup_PCNT(PIN_ENC_BR, PCNT_UNIT_3);
+
+    colaSensores = xQueueCreate(1, sizeof(SensorSnapshot));
+
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    Wire.setTimeout(10);
+
+    if (!mpu.begin()) {
+        Serial.println("ERROR: MPU6050 no detectado. Modo autonomo deshabilitado.");
+        mpu_inicializado = false;
+    } else {
+        mpu_inicializado = true;
+        mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+        mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+        mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+        delay(500);
+        tiempoAnteriorIMU = millis();
+        anguloZ_acum = 0.0f;
+        Serial.println("MPU6050 inicializado correctamente.");
+    }
+}
+
+static void leerEncoders(SensorSnapshot &snap) {
+    int16_t current_FL = 0, current_FR = 0, current_BL = 0, current_BR = 0;
+    pcnt_get_counter_value(PCNT_UNIT_0, &current_FL);
+    pcnt_get_counter_value(PCNT_UNIT_1, &current_FR);
+    pcnt_get_counter_value(PCNT_UNIT_2, &current_BL);
+    pcnt_get_counter_value(PCNT_UNIT_3, &current_BR);
+
+    snap.pulsosFL += (current_FL - last_FL);
+    snap.pulsosFR += (current_FR - last_FR);
+    snap.pulsosBL += (current_BL - last_BL);
+    snap.pulsosBR += (current_BR - last_BR);
+
+    last_FL = current_FL;
+    last_FR = current_FR;
+    last_BL = current_BL;
+    last_BR = current_BR;
+}
+
+static void leerGiroscopio(SensorSnapshot &snap) {
+    snap.imu_deltaZ_rad = 0.0f;
+    snap.mpu_present = mpu_inicializado;
+    snap.mpu_stale = false;
+
+    if (!mpu_inicializado) {
+        snap.mpu_stale = true;
+        return;
+    }
+
+    sensors_event_t a, g, temp;
+    if (!mpu.getEvent(&a, &g, &temp)) {
+        snap.mpu_stale = true;
+        return;
+    }
+
+    unsigned long t_ahora = millis();
+    float dt = (t_ahora - tiempoAnteriorIMU) / 1000.0f;
+    if (dt <= 0.0f || dt > 0.5f) {
+        tiempoAnteriorIMU = t_ahora;
+        return;
+    }
+    tiempoAnteriorIMU = t_ahora;
+
+    float velocidadZ = g.gyro.z; // rad/s
+    snap.imu_deltaZ_rad = velocidadZ * dt;
+
+    anguloZ_acum += snap.imu_deltaZ_rad;
+    anguloZ = anguloZ_acum * 180.0f / PI;
+}
+
+void Task_Sensors(void *pvParameters) {
+    LOG_CORE("Task_Sensors iniciada en Core 1 (prio 8)");
+
+    SensorSnapshot snap = {};
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xFreq = 10 / portTICK_PERIOD_MS;
+
+    for (;;) {
+        snap.timestamp_ms = millis();
+
+        leerEncoders(snap);
+        leerGiroscopio(snap);
+
+        xQueueOverwrite(colaSensores, &snap);
+
+        static int cnt = 0;
+        if (++cnt >= 100) {
+            LOG_THROTTLED("Heartbeat Task_Sensors (100Hz OK)", 100);
+            cnt = 0;
+        }
+
+        vTaskDelayUntil(&xLastWakeTime, xFreq);
+    }
+}
+
+int pwm_aplicado_L = 0;
+int pwm_aplicado_R = 0;
+
+void setMotorPWM(int pinFwd, int pinRev, int vel) {
+  if (vel > 0) {
+    analogWrite(pinFwd, vel);
+    analogWrite(pinRev, 0);
+  } else if (vel < 0) {
+    analogWrite(pinFwd, 0);
+    analogWrite(pinRev, -vel);
+  } else {
+    analogWrite(pinFwd, 0);
+    analogWrite(pinRev, 0);
+  }
+}
+
+void aplicarVelocidades(int velIzq, int velDer) {
+  velIzq = constrain(velIzq, -255, 255);
+  velDer = constrain(velDer, -255, 255);
+  pwm_aplicado_L = velIzq;
+  pwm_aplicado_R = velDer;
+  setMotorPWM(PIN_FL_FWD, PIN_FL_REV, velIzq);
+  setMotorPWM(PIN_BL_FWD, PIN_BL_REV, velIzq);
+  setMotorPWM(PIN_FR_FWD, PIN_FR_REV, velDer);
+  setMotorPWM(PIN_BR_FWD, PIN_BR_REV, velDer);
+}
+
+void frenarMotores() {
+  aplicarVelocidades(0, 0);
+}
+
+void setup_Motores() {
+  LOG_CORE("Inicializando Motores DRV8833...");
+  pinMode(PIN_FL_FWD, OUTPUT); pinMode(PIN_FL_REV, OUTPUT);
+  pinMode(PIN_BL_FWD, OUTPUT); pinMode(PIN_BL_REV, OUTPUT);
+  pinMode(PIN_FR_FWD, OUTPUT); pinMode(PIN_FR_REV, OUTPUT);
+  pinMode(PIN_BR_FWD, OUTPUT); pinMode(PIN_BR_REV, OUTPUT);
+  frenarMotores();
+}
+
+float distanciaInicialManejo = 0;
+float distanciaObjetivoCM = 0;
+float anguloObjetivoGrados = 0;
+
+unsigned long tiempoInicioGiro = 0;
+unsigned long tiempoInicioAvance = 0;
+
+void calcularDestino(float x_destino, float y_destino) {
+    LOG_CORE("Calculando nueva trayectoria");
+
+    distanciaObjetivoCM = PoseGlobal.distanciaAlObjetivo(x_destino, y_destino);
+    if (distanciaObjetivoCM > DISTANCIA_MAX_CM) {
+        LOG_CORE("Distancia excede limite de seguridad (100cm). Comando rechazado.");
+        return;
+    }
+
+    nuevoDestinoX = x_destino;
+    nuevoDestinoY = y_destino;
+    distanciaInicialManejo = distanciaObjetivoCM;
+
+    float theta_destino = PoseGlobal.anguloAlObjetivoRad(x_destino, y_destino);
+    float giro = theta_destino - PoseGlobal.getThetaRad();
+
+    while (giro > M_PI) giro -= 2 * M_PI;
+    while (giro < -M_PI) giro += 2 * M_PI;
+
+    anguloObjetivoGrados = giro * 180.0 / PI;
+
+    Serial.println("---- NUEVO OBJETIVO ----");
+    Serial.print("Distancia: "); Serial.println(distanciaObjetivoCM);
+    Serial.print("Giro: "); Serial.println(anguloObjetivoGrados);
+
+    anguloZ = 0;
+    inicioGiro = 0;
+    tiempoAnterior = millis();
+    tiempoInicioGiro = millis();
+
+    estadoActual = EstadoRobot::GIRANDO;
+}
+
+void controlarGiro() {
+    LOG_THROTTLED("Controlando Giro", 50);
+
+    if (millis() - tiempoInicioGiro > TIMEOUT_GIRO_MS) {
+        LOG_CORE("TIMEOUT GIRO: excedido limite de 8s");
+        frenarMotores();
+        estadoActual = EstadoRobot::FAULT_SENSOR;
+        encolarEvento(EVT_FAULT, 0, "timeout_giro");
+        return;
+    }
+
+    float error = fabs(anguloObjetivoGrados) - fabs(anguloZ);
+    if (error <= 1.0) {
+        LOG_CORE("Giro completado, esperando estabilizacion");
+        frenarMotores();
+        estadoActual = EstadoRobot::ESPERANDO_ESTABILIZACION;
+        tiempoEspera = millis();
+        return;
+    }
+
+    int velocidad = VELOCIDAD_MINIMA_GIRO + (error * Kp_giro);
+    if (velocidad > 255) velocidad = 255;
+
+    if (anguloObjetivoGrados > 0) {
+        aplicarVelocidades(-velocidad, velocidad);
+    } else {
+        aplicarVelocidades(velocidad, -velocidad);
+    }
+}
+
+void controlarAvance() {
+    LOG_THROTTLED("Controlando Avance (Trapezoidal)", 50);
+
+    if (millis() - tiempoInicioAvance > TIMEOUT_AVANCE_MS) {
+        LOG_CORE("TIMEOUT AVANCE: excedido limite de 15s");
+        frenarMotores();
+        estadoActual = EstadoRobot::FAULT_SENSOR;
+        encolarEvento(EVT_FAULT, 0, "timeout_avance");
+        return;
+    }
+
+    float distanciaRestante = PoseGlobal.distanciaAlObjetivo(nuevoDestinoX, nuevoDestinoY);
+
+    if (distanciaRestante <= 2.0) {
+        LOG_CORE("Destino alcanzado");
+        frenarMotores();
+        estadoActual = EstadoRobot::IDLE;
+        Serial.println("Destino alcanzado");
+        encolarEvento(EVT_COMPLETED, 0, "move_completed");
+        return;
+    }
+
+    int velBase = VELOCIDAD_BASE_RECTO;
+
+    if (distanciaRestante < 15.0) {
+        velBase = map(distanciaRestante, 2.0, 15.0, VELOCIDAD_MINIMA_GIRO, VELOCIDAD_BASE_RECTO);
+    }
+
+    float errorOrientacion = PoseGlobal.anguloAlObjetivoRad(nuevoDestinoX, nuevoDestinoY) - PoseGlobal.getThetaRad();
+    while (errorOrientacion > PI) errorOrientacion -= 2 * PI;
+    while (errorOrientacion < -PI) errorOrientacion += 2 * PI;
+
+    float correccion = (errorOrientacion * 180.0 / PI) * Kp_recto;
+
+    int velIzq = velBase - correccion;
+    int velDer = velBase + correccion;
+
+    if (velIzq > 255) velIzq = 255; else if (velIzq < 0) velIzq = 0;
+    if (velDer > 255) velDer = 255; else if (velDer < 0) velDer = 0;
+
+    aplicarVelocidades(velIzq, velDer);
+}
+
+Seguridad WatchdogSeguridad;
+
+Seguridad::Seguridad() {
+    ultimo_comando_ms = 0;
+    inicio_movimiento_ms = 0;
+    pulsos_movimiento_iniciales = 0;
+}
+
+void Seguridad::alimentarWatchdogRed() {
+    ultimo_comando_ms = millis();
+}
+
+bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
+    if (estadoActual == ESTOP_LATCHED || estadoActual == FAULT_SENSOR) {
+        return true;
+    }
+
+    if (estadoActual == MANUAL) {
+        if (millis() - ultimo_comando_ms > TIMEOUT_WIFI_MANUAL_MS) {
+            LOG_CORE("ALERTA: Perdida de Wi-Fi en MANUAL. Freno de seguridad.");
+            frenarMotores();
+            estadoActual = SAFE_STOP_COMMS;
+            return true;
+        }
+    }
+
+    if (estadoActual == AVANZANDO || estadoActual == GIRANDO || estadoActual == MANUAL) {
+        int pwm_max = abs(pwm_L);
+        if (abs(pwm_R) > pwm_max) pwm_max = abs(pwm_R);
+
+        if (pwm_max > 80) {
+            if (inicio_movimiento_ms == 0) {
+                inicio_movimiento_ms = millis();
+                pulsos_movimiento_iniciales = snap.pulsosFL + snap.pulsosFR + snap.pulsosBL + snap.pulsosBR;
+            } else if (millis() - inicio_movimiento_ms > TIMEOUT_STALL_MS) {
+                long deltas = (snap.pulsosFL + snap.pulsosFR + snap.pulsosBL + snap.pulsosBR) - pulsos_movimiento_iniciales;
+                if (abs(deltas) < 2) {
+                    LOG_CORE("ERROR CRITICO: Motor atascado o fallo PCNT.");
+                    frenarMotores();
+                    estadoActual = FAULT_SENSOR;
+                    return true;
+                } else {
+                    inicio_movimiento_ms = millis();
+                    pulsos_movimiento_iniciales = snap.pulsosFL + snap.pulsosFR + snap.pulsosBL + snap.pulsosBR;
+                }
+            }
+        } else {
+            inicio_movimiento_ms = 0;
+        }
+    } else {
+        inicio_movimiento_ms = 0;
+    }
+
+    return false;
+}
+
+void Seguridad::forzarEStop() {
+    LOG_CORE("ACTIVANDO E-STOP LOGICO");
+    frenarMotores();
+    estadoActual = ESTOP_LATCHED;
+}
+
+void Seguridad::resetFallo() {
+    frenarMotores();
+    if (estadoActual != ESTOP_LATCHED && estadoActual != FAULT_SENSOR && estadoActual != SAFE_STOP_COMMS) {
+        LOG_CORE("Rearme rechazado: no hay fallo activo.");
+        return;
+    }
+    LOG_CORE("Rearmando sistema tras fallo.");
+    estadoActual = IDLE;
+    alimentarWatchdogRed();
+}
+
+#define MAX_WS_MSG 256
+
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+static char msg_buf[MAX_WS_MSG + 1];
+
+const char* estadoTexto() {
+  switch (estadoActual) {
+    case IDLE: return "IDLE";
+    case GIRANDO: return "GIRANDO";
+    case ESPERANDO_ESTABILIZACION: return "ESPERANDO";
+    case AVANZANDO: return "AVANZANDO";
+    case MANUAL: return "MANUAL";
+    case TESTING: return "TESTING";
+    case ESTOP_LATCHED: return "ESTOP_LATCHED";
+    case SAFE_STOP_COMMS: return "SAFE_STOP";
+    case FAULT_SENSOR: return "FAULT";
+    default: return "UNKNOWN";
+  }
+}
+
+uint32_t active_client_id = 0;
+
+static ComandoRed parsearComando(const char* buf) {
+    ComandoRed cmd = {};
+    cmd.id = millis();
+
+    if (strstr(buf, "\"cmd\":\"estop\"")) {
+        cmd.tipo = CMD_ESTOP;
+    }
+    else if (strstr(buf, "\"cmd\":\"stop\"")) {
+        cmd.tipo = CMD_STOP;
+    }
+    else if (strstr(buf, "\"cmd\":\"reset_pose\"")) {
+        cmd.tipo = CMD_RESET_POSE;
+    }
+    else if (strstr(buf, "\"cmd\":\"clear_fault\"")) {
+        cmd.tipo = CMD_CLEAR_FAULT;
+    }
+    else if (strstr(buf, "\"cmd\":\"clear_route\"")) {
+        cmd.tipo = CMD_CLEAR_ROUTE;
+    }
+    else if (strstr(buf, "\"cmd\":\"manual\"")) {
+        cmd.tipo = CMD_MANUAL;
+        const char* lPtr = strstr(buf, "\"l\":");
+        const char* rPtr = strstr(buf, "\"r\":");
+        if (lPtr && rPtr) {
+            cmd.pwm_l = atoi(lPtr + 4);
+            cmd.pwm_r = atoi(rPtr + 4);
+        }
+    }
+    else if (strstr(buf, "\"cmd\":\"move\"")) {
+        cmd.tipo = CMD_MOVE_ABS;
+        const char* xPtr = strstr(buf, "\"x\":");
+        const char* yPtr = strstr(buf, "\"y\":");
+        if (xPtr && yPtr) {
+            cmd.arg_x = atof(xPtr + 4);
+            cmd.arg_y = atof(yPtr + 4);
+        }
+    }
+    else if (strstr(buf, "\"cmd\":\"test_pwm\"")) {
+        cmd.tipo = CMD_TEST_PWM;
+        const char* lPtr = strstr(buf, "\"l\":");
+        const char* rPtr = strstr(buf, "\"r\":");
+        const char* dPtr = strstr(buf, "\"dur_ms\":");
+        if (lPtr && rPtr) {
+            cmd.pwm_l = atoi(lPtr + 4);
+            cmd.pwm_r = atoi(rPtr + 4);
+        }
+        if (dPtr) {
+            cmd.tiempo_ms = atoi(dPtr + 9);
+        }
+    }
+
+    return cmd;
+}
+
+static void procesarEventosRed() {
+    EventoRed evt;
+    while (xQueueReceive(colaEventosRed, &evt, 0) == pdTRUE) {
+        if (ws.count() == 0) continue;
+        char resp[96];
+        switch (evt.tipo) {
+            case EVT_COMPLETED:
+                snprintf(resp, sizeof(resp), "{\"type\":\"completed\",\"cmd\":\"%s\",\"detail\":\"%s\"}",
+                    evt.cmd_id ? "move" : "cmd", evt.detalle);
+                break;
+            case EVT_FAULT:
+                snprintf(resp, sizeof(resp), "{\"type\":\"fault\",\"detail\":\"%s\"}", evt.detalle);
+                break;
+            case EVT_TELEMETRY:
+                break;
+            default:
+                continue;
+        }
+        ws.textAll(resp);
+    }
+}
+
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_CONNECT) {
+    if (active_client_id == 0) {
+      active_client_id = client->id();
+      Serial.printf("WS cliente #%u conectado. Tomando control.\n", client->id());
+    } else {
+      Serial.printf("WS cliente #%u rechazado (Split Brain prevention).\n", client->id());
+      client->text("{\"s\":\"LOCKED\"}");
+      client->close();
+    }
+  } else if (type == WS_EVT_DISCONNECT) {
+    if (client->id() == active_client_id) {
+      Serial.printf("WS cliente principal #%u desconectado.\n", client->id());
+      active_client_id = 0;
+    }
+  } else if (type == WS_EVT_DATA) {
+    if (client->id() != active_client_id) return;
+
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->opcode != WS_TEXT || !info->final) return;
+
+    if (len > MAX_WS_MSG) {
+        client->text("{\"type\":\"rejected\",\"reason\":\"msg_too_large\"}");
+        return;
+    }
+
+    memcpy(msg_buf, data, len);
+    msg_buf[len] = '\0';
+
+    ComandoRed cmd = parsearComando(msg_buf);
+
+    if (cmd.tipo == CMD_ESTOP) {
+        flag_ESTOP_ISR = true;
+        client->text("{\"type\":\"accepted\",\"cmd\":\"estop\"}");
+        return;
+    }
+
+    if (cmd.tipo == CMD_STOP) {
+        xQueueSend(colaComandos, &cmd, 0);
+        client->text("{\"type\":\"accepted\",\"cmd\":\"stop\"}");
+        return;
+    }
+
+    if (cmd.tipo == CMD_CLEAR_FAULT) {
+        if (estadoActual == ESTOP_LATCHED || estadoActual == FAULT_SENSOR || estadoActual == SAFE_STOP_COMMS) {
+            xQueueSend(colaComandos, &cmd, 0);
+            client->text("{\"type\":\"accepted\",\"cmd\":\"clear_fault\"}");
+        } else {
+            client->text("{\"type\":\"rejected\",\"cmd\":\"clear_fault\",\"reason\":\"no_fault\"}");
+        }
+        return;
+    }
+
+    if (cmd.tipo == CMD_RESET_POSE) {
+        if (estadoActual == IDLE) {
+            xQueueSend(colaComandos, &cmd, 0);
+            client->text("{\"type\":\"accepted\",\"cmd\":\"reset_pose\"}");
+        } else {
+            client->text("{\"type\":\"rejected\",\"cmd\":\"reset_pose\",\"reason\":\"busy\"}");
+        }
+        return;
+    }
+
+    if (cmd.tipo == CMD_CLEAR_ROUTE) {
+        xQueueSend(colaComandos, &cmd, 0);
+        client->text("{\"type\":\"accepted\",\"cmd\":\"clear_route\"}");
+        return;
+    }
+
+    if (cmd.tipo == CMD_MANUAL) {
+        if (estadoActual == IDLE || estadoActual == MANUAL) {
+            xQueueOverwrite(buzonManual, &cmd);
+        }
+        return;
+    }
+
+    if (cmd.tipo == CMD_MOVE_ABS) {
+        if (estadoActual == IDLE) {
+            xQueueSend(colaComandos, &cmd, 0);
+            char resp[80];
+            snprintf(resp, sizeof(resp), "{\"type\":\"queued\",\"cmd\":\"move\",\"id\":%u}", cmd.id);
+            client->text(resp);
+        } else {
+            char resp[80];
+            snprintf(resp, sizeof(resp), "{\"type\":\"rejected\",\"cmd\":\"move\",\"reason\":\"busy\"}");
+            client->text(resp);
+        }
+        return;
+    }
+
+    if (cmd.tipo == CMD_TEST_PWM) {
+        if (estadoActual == IDLE) {
+            xQueueSend(colaComandos, &cmd, 0);
+            client->text("{\"type\":\"queued\",\"cmd\":\"test_pwm\"}");
+        } else {
+            client->text("{\"type\":\"rejected\",\"cmd\":\"test_pwm\",\"reason\":\"busy\"}");
+        }
+        return;
+    }
+  }
+}
+
+void pushTelemetria() {
+  if (ws.count() == 0) return;
+
+  SensorSnapshot snap;
+  xQueuePeek(colaSensores, &snap, 0);
+
+  char buf[192];
+  snprintf(buf, sizeof(buf),
+      "{\"x\":%.2f,\"y\":%.2f,\"a\":%.2f,\"s\":\"%s\",\"pfl\":%ld,\"pfr\":%ld,\"pbl\":%ld,\"pbr\":%ld,\"pwmL\":%d,\"pwmR\":%d}",
+      PoseGlobal.getX(), PoseGlobal.getY(), PoseGlobal.getThetaDeg(), estadoTexto(),
+      snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
+      pwm_aplicado_L, pwm_aplicado_R);
+  ws.textAll(buf);
+}
+
+void procesarWebSockets() {
+  ws.cleanupClients();
+  procesarEventosRed();
+}
+
+void setup_Red() {
+  LOG_CORE("Iniciando configuracion de Red...");
+  WiFi.softAP(ssid_AP, password_AP, 1, 0, 1);
+  Serial.println("\nWiFi creado");
+  Serial.print("IP Robot: ");
+  Serial.println(WiFi.softAPIP());
+
+  if (!LittleFS.begin(true)) {
+    Serial.println("ERROR: LittleFS mount failed");
+  } else {
+    Serial.println("LittleFS montado correctamente");
+  }
+
+  ws.onEvent(onWsEvent);
+  server.addHandler(&ws);
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (LittleFS.exists("/Index.html.gz")) {
+      AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/Index.html.gz", "text/html");
+      response->addHeader("Content-Encoding", "gzip");
+      response->addHeader("Cache-Control", "max-age=3600");
+      request->send(response);
+    } else if (LittleFS.exists("/Index.html")) {
+      AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/Index.html", "text/html");
+      response->addHeader("Cache-Control", "max-age=3600");
+      request->send(response);
+    } else {
+      request->send(500, "text/plain", "ERROR 500: Archivos Web no encontrados.");
+    }
+  });
+
+  server.on("/beta", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (LittleFS.exists("/IndexBeta.html.gz")) {
+      AsyncWebServerResponse *response = request->beginResponse(LittleFS, "/IndexBeta.html.gz", "text/html");
+      response->addHeader("Content-Encoding", "gzip");
+      response->addHeader("Cache-Control", "max-age=3600");
+      request->send(response);
+    } else {
+      request->send(404, "text/plain", "Beta UI not found");
+    }
+  });
+
+  server.serveStatic("/", LittleFS, "/");
+  server.begin();
+  Serial.println("Servidor Web iniciado");
+}
+
+TaskHandle_t TaskMotorHandle;
+TaskHandle_t TaskWebHandle;
+TaskHandle_t TaskSensorsHandle;
+
+QueueHandle_t colaComandos;
+QueueHandle_t buzonManual;
+volatile bool flag_ESTOP_ISR = false;
+
+void procesarComandos() {
+    if (flag_ESTOP_ISR) {
+        flag_ESTOP_ISR = false;
+        WatchdogSeguridad.forzarEStop();
+        xQueueReset(colaComandos);
+        xQueueReset(buzonManual);
+        return;
+    }
+
+    ComandoRed cmd;
+
+    if (estadoActual == MANUAL || estadoActual == IDLE) {
+        if (xQueueReceive(buzonManual, &cmd, 0) == pdTRUE) {
+            if (cmd.tipo == CMD_MANUAL && estadoActual != FAULT_SENSOR && estadoActual != ESTOP_LATCHED) {
+                estadoActual = MANUAL;
+                WatchdogSeguridad.alimentarWatchdogRed();
+                aplicarVelocidades(cmd.pwm_l, cmd.pwm_r);
+            }
+        }
+    }
+
+    if (xQueueReceive(colaComandos, &cmd, 0) == pdTRUE) {
+        if (cmd.tipo == CMD_STOP) {
+            frenarMotores();
+            estadoActual = IDLE;
+            xQueueReset(colaComandos);
+            encolarEvento(EVT_COMPLETED, cmd.id, "stop_ok");
+        }
+        else if (cmd.tipo == CMD_CLEAR_FAULT) {
+            WatchdogSeguridad.resetFallo();
+        }
+        else if (cmd.tipo == CMD_RESET_POSE && estadoActual == IDLE) {
+            PoseGlobal.reset();
+        }
+        else if (cmd.tipo == CMD_CLEAR_ROUTE) {
+            frenarMotores();
+            estadoActual = IDLE;
+            xQueueReset(colaComandos);
+        }
+        else if (estadoActual == FAULT_SENSOR || estadoActual == ESTOP_LATCHED) {
+            LOG_CORE("Comando ignorado por estado de FALLO.");
+        }
+        else if (cmd.tipo == CMD_MOVE_ABS && estadoActual == IDLE) {
+            calcularDestino(cmd.arg_x, cmd.arg_y);
+        }
+        else if (cmd.tipo == CMD_TEST_PWM && estadoActual == IDLE) {
+            int safeL = constrain(cmd.pwm_l, -120, 120);
+            int safeR = constrain(cmd.pwm_r, -120, 120);
+            unsigned long dur = cmd.tiempo_ms;
+            if (dur == 0) dur = 500;
+            if (dur > 1500) dur = 1500;
+            estadoActual = TESTING;
+            pwm_target_l = safeL;
+            pwm_target_r = safeR;
+            tiempoTestingInicio = millis();
+            duracionTesting = dur;
+            WatchdogSeguridad.alimentarWatchdogRed();
+            aplicarVelocidades(pwm_target_l, pwm_target_r);
+        }
+    }
+}
+
+void Task_Web(void *pvParameters) {
+    LOG_CORE("Task_Web iniciada en Core 0");
+    for (;;) {
+        procesarWebSockets();
+        LOG_THROTTLED("Heartbeat Task Web", 20);
+        static int _m = 0; if (++_m >= 20) { LOG_MEMORY(); _m = 0; }
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+}
+
+void Task_Motor(void *pvParameters) {
+    LOG_CORE("Task_Motor iniciada en Core 1 (prio 10)");
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xFrecuencia = 10 / portTICK_PERIOD_MS;
+    static unsigned long lastTelemetry = 0;
+
+    for (;;) {
+        LOG_THROTTLED("Heartbeat Task Motor (100Hz OK)", 100);
+
+        procesarComandos();
+
+        SensorSnapshot snap;
+        bool snap_fresh = (xQueuePeek(colaSensores, &snap, 0) == pdTRUE);
+
+        if (snap_fresh) {
+            PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, estadoActual);
+
+            if (snap.mpu_present && !snap.mpu_stale) {
+                PoseGlobal.actualizarOrientacion(snap.imu_deltaZ_rad);
+            } else if (!snap.mpu_present) {
+                if (estadoActual == AVANZANDO || estadoActual == GIRANDO) {
+                    frenarMotores();
+                    estadoActual = FAULT_SENSOR;
+                    LOG_CORE("FAULT: MPU6050 ausente durante navegacion.");
+                    encolarEvento(EVT_FAULT, 0, "mpu_lost");
+                }
+            }
+
+            WatchdogSeguridad.auditarSalud(snap, pwm_aplicado_L, pwm_aplicado_R);
+        }
+
+        if (estadoActual == GIRANDO) {
+            controlarGiro();
+        } else if (estadoActual == ESPERANDO_ESTABILIZACION) {
+            if (millis() - tiempoEspera >= ESTABILIZACION_MS) {
+                anguloZ = 0;
+                tiempoAnterior = millis();
+                tiempoInicioAvance = millis();
+                estadoActual = AVANZANDO;
+            }
+        } else if (estadoActual == AVANZANDO) {
+            controlarAvance();
+        } else if (estadoActual == TESTING) {
+            if (millis() - tiempoTestingInicio > duracionTesting) {
+                frenarMotores();
+                estadoActual = IDLE;
+                encolarEvento(EVT_COMPLETED, 0, "test_done");
+            } else {
+                aplicarVelocidades(pwm_target_l, pwm_target_r);
+            }
+        }
+
+        if (millis() - lastTelemetry >= 100) {
+            lastTelemetry = millis();
+            pushTelemetria();
+        }
+
+        vTaskDelayUntil(&xLastWakeTime, xFrecuencia);
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    colaComandos = xQueueCreate(10, sizeof(ComandoRed));
+    buzonManual = xQueueCreate(1, sizeof(ComandoRed));
+    colaEventosRed = xQueueCreate(8, sizeof(EventoRed));
+
+    PoseGlobal.inicializar(6.6, 20);
+
+    setup_Red();
+    setup_Motores();
+    setup_Sensores();
+
+    Serial.println("Sistema listo. Iniciando FreeRTOS...");
+
+    xTaskCreatePinnedToCore(Task_Web, "Red", 8192, NULL, 1, &TaskWebHandle, 0);
+    xTaskCreatePinnedToCore(Task_Sensors, "Sensores", 4096, NULL, 8, &TaskSensorsHandle, 1);
+    xTaskCreatePinnedToCore(Task_Motor, "Motores", 8192, NULL, 10, &TaskMotorHandle, 1);
+
+    vTaskDelete(NULL);
+}
+
+void loop() {
+}
