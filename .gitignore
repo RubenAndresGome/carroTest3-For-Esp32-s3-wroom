@@ -152,6 +152,7 @@ veredictos/
 # -----------------------------------------------------------------------------
 # Salidas documentales y artefactos de despliegue generados
 # -----------------------------------------------------------------------------
+*.docx
 documentacionCompleta/site/
 docs/portal/package-lock.json
 docs_markdowns/portal/package-lock.json
