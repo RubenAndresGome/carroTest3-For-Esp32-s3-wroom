@@ -123,4 +123,20 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toMatch(/\.log-entry\s*\{[^}]*grid-template-columns:\s*max-content\s+max-content\s+minmax\(0,1fr\)/s);
     expect(html).toMatch(/@media\s*\(max-width:\s*480px\)[\s\S]*?\.log-entry\s*\{[^}]*grid-template-columns:\s*1fr\s+auto/s);
   });
+
+  it("gobierna Touch por manual_drive_v1 y declara el ciclo seguro local", () => {
+    expect(html).toContain("manual_drive_v1");
+    expect(html).toContain("/api/v1/manual/${path}");
+    for (const action of ["start", "drive", "stop"]) expect(html).toContain(`manual('${action}'`);
+    for (const event of ["touchend", "touchcancel", "visibilitychange", "pagehide", "blur"]) {
+      expect(html).toContain(event);
+    }
+    expect(html).toContain("Programar recorrido");
+    expect(html).toContain("Previsualizar");
+    expect(html).toContain("Descartar");
+    expect(html).toContain("Confirma que el área está despejada");
+    expect(html).toContain("Traza medida");
+    expect(html).toContain("Vector simplificado");
+    expect(html).toContain("Segmentos ≤256");
+  });
 });

@@ -4,6 +4,8 @@
 constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.1";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
+constexpr uint32_t MANUAL_LEASE_MS = 300;
+constexpr uint32_t MANUAL_STALL_TIMEOUT_MS = 450;
 
 // WiFi
 extern const char* ssid_AP;
@@ -32,10 +34,15 @@ const int PIN_ENC_BR = 13;  // inferior derecho, cable blanco
 const int PIN_I2C_SDA = 8;
 const int PIN_I2C_SCL = 9;
 
-// Muestreo y filtros. PCNT conserva los pulsos acumulados sin filtrar; el
+// Muestreo y filtros. PCNT conserva los pulsos acumulados; antes de sumarlos
+// se descarta cualquier salto físicamente imposible para impedir que una
+// lectura corrupta contamine pose, distancia y las misiones siguientes. El
 // promedio de 10 ventanas de 10 ms se usa solamente para estimar velocidad.
 constexpr uint32_t SENSOR_PERIOD_MS = 10;
 constexpr size_t ENCODER_AVG_WINDOW = 10;
+// Con la rueda efectiva actual, 64 pulsos en 10 ms equivaldrían a más de
+// 70 m/s. Es una barrera contra corrupción PCNT, no un filtro de movimiento.
+constexpr int64_t ENCODER_MAX_PULSES_PER_SAMPLE = 64;
 constexpr size_t IMU_GYRO_AVG_WINDOW = 8;
 constexpr uint16_t IMU_CALIBRATION_SAMPLES = 256;
 constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
@@ -61,6 +68,8 @@ constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
 constexpr int PWM_FORWARD_POLARITY = -1;
+constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
+constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
 
 // --- PARÁMETROS DE AVANCE RECTO (DRIVE) ---

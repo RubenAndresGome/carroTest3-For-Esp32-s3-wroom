@@ -12,7 +12,9 @@ export type CommandName =
   | "move"
   | "drive"
   | "turn"
-  | "manual"
+  | "manual_begin"
+  | "manual_drive"
+  | "manual_end"
   | "test_pwm";
 
 export interface ConnectionStatus {
@@ -42,6 +44,7 @@ export interface Telemetry {
   readonly active_command_name: string | null;
   readonly command_progress: number;
   readonly allowed_commands: readonly CommandName[];
+  readonly capabilities: readonly string[];
   readonly fault: {
     readonly active?: boolean;
     readonly state?: "none" | "fallo" | "estop" | string;

@@ -50,6 +50,8 @@ class RobotGateway:
         self._session_getter = session_getter
         self._max_message_bytes = max_message_bytes
         self._outgoing: queue.PriorityQueue[_Outgoing] = queue.PriorityQueue(maxsize=64)
+        self._manual_pending: RobotCommand | None = None
+        self._manual_lock = threading.Lock()
         self._cancelled: set[str] = set()
         self._cancelled_lock = threading.Lock()
         self._counter = itertools.count()
@@ -86,6 +88,15 @@ class RobotGateway:
             self._reconnect.set()
 
     def enqueue(self, command: RobotCommand) -> bool:
+        if command.name == "manual_drive":
+            # El control táctil es latest-wins y nunca consume capacidad de la
+            # cola de misiones/paradas.
+            with self._manual_lock:
+                self._manual_pending = command
+            return True
+        if command.name in {"stop", "estop", "manual_end"}:
+            with self._manual_lock:
+                self._manual_pending = None
         priority = 0 if command.name == "estop" else 1 if command.name == "stop" else 10
         try:
             self._outgoing.put_nowait(_Outgoing(priority, next(self._counter), command))
@@ -202,6 +213,14 @@ class RobotGateway:
     def _drain_one(self, connection: Any) -> None:
         if not self._protocol_v1:
             return
+        if self._outgoing.empty():
+            with self._manual_lock:
+                manual = self._manual_pending
+                self._manual_pending = None
+            if manual is not None:
+                connection.send(json.dumps(manual.protocol_envelope(), separators=(",", ":")))
+                self._on_sent(manual)
+                return
         while True:
             try:
                 item = self._outgoing.get_nowait()

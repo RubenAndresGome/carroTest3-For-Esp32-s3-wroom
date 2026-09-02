@@ -109,6 +109,79 @@ def estop() -> tuple[Response, int]:
     return jsonify({"id": result.command_id, "status": "queued"}), 202
 
 
+@web.post("/api/v1/manual/start")
+@_require_token
+def manual_start() -> Response | tuple[Response, int]:
+    try:
+        return jsonify(_service().manual_start()), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.route("/api/v1/manual/drive", methods=["PUT", "POST"])
+@_require_token
+def manual_drive() -> Response | tuple[Response, int]:
+    try:
+        return jsonify(_service().manual_drive(request.get_json(silent=True) or {})), 202
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.post("/api/v1/manual/stop")
+@_require_token
+def manual_stop() -> Response:
+    return jsonify(_service().manual_stop())
+
+
+@web.get("/api/v1/touch-recordings")
+@_require_token
+def touch_recordings() -> Response:
+    return jsonify(_service().touch_recordings())
+
+
+@web.get("/api/v1/touch-recordings/<recording_id>")
+@_require_token
+def touch_recording(recording_id: str) -> Response | tuple[Response, int]:
+    try:
+        return jsonify(_service().touch_recording(recording_id))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+
+
+@web.delete("/api/v1/touch-recordings/<recording_id>")
+@_require_token
+def delete_touch_recording(recording_id: str) -> Response | tuple[Response, int]:
+    if not _service().database.delete_touch_recording(recording_id):
+        return jsonify({"error": "grabacion_no_encontrada"}), 404
+    return jsonify({"deleted": True, "id": recording_id})
+
+
+@web.post("/api/v1/touch-recordings/<recording_id>/acknowledge-open-area")
+@_require_token
+def acknowledge_open_area(recording_id: str) -> Response | tuple[Response, int]:
+    try:
+        return jsonify(_service().acknowledge_open_area(recording_id))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.post("/api/v1/touch-recordings/<recording_id>/return")
+@_require_token
+def return_touch_recording(recording_id: str) -> Response | tuple[Response, int]:
+    try:
+        return jsonify(_service().return_touch_recording(recording_id)), 202
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
 @web.route("/api/v1/missions", methods=["GET", "POST", "DELETE"])
 @_require_token
 def missions() -> Response | tuple[Response, int]:

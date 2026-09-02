@@ -12,6 +12,7 @@
 #include "Eventos.h"
 #include "DiagnosticoRTOS.h"
 #include "ControlSeguridad.h"
+#include "ControlManual.h"
 #include <esp_timer.h>
 
 TaskHandle_t TaskWebHandle;
@@ -19,12 +20,62 @@ QueueHandle_t colaComandos;
 volatile bool flag_ESTOP_ISR = false;
 volatile int seq_ESTOP_pendiente = 0;
 
+static portMUX_TYPE manualMux = portMUX_INITIALIZER_UNLOCKED;
+static volatile uint8_t manualSolicitud = 0;
+static volatile int manualSolicitudSeq = 0;
+static ManualDriveFrame manualMailbox = {};
+static int manualPwmActualL = 0;
+static int manualPwmActualR = 0;
+bool solicitarManualBegin(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 1; manualSolicitudSeq = seq; portEXIT_CRITICAL(&manualMux); return true; }
+bool solicitarManualEnd(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 2; manualSolicitudSeq = seq; portEXIT_CRITICAL(&manualMux); return true; }
+bool solicitarManualDesconexion() { portENTER_CRITICAL(&manualMux); manualSolicitud = 3; manualSolicitudSeq = 0; portEXIT_CRITICAL(&manualMux); return true; }
+bool publicarManualDrive(float throttle, float steering, uint32_t stream, uint32_t frame) {
+    portENTER_CRITICAL(&manualMux);
+    if (manualMailbox.recibidoMs != 0 && manualMailbox.stream == stream && frame <= manualMailbox.frame) {
+        portEXIT_CRITICAL(&manualMux);
+        return false;
+    }
+    manualMailbox = {constrain(throttle, -1.0f, 1.0f), constrain(steering, -1.0f, 1.0f), stream, frame, millis()};
+    portEXIT_CRITICAL(&manualMux); return true;
+}
+bool tomarSolicitudManual(bool& comenzar, bool& terminar, bool& desconexion, int& seq) {
+    portENTER_CRITICAL(&manualMux); const uint8_t s = manualSolicitud; seq = manualSolicitudSeq; manualSolicitud = 0; portEXIT_CRITICAL(&manualMux);
+    comenzar = s == 1; terminar = s == 2; desconexion = s == 3; return s != 0;
+}
+bool leerManualDrive(ManualDriveFrame& trama) { portENTER_CRITICAL(&manualMux); trama = manualMailbox; portEXIT_CRITICAL(&manualMux); return trama.recibidoMs != 0; }
+void limpiarManualDrive() { portENTER_CRITICAL(&manualMux); manualMailbox = {}; portEXIT_CRITICAL(&manualMux); }
+static void procesarSolicitudesManual() {
+    bool comenzar = false, terminar = false, desconexion = false; int seq = 0;
+    if (!tomarSolicitudManual(comenzar, terminar, desconexion, seq)) return;
+    if (desconexion || terminar) { limpiarManualDrive(); manualPwmActualL = manualPwmActualR = 0; if (estadoActual == MANUAL) { frenarMotores(); estadoActual = robotCalibrado ? LISTO : DESARMADO; } if (terminar && seq > 0) encolarEvento(EVT_COMPLETED, seq, "manual_end"); else if (desconexion) encolarEvento(EVT_COMPLETED, 0, "manual_disconnected"); }
+    if (comenzar) { if (estadoActual == LISTO && robotCalibrado) { limpiarManualDrive(); manualPwmActualL = manualPwmActualR = 0; estadoActual = MANUAL; if (seq > 0) encolarEvento(EVT_COMPLETED, seq, "manual_begin"); } else if (seq > 0) encolarEvento(EVT_REJECTED, seq, "manual_unavailable"); }
+}
+static void controlarManual() {
+    ManualDriveFrame trama;
+    if (estadoActual != MANUAL) return;
+    if (!leerManualDrive(trama) || !ControlManual::leaseVigente(millis(), trama.recibidoMs, MANUAL_LEASE_MS)) {
+        limpiarManualDrive();
+        manualPwmActualL = manualPwmActualR = 0;
+        frenarMotores();
+        estadoActual = robotCalibrado ? LISTO : DESARMADO;
+        encolarEvento(EVT_COMPLETED, 0, "manual_lease_expired");
+        return;
+    }
+    const ControlManual::SalidaPWM salida = ControlManual::mezclar(trama.throttle, trama.steering, PWM_MANUAL_MAX_LIMIT);
+    manualPwmActualL = ControlManual::acercar(manualPwmActualL, salida.izquierdo, PWM_MANUAL_RAMP_STEP);
+    manualPwmActualR = ControlManual::acercar(manualPwmActualR, salida.derecho, PWM_MANUAL_RAMP_STEP);
+    aplicarVelocidades(manualPwmActualL, manualPwmActualR);
+}
+
 void procesarComandos() {
+    procesarSolicitudesManual();
     if (ControlSeguridad::estopSolicitado(flag_ESTOP_ISR)) {
         const int seq = seq_ESTOP_pendiente;
         const int seqInterrumpido = seqActivo;
         flag_ESTOP_ISR = false;
         seq_ESTOP_pendiente = 0;
+        limpiarManualDrive();
+        manualPwmActualL = manualPwmActualR = 0;
         WatchdogSeguridad.forzarEStop();
         xQueueReset(colaComandos);
         if (seqInterrumpido > 0 && seqInterrumpido != seq) {
@@ -50,12 +101,18 @@ void procesarComandos() {
                     encolarEvento(EVT_REJECTED, cmd.seq, "turn_unavailable");
                 break;
             case CMD_STOP:
+                if (estadoActual == MANUAL) {
+                    limpiarManualDrive();
+                    manualPwmActualL = manualPwmActualR = 0;
+                }
                 cancelarMovimiento("stopped");
                 encolarEvento(EVT_COMPLETED, cmd.seq, "stop_ok");
                 break;
             case CMD_ESTOP:
                 {
                 const int seqInterrumpido = seqActivo;
+                limpiarManualDrive();
+                manualPwmActualL = manualPwmActualR = 0;
                 WatchdogSeguridad.forzarEStop();
                 xQueueReset(colaComandos);
                 if (seqInterrumpido > 0 && seqInterrumpido != cmd.seq)
@@ -127,10 +184,10 @@ static void ejecutarCicloControl() {
         if (estadoActual == LISTO || estadoActual == DESARMADO) {
             recentrarYawIMUEnReposo();
         }
-            PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
-                                       (estadoActual == EJECUTANDO && enFaseTraslacion()));
+        PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
+                                       ((estadoActual == EJECUTANDO && enFaseTraslacion()) || estadoActual == MANUAL));
         if (!ControlSeguridad::imuApta(snap.mpu_present, snap.mpu_stale)) {
-            if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO) {
+            if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO || estadoActual == MANUAL) {
                 frenarMotores();
                 reiniciarControlRumbo();
                 registrarMotivoFinalizacion("mpu_lost");
@@ -142,6 +199,7 @@ static void ejecutarCicloControl() {
         WatchdogSeguridad.auditarSalud(snap, pwm_aplicado_L, pwm_aplicado_R);
     }
     controlarMovimiento();
+    controlarManual();
     if (seqActivo && (estadoActual==EJECUTANDO||estadoActual==CALIBRANDO) && millis()-ultimoProgresoMs>=500) {
         ultimoProgresoMs=millis();
         encolarEvento(EVT_PROGRESS, seqActivo, faseComando, progresoComando);

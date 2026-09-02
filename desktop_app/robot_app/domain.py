@@ -34,7 +34,8 @@ class Severity(StrEnum):
 
 
 ALLOWED_COMMANDS = frozenset(
-    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "turn_to", "move"}
+    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "turn_to", "move",
+     "manual_begin", "manual_drive", "manual_end"}
 )
 
 MAX_SEGMENT_MM = 2_000.0
@@ -64,6 +65,21 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
             "x_mm": _finite_number(source.get("x_mm"), "x_mm", -100_000, 100_000),
             "y_mm": _finite_number(source.get("y_mm"), "y_mm", -100_000, 100_000),
         }
+    if name == "manual_drive":
+        stream = source.get("stream")
+        frame = source.get("frame")
+        if isinstance(stream, bool) or not isinstance(stream, int) or not 0 <= stream <= 0xFFFFFFFF:
+            raise ValueError("stream debe ser un entero uint32")
+        if isinstance(frame, bool) or not isinstance(frame, int) or not 0 <= frame <= 0xFFFFFFFF:
+            raise ValueError("frame debe ser un entero uint32")
+        return {
+            "throttle": _finite_number(source.get("throttle"), "throttle", -1, 1),
+            "steering": _finite_number(source.get("steering"), "steering", -1, 1),
+            "stream": stream,
+            "frame": frame,
+        }
+    if name in {"manual_begin", "manual_end"}:
+        return {}
     if name == "step":
         result = {
             "heading": _heading_degrees(source.get("heading")),
@@ -228,6 +244,7 @@ class TelemetrySnapshot:
     calibration_diagnostics: dict[str, Any] = field(default_factory=dict)
     fault: dict[str, Any] = field(default_factory=dict)
     allowed_commands: tuple[str, ...] = ()
+    capabilities: tuple[str, ...] = ()
     self_test: dict[str, Any] = field(default_factory=dict)
     target: dict[str, Any] = field(default_factory=dict)
     drive_control: dict[str, Any] = field(default_factory=dict)
@@ -394,6 +411,9 @@ class TelemetrySnapshot:
             allowed_commands=tuple(
                 str(command)[:32] for command in payload.get("allowed_commands", ())
             ) if isinstance(payload.get("allowed_commands", ()), (list, tuple)) else (),
+            capabilities=tuple(
+                str(capability)[:32] for capability in payload.get("capabilities", ())
+            ) if isinstance(payload.get("capabilities", ()), (list, tuple)) else (),
             self_test=dict(payload.get("self_test", {}))
             if isinstance(payload.get("self_test", {}), Mapping) else {},
             target=dict(payload.get("target", {})) if isinstance(payload.get("target", {}), Mapping) else {},
@@ -504,6 +524,7 @@ class TelemetrySnapshot:
             "calibration_diagnostics": self.calibration_diagnostics,
             "fault": self.fault,
             "allowed_commands": list(self.allowed_commands),
+            "capabilities": list(self.capabilities),
             "self_test": self.self_test,
             "last_terminal": self.last_terminal,
             "encoder_health": {

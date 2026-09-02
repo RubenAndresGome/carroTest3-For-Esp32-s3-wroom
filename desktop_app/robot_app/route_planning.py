@@ -10,7 +10,7 @@ from typing import Any, Mapping
 from .domain import MAX_SEGMENT_MM, RobotCommand, split_segment_mm
 
 
-MAX_COMPILED_SEGMENTS = 32
+MAX_COMPILED_SEGMENTS = 256
 MAX_VECTOR_LENGTH_CM = 10_000.0
 
 
@@ -54,7 +54,7 @@ class RouteExecutionStrategy(ABC):
         if not segments:
             raise ValueError("La misión no contiene desplazamiento")
         if len(segments) > MAX_COMPILED_SEGMENTS:
-            raise ValueError("La compilación excede los 32 segmentos disponibles en el ESP32")
+            raise ValueError("La compilación excede los 256 segmentos disponibles en el ESP32")
         return RouteCompilation(mode=mode, logical_steps=logical_steps, segments=segments)
 
     @staticmethod
@@ -87,7 +87,7 @@ class RectangularRouteStrategy(RouteExecutionStrategy):
     def compile(self, request: Mapping[str, Any], origin: Mapping[str, float]) -> RouteCompilation:
         points = request.get("points")
         if not isinstance(points, list) or not points or len(points) > MAX_COMPILED_SEGMENTS:
-            raise ValueError("La misión requiere entre 1 y 32 puntos")
+            raise ValueError("La misión requiere entre 1 y 256 puntos")
         x_mm, y_mm = self._validated_origin(origin)
         logical_steps: list[dict[str, Any]] = []
         segments: list[dict[str, Any]] = []
@@ -129,7 +129,7 @@ class _AngularRouteStrategy(RouteExecutionStrategy):
     def compile(self, request: Mapping[str, Any], origin: Mapping[str, float]) -> RouteCompilation:
         vectors = request.get("vectors")
         if not isinstance(vectors, list) or not vectors or len(vectors) > MAX_COMPILED_SEGMENTS:
-            raise ValueError("La misión angular requiere entre 1 y 32 vectores")
+            raise ValueError("La misión angular requiere entre 1 y 256 vectores")
         x_mm, y_mm = self._validated_origin(origin)
         phi_unwrapped = 0.0
         logical_steps: list[dict[str, Any]] = []
@@ -211,3 +211,92 @@ def strategy_for_request(request: Mapping[str, Any]) -> RouteExecutionStrategy:
     if strategy is None:
         raise ValueError("Modo de misión no permitido")
     return strategy
+
+
+def simplify_rdp(points: list[dict[str, float]], tolerance_mm: float = 20.0) -> list[dict[str, float]]:
+    """Simplifica una polilínea conservando extremos y cambios relevantes."""
+    if len(points) <= 2:
+        return list(points)
+    tolerance = max(0.0, float(tolerance_mm))
+
+    def distance(point: dict[str, float], start: dict[str, float], end: dict[str, float]) -> float:
+        dx, dy = end["x_mm"] - start["x_mm"], end["y_mm"] - start["y_mm"]
+        if dx == dy == 0:
+            return math.hypot(point["x_mm"] - start["x_mm"], point["y_mm"] - start["y_mm"])
+        t = max(0.0, min(1.0, ((point["x_mm"] - start["x_mm"]) * dx + (point["y_mm"] - start["y_mm"]) * dy) / (dx * dx + dy * dy)))
+        return math.hypot(point["x_mm"] - (start["x_mm"] + t * dx), point["y_mm"] - (start["y_mm"] + t * dy))
+
+    # Implementación iterativa: una grabación de 3000 muestras con giros
+    # alternados puede superar el límite de recursión de Python.
+    keep = {0, len(points) - 1}
+    pending = [(0, len(points) - 1)]
+    while pending:
+        start_index, end_index = pending.pop()
+        furthest, maximum = -1, 0.0
+        for index in range(start_index + 1, end_index):
+            current = distance(points[index], points[start_index], points[end_index])
+            if current > maximum:
+                furthest, maximum = index, current
+        if furthest >= 0 and maximum > tolerance:
+            keep.add(furthest)
+            pending.append((start_index, furthest))
+            pending.append((furthest, end_index))
+    return [points[index] for index in sorted(keep)]
+
+
+def compile_orthogonal_points(points: list[dict[str, float]], max_segment_mm: float = MAX_SEGMENT_MM,
+                              drive_mode: str = "auto") -> list[dict[str, Any]]:
+    """Convierte puntos absolutos a tramos ortogonales X y luego Y."""
+    if len(points) < 2:
+        raise ValueError("La ruta requiere al menos dos muestras")
+    result: list[dict[str, Any]] = []
+    x, y = float(points[0]["x_mm"]), float(points[0]["y_mm"])
+    for logical_step_id, point in enumerate(points[1:], start=1):
+        target_x, target_y = float(point["x_mm"]), float(point["y_mm"])
+        for next_x, next_y, component in ((target_x, y, "x"), (target_x, target_y, "y")):
+            if math.hypot(next_x - x, next_y - y) <= 1.0:
+                x, y = next_x, next_y
+                continue
+            for target in split_segment_mm(x, y, next_x, next_y, max_segment_mm):
+                result.append({"start_x_mm": x, "start_y_mm": y,
+                               "x_mm": target["x_mm"], "y_mm": target["y_mm"], "component": component,
+                               "logical_step_id": logical_step_id,
+                               "heading_deg": math.degrees(math.atan2(target["x_mm"] - x, target["y_mm"] - y)) % 360.0,
+                               "length_mm": math.hypot(target["x_mm"] - x, target["y_mm"] - y), "drive_mode": drive_mode})
+                x, y = target["x_mm"], target["y_mm"]
+    if len(result) > MAX_COMPILED_SEGMENTS:
+        raise ValueError("La ruta excede los 256 segmentos disponibles")
+    return result
+
+
+def compile_touch_path(points: list[dict[str, float]]) -> tuple[list[dict[str, float]], list[dict[str, Any]],
+                                                                 list[dict[str, Any]], float]:
+    """Simplifica adaptativamente una grabación y conserva geometría lógica y física."""
+    if len(points) < 2:
+        raise ValueError("La grabación requiere al menos dos muestras")
+    tolerance = 20.0
+    while True:
+        simplified = simplify_rdp(points, tolerance)
+        try:
+            segments = compile_orthogonal_points(simplified)
+            break
+        except ValueError as exc:
+            if "256" not in str(exc) or len(simplified) <= 2:
+                raise
+            tolerance *= 1.5
+            if tolerance > 100_000.0:
+                raise ValueError("No fue posible reducir la grabación a 256 segmentos") from exc
+    logical: list[dict[str, Any]] = []
+    previous_angle = 0.0
+    for index, (start, end) in enumerate(zip(simplified, simplified[1:]), start=1):
+        dx = float(end["x_mm"]) - float(start["x_mm"])
+        dy = float(end["y_mm"]) - float(start["y_mm"])
+        absolute = math.degrees(math.atan2(dy, dx))
+        relative = (absolute - previous_angle + 180.0) % 360.0 - 180.0
+        logical.append({
+            "id": f"touch-{index}", "origin": dict(start), "destination": dict(end),
+            "dx_mm": dx, "dy_mm": dy, "length_mm": math.hypot(dx, dy),
+            "relative_angle_deg": relative, "absolute_angle_deg": absolute,
+        })
+        previous_angle = absolute
+    return simplified, logical, segments, tolerance

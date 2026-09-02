@@ -8,6 +8,7 @@ enum EstadoRobot : uint8_t {
   CALIBRANDO,   // búsqueda de torque + retorno a yaw inicial
   LISTO,        // calibrado y esperando un paso
   EJECUTANDO,   // ejecutando un paso (giro inicial, avance, giro final)
+  MANUAL,       // control manual con lease de red
   ESTOP,        // parada de emergencia enclavada; requiere clear_fault
   FALLO         // fallo de sensor/motor; requiere clear_fault
 };

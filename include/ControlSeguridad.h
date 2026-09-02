@@ -21,6 +21,10 @@ inline bool encoderEsOutlier(int64_t delta, float mediana, float desacuerdoMaxim
              fmaxf(1.0f, fabsf(mediana)) > desacuerdoMaximo;
 }
 
+inline bool deltaEncoderPlausible(int64_t delta, int64_t maximoAbsoluto) {
+  return maximoAbsoluto > 0 && delta >= -maximoAbsoluto && delta <= maximoAbsoluto;
+}
+
 struct ClasificacionEncoders {
   bool confiable[4] = {true, true, true, true};
   float mediana = 0.0f;

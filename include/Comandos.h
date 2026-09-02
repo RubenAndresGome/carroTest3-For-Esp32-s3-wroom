@@ -1,6 +1,21 @@
 #pragma once
 #include <Arduino.h>
 
+struct ManualDriveFrame {
+    float throttle;
+    float steering;
+    uint32_t stream;
+    uint32_t frame;
+    uint32_t recibidoMs;
+};
+bool solicitarManualBegin(int seq);
+bool solicitarManualEnd(int seq);
+bool solicitarManualDesconexion();
+bool publicarManualDrive(float throttle, float steering, uint32_t stream, uint32_t frame);
+bool tomarSolicitudManual(bool& comenzar, bool& terminar, bool& desconexion, int& seq);
+bool leerManualDrive(ManualDriveFrame& trama);
+void limpiarManualDrive();
+
 // Protocolo de comandos del robot de memoria corta.
 // Cada comando lleva un seq entero asignado por el backend; el robot ejecuta
 // un solo comando de movimiento a la vez y reporta accepted/completed/fault

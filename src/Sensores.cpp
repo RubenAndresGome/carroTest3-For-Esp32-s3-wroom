@@ -1,5 +1,6 @@
 #include "Sensores.h"
 #include "Config.h"
+#include "ControlSeguridad.h"
 #include "Estado.h"
 #include "Debug.h"
 #include "driver/pcnt.h"
@@ -135,6 +136,12 @@ static void leerEncoders(SensorSnapshot &snap) {
         pcnt_get_counter_value(units[i], values[i]);
         pcnt_counter_clear(units[i]);
         pcnt_counter_resume(units[i]);
+        if (!ControlSeguridad::deltaEncoderPlausible(
+                *values[i], ENCODER_MAX_PULSES_PER_SAMPLE)) {
+            Serial.printf("WARN: pico PCNT imposible descartado en encoder %d: %d pulsos.\n",
+                          i, static_cast<int>(*values[i]));
+            *values[i] = 0;
+        }
     }
     snap.pulsosFL += current_FL;
     snap.pulsosFR += current_FR;

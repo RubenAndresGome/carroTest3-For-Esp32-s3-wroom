@@ -37,7 +37,7 @@ void Seguridad::reiniciarSaludEncoders() {
 void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
     const uint32_t ahora = millis();
     const int64_t actuales[4] = {snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR};
-    const bool auditando = estadoActual == EJECUTANDO && enFaseAvance();
+    const bool auditando = (estadoActual == EJECUTANDO && enFaseAvance()) || estadoActual == MANUAL;
     const bool ladoExigido[2] = {
         auditando && abs(pwm_L) >= ENCODER_HEALTH_PWM_MIN,
         auditando && abs(pwm_R) >= ENCODER_HEALTH_PWM_MIN
@@ -149,7 +149,7 @@ void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, i
 
 bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
     if (estadoActual == ESTOP || estadoActual == FALLO) return true;
-    if (estadoActual != EJECUTANDO && estadoActual != CALIBRANDO) {
+    if (estadoActual != EJECUTANDO && estadoActual != CALIBRANDO && estadoActual != MANUAL) {
         inicio_movimiento_ms = 0;
         return false;
     }
@@ -163,7 +163,9 @@ bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
 
     // Selector dinámico de timeout por fase activa
     unsigned long timeout_ms = TIMEOUT_STALL_AVANCE_MS;
-    if (estadoActual == CALIBRANDO || enFaseCalibracion()) {
+    if (estadoActual == MANUAL) {
+        timeout_ms = MANUAL_STALL_TIMEOUT_MS;
+    } else if (estadoActual == CALIBRANDO || enFaseCalibracion()) {
         timeout_ms = TIMEOUT_STALL_CALIBRANDO_MS; // 20 s para calibración
     } else if (enFaseGiro()) {
         timeout_ms = TIMEOUT_STALL_GIRO_MS;       // 12 s para maniobras de giro

@@ -3,6 +3,7 @@
 #include "ControlRuta.h"
 #include "ControlSeguridad.h"
 #include "ControlCalibracion.h"
+#include "ControlManual.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -114,6 +115,13 @@ void test_imu_perdida_se_detecta() {
 void test_encoder_incoherente_se_detecta() {
   TEST_ASSERT_FALSE(ControlSeguridad::encoderEsOutlier(12, 10.0f, 0.40f));
   TEST_ASSERT_TRUE(ControlSeguridad::encoderEsOutlier(15, 10.0f, 0.40f));
+}
+
+void test_pico_pcnt_imposible_no_puede_contaminar_odometria() {
+  TEST_ASSERT_TRUE(ControlSeguridad::deltaEncoderPlausible(64, 64));
+  TEST_ASSERT_TRUE(ControlSeguridad::deltaEncoderPlausible(-64, 64));
+  TEST_ASSERT_FALSE(ControlSeguridad::deltaEncoderPlausible(24793, 64));
+  TEST_ASSERT_FALSE(ControlSeguridad::deltaEncoderPlausible(-32768, 64));
 }
 
 void test_fusion_descarta_cero_aislado_sin_sesgar_distancia() {
@@ -238,6 +246,24 @@ void test_rampa_calibracion_expone_todos_los_niveles() {
   TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::pasoRampaActual(255, 140, 247, 5));
 }
 
+void test_control_manual_mezcla_satura_y_respeta_lease() {
+  const auto avance = ControlManual::mezclar(1.0f, 0.0f, 230);
+  TEST_ASSERT_EQUAL_INT(230, avance.izquierdo);
+  TEST_ASSERT_EQUAL_INT(230, avance.derecho);
+  const auto pivote = ControlManual::mezclar(0.0f, 1.0f, 230);
+  TEST_ASSERT_EQUAL_INT(230, pivote.izquierdo);
+  TEST_ASSERT_EQUAL_INT(-230, pivote.derecho);
+  const auto combinado = ControlManual::mezclar(1.0f, 1.0f, 230);
+  TEST_ASSERT_TRUE(abs(combinado.izquierdo) <= 230);
+  TEST_ASSERT_TRUE(abs(combinado.derecho) <= 230);
+  TEST_ASSERT_TRUE(ControlManual::leaseVigente(1299, 1000, 300));
+  TEST_ASSERT_FALSE(ControlManual::leaseVigente(1301, 1000, 300));
+  TEST_ASSERT_TRUE(ControlManual::leaseVigente(20, 0xFFFFFFF0u, 300));
+  TEST_ASSERT_EQUAL_INT(8, ControlManual::acercar(0, 230, 8));
+  TEST_ASSERT_EQUAL_INT(-8, ControlManual::acercar(0, -230, 8));
+  TEST_ASSERT_EQUAL_INT(0, ControlManual::acercar(200, 0, 8));
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -256,6 +282,7 @@ int main(int, char**) {
   RUN_TEST(test_endpoint_corto_pide_calibracion_y_el_largo_se_recupera);
   RUN_TEST(test_imu_perdida_se_detecta);
   RUN_TEST(test_encoder_incoherente_se_detecta);
+  RUN_TEST(test_pico_pcnt_imposible_no_puede_contaminar_odometria);
   RUN_TEST(test_fusion_descarta_cero_aislado_sin_sesgar_distancia);
   RUN_TEST(test_fusion_falla_si_un_lado_completo_no_es_confiable);
   RUN_TEST(test_stall_por_lado_exige_dos_encoders_sin_pulsos);
@@ -267,5 +294,6 @@ int main(int, char**) {
   RUN_TEST(test_calibracion_rechaza_un_lado_completo_sin_pulsos);
   RUN_TEST(test_calibracion_identifica_cualquier_encoder_aislado);
   RUN_TEST(test_rampa_calibracion_expone_todos_los_niveles);
+  RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
   return UNITY_END();
 }

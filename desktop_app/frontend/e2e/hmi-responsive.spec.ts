@@ -114,6 +114,22 @@ test.describe("HMI responsive en navegador real", () => {
     await expect(page.locator('[data-tab="rutas"]')).toHaveAttribute("aria-selected", "true");
   });
 
+  test("habilita Touch únicamente cuando la telemetría anuncia manual_drive_v1", async ({ page }) => {
+    await isolateEventStream(page);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-tab="touch"]')).toHaveAttribute("aria-disabled", "true");
+    await page.evaluate(`(() => {
+      Calibration.calibrated = true;
+      ConnectionPanel.applyConnection({ state: 'connected' });
+      WSControl.applyBackendTelemetry({ state: 'listo', calibrated: true, capabilities: ['manual_drive_v1'], mpu: { present: true, calibrated: true, stale: false } });
+    })()`);
+    await expect(page.locator('[data-tab="touch"]')).toHaveAttribute("aria-disabled", "false");
+    await expect(page.locator("#touch-capability")).toContainText("disponible");
+    await page.evaluate("TabManager.switch('touch')");
+    await expect(page.locator("#touch-recording-preview")).toBeVisible();
+    await expect(page.locator("#btn-touch-return")).toBeDisabled();
+  });
+
   test("la rotación conserva vista y formulario sin overflow", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await isolateEventStream(page);
@@ -261,7 +277,7 @@ test.describe("HMI responsive en navegador real", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await openPanel(page, "rutas");
     await page.locator("#route-mode").selectOption("polar");
-    for (const [length, theta] of [["5", "170"], ["5", "30"]]) {
+    for (const [length, theta] of [["5", "170"], ["5", "30"]] as const) {
       await page.locator("#route-input-1").fill(length);
       await page.locator("#route-input-2").fill(theta);
       await page.locator("#route-form button[type='submit']").click();

@@ -5,6 +5,8 @@ from robot_app.route_planning import (
     AngularDecompositionRouteStrategy,
     AngularVectorialRouteStrategy,
     RectangularRouteStrategy,
+    compile_orthogonal_points,
+    compile_touch_path,
 )
 
 
@@ -66,6 +68,28 @@ class RoutePlanningTests(unittest.TestCase):
         self.assertEqual([(segment["x_mm"], segment["y_mm"]) for segment in compilation.segments], [
             (1000.0, 0.0), (1000.0, 1000.0),
         ])
+
+    def test_touch_compilation_is_orthogonal_exact_and_bounded(self) -> None:
+        points = [{"x_mm": 0.0, "y_mm": 0.0}, {"x_mm": 4500.0, "y_mm": 3100.0}]
+        segments = compile_orthogonal_points(points)
+        self.assertLessEqual(len(segments), 256)
+        self.assertEqual((segments[-1]["x_mm"], segments[-1]["y_mm"]), (4500.0, 3100.0))
+        for segment in segments:
+            dx = segment["x_mm"] - segment["start_x_mm"]
+            dy = segment["y_mm"] - segment["start_y_mm"]
+            self.assertTrue(math.isclose(dx, 0.0) or math.isclose(dy, 0.0))
+            self.assertLessEqual(segment["length_mm"], 2000.0)
+
+    def test_touch_rdp_adapts_until_compilation_fits_256(self) -> None:
+        points = [
+            {"x_mm": float(index * 10), "y_mm": 40.0 if index % 2 else -40.0}
+            for index in range(300)
+        ]
+        simplified, logical, segments, tolerance = compile_touch_path(points)
+        self.assertLess(len(simplified), len(points))
+        self.assertEqual(len(logical), len(simplified) - 1)
+        self.assertLessEqual(len(segments), 256)
+        self.assertGreaterEqual(tolerance, 20.0)
 
 
 if __name__ == "__main__":

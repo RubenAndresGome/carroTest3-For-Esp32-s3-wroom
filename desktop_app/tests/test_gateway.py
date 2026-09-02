@@ -65,6 +65,25 @@ class GatewayTests(unittest.TestCase):
         self.gateway._drain_one(connection)
         self.assertEqual(json.loads(connection.messages[0]), {"cmd": "stop", "seq": 6})
 
+    def test_manual_drive_is_latest_wins_and_manual_end_clears_it(self) -> None:
+        connection = _Connection()
+        self.gateway._protocol_v1 = True
+        first = RobotCommand.create("manual_drive", {
+            "throttle": .2, "steering": 0, "stream": 7, "frame": 1,
+        }, seq=0)
+        latest = RobotCommand.create("manual_drive", {
+            "throttle": .6, "steering": -.1, "stream": 7, "frame": 2,
+        }, seq=0)
+        self.assertTrue(self.gateway.enqueue(first))
+        self.assertTrue(self.gateway.enqueue(latest))
+        self.gateway._drain_one(connection)
+        self.assertEqual(len(connection.messages), 1)
+        self.assertEqual(json.loads(connection.messages[0])["frame"], 2)
+        self.gateway.enqueue(first)
+        self.gateway.enqueue(RobotCommand.create("manual_end", {}, seq=8))
+        self.gateway._drain_one(connection)
+        self.assertEqual(json.loads(connection.messages[-1]), {"cmd": "manual_end", "seq": 8})
+
     def test_connection_attempts_stop_instead_of_looping_forever(self) -> None:
         self.gateway.MAX_CONNECT_ATTEMPTS = 1
         with patch("robot_app.gateway.websocket.create_connection", side_effect=TimeoutError("sin ruta")):

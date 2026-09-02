@@ -2,6 +2,7 @@ import tempfile
 import threading
 import time
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -41,6 +42,58 @@ class ApiTests(unittest.TestCase):
             "degraded_mode": degraded,
             "encoder_health": {wheel: health for wheel in ("fl", "fr", "bl", "br")},
         }, 1)
+
+    def _ready_manual(self, x_mm: float = 0, y_mm: float = 0) -> None:
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x_mm": x_mm, "y_mm": y_mm,
+            "yaw_deg": 12, "cal": True, "enc": [10, 11, 12, 13],
+            "capabilities": ["manual_drive_v1"],
+            "encoder_health": {wheel: "healthy" for wheel in ("fl", "fr", "bl", "br")},
+        }, 1)
+
+    def test_touch_stream_records_compiles_and_returns_in_reverse(self) -> None:
+        self._ready_manual()
+        headers = {"X-App-Token": self.token}
+        started = self.client.post("/api/v1/manual/start", json={}, headers=headers)
+        self.assertEqual(started.status_code, 201)
+        self.assertEqual(self.service.gateway._outgoing.queue[0].command.name, "manual_begin")
+
+        driven = self.client.put("/api/v1/manual/drive", json={"left": 230, "right": 115}, headers=headers)
+        self.assertEqual(driven.status_code, 202)
+        streamed = self.service.gateway._manual_pending
+        self.assertEqual(streamed.name, "manual_drive")
+        self.assertEqual(streamed.seq, 0)
+        self.assertAlmostEqual(streamed.payload["throttle"], 0.75)
+        self.assertAlmostEqual(streamed.payload["steering"], 0.25)
+
+        moved = replace(self.service._last_telemetry, received_at=time.time() + 0.2,
+                        x_mm=300.0, y_mm=200.0, yaw_deg=20.0)
+        self.service._touch.add(moved)
+        stopped = self.client.post("/api/v1/manual/stop", json={}, headers=headers)
+        self.assertEqual(stopped.status_code, 200)
+        self.assertEqual(stopped.json["status"], "completed")
+        self.assertGreater(stopped.json["sample_count"], 1)
+        self.assertGreater(len(stopped.json["logical_steps"]), 0)
+        self.assertGreater(len(stopped.json["compiled_segments"]), 0)
+        self.assertLessEqual(len(stopped.json["compiled_segments"]), 256)
+
+        recording_id = stopped.json["id"]
+        detail = self.client.get(f"/api/v1/touch-recordings/{recording_id}", headers=headers)
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json["samples"][0]["pulses"]["fl"], 10)
+        self._ready_manual(300, 200)
+        self.assertEqual(self.client.post(
+            f"/api/v1/touch-recordings/{recording_id}/return", json={}, headers=headers,
+        ).status_code, 409)
+        self.assertEqual(self.client.post(
+            f"/api/v1/touch-recordings/{recording_id}/acknowledge-open-area", json={}, headers=headers,
+        ).status_code, 200)
+        returned = self.client.post(f"/api/v1/touch-recordings/{recording_id}/return", json={}, headers=headers)
+        self.assertEqual(returned.status_code, 202)
+        self.assertEqual(returned.json["mode"], "touch_reverse")
+        self.assertTrue(all(point["drive_mode"] == "reverse" for point in returned.json["planned_points"]))
+        self.assertAlmostEqual(returned.json["planned_points"][-1]["x_mm"], 0.0)
+        self.assertAlmostEqual(returned.json["planned_points"][-1]["y_mm"], 0.0)
 
     def test_status_and_mutation_security(self) -> None:
         self.assertEqual(self.client.get("/api/v1/status").status_code, 200)
@@ -183,6 +236,7 @@ class ApiTests(unittest.TestCase):
         }, headers={"X-App-Token": self.token})
         self.assertEqual(enabled.status_code, 200)
         self.assertTrue(enabled.json["experimental_vectorial_routes"])
+        self.assertTrue(self.service.database.get_setting("experimental_vectorial_routes"))
         self._ready_vectorial(health="excluded")
         unhealthy = self.client.post("/api/v1/missions", json=request,
                                      headers={"X-App-Token": self.token})
@@ -193,6 +247,24 @@ class ApiTests(unittest.TestCase):
                                     headers={"X-App-Token": self.token})
         self.assertEqual(degraded.status_code, 409)
         self.assertIn("modo degradado", degraded.json["error"])
+
+    def test_vectorial_revalidates_encoder_health_before_each_segment(self) -> None:
+        self.service.set_vectorial_routes_enabled(True)
+        self._ready_vectorial()
+        mission = self.service.start_mission({
+            "mode": "angular_vectorial",
+            "vectors": [{"length_cm": 450, "relative_angle_deg": 45}],
+        })
+        self.assertEqual(mission["total_segments"], 3)
+        self._ready_vectorial(health="recovering")
+        self.service._on_robot_message({
+            "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok",
+        })
+        blocked = self.service.mission_status()
+        self.assertTrue(blocked["blocked"])
+        self.assertEqual(blocked["current_index"], 1)
+        self.assertIn("FL", blocked["error"])
+        self.assertIn("FR", blocked["error"])
 
     def test_soft_endpoint_advances_intermediate_but_blocks_final(self) -> None:
         self._ready()

@@ -536,6 +536,13 @@
         .joy-info-value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
         .touch-cmd-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
         .touch-cmd-grid .btn { width: 100%; padding: 8px 4px; font-size: 10px; font-weight: 700; }
+        .touch-capability { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); background: var(--bg-secondary); font-size: 10px; }
+        .touch-capability.ready { color: var(--accent); border-color: rgba(0,230,118,.35); background: var(--accent-dim); }
+        .touch-capability.blocked { color: var(--warn); border-color: rgba(255,171,0,.35); background: var(--warn-dim); }
+        .touch-recording-card { margin-top:12px; }
+        .touch-recording-preview { width:100%; height:220px; display:block; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-primary); }
+        .touch-recording-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; }
+        .touch-recording-actions label { flex:1 1 280px; color:var(--text-secondary); font-size:10px; }
         .encoder-list { display: grid; gap: 5px; }
         .encoder-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); }
         .encoder-wheel { position: relative; width: 30px; height: 30px; border: 1px solid var(--text-muted); border-radius: 50%; }
@@ -863,6 +870,17 @@
         .route-angular-swatch.component-y { color:var(--warn); border-top-style:dashed; }
         .route-angular-swatch.angle { color:var(--accent); }
         .route-angular-summary { padding:8px 10px; border:1px solid rgba(197,108,255,.28); border-radius:var(--radius-sm); background:rgba(197,108,255,.07); color:var(--text-primary); font:11px/1.5 var(--font-mono); overflow-wrap:anywhere; }
+        .route-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin:0 0 12px; }
+        .route-metric { padding:8px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-secondary); }
+        .route-metric-label { display:block; color:var(--text-muted); font-size:9px; text-transform:uppercase; letter-spacing:.45px; }
+        .route-metric-value { display:block; margin-top:2px; color:var(--text-primary); font:700 12px var(--font-mono); }
+        .route-legend { display:flex; flex-wrap:wrap; gap:8px 14px; margin:-4px 0 10px; color:var(--text-secondary); font-size:10px; }
+        .route-legend span { display:inline-flex; align-items:center; gap:5px; }
+        .route-legend i { width:22px; border-top:3px solid currentColor; }
+        .route-legend .measured { color:#00e5ff; }
+        .route-legend .simplified { color:#c56cff; }
+        .route-legend .orthogonal { color:#ffab00; border-top-style:dashed; }
+        @media (max-width:600px) { .route-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         .route-vectorial-safety { display:grid; gap:7px; margin:0 0 12px; padding:10px; border:1px solid rgba(255,171,0,.36); border-radius:var(--radius-sm); background:rgba(255,171,0,.07); }
         .route-vectorial-safety[hidden] { display:none; }
         .route-vectorial-toggle { display:flex; align-items:center; gap:8px; color:var(--warn); font:700 11px var(--font-ui); }
@@ -1163,8 +1181,8 @@
             <div>
                 <div class="brand-title">Robot S3 BETA</div>
                 <div class="brand-sub">HMI Dual</div>
+                    </div>
             </div>
-        </div>
         <div class="header-center">
             <span class="route-running-badge" id="route-running-badge">RUTA EN EJECUCIÓN</span>
             <div class="conn-status">
@@ -1533,6 +1551,24 @@
                     <div class="joy-info-item"><div class="joy-info-label">Orden táctil</div><div class="joy-info-value" id="joy-speed-val">0%</div></div>
                     <div class="joy-info-item"><div class="joy-info-label">Estado</div><div class="joy-info-value" id="touch-live-state">IDLE</div></div>
                 </div>
+                <div class="touch-capability blocked" id="touch-capability" role="status" aria-live="polite">Esperando telemetría: Touch requiere manual_drive_v1.</div>
+            </div>
+        </div>
+        <div class="card touch-recording-card" id="touch-recording-card">
+            <div class="card-title">Grabación autónoma desde encoders</div>
+            <p id="touch-recording-status" class="touch-capability" role="status" aria-live="polite">Mueve el joystick para grabar una ruta manual. Al soltar se generará la vista previa.</p>
+            <div class="route-legend" aria-label="Leyenda de grabación Touch"><span class="measured"><i aria-hidden="true"></i>Traza medida</span><span class="simplified"><i aria-hidden="true"></i>Vector simplificado</span><span class="orthogonal"><i aria-hidden="true"></i>Regreso X→Y</span></div>
+            <canvas id="touch-recording-preview" class="touch-recording-preview" width="960" height="220" aria-label="Vista previa de la ruta Touch grabada"></canvas>
+            <div class="route-metrics" aria-label="Métricas de la grabación Touch">
+                <div class="route-metric"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="touch-recording-samples">0</strong></div>
+                <div class="route-metric"><span class="route-metric-label">Vectores</span><strong class="route-metric-value" id="touch-recording-vectors">0</strong></div>
+                <div class="route-metric"><span class="route-metric-label">Pasos X→Y</span><strong class="route-metric-value" id="touch-recording-segments">0 / 256</strong></div>
+                <div class="route-metric"><span class="route-metric-label">Tolerancia RDP</span><strong class="route-metric-value" id="touch-recording-tolerance">—</strong></div>
+            </div>
+            <div class="touch-recording-actions">
+                <label><input type="checkbox" id="touch-open-area-ack"> Confirmo que el área rectangular necesaria para el regreso X→Y está despejada y supervisada.</label>
+                <button type="button" class="btn btn-accent" id="btn-touch-return" disabled>Regresar en reversa</button>
+                <button type="button" class="btn" id="btn-touch-delete" disabled>Eliminar grabación</button>
             </div>
         </div>
     </div>
@@ -1571,6 +1607,7 @@
             </form>
 
             <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;" aria-live="polite">V1 · L=0.00 cm · θ=0.00° · φ=0.00° · ΔX=0.00 cm · ΔY=0.00 cm</div>
+            <div class="route-metrics" aria-label="Métricas del recorrido"><div class="route-metric"><span class="route-metric-label">Duración</span><strong class="route-metric-value" id="route-metric-duration">0.0 s</strong></div><div class="route-metric"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="route-metric-samples">0</strong></div><div class="route-metric"><span class="route-metric-label">Segmentos ≤256</span><strong class="route-metric-value" id="route-metric-segments">0</strong></div><div class="route-metric"><span class="route-metric-label">Desviación</span><strong class="route-metric-value" id="route-metric-deviation">0.0 cm</strong></div></div>
             <div class="route-vectorial-safety" id="route-vectorial-safety" hidden>
                 <label class="route-vectorial-toggle" for="route-vectorial-enabled">
                     <input type="checkbox" id="route-vectorial-enabled">
@@ -1612,9 +1649,11 @@
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-accent" id="btn-route-start">▶ Iniciar Ruta</button>
-                <button type="button" class="btn btn-stop" id="btn-route-stop">⏹ Detener / Reset</button>
-                <button type="button" class="btn btn-reverse" id="btn-route-ockham">🏠 Regresar al Inicio (Ockham)</button>
+                <button type="button" class="btn btn-accent" id="btn-route-start" data-action="programar">▶ Programar recorrido</button>
+                <button type="button" class="btn" id="btn-route-preview">👁 Previsualizar</button>
+                <button type="button" class="btn btn-stop" id="btn-route-stop">⏹ Detener</button>
+                <button type="button" class="btn" id="btn-route-discard">🗑 Descartar</button>
+                <button type="button" class="btn btn-reverse" id="btn-route-ockham">🏠 Regresar al origen</button>
                 <button type="button" class="btn" id="btn-route-clear-memory">🧹 Borrar misión Python</button>
             </div>
             <div id="route-mission-safety" class="info-panel" style="margin-bottom:15px;">
@@ -1836,7 +1875,7 @@
         logFilters: { info:true, warn:true, error:true, cmd:true },
         motorDir: { left:'stop', right:'stop' },
         activeTab: 'conexion',
-        joy: { active:false, nx:0, ny:0, magnitude:0, angle:0, pwmL:0, pwmR:0, dirL:'stop', dirR:'stop' }
+        joy: { active:false, nx:0, ny:0, magnitude:0, angle:0, pwmL:0, pwmR:0, dirL:'stop', dirR:'stop' }, manualDriveSupported:false
     };
 
     /* ==============================================
@@ -1923,6 +1962,12 @@
             if (message.mission) RouteManager.onMission(message.mission);
         },
         applyBackendTelemetry(raw) {
+            const capabilities=raw.capabilities||raw.features||[];
+            const manualDrive=Array.isArray(capabilities)
+                ? capabilities.includes('manual_drive_v1')
+                : capabilities.manual_drive_v1===true || raw.manual_drive_v1===true || raw.manual_drive==='manual_drive_v1';
+            state.manualDriveSupported=manualDrive;
+            if(typeof Touch!=='undefined')Touch.setCapability(manualDrive);
             const telemX = Number(raw.x_mm || 0) / 10;
             const telemY = Number(raw.y_mm || 0) / 10;
             if (robotChart) { robotChart.data.datasets[1].data[0] = {x:telemX,y:telemY}; robotChart.update('none'); }
@@ -1935,6 +1980,7 @@
             const firmwareState = String(raw.state || (reportedFault.active?reportedFault.state:'') || '').toLowerCase();
             const activePhase = String(raw.active_command_name || '').toLowerCase();
             const uiState = firmwareState === 'listo' ? 'IDLE'
+                : firmwareState === 'manual' ? 'MANUAL'
                 : firmwareState === 'desarmado' ? 'INIT'
                 : firmwareState === 'calibrando' ? 'ESPERANDO'
                 : firmwareState === 'ejecutando' ? (activePhase.includes('avance') ? 'AVANZANDO' : 'GIRANDO')
@@ -2008,6 +2054,9 @@
             const body = cmd === 'estop' ? {} : {name:cmd,payload};
             try { return await this.api(endpoint,{method:'POST',body:JSON.stringify(body)}); }
             catch(error) { LogSystem.add('ERROR',error.message); return null; }
+        },
+        manual(path, payload={}) {
+            return this.api(`/api/v1/manual/${path}`, {method:path==='drive'?'PUT':'POST', body:JSON.stringify(payload)});
         },
         sendMove(x, y) {
             if (isNaN(x) || isNaN(y)) { LogSystem.add('ERROR', "Coordenadas invalidas."); return false; }
@@ -2801,7 +2850,7 @@
     };
 
     const RouteManager = {
-        queue: [], logicalSteps: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null, lockedMode:null, nextLogicalStepId:1, vectorialEnabled:false, lastRobotTelemetry:null,
+        queue: [], logicalSteps: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, routeStartedAt:0, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null, lockedMode:null, nextLogicalStepId:1, vectorialEnabled:false, lastRobotTelemetry:null,
         init() {
             this.modeSelect = document.getElementById('route-mode');
             this.input1 = document.getElementById('route-input-1');
@@ -2848,8 +2897,10 @@
                 e.preventDefault(); this.addStep();
             });
             document.getElementById('btn-route-start').addEventListener('click', () => this.start());
+            document.getElementById('btn-route-preview').addEventListener('click', () => this.preview());
             document.getElementById('btn-route-pop').addEventListener('click', () => this.removeLastStep());
             document.getElementById('btn-route-stop').addEventListener('click', () => this.stopAndReset());
+            document.getElementById('btn-route-discard').addEventListener('click', () => this.stopAndReset());
             document.getElementById('btn-route-ockham').addEventListener('click', () => this.ockhamReturn());
             document.getElementById('btn-route-clear-memory').addEventListener('click', () => this.clearRobotMemory());
             this.updateLabels();
@@ -2960,7 +3011,7 @@
             this.telemChart = new Chart(document.getElementById('route-telem-chart').getContext('2d'), {
                 type:'scatter',
                 data:{ datasets:[
-                    { label:'Trayectoria real', data:[], showLine:true, borderColor:this.colors.info, backgroundColor:this.colors.info, borderWidth:2, tension:.2, pointRadius:0 },
+                    { label:'Traza medida', data:[], showLine:true, borderColor:'#00e5ff', backgroundColor:'#00e5ff', borderWidth:2, tension:.2, pointRadius:0 },
                     { label:'Posición actual', data:[{x:0,y:0}], pointRadius:6, pointBackgroundColor:this.colors.accent, pointBorderColor:this.colors.accent },
                     { label:'Orientación', data:[{x:0,y:0},{x:0,y:8}], showLine:true, borderColor:this.colors.accent, borderWidth:2, pointRadius:0 },
                     { label:'Origen', data:[{x:0,y:0}], pointRadius:4, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse },
@@ -2976,6 +3027,7 @@
         },
         clearTelemetryTrail() {
             this.telemetryTrail = [];
+            this.renderMetrics();
             if (this.telemChart) { this.telemChart.data.datasets[0].data = []; this.telemChart.update('none'); }
         },
         applyCapabilities(capabilities) {
@@ -3047,8 +3099,13 @@
                 const mode=this.activeMode();
                 const step=mode.createLogicalStep(this,v1,v2);
                 if(this.logicalSteps.length===0)this.clearTelemetryTrail();
-                this.logicalSteps.push(step);
+                const queueLengthBefore=this.queue.length;
                 mode.expandExecutionWaypoints(this,step);
+                if(this.queue.length>256){
+                    this.queue.length=queueLengthBefore;
+                    throw new Error('La ruta excedería el máximo de 256 pasos ejecutables.');
+                }
+                this.logicalSteps.push(step);
                 this.updateModeLock();
                 LogSystem.add('INFO',step.execution.length?`Paso lógico agregado: ${step.description}`:`Orientación visual agregada: ${step.description}; no se enviará movimiento.`);
             } catch(error) {
@@ -3099,8 +3156,8 @@
             const dataset=this.planChart.data.datasets[0];
             dataset.label=visualization.label; dataset.data=visualization.points;
             const angular=mode instanceof AngularRouteMode;
-            dataset.borderColor=angular?this.colors.vector:this.colors.info;
-            dataset.backgroundColor=angular?this.colors.vector:this.colors.info;
+            dataset.borderColor=this.colors.vector;
+            dataset.backgroundColor=this.colors.vector;
             dataset.borderWidth=angular?3:2;
             dataset.pointRadius=angular?(ctx=>ctx.dataIndex===0?0:4):(ctx=>ctx.dataIndex===0?0:4);
             dataset.pointBackgroundColor=angular?this.colors.vector:(ctx=>{const i=ctx.dataIndex-1;return i<this.currentStepIndex?this.colors.accent:i===this.currentStepIndex&&this.isRunning?this.colors.accent:this.colors.info;});
@@ -3149,6 +3206,22 @@
             this.telemChart.data.datasets[1].data=[{x:rx,y:ry}];
             this.telemChart.data.datasets[2].data=[{x:rx,y:ry},{x:rx+headingLength*Math.sin(orientacion),y:ry+headingLength*Math.cos(orientacion)}];
             this.telemChart.update('none');
+            this.renderMetrics();
+        },
+        renderMetrics() {
+            const duration=this.routeStartedAt?((Date.now()-this.routeStartedAt)/1000):0;
+            const samples=this.telemetryTrail.length;
+            const endpoint=this.logicalEndpoint(), actual=this.telemetryTrail[samples-1]||{x:state.telemetria.posX,y:state.telemetria.posY};
+            const deviation=this.isRunning||samples ? Math.hypot(actual.x-(endpoint.x-this.currentOrigin.x),actual.y-(endpoint.y-this.currentOrigin.y)) : 0;
+            document.getElementById('route-metric-duration').textContent=`${duration.toFixed(1)} s`;
+            document.getElementById('route-metric-samples').textContent=String(samples);
+            document.getElementById('route-metric-segments').textContent=`${this.queue.length} / 256`;
+            document.getElementById('route-metric-deviation').textContent=`${deviation.toFixed(1)} cm`;
+        },
+        preview() {
+            const card=document.getElementById('card-plan-map'), button=document.getElementById('btn-route-preview');
+            card.classList.toggle('cinema-mode'); button.setAttribute('aria-pressed',card.classList.contains('cinema-mode'));
+            button.textContent=card.classList.contains('cinema-mode')?'✕ Cerrar previsualización':'👁 Previsualizar'; this.resizeCharts();
         },
         toggleCinema(cardId) {
             const card = document.getElementById(cardId);
@@ -3180,7 +3253,7 @@
                     LogSystem.add('WARN',`Misión bloqueada ${previous.id||''} descartada antes de iniciar.`);
                 }
                 const mission=await WSControl.api('/api/v1/missions',{method:'POST',body:JSON.stringify(mode.missionPayload(this))});
-                this.isRunning=true; this.currentStepIndex=mission.current_index||0;
+                this.isRunning=true; this.routeStartedAt=Date.now(); this.currentStepIndex=mission.current_index||0;
                 this.activeCommandId=mission.active_command_id; this.waitingForMovement=true;
                 this.lockTabs(); LogSystem.add('INFO',`Misión ${mission.id} iniciada con ${mission.total_segments} segmentos.`);
                 this.updateListUI(); this.drawPlan();
@@ -3253,7 +3326,7 @@
             } catch(error) { LogSystem.add('ERROR',`No se pudo liberar la memoria: ${error.message}`); }
         },
         async ockhamReturn() {
-            if (!confirm("¿Ejecutar regreso de Ockham a 0,0?")) return;
+            if (!confirm("Confirma que el área está despejada y que puedes supervisar el robot. ¿Regresar al origen 0,0?")) return;
             try {
                 const mission=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:'{}'});
                 this.currentOrigin={x:state.telemetria.posX,y:state.telemetria.posY};
@@ -3328,7 +3401,8 @@
     const Touch = {
         wrap:null,svg:null,thumb:null,dirLine:null,arc:null,
         cx:150,cy:150,maxR:108,deadR:18,
-        _sendTimer:0, _lastPwmL:0, _lastPwmR:0, _leaseTimer:null,
+        _sendTimer:0, _lastPwmL:0, _lastPwmR:0, _leaseTimer:null, _begun:false,
+        _beginPromise:null, recordingId:null, displayedRecordingId:null,
         init() {
             this.wrap=document.getElementById('joystick-wrapper');
             this.svg=document.getElementById('joystick-svg');
@@ -3342,6 +3416,24 @@
             this.wrap.addEventListener('mousedown',e=>this.start(e));
             window.addEventListener('mousemove',e=>{if(state.joy.active)this.move(e);});
             window.addEventListener('mouseup',e=>{if(state.joy.active)this.end(e);});
+            document.getElementById('btn-touch-return').addEventListener('click',()=>this.returnRecording());
+            document.getElementById('btn-touch-delete').addEventListener('click',()=>this.deleteRecording());
+            document.getElementById('touch-open-area-ack').addEventListener('change',e=>{
+                document.getElementById('btn-touch-return').disabled=!this.recordingId||!e.target.checked;
+            });
+            this.renderRecording(null);
+            this.setCapability(false);
+        },
+        setCapability(enabled) {
+            const tab=document.getElementById('tab-control-touch'), help=document.getElementById('touch-unavailable-help'), status=document.getElementById('touch-capability');
+            if(!tab)return;
+            tab.setAttribute('aria-disabled',enabled?'false':'true');
+            tab.classList.toggle('unavailable',!enabled);
+            tab.textContent=enabled?'📱 Control Touch':'📱 Control Touch (no disponible)';
+            tab.title=enabled?'Control manual habilitado por manual_drive_v1.':'No disponible: la telemetría no anuncia manual_drive_v1.';
+            if(help)help.textContent=enabled?'Control Touch habilitado por la capacidad manual_drive_v1 anunciada por el robot.':'Control Touch está deshabilitado porque la telemetría no anuncia manual_drive_v1.';
+            if(status){status.textContent=enabled?'manual_drive_v1 anunciado: control Touch disponible.':'Esperando telemetría: Touch requiere manual_drive_v1.'; status.classList.toggle('ready',enabled); status.classList.toggle('blocked',!enabled);}
+            if(!enabled&&state.joy.active)this.end();
         },
         _pos(e) {
             const cx=e.touches?e.touches[0].clientX:e.clientX, cy=e.touches?e.touches[0].clientY:e.clientY;
@@ -3355,14 +3447,30 @@
             const l = dirL==='rev' ? -pwmL : dirL==='stop' ? 0 : pwmL;
             const r = dirR==='rev' ? -pwmR : dirR==='stop' ? 0 : pwmR;
             this._lastPwmL = l; this._lastPwmR = r;
-            WSControl.send({cmd:"manual", l:l, r:r}).catch(()=>{});
+            if(!this._begun)return;
+            WSControl.manual('drive',{left:l,right:r}).catch(error=>{
+                if(error.status===409&&state.joy.active)this.end();
+                LogSystem.add('ERROR',`Control Touch: ${error.message}`);
+            });
         },
         start(e) {
             e.preventDefault();
-            if(!Calibration.calibrated || !state.connected || state.activeTab!=='touch')return;
+            if(state.joy.active)return;
+            if(!state.manualDriveSupported || !Calibration.calibrated || !state.connected || state.activeTab!=='touch')return LogSystem.add('WARN','Control Touch requiere la capacidad manual_drive_v1 anunciada por telemetría.');
             if(!['IDLE','MANUAL'].includes(state.estado))return LogSystem.add('WARN',`Joystick bloqueado mientras el robot está en ${state.estado}.`);
             if(e.touches && e.touches.length!==1)return;
-            state.joy.active=true; this.wrap.classList.add('active'); this.move(e);
+            state.joy.active=true; this.wrap.classList.add('active');
+            this._beginPromise=WSControl.manual('start').then(recording=>{
+                this.recordingId=recording.id;
+                document.getElementById('touch-recording-status').textContent='Grabando pose y encoders a 10 Hz…';
+                if(state.joy.active){ this._begun=true; this.move(e); }
+                return recording;
+            }).catch(error=>{
+                state.joy.active=false;this._begun=false;this._resetVis();
+                clearInterval(this._leaseTimer);this._leaseTimer=null;
+                LogSystem.add('ERROR',`No se pudo iniciar Control Touch: ${error.message}`);
+                return null;
+            });
             clearInterval(this._leaseTimer);
             this._leaseTimer=setInterval(()=>{
                 if(state.joy.active)this._sendManual(Math.abs(this._lastPwmL),Math.abs(this._lastPwmR),this._lastPwmL<0?'rev':this._lastPwmL>0?'fwd':'stop',this._lastPwmR<0?'rev':this._lastPwmR>0?'fwd':'stop',true);
@@ -3402,7 +3510,61 @@
             document.getElementById('joy-speed-val').textContent='0%';
             document.getElementById('joy-dir-val').textContent='EN REPOSO';
             this._lastPwmL = -999; this._lastPwmR = -999;
-            if(debeDetener)this._sendManual(0, 0, 'stop', 'stop', true);
+            this._begun=false;
+            const begin=this._beginPromise;this._beginPromise=null;
+            if(debeDetener)Promise.resolve(begin).catch(()=>null).then(()=>WSControl.manual('stop')).then(recording=>this.renderRecording(recording)).catch(error=>LogSystem.add('ERROR',`No se pudo cerrar Control Touch: ${error.message}`));
+        },
+        renderRecording(recording) {
+            const canvas=document.getElementById('touch-recording-preview'),ctx=canvas.getContext('2d');
+            const width=canvas.width,height=canvas.height,pad=24;
+            ctx.clearRect(0,0,width,height);ctx.fillStyle='#09111b';ctx.fillRect(0,0,width,height);
+            ctx.strokeStyle='rgba(120,145,170,.22)';ctx.lineWidth=1;
+            for(let x=pad;x<width;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
+            for(let y=pad;y<height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
+            const samples=recording?.samples||[],points=recording?.points||[],segments=recording?.compiled_segments||[];
+            const all=samples.length?samples:points;
+            if(all.length){
+                const xs=all.map(p=>Number(p.x_mm)),ys=all.map(p=>Number(p.y_mm));
+                let minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+                if(maxX===minX){maxX+=1;minX-=1;} if(maxY===minY){maxY+=1;minY-=1;}
+                const scale=Math.min((width-2*pad)/(maxX-minX),(height-2*pad)/(maxY-minY));
+                const map=p=>({x:pad+(Number(p.x_mm)-minX)*scale,y:height-pad-(Number(p.y_mm)-minY)*scale});
+                const draw=(list,color,dash,w)=>{if(list.length<2)return;ctx.save();ctx.strokeStyle=color;ctx.lineWidth=w;ctx.setLineDash(dash);ctx.beginPath();list.forEach((p,i)=>{const q=map(p);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);});ctx.stroke();ctx.restore();};
+                draw(samples,'#00b0ff',[],2); draw(points,'#d05cff',[],3);
+                if(segments.length){const physical=[{x_mm:segments[0].start_x_mm,y_mm:segments[0].start_y_mm},...segments];draw(physical,'#ffab00',[8,6],2);}
+            }
+            document.getElementById('touch-recording-samples').textContent=String(recording?.sample_count??samples.length);
+            document.getElementById('touch-recording-vectors').textContent=String(recording?.logical_steps?.length||0);
+            document.getElementById('touch-recording-segments').textContent=`${segments.length} / 256`;
+            document.getElementById('touch-recording-tolerance').textContent=recording?.simplification_tolerance_mm!=null?`${Number(recording.simplification_tolerance_mm).toFixed(1)} mm`:'—';
+            const valid=recording?.status==='completed'&&segments.length>0;
+            this.displayedRecordingId=recording?.id||null;
+            this.recordingId=valid?recording.id:null;
+            document.getElementById('touch-open-area-ack').checked=false;
+            document.getElementById('btn-touch-return').disabled=true;
+            document.getElementById('btn-touch-delete').disabled=!recording?.id;
+            document.getElementById('touch-recording-status').textContent=!recording?'Sin grabación todavía.':valid?'Vista previa lista: morado conceptual, cian medido y ámbar X→Y físico. Confirma el área para regresar.':`Grabación no ejecutable: ${recording.invalid_reason||recording.status}`;
+        },
+        async returnRecording() {
+            if(!this.recordingId||!document.getElementById('touch-open-area-ack').checked)return;
+            try{
+                await WSControl.api(`/api/v1/touch-recordings/${this.recordingId}/acknowledge-open-area`,{method:'POST',body:'{}'});
+                const mission=await WSControl.api(`/api/v1/touch-recordings/${this.recordingId}/return`,{method:'POST',body:'{}'});
+                RouteManager.currentOrigin={x:state.telemetria.posX,y:state.telemetria.posY};
+                RouteManager.logicalSteps=[];
+                RouteManager.queue=(mission.planned_points||[]).map((point,index)=>({
+                    x:Number(point.x_mm)/10,y:Number(point.y_mm)/10,
+                    logicalStepId:index+1,component:point.component||'return',desc:'Regreso Touch en reversa'
+                }));
+                RouteManager.onMission(mission); TabManager.switch('rutas');RouteManager.autoScale();
+                LogSystem.add('CMD','Regreso Touch iniciado en reversa sobre los pasos X→Y compilados.');
+            }catch(error){LogSystem.add('ERROR',`No se pudo iniciar el regreso Touch: ${error.message}`);}
+        },
+        async deleteRecording() {
+            const id=this.displayedRecordingId;
+            if(!id||!confirm('¿Eliminar esta grabación Touch?'))return;
+            try{await WSControl.api(`/api/v1/touch-recordings/${id}`,{method:'DELETE'});this.recordingId=null;this.renderRecording(null);}
+            catch(error){LogSystem.add('ERROR',`No se pudo eliminar la grabación: ${error.message}`);}
         },
         _resetVis() {
             this.thumb.setAttribute('cx',this.cx);this.thumb.setAttribute('cy',this.cy);

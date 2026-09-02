@@ -66,10 +66,11 @@ static void manejarHello(const JsonObject& o) {
   StaticJsonDocument<256> doc;
   doc["evt"] = "hello_ack";
   doc["session"] = sessionId;
-  doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
+  doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["last_seq"] = ultimoSeqCompletado;
   doc["calibrated"] = robotCalibrado;
   doc["protocol"] = PROTOCOL_NAME;
+  doc["manual_drive_v1"] = true;
   if (ultimoFalloDetalle[0]) doc["fault"] = ultimoFalloDetalle;
   enviarJSON(doc);
 }
@@ -107,6 +108,12 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   if (strcmp(cmd, "hello") == 0) { manejarHello(doc.as<JsonObject>()); return; }
 
   if (!sessionId[0]) { responderRechazado(0, "hello_required"); return; }
+  if (strcmp(cmd, "manual_drive") == 0) {
+    float throttle = 0.0f, steering = 0.0f;
+    if (!leerFloatFinito(doc["throttle"], throttle) || !leerFloatFinito(doc["steering"], steering) ||
+        !doc["stream"].is<unsigned>() || !doc["frame"].is<unsigned>()) { responderRechazado(0, "manual_drive_payload_invalid"); return; }
+    publicarManualDrive(throttle, steering, doc["stream"].as<uint32_t>(), doc["frame"].as<uint32_t>()); return;
+  }
   JsonVariantConst seqVar = doc["seq"];
   if (!seqVar.is<int>() && !seqVar.is<long>()) { responderRechazado(0, "seq_invalid"); return; }
   const int seq = seqVar.as<int>();
@@ -123,7 +130,9 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   }
 
   ComandoRed c = {}; c.seq = seq;
-  if (strcmp(cmd,"calibrate")==0)      { c.tipo=CMD_CALIBRATE; }
+  if (strcmp(cmd,"manual_begin")==0) { solicitarManualBegin(seq); encolarEvento(EVT_ACCEPTED, seq, "manual_begin"); return; }
+  else if (strcmp(cmd,"manual_end")==0) { solicitarManualEnd(seq); encolarEvento(EVT_ACCEPTED, seq, "manual_end"); return; }
+  else if (strcmp(cmd,"calibrate")==0)      { c.tipo=CMD_CALIBRATE; }
   else if (strcmp(cmd,"step")==0) {
     c.tipo=CMD_STEP;
     if (!leerFloatFinito(doc["heading"], c.heading) || !leerFloatFinito(doc["cm"], c.distanciaCm)) {
@@ -178,15 +187,16 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
         StaticJsonDocument<256> doc;
         doc["evt"] = "welcome";
         doc["session"] = sessionId;
-        doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
+        doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
         doc["last_seq"] = ultimoSeqCompletado;
         doc["calibrated"] = robotCalibrado;
         doc["protocol"] = PROTOCOL_NAME;
+        doc["manual_drive_v1"] = true;
         enviarJSON(doc);
       }
       break;
     case WS_EVT_DISCONNECT:
-      if (clienteActivo == c) clienteActivo = nullptr;
+      if (clienteActivo == c) { clienteActivo = nullptr; solicitarManualDesconexion(); }
       break;
     case WS_EVT_DATA: {
       AwsFrameInfo* info = static_cast<AwsFrameInfo*>(arg);
@@ -227,7 +237,7 @@ static void enviarTelemetria() {
   ultimaTelemetriaMs = millis();
   StaticJsonDocument<4096> doc;
   doc["evt"] = "telemetry";
-  doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
+  doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
   doc["x"] = roundf(PoseGlobal.getX()*10)/10;
   doc["y"] = roundf(PoseGlobal.getY()*10)/10;
@@ -343,7 +353,9 @@ static void enviarTelemetria() {
   if (estadoActual == LISTO && robotCalibrado) {
     permitidos.add("step");
     permitidos.add("turn_to");
+    permitidos.add("manual_begin");
   }
+  if (estadoActual == MANUAL) permitidos.add("manual_end");
   JsonObject movimiento = doc.createNestedObject("motion");
   movimiento["requested_mode"] = pasoModoSolicitado;
   movimiento["effective_mode"] = pasoModoEfectivo;
@@ -406,6 +418,15 @@ static void enviarTelemetria() {
   doc["cal"] = robotCalibrado;
   doc["firmware"] = FIRMWARE_VERSION;
   doc["protocol"] = PROTOCOL_NAME;
+  JsonArray capacidades = doc.createNestedArray("capabilities");
+  capacidades.add("manual_drive_v1");
+  ManualDriveFrame manual = {};
+  const bool manualValida = leerManualDrive(manual);
+  doc["manual_lease_ms"] = MANUAL_LEASE_MS;
+  doc["manual_lease_remaining_ms"] = manualValida && estadoActual == MANUAL && millis() - manual.recibidoMs < MANUAL_LEASE_MS
+      ? MANUAL_LEASE_MS - (millis() - manual.recibidoMs) : 0;
+  doc["manual_stream"] = manual.stream;
+  doc["manual_frame"] = manual.frame;
   doc["reset_reason"] = motivoResetESP32;
   doc["stack_web"] = stackMinimoWebBytes == UINT32_MAX ? 0 : stackMinimoWebBytes;
   doc["stack_control"] = stackMinimoControlBytes == UINT32_MAX ? 0 : stackMinimoControlBytes;

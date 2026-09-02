@@ -69,7 +69,23 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_telemetry_session_last "
                 "ON telemetry(session_id, source_seq_end)"
             )
-            connection.execute("PRAGMA user_version=3")
+            connection.execute("PRAGMA user_version=4")
+            connection.execute("""CREATE TABLE IF NOT EXISTS touch_recordings (
+                id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                status TEXT NOT NULL, origin_json TEXT NOT NULL, final_json TEXT,
+                yaw_initial REAL, yaw_final REAL, samples_json TEXT NOT NULL,
+                points_json TEXT, logical_steps_json TEXT, compiled_segments_json TEXT,
+                simplification_tolerance_mm REAL, invalid_reason TEXT,
+                open_area_ack INTEGER NOT NULL DEFAULT 0
+            )""")
+            touch_columns = {row[1] for row in connection.execute("PRAGMA table_info(touch_recordings)")}
+            for column, declaration in (
+                ("logical_steps_json", "TEXT"),
+                ("compiled_segments_json", "TEXT"),
+                ("simplification_tolerance_mm", "REAL"),
+            ):
+                if column not in touch_columns:
+                    connection.execute(f"ALTER TABLE touch_recordings ADD COLUMN {column} {declaration}")
         finally:
             connection.close()
 
@@ -340,6 +356,60 @@ class Database:
             connection.execute(f"DELETE FROM commands WHERE session_id IN ({placeholders})", target_ids)
             connection.execute(f"DELETE FROM events WHERE session_id IN ({placeholders})", target_ids)
             cursor = connection.execute(f"DELETE FROM sessions WHERE id IN ({placeholders})", target_ids)
+            return cursor.rowcount
+
+    def save_touch_recording(self, recording: dict[str, Any]) -> None:
+        with self.transaction() as connection:
+            connection.execute(
+                """INSERT INTO touch_recordings
+                (id,created_at,updated_at,status,origin_json,final_json,yaw_initial,yaw_final,
+                 samples_json,points_json,logical_steps_json,compiled_segments_json,
+                 simplification_tolerance_mm,invalid_reason,open_area_ack)
+                VALUES(?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(id) DO UPDATE SET
+                  updated_at=CURRENT_TIMESTAMP,status=excluded.status,origin_json=excluded.origin_json,
+                  final_json=excluded.final_json,yaw_initial=excluded.yaw_initial,yaw_final=excluded.yaw_final,
+                  samples_json=excluded.samples_json,points_json=excluded.points_json,
+                  logical_steps_json=excluded.logical_steps_json,
+                  compiled_segments_json=excluded.compiled_segments_json,
+                  simplification_tolerance_mm=excluded.simplification_tolerance_mm,
+                  invalid_reason=excluded.invalid_reason,open_area_ack=excluded.open_area_ack""",
+                (recording["id"], recording["status"], json.dumps(recording["origin"], separators=(",", ":")),
+                 json.dumps(recording.get("final"), separators=(",", ":")) if recording.get("final") is not None else None,
+                 recording.get("yaw_initial"), recording.get("yaw_final"),
+                 json.dumps(recording.get("samples", []), separators=(",", ":")),
+                 json.dumps(recording.get("points"), separators=(",", ":")) if recording.get("points") is not None else None,
+                 json.dumps(recording.get("logical_steps"), separators=(",", ":")) if recording.get("logical_steps") is not None else None,
+                 json.dumps(recording.get("compiled_segments"), separators=(",", ":")) if recording.get("compiled_segments") is not None else None,
+                 recording.get("simplification_tolerance_mm"), recording.get("invalid_reason"),
+                 int(bool(recording.get("open_area_ack"))))
+            )
+
+    def touch_recordings(self) -> list[sqlite3.Row]:
+        with contextlib.closing(self.connect()) as connection:
+            return list(connection.execute("SELECT * FROM touch_recordings ORDER BY created_at DESC"))
+
+    def touch_recording(self, recording_id: str) -> sqlite3.Row | None:
+        with contextlib.closing(self.connect()) as connection:
+            return connection.execute("SELECT * FROM touch_recordings WHERE id=?", (recording_id,)).fetchone()
+
+    def delete_touch_recording(self, recording_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute("DELETE FROM touch_recordings WHERE id=?", (recording_id,))
+            return cursor.rowcount == 1
+
+    def acknowledge_touch_recording(self, recording_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute("UPDATE touch_recordings SET open_area_ack=1,updated_at=CURRENT_TIMESTAMP WHERE id=?", (recording_id,))
+            return cursor.rowcount == 1
+
+    def invalidate_open_touch_recordings(self, reason: str) -> int:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE touch_recordings SET status='invalid', invalid_reason=?,
+                   updated_at=CURRENT_TIMESTAMP WHERE status='recording'""",
+                (reason[:160],),
+            )
             return cursor.rowcount
 
     def optimize_storage(self, full: bool = False) -> dict[str, int]:

@@ -79,6 +79,7 @@ class DomainTests(unittest.TestCase):
                                          "ramp_level_count": 23},
             "fault": {"active": False, "state": "none"},
             "allowed_commands": ["estop", "stop", "step"],
+            "capabilities": ["manual_drive_v1"],
             "firmware": "robot-s3-v2", "reset_reason": "power_on",
             "stack_web": 2048, "stack_control": 3072,
         }, 17)
@@ -100,6 +101,7 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(public["calibration_diagnostics"]["ramp_level_count"], 23)
         self.assertFalse(public["fault"]["active"])
         self.assertEqual(public["allowed_commands"], ["estop", "stop", "step"])
+        self.assertEqual(public["capabilities"], ["manual_drive_v1"])
         self.assertEqual(public["rtos"]["stack_min_free_bytes"]["control"], 3072)
 
     def test_legacy_telemetry_remains_readable_for_exports(self) -> None:

@@ -12,10 +12,11 @@ from typing import Any
 
 from .config import DEFAULT_ROBOT_HOST, normalize_robot_host
 from .database import Database
-from .domain import (MAX_SEGMENT_MM, CommandStatus, ConnectionState, RobotCommand, Severity,
+from .domain import (MAX_SEGMENT_MM, PWM_SAFE_LIMIT, CommandStatus, ConnectionState, RobotCommand, Severity,
                      TelemetrySnapshot)
 from .gateway import RobotGateway
-from .route_planning import RectangularRouteStrategy, strategy_for_request
+from .route_planning import (RectangularRouteStrategy, compile_touch_path,
+                             strategy_for_request)
 
 
 class EventHub:
@@ -84,6 +85,100 @@ class TelemetryRecorder:
                 self.last_error = str(exc)[:160]
 
 
+class TouchRouteRecorder:
+    """Graba sólo una muestra de telemetría cada 100 ms, sin hacer I/O en WS."""
+    PERIOD_S = 0.1
+    MAX_SAMPLES = 3000
+
+    def __init__(self, database: Database) -> None:
+        self.database = database
+        self.recording: dict[str, Any] | None = None
+        self._lock = threading.RLock()
+
+    def start(self, snapshot: TelemetrySnapshot) -> dict[str, Any]:
+        with self._lock:
+            if self.recording is not None and self.recording["status"] == "recording":
+                raise RuntimeError("Ya existe una grabación Touch activa")
+            self.recording = {"id": uuid.uuid4().hex, "status": "recording",
+                              "origin": {"x_mm": snapshot.x_mm, "y_mm": snapshot.y_mm},
+                              "yaw_initial": snapshot.yaw_deg, "yaw_final": None,
+                              "samples": [], "points": None, "logical_steps": None,
+                              "compiled_segments": None, "open_area_ack": False}
+            self.add(snapshot, force=True)
+            self.database.save_touch_recording(self.recording)
+            return self.public()
+
+    def add(self, snapshot: TelemetrySnapshot, force: bool = False) -> None:
+        with self._lock:
+            if self.recording is None or self.recording["status"] != "recording":
+                return
+            now = snapshot.received_at
+            samples = self.recording["samples"]
+            if not force and samples and now - samples[-1]["received_at"] < self.PERIOD_S:
+                return
+            if len(samples) >= self.MAX_SAMPLES:
+                self.finish("max_samples")
+                return
+            samples.append({
+                "received_at": now, "x_mm": snapshot.x_mm, "y_mm": snapshot.y_mm,
+                "yaw_deg": snapshot.yaw_deg,
+                "pulses": {"fl": snapshot.pulses[0], "fr": snapshot.pulses[1],
+                            "bl": snapshot.pulses[2], "br": snapshot.pulses[3]},
+                "encoder_health": {"fl": snapshot.encoder_health[0], "fr": snapshot.encoder_health[1],
+                                   "bl": snapshot.encoder_health[2], "br": snapshot.encoder_health[3]},
+            })
+            if len(samples) >= self.MAX_SAMPLES:
+                self.finish("max_samples")
+
+    def invalidate(self, reason: str) -> None:
+        if self.recording is not None and self.recording["status"] == "recording":
+            self.finish(reason, invalid=True)
+
+    def finish(self, reason: str = "manual_stop", invalid: bool = False) -> dict[str, Any] | None:
+        with self._lock:
+            if self.recording is None:
+                return None
+            if self.recording["status"] != "recording":
+                return self.public()
+            samples = self.recording["samples"]
+            self.recording["status"] = "invalid" if invalid else "completed"
+            self.recording["invalid_reason"] = reason if invalid else None
+            if samples:
+                self.recording["final"] = {"x_mm": samples[-1]["x_mm"], "y_mm": samples[-1]["y_mm"]}
+                self.recording["yaw_final"] = samples[-1]["yaw_deg"]
+            if not invalid and len(samples) >= 2:
+                try:
+                    raw_points = [{"x_mm": s["x_mm"], "y_mm": s["y_mm"]} for s in samples]
+                    points, logical, segments, tolerance = compile_touch_path(raw_points)
+                    self.recording.update(points=points, logical_steps=logical, compiled_segments=segments,
+                                          simplification_tolerance_mm=tolerance)
+                    if not segments:
+                        raise ValueError("La grabación no contiene desplazamiento suficiente")
+                except ValueError as exc:
+                    self.recording["status"] = "invalid"
+                    self.recording["invalid_reason"] = str(exc)
+            elif not invalid:
+                self.recording["status"] = "invalid"
+                self.recording["invalid_reason"] = "La grabación requiere al menos dos muestras"
+            self.database.save_touch_recording(self.recording)
+            return self.public()
+
+    def public(self) -> dict[str, Any]:
+        with self._lock:
+            if self.recording is None:
+                return {"recording": False}
+            return {**self.recording, "recording": self.recording["status"] == "recording",
+                    "sample_count": len(self.recording["samples"])}
+
+    def summary(self) -> dict[str, Any]:
+        result = self.public()
+        result.pop("samples", None)
+        result.pop("points", None)
+        result.pop("logical_steps", None)
+        result.pop("compiled_segments", None)
+        return result
+
+
 class RobotService:
     MISSION_SEGMENT_TIMEOUT_S = 240.0
     TELEMETRY_FRESHNESS_S = 2.0
@@ -106,6 +201,10 @@ class RobotService:
         self._identity_session_id: int | None = None
         self._last_terminal_id: str | None = None
         self._last_manual_recorded_at = 0.0
+        self._touch = TouchRouteRecorder(database)
+        self._manual_stream = 0
+        self._manual_frame = 0
+        database.invalidate_open_touch_recordings("app_restarted_during_touch_recording")
         self._tracked_command_ids: set[str] = set()
         self._command_ids_by_seq: dict[int, str] = {}
         self._command_terminal_events: dict[str, threading.Event] = {}
@@ -271,6 +370,7 @@ class RobotService:
             "telemetry": telemetry,
             "storage_error": self._recorder.last_error,
             "mission": self.mission_status(),
+            "touch": self._touch.summary(),
             "controls_ready": not self._startup_stop_required and not self._closing,
             "closing": self._closing,
             "capabilities": {
@@ -302,6 +402,7 @@ class RobotService:
                 "kind": self._mission_kind if self._mission_id else None,
                 "final_heading": self._mission_final_heading,
                 "mode": self._mission_mode if self._mission_id else None,
+                "planned_points": [dict(point) for point in self._mission_points],
                 "logical_steps": list(self._mission_logical_steps),
                 "warnings": list(self._mission_warnings),
             }
@@ -434,6 +535,111 @@ class RobotService:
             mode=compilation.mode, logical_steps=compilation.logical_steps,
         )
 
+    def manual_start(self) -> dict[str, Any]:
+        snapshot = self._require_ready_robot()
+        if "manual_drive_v1" not in snapshot.capabilities:
+            raise RuntimeError("El firmware conectado no anuncia manual_drive_v1")
+        if self._touch.summary().get("recording"):
+            raise RuntimeError("Ya existe una grabación Touch activa")
+        with self._lock:
+            if self._mission_id and self._mission_stage in {"executing", "aligning_final"}:
+                raise RuntimeError("No se puede controlar manualmente durante una misión")
+            self._manual_stream = (self._manual_stream + 1) & 0xFFFFFFFF
+            if self._manual_stream == 0:
+                self._manual_stream = 1
+            self._manual_frame = 0
+        command = self.send_command("manual_begin", {})
+        try:
+            recording = self._touch.start(snapshot)
+        except Exception:
+            self.send_command("manual_end", {})
+            raise
+        return {**recording, "command_id": command.command_id, "stream": self._manual_stream}
+
+    def manual_drive(self, payload: object) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise ValueError("El control manual requiere left y right")
+        if not self._touch.public().get("recording"):
+            raise RuntimeError("No existe una grabación Touch activa")
+        left = payload.get("left")
+        right = payload.get("right")
+        if isinstance(left, bool) or not isinstance(left, (int, float)) or not -PWM_SAFE_LIMIT <= float(left) <= PWM_SAFE_LIMIT:
+            raise ValueError(f"left debe estar entre -{PWM_SAFE_LIMIT} y {PWM_SAFE_LIMIT}")
+        if isinstance(right, bool) or not isinstance(right, (int, float)) or not -PWM_SAFE_LIMIT <= float(right) <= PWM_SAFE_LIMIT:
+            raise ValueError(f"right debe estar entre -{PWM_SAFE_LIMIT} y {PWM_SAFE_LIMIT}")
+        with self._lock:
+            self._manual_frame = (self._manual_frame + 1) & 0xFFFFFFFF
+            frame, stream = self._manual_frame, self._manual_stream
+        throttle = (float(left) + float(right)) / (2.0 * PWM_SAFE_LIMIT)
+        steering = (float(left) - float(right)) / (2.0 * PWM_SAFE_LIMIT)
+        command = self.send_command("manual_drive", {
+            "throttle": throttle, "steering": steering, "stream": stream, "frame": frame,
+        }, seq_override=0)
+        return {"id": command.command_id, "status": "queued", "stream": stream, "frame": frame}
+
+    def manual_stop(self) -> dict[str, Any]:
+        command = None
+        try:
+            command = self.send_command("manual_end", {})
+        except RuntimeError:
+            pass
+        result = self._touch.finish()
+        return {**(result or {"recording": False}),
+                "command_id": command.command_id if command is not None else None}
+
+    @staticmethod
+    def _touch_row(row: Any, include_samples: bool = True) -> dict[str, Any]:
+        item = dict(row)
+        for key in ("origin_json", "final_json", "samples_json", "points_json",
+                    "logical_steps_json", "compiled_segments_json"):
+            target = key.removesuffix("_json")
+            encoded = item.pop(key, None)
+            item[target] = json.loads(encoded) if encoded else None
+        item["open_area_ack"] = bool(item["open_area_ack"])
+        item["sample_count"] = len(item["samples"] or [])
+        if not include_samples:
+            item.pop("samples", None)
+        return item
+
+    def touch_recordings(self) -> list[dict[str, Any]]:
+        return [self._touch_row(row, include_samples=False) for row in self.database.touch_recordings()]
+
+    def touch_recording(self, recording_id: str) -> dict[str, Any]:
+        row = self.database.touch_recording(recording_id)
+        if row is None:
+            raise ValueError("Grabación touch no encontrada")
+        return self._touch_row(row)
+
+    def acknowledge_open_area(self, recording_id: str) -> dict[str, Any]:
+        recording = self.touch_recording(recording_id)
+        if recording["status"] != "completed" or not recording.get("compiled_segments"):
+            raise RuntimeError("Sólo puede confirmarse una grabación Touch completada y ejecutable")
+        if not self.database.acknowledge_touch_recording(recording_id):
+            raise ValueError("Grabación touch no encontrada")
+        return self.touch_recording(recording_id)
+
+    def return_touch_recording(self, recording_id: str) -> dict[str, Any]:
+        item = self.touch_recording(recording_id)
+        if item["status"] != "completed" or not item["open_area_ack"]:
+            raise RuntimeError("La grabación requiere finalización válida y confirmación de área abierta")
+        outbound = item.get("compiled_segments") or []
+        if not outbound:
+            raise RuntimeError("La grabación no contiene una ruta ejecutable")
+        telemetry = self._require_ready_robot()
+        segments = []
+        for source in reversed(outbound):
+            segments.append({
+                "start_x_mm": float(source["x_mm"]), "start_y_mm": float(source["y_mm"]),
+                "x_mm": float(source["start_x_mm"]), "y_mm": float(source["start_y_mm"]),
+                "component": source.get("component", "return"),
+                "logical_step_id": source.get("logical_step_id"),
+                "heading_deg": (float(source["heading_deg"]) + 180.0) % 360.0,
+                "length_mm": float(source["length_mm"]), "drive_mode": "reverse",
+            })
+        origin = {"x_mm": telemetry.x_mm, "y_mm": telemetry.y_mm}
+        return self._activate_mission(segments, origin, "ockham_return", final_heading=float(item["yaw_initial"] or 0),
+                                      mode="touch_reverse", logical_steps=[])
+
     def start_return_home(self) -> dict[str, Any]:
         telemetry = self._require_ready_robot()
         route = self.database.get_setting("last_completed_route", None)
@@ -465,10 +671,10 @@ class RobotService:
                 "x_mm": x_mm, "y_mm": y_mm, "logical_step_id": logical_id,
                 "component": "vector" if route_mode == "angular_vectorial" else "return",
                 "heading_deg": math.degrees(math.atan2(-dx, -dy)) % 360.0,
-                "length_mm": math.hypot(dx, dy),
+                "length_mm": math.hypot(dx, dy), "drive_mode": "reverse",
             })
-        if len(return_points) > 32:
-            raise RuntimeError("La ruta inversa excede los 32 pasos atómicos")
+        if len(return_points) > 256:
+            raise RuntimeError("La ruta inversa excede los 256 pasos atómicos")
         route["return_state"] = "in_progress"
         route["return_error"] = None
         self.database.set_setting("last_completed_route", route)
@@ -604,6 +810,7 @@ class RobotService:
             reuse_command_id = self._mission_command_id if seq_override is not None else None
             mission_mode = self._mission_mode
             telemetry = self._last_telemetry
+            drive_mode = str(target.get("drive_mode", "auto"))
         if mission_mode == "angular_vectorial":
             try:
                 self._require_vectorial_ready(telemetry)
@@ -620,7 +827,7 @@ class RobotService:
         # recibe el punto almacenado en la ruta para poder recuperar el
         # desplazamiento lateral antes de confirmar el paso.
         command = self.send_command("step", {
-            "heading": heading, "cm": distance_cm, "drive_mode": "auto",
+            "heading": heading, "cm": distance_cm, "drive_mode": drive_mode,
             "target_x_mm": target["x_mm"], "target_y_mm": target["y_mm"],
         },
                                     seq_override=seq_override, command_id_override=reuse_command_id)
@@ -746,6 +953,8 @@ class RobotService:
     def send_command(self, name: object, payload: dict[str, Any] | None,
                      seq_override: int | None = None, command_id_override: str | None = None) -> RobotCommand:
         normalized_name = str(name or "").lower()
+        if normalized_name in {"stop", "estop"}:
+            self._touch.invalidate(f"manual_{normalized_name}")
         with self._lock:
             if self._closed:
                 raise RuntimeError("La aplicación ya está cerrada")
@@ -761,7 +970,7 @@ class RobotService:
         with self._lock:
             session_id = self._session_id
         now = time.monotonic()
-        persist = command.name != "manual" or now - self._last_manual_recorded_at >= 1.0
+        persist = command.name != "manual_drive"
         if persist and command_id_override is None:
             self.database.insert_command(command.command_id, session_id, command.name, command.payload, CommandStatus.QUEUED.value)
         if persist:
@@ -769,13 +978,11 @@ class RobotService:
             self._command_ids_by_seq[command.seq] = command.command_id
             if command.name == "stop":
                 self._command_terminal_events.setdefault(command.command_id, threading.Event())
-            if command.name == "manual":
-                self._last_manual_recorded_at = now
         if not self.gateway.enqueue(command):
             if persist:
                 self.database.update_command(command.command_id, CommandStatus.FAILED.value, "outgoing_queue_full")
             raise RuntimeError("La cola de comandos está llena")
-        if command.name != "manual" or persist:
+        if command.name != "manual_drive":
             self.events.publish("command", {"id": command.command_id, "name": command.name, "status": "queued"})
         return command
 
@@ -807,6 +1014,7 @@ class RobotService:
             self.start_session()
             self.database.insert_event(self._session_id, "connection", Severity.INFO.value, payload)
         elif state in {ConnectionState.STOPPED, ConnectionState.BACKOFF}:
+            self._touch.invalidate("connection_lost")
             if state == ConnectionState.BACKOFF:
                 self.database.insert_event(self._session_id, "connection", Severity.WARNING.value, payload)
             self.stop_session(detail or state.value)
@@ -817,7 +1025,7 @@ class RobotService:
         with self._lock:
             if command.command_id == self._mission_command_id:
                 self._mission_command_started_at = time.monotonic()
-        if command.name != "manual" and command.command_id in self._tracked_command_ids:
+        if command.name != "manual_drive" and command.command_id in self._tracked_command_ids:
             self.events.publish("command", {"id": command.command_id, "name": command.name, "status": "sent"})
 
     def _on_robot_message(self, message: dict[str, Any]) -> None:
@@ -834,6 +1042,16 @@ class RobotService:
             with self._lock:
                 self._last_telemetry = snapshot
                 session_id = self._session_id
+            touch_was_recording = bool(self._touch.summary().get("recording"))
+            self._touch.add(snapshot)
+            touch_summary = self._touch.summary()
+            if touch_was_recording and not touch_summary.get("recording") and touch_summary.get("sample_count", 0) >= self._touch.MAX_SAMPLES:
+                try:
+                    self.send_command("manual_end", {})
+                except RuntimeError:
+                    pass
+            if snapshot.state.lower() in {"fallo", "fault", "estop", "safe_stop"}:
+                self._touch.invalidate("robot_fault")
             if session_id is not None and self._identity_session_id != session_id:
                 self.database.update_session_identity(
                     session_id, snapshot.robot_id, snapshot.firmware_version, self.gateway.snapshot()["protocol"]
