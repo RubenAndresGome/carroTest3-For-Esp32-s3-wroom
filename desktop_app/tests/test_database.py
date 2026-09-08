@@ -1,6 +1,8 @@
 import tempfile
 import unittest
 import time
+import sqlite3
+from datetime import datetime, timedelta, timezone
 from dataclasses import replace
 from pathlib import Path
 
@@ -9,6 +11,46 @@ from robot_app.domain import TelemetrySnapshot
 
 
 class DatabaseTests(unittest.TestCase):
+    def test_session_records_local_day_and_utc_from_same_instant(self) -> None:
+        mexico = timezone(timedelta(hours=-6), "America/Mexico_City")
+        instant = datetime(2026, 9, 5, 20, 30, 0, tzinfo=mexico)
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "test.sqlite3", clock=lambda: instant)
+            database.initialize()
+            session_id = database.create_session()
+            database.stop_session(session_id)
+            row = database.session_row(session_id)
+            self.assertEqual(row["started_at"], "2026-09-06 02:30:00")
+            self.assertEqual(row["started_local_day"], "2026-09-05")
+            self.assertEqual(row["ended_local_day"], "2026-09-05")
+            self.assertEqual(row["started_utc_offset_min"], -360)
+            self.assertEqual(row["ended_utc_offset_min"], -360)
+            self.assertEqual(row["timezone_name"], "America/Mexico_City")
+
+    def test_migration_from_version_four_preserves_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.sqlite3"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                "CREATE TABLE sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "started_at TEXT NOT NULL, ended_at TEXT, firmware_version TEXT, robot_id TEXT)"
+            )
+            connection.execute("INSERT INTO sessions(started_at) VALUES('2026-09-01 00:00:00')")
+            connection.execute("PRAGMA user_version=4")
+            connection.commit()
+            connection.close()
+
+            database = Database(path)
+            database.initialize()
+            row = database.session_row(1)
+            self.assertEqual(row["started_at"], "2026-09-01 00:00:00")
+            self.assertIsNone(row["started_local_day"])
+            migrated = database.connect()
+            try:
+                self.assertEqual(migrated.execute("PRAGMA user_version").fetchone()[0], 5)
+            finally:
+                migrated.close()
+
     def test_settings_and_session_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "test.sqlite3")

@@ -11,10 +11,14 @@ struct ManualDriveFrame {
 bool solicitarManualBegin(int seq);
 bool solicitarManualEnd(int seq);
 bool solicitarManualDesconexion();
+bool solicitarDesconexionControl();
+bool tomarDesconexionControl();
 bool publicarManualDrive(float throttle, float steering, uint32_t stream, uint32_t frame);
 bool tomarSolicitudManual(bool& comenzar, bool& terminar, bool& desconexion, int& seq);
 bool leerManualDrive(ManualDriveFrame& trama);
 void limpiarManualDrive();
+const char* faseManualTexto();
+uint32_t inicioManualMs();
 
 // Protocolo de comandos del robot de memoria corta.
 // Cada comando lleva un seq entero asignado por el backend; el robot ejecuta

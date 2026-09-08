@@ -175,26 +175,48 @@ La versión actual puede mostrar un mensaje genérico de “robot conectado y MP
 lista” para varias causas. Consultar protocolo, antigüedad de telemetría,
 `cal`, estado y último terminal antes de asumir que falló el Wi-Fi.
 
-## 7. Calibración supervisada
+## 7. Calibración supervisada y en espacio reducido
 
-1. Mantener las ruedas elevadas y el radio de giro libre.
-2. Habilitar VMOT con fuente limitada.
-3. Confirmar que los cuatro contadores PCNT reaccionen al girar sus ruedas.
-4. Pulsar **Recalibrar** una sola vez.
-5. Observar la búsqueda de torque, validación de giro, reposo y retorno.
+La calibración del robot está optimizada para operar en **espacios reducidos**
+(áreas de prueba estrechas como mesas o pasillos de laboratorio):
+
+1. **Giro exclusivo en el sitio:** la calibración es un pivote puro sobre el centro
+   del chasis con cero traslación longitudinal o lateral (cero avance en X ni en Y).
+2. **MPU principal:** busca torque en ambas polaridades, exige signos de yaw
+   opuestos, reposa 2.5 s y vuelve al yaw inicial sin objetivo angular fijo.
+3. **PCNT como corroboración bilateral:** un canal con 2 ticks detecta torque,
+   pero el pivote sólo se valida cuando responde al menos una fuente por lado y
+   la relación lateral permanece entre 0.5 y 2.0. Se usa el máximo de FL/BL y
+   FR/BR para que un sensor silencioso no divida artificialmente la evidencia.
+   Esto no verifica dirección física porque los PCNT son de un solo canal.
+4. **Retorno vigilado:** al alcanzar el torque útil, frena si el error no mejora
+   0.5° durante 10 s, o si el retorno completo supera 25 s.
+
+### Procedimiento operativo
+
+1. Mantener las ruedas apoyadas sobre superficie horizontal libre de obstáculos inmediatos
+   (o elevadas para la primera prueba eléctrica).
+2. Habilitar VMOT con fuente limitada o batería protegida.
+3. Confirmar que los contadores PCNT o la prueba manual respondan.
+4. Pulsar **Recalibrar** una sola vez desde la interfaz.
+5. Observar las búsquedas A y B, el reposo y el retorno al yaw inicial.
 6. Aceptar sólo el terminal `completed/cal_ok` y estado final `listo`.
-
-Durante la calibración se deben observar simultáneamente gyro y ticks por lado.
-Un cambio de yaw con los cuatro encoders en cero no es una calibración válida.
 
 ### Fallos de calibración
 
 | Detalle | Interpretación | Acción |
 |---|---|---|
-| `cal_stall_left` | El lado izquierdo no confirmó movimiento. | Cortar VMOT y revisar ambos encoders/conectores izquierdos. |
-| `cal_stall_right` | El lado derecho no confirmó movimiento. | Cortar VMOT y revisar ambos encoders/conectores derechos. |
-| `cal_unavailable` | Estado actual no permite calibrar. | Esperar parada, limpiar fallo si procede y revisar telemetría. |
-| Pérdida de conexión | No se conoce el estado final. | No repetir inmediatamente; reconectar y revisar `cal/state/last_seq`. |
+| `cal_encoders_all_zero_while_turning` | MPU detectó giro pero ningún PCNT marcó pulsos en 500 ms. | Verificar cableado o masa de los cuatro encoders. |
+| `cal_pcnt_insufficient_while_turning` | MPU giró, pero ningún PCNT alcanzó 2 ticks al agotar PWM máximo. | Revisar los cuatro canales PCNT y conectores. |
+| `cal_no_gyro_rotation` | Hubo actividad PCNT o PWM máximo, pero el MPU no confirmó giro. | Revisar MPU, tracción y alimentación. |
+| `cal_pivot_one_side_only` | El MPU detectó torque, pero sólo respondió un lado durante 1.5 s o hasta 3°. | Revisar alimentación, driver, motor y encoder del lado silencioso. |
+| `cal_pivot_asymmetric` | Ambos lados respondieron, pero la relación permaneció fuera de 0.5–2.0 durante dos ventanas. | Revisar fricción, polaridades y alimentación; no continuar en suelo. |
+| `cal_pivot_unstable` | El MPU no se estabilizó con PWM cero durante el asentamiento. | Esperar inmovilidad y revisar vibración, inercia o montaje de la MPU. |
+| `cal_return_pivot_asymmetric` | El retorno avanzó angularmente sin evidencia bilateral equilibrada. | Revisar tracción y respuesta por lado antes de rearmar. |
+| `cal_return_no_yaw_progress` | Tras alcanzar el torque útil, el error de retorno no mejoró 0.5° durante 10 s. | Retirar obstáculos y revisar tracción. |
+| `cal_return_timeout` | El retorno al yaw inicial superó 25 s. | Revisar alimentación, MPU y superficie. |
+| `cal_unavailable` | El estado actual no permite calibrar (e.g. comando activo). | Esperar parada, limpiar fallo si procede y revisar telemetría. |
+| Pérdida de conexión | No se conoce el estado final de la maniobra. | No repetir inmediatamente; reconectar y revisar `cal/state/last_seq`. |
 
 ## 8. Crear y ejecutar una ruta
 
@@ -360,7 +382,8 @@ sesiones y no tiene deshacer. Véase
 |---|---|---|
 | “Debe estar conectado…” con indicador verde | Protocolo, edad de telemetría, `cal` y estado | Socket abierto, pero robot no listo. |
 | Ruta no crea ningún `step` | `active_mission`, errores HTTP y preparación | Rechazo previo a encolar. |
-| `cal_stall_left/right` | Ticks de ambos encoders del lado | Movimiento no confirmado. |
+| `cal_pcnt_insufficient_while_turning` | Respuesta PCNT por fase | MPU giró sin corroboración suficiente. |
+| Avanza diagonalmente al calibrar | `left_ticks`, `right_ticks`, `tick_ratio` y `pivot_quality` | El pivote está desbalanceado; `cal_ok` no debe emitirse. |
 | Reconecta con `last_seq=0` | `cal`, pose y motivo de reset | Reinicio del firmware o estado perdido. |
 | Se detienen los reintentos | Contador 5/5 del gateway | Limitación actual; pulsar Conectar. |
 | Varias sesiones SQLite en una misión | Eventos BACKOFF | Fragmentación histórica, no cambio del token. |

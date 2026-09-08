@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
     ended_at TEXT,
+    started_local_day TEXT,
+    ended_local_day TEXT,
+    started_utc_offset_min INTEGER,
+    ended_utc_offset_min INTEGER,
+    timezone_name TEXT,
     firmware_version TEXT,
     robot_id TEXT
 );

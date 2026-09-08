@@ -34,23 +34,33 @@
 - Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog
   de 2.5 s por lado se arma sólo después de alcanzar el torque calibrado; el
   avance conserva su corte de 450 ms.
-- La calibración y confirmación de giro usan el promedio de ambos encoders por
-  lado. El control recto usa los deltas filtrados, no el error acumulado.
-- Búsqueda continua de torque como el ensayo aprobado, desde 140 hasta 247/255
-  en pasos de 5 cada 250 ms; confirmación sostenida mediante gyro y ticks por
-  lado. Antes de cambiar polaridad espera 750 ms. El watchdog individual
-  acumulativo de 800 ms durante calibración se arma al alcanzar el PWM máximo;
-  durante la rampa un PWM que aún no vence fricción no se clasifica como stall.
-- El signo del giro sigue continuamente el error real. Al entrar en ±2° se
-  apagan motores; un sobrepaso baja PWM a cero, respeta el interlock universal
-  y corrige en sentido contrario sin pausa residual ni vuelta inventada.
-- La calibración valida +25°, reposa 2.5 s y regresa al yaw 0° con una maniobra
-  contraria independiente. Las rutas aceptan solamente tramos ortogonales con
-  tolerancia geométrica de 1 mm y terminan tras su alineación cardinal final.
+- **Dogma Canónico de Calibración**: La calibración usa el MPU como autoridad angular única.
+  La rutina de calibración (`calibrate`) es dogma inmutable del sistema:
+  1. Cuenta regresiva y reposo de 5.0 s para estabilizar el filtro del giróscopo MPU6050.
+  2. Búsqueda de torque inicial en Polaridad Positiva (`CAL_A`): rampa de 140 a 247/255 hasta
+     confirmar `ticksOk` bilateralmente y `fabsf(gyro_z) >= 0.12 rad/s` sostenido 100 ms. Si el
+     giro inicial resulta negativo, invierte `candidatoCal` con pausa de 750 ms hasta validar
+     polaridad positiva `gyro_z > 0`.
+  3. Validación de giro a +25° (`CAL_VALIDAR_25`): pivote puro hasta alcanzar `yawInicio + 25°`
+     (±2.5°) con reposo de asentamiento de 600 ms.
+  4. Reposo de 2.5 s (`CAL_PAUSA`) y búsqueda de torque en Polaridad Opuesta (`CAL_B`): valida
+     movimiento bilateral con signo opuesto y confirma que `candidatoGiroPos != candidatoGiroNeg`.
+  5. Reposo de 2.5 s (`CAL_PAUSA_RETORNO`) y retorno estricto (`CAL_RETORNO`): pivote puro
+     hacia el `yawInicioCalDeg` original, reseteando la odometría de `PoseGlobal` (X=0, Y=0) y
+     el yaw de la IMU al estabilizarse.
+- **Polaridad Harcodeada de Ejes y Motores**:
+  - `PWM_FORWARD_POLARITY = 1`: Los motores avanzan hacia +Y físico en concordancia directa con
+    el eje Y+ de la interfaz de usuario.
+  - El sentido de giro positivo del yaw (horario / dextrógiro) corresponde a la orientación
+    cardinal canónica donde el ángulo avanza de +Y hacia +X.
 - Todos los giros autónomos usan un único pivot dinámico. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo controlador; la aproximación fina (<5°) utiliza micro-pulsos intermitentes de exactitud (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia e integración del IMU y evitar sobrepasos. El movimiento se valida con `fabsf(gyro_z)` y deltas de encoder. Mientras no se confirme movimiento en macro-giros, el torque escala en rampa adaptativa sin exceder 247/255 (~97%). Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica produce parada segura.
 - Stacks: Web 8192 y súper-ciclo de control 8192 bytes. El firmware publica el
   mínimo libre medido y el motivo de reinicio; menos de 1024 bytes es fallo de
   aceptación aunque no haya ocurrido un reset.
+- `robot-s3-steps-v3` acepta frames JSON de hasta 7168 bytes en firmware,
+  backend y Android. Una pérdida del WebSocket durante calibración se solicita
+  desde Core 0 y Core 1 frena con `cal_connection_lost`; nunca se continúa una
+  calibración sin supervisión.
 
 #### Protección física requerida (no implementable por software)
 - El DRV8833 original incorpora pull-down interno en sus entradas de control.

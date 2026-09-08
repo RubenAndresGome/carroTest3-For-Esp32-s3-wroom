@@ -16,6 +16,7 @@ from typing import Any
 
 import websocket
 
+from .config import MAX_ROBOT_MESSAGE_BYTES
 from .domain import ConnectionState, RobotCommand
 
 
@@ -41,7 +42,7 @@ class RobotGateway:
         on_state: Callable[[ConnectionState, str | None], None],
         on_sent: Callable[[RobotCommand], None],
         session_getter: Callable[[], str] = lambda: "",
-        max_message_bytes: int = 4096,
+        max_message_bytes: int = MAX_ROBOT_MESSAGE_BYTES,
     ) -> None:
         self._host_getter = host_getter
         self._on_message = on_message
@@ -94,7 +95,7 @@ class RobotGateway:
             with self._manual_lock:
                 self._manual_pending = command
             return True
-        if command.name in {"stop", "estop", "manual_end"}:
+        if command.name in {"stop", "estop", "manual_begin", "manual_end"}:
             with self._manual_lock:
                 self._manual_pending = None
         priority = 0 if command.name == "estop" else 1 if command.name == "stop" else 10
@@ -134,13 +135,12 @@ class RobotGateway:
 
     def _run(self) -> None:
         delay = 0.5
-        attempts = 0
+        failures = 0
         while not self._stop.is_set():
             host = self._host_getter()
             url = f"ws://{host}/ws"
-            attempts += 1
             with self._state_lock:
-                self._connect_attempt = attempts
+                self._connect_attempt = failures + 1
             self._set_state(ConnectionState.CONNECTING, url)
             connection = None
             try:
@@ -150,10 +150,6 @@ class RobotGateway:
                 self._last_heartbeat_ack = None
                 self._handshake_started = time.monotonic()
                 self._reconnect.clear()
-                delay = 0.5
-                attempts = 0
-                with self._state_lock:
-                    self._connect_attempt = 0
                 self._set_state(ConnectionState.CONNECTED, url)
                 connection.send(json.dumps(
                     {"cmd": "hello", "session": self._session_getter(), "seq": 0},
@@ -164,15 +160,23 @@ class RobotGateway:
                     try:
                         raw = connection.recv()
                         if raw:
-                            self._receive(raw)
+                            kind = self._receive(raw)
+                            if kind == "telemetry":
+                                failures = 0
+                                delay = 0.5
+                                with self._state_lock:
+                                    self._connect_attempt = 0
                     except (websocket.WebSocketTimeoutException, TimeoutError, socket.timeout):
                         pass
                     if not self._protocol_v1 and self._handshake_started is not None:
                         if time.monotonic() - self._handshake_started > 3.0:
                             raise RuntimeError("El robot no confirmó robot-s3-steps-v3")
             except Exception as exc:  # frontera de E/S: se reporta sin derribar la app
+                failures += 1
+                with self._state_lock:
+                    self._connect_attempt = failures
                 logger.warning("Fallo del WebSocket hacia %s: %s", host, exc, exc_info=True)
-                if attempts >= self.MAX_CONNECT_ATTEMPTS:
+                if failures >= self.MAX_CONNECT_ATTEMPTS:
                     self._set_state(
                         ConnectionState.STOPPED,
                         f"No se alcanzó {host}. Conecta el dispositivo a "
@@ -181,7 +185,7 @@ class RobotGateway:
                 else:
                     self._set_state(
                         ConnectionState.BACKOFF,
-                        f"Intento {attempts}/{self.MAX_CONNECT_ATTEMPTS}: "
+                        f"Intento {failures}/{self.MAX_CONNECT_ATTEMPTS}: "
                         f"{str(exc)[:100]}",
                     )
             finally:
@@ -192,12 +196,12 @@ class RobotGateway:
                         pass
             if self._stop.is_set():
                 break
-            if attempts >= self.MAX_CONNECT_ATTEMPTS:
+            if failures >= self.MAX_CONNECT_ATTEMPTS:
                 # No dejar la UI eternamente en REINTENTANDO. La hebra queda
                 # dormida y un nuevo clic en Conectar la reactiva de inmediato.
                 self._reconnect.wait()
                 self._reconnect.clear()
-                attempts = 0
+                failures = 0
                 delay = 0.5
                 continue
             reconnect_requested = self._reconnect.wait(
@@ -205,7 +209,7 @@ class RobotGateway:
             )
             self._reconnect.clear()
             if reconnect_requested:
-                attempts = 0
+                failures = 0
                 delay = 0.5
             else:
                 delay = min(delay * 2, 10.0)
@@ -233,17 +237,37 @@ class RobotGateway:
             if not cancelled:
                 break
         envelope = item.command.protocol_envelope()
+        item_sent = False
         try:
             connection.send(json.dumps(envelope, separators=(",", ":")))
+            item_sent = True
             self._on_sent(item.command)
+            if item.command.name == "manual_begin":
+                with self._manual_lock:
+                    manual = self._manual_pending
+                    self._manual_pending = None
+                if manual is not None:
+                    try:
+                        connection.send(json.dumps(
+                            manual.protocol_envelope(), separators=(",", ":"),
+                        ))
+                        self._on_sent(manual)
+                    except Exception:
+                        with self._manual_lock:
+                            self._manual_pending = manual
+                        raise
         except Exception:
-            self._outgoing.put_nowait(item)
+            if not item_sent:
+                self._outgoing.put_nowait(item)
             raise
 
-    def _receive(self, raw: str | bytes) -> None:
+    def _receive(self, raw: str | bytes) -> str:
         encoded = raw.encode("utf-8") if isinstance(raw, str) else raw
         if len(encoded) > self._max_message_bytes:
-            raise ValueError("Mensaje del robot demasiado grande")
+            raise ValueError(
+                "Mensaje del robot demasiado grande: "
+                f"{len(encoded)} bytes > limite {self._max_message_bytes} bytes"
+            )
         message = json.loads(encoded.decode("utf-8"))
         if not isinstance(message, dict):
             raise ValueError("Mensaje del robot no es un objeto JSON")
@@ -257,3 +281,4 @@ class RobotGateway:
         if kind in {"rejected", "error", "fault"}:
             logger.error("Evento del robot %s: %s", kind, message)
         self._on_message(message)
+        return str(kind or "")

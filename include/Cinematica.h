@@ -6,6 +6,10 @@
 #include <cmath>
 
 struct DiagnosticoCalibracion {
+  float yawFaseInicioDeg = 0, yawFaseDeltaDeg = 0;
+  bool torqueDetectado = false, pivotValidado = false;
+  int pwmLado8[2] = {};
+  uint32_t movimientoFaseMs = 0;
   bool activa = false;
   uint8_t pasoRampa = 0;
   uint8_t pasosRampaTotal = 0;
@@ -17,6 +21,26 @@ struct DiagnosticoCalibracion {
   bool encoderResponde[4] = {};
   bool encoderAislado[4] = {};
   uint32_t stallAcumuladoMs[2] = {};
+  bool giroDetectadoSinEncoders = false;
+  uint32_t silencioEncodersMs = 0;
+  uint32_t limiteSilencioEncodersMs = 0;
+  bool gyroConfirmado = false;
+  bool pcntCorroborado = false;
+  uint8_t encodersQueResponden = 0;
+  bool respuestaFaseA[4] = {};
+  bool respuestaFaseB[4] = {};
+  float yawInicioDeg = 0.0f;
+  float yawActualDeg = 0.0f;
+  float errorRetornoDeg = 0.0f;
+  bool retornoWatchdogArmado = false;
+  uint32_t retornoSinProgresoMs = 0;
+  uint32_t ventanaMaxPwmMs = 0;
+  int pwmBase8 = 140;
+  int pwmLogicoIzquierdo = 0;
+  int pwmLogicoDerecho = 0;
+  int pwmPuenteIzquierdo = 0;
+  int pwmPuenteDerecho = 0;
+  char espera[48] = "idle";
 };
 
 // API del control de movimiento del robot de memoria corta.

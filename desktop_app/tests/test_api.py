@@ -1,3 +1,4 @@
+import json
 import tempfile
 import threading
 import time
@@ -95,6 +96,19 @@ class ApiTests(unittest.TestCase):
         self.assertAlmostEqual(returned.json["planned_points"][-1]["x_mm"], 0.0)
         self.assertAlmostEqual(returned.json["planned_points"][-1]["y_mm"], 0.0)
 
+    def test_touch_recording_is_invalidated_when_first_frame_times_out(self) -> None:
+        self._ready_manual()
+        headers = {"X-App-Token": self.token}
+        self.assertEqual(self.client.post(
+            "/api/v1/manual/start", json={}, headers=headers,
+        ).status_code, 201)
+        self.service._on_robot_message({
+            "evt": "completed", "seq": 0, "detail": "manual_first_frame_timeout",
+        })
+        self.assertFalse(self.service._touch.summary()["recording"])
+        self.assertEqual(self.service._touch.summary()["invalid_reason"],
+                         "manual_first_frame_timeout")
+
     def test_status_and_mutation_security(self) -> None:
         self.assertEqual(self.client.get("/api/v1/status").status_code, 200)
         denied = self.client.post("/api/v1/commands", json={"name": "stop"})
@@ -103,10 +117,38 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(denied.status_code, 403)
         self.assertEqual(allowed.status_code, 202)
 
+    def test_socket_connection_does_not_create_session_until_valid_telemetry(self) -> None:
+        self.service._on_connection_state(ConnectionState.CONNECTED, "ws://192.168.4.1/ws")
+        self.assertEqual(self.service.database.session_rows(), [])
+        self.service._on_robot_message({
+            "evt": "telemetry", "state": "desarmado", "enc": [0, 0, 0, 0],
+            "pwm": [0, 0], "yaw": 0,
+        })
+        rows = self.service.database.session_rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(self.service._session_id, rows[0]["id"])
+
+    def test_oversized_frame_detail_is_persisted_in_sqlite(self) -> None:
+        session_id = self.service.start_session()
+        detail = "Intento 1/5: Mensaje del robot demasiado grande: 7169 bytes > limite 7168 bytes"
+        self.service._on_connection_state(ConnectionState.BACKOFF, detail)
+        rows = self.service.database.event_rows(session_id)
+        connection = [row for row in rows if row["kind"] == "connection"]
+        self.assertEqual(len(connection), 1)
+        self.assertEqual(json.loads(connection[0]["payload_json"])["detail"], detail)
+        self.assertEqual(
+            self.service.database.session_row(session_id)["disconnect_reason"], detail
+        )
+
     def test_hmi_describes_physical_calibration_and_steps_v3(self) -> None:
         html = self.client.get("/").get_data(as_text=True)
         self.assertIn("La calibración moverá el robot", html)
         self.assertIn("robot-s3-steps-v3", html)
+        self.assertIn("cal-diag-pcnt", html)
+        self.assertIn("encoder_silence_ms", html)
+        self.assertIn("MPU como autoridad", html)
+        self.assertIn("Día local", html)
+        self.assertNotIn("valida +10°", html)
         self.assertIn("Cerrar aplicación", html)
         self.assertNotIn("Este botón sólo recentra la pose", html)
         for diagnostic in (
@@ -135,7 +177,19 @@ class ApiTests(unittest.TestCase):
             "diag.encoder_delta",
             "diag.encoder_responding",
             "diag.encoder_isolated",
-            "diag.sides",
+            "diag.pcnt_response_count",
+            "diag.wait_reason",
+            "diag.pivot_pwm",
+            "imu_primary_bilateral_pcnt",
+            "diag.torque_detected",
+            "diag.pivot_validated",
+            "diag.pivot_quality",
+            "diag.left_ticks",
+            "diag.right_ticks",
+            "diag.tick_ratio",
+            "diag.yaw_phase_delta",
+            "diag.encoder_direction_verified",
+            "diag.estimated_translation_cm",
             "Causa exacta:",
             "FALLO:'tv-fault',ESTOP:'tv-estop'",
         ):
@@ -505,6 +559,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(export.status_code, 200)
         self.assertIn("commands", export.json)
         self.assertIn("events", export.json)
+        self.assertIn("started_local_day", export.json["session"])
+        self.assertIn("started_utc_offset_min", export.json["session"])
 
     def test_cleanup_sessions_endpoint(self) -> None:
         session_id = self.service.start_session()
@@ -515,6 +571,190 @@ class ApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("deleted_sessions", response.json)
+
+    def test_stop_session_kills_incomplete_mission(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service.stop_session("app_disconnected")
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertEqual(status["total_segments"], 0)
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_calibrate_kills_existing_mission(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 500, "y_mm": 500}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service.send_command("calibrate", {})
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertEqual(status["total_segments"], 0)
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_stop_session_kills_blocked_mission(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.service._block_mission("step_fault")
+        self.assertEqual(self.service.mission_status()["stage"], "blocked")
+        self.service.stop_session("operator_reset")
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertEqual(status["total_segments"], 0)
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_connection_lost_kills_mission(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service._on_connection_state(ConnectionState.STOPPED, "wifi_dropped")
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertEqual(status["total_segments"], 0)
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_mission_expires_after_one_hour(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.assertTrue(self.service.mission_status()["running"])
+        # Simulate elapsed time > 3600s
+        self.service._mission_created_at = time.time() - 3601.0
+        self.service._expire_stalled_mission()
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_saved_mission_expired_purged_on_init(self) -> None:
+        # Save a mission created 2 hours ago
+        expired_mission = {
+            "id": "old_mission_123",
+            "points": [{"x_mm": 500, "y_mm": 0}],
+            "created_at": time.time() - 7200.0,
+            "stage": "executing",
+        }
+        self.service.database.set_setting("active_mission", expired_mission)
+        # Re-initialize RobotService with this database
+        reloaded_service = type(self.service)(self.service.database, start_gateway=False)
+        try:
+            status = reloaded_service.mission_status()
+            self.assertIsNone(status["id"])
+            self.assertEqual(status["stage"], "idle")
+            self.assertIsNone(self.service.database.get_setting("active_mission"))
+        finally:
+            reloaded_service.close()
+
+    def test_estop_command_kills_mission_and_session(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        session_id = self.service.start_session()
+        self.assertIsNotNone(self.service._session_id)
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service.send_command("estop", {})
+        self.assertIsNone(self.service._session_id)
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_cal_ok_message_kills_pending_mission(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service._on_robot_message({"evt": "completed", "seq": 999, "detail": "cal_ok"})
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_prepare_close_kills_mission_and_session(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        session_id = self.service.start_session()
+        self.assertIsNotNone(self.service._session_id)
+        self.service.prepare_close(force=True)
+        self.assertIsNone(self.service._session_id)
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_estop_telemetry_kills_mission_and_session(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        session_id = self.service.start_session()
+        self.assertIsNotNone(self.service._session_id)
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service._on_robot_message({
+            "evt": "telemetry", "state": "estop", "enc": [0, 0, 0, 0],
+            "pwm": [0, 0], "yaw": 0,
+        })
+        self.assertIsNone(self.service._session_id)
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_estop_latched_completed_kills_mission_and_session(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        session_id = self.service.start_session()
+        self.assertIsNotNone(self.service._session_id)
+        self.service._on_robot_message({"evt": "completed", "seq": 10, "detail": "estop_latched"})
+        self.assertIsNone(self.service._session_id)
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_mission_status_auto_expires_without_telemetry(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service._mission_created_at = time.time() - 3605.0
+        status = self.service.mission_status()
+        self.assertIsNone(status["id"])
+        self.assertFalse(status["running"])
+        self.assertEqual(status["stage"], "idle")
+        self.assertIsNone(self.service.database.get_setting("active_mission"))
+
+    def test_process_restart_legacy_zero_timestamp_survives_telemetry_in_quarantine(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = Database(root / "restart.sqlite3")
+            database.initialize()
+            session_id = database.create_session()
+            database.set_setting("active_mission", {
+                "id": "legacy-mission", "revision": 1, "points": [{"x_mm": 0, "y_mm": 100}],
+                "current_index": 0, "stage": "executing", "origin": {"x_mm": 0, "y_mm": 0},
+                "active_seq": 1, "kind": "outbound", "created_at": 0.0,
+            })
+            app = create_app(AppConfig(root, root / "restart.sqlite3", start_gateway=False))
+            service = app.extensions["robot_service"]
+            try:
+                self.assertEqual(service.mission_status()["stage"], "abandoned")
+                service._on_robot_message({
+                    "evt": "telemetry", "state": "listo", "enc": [0, 0, 0, 0],
+                    "pwm": [0, 0], "yaw": 0,
+                })
+                status = service.mission_status()
+                self.assertEqual(status["stage"], "abandoned")
+                self.assertEqual(status["error"], "app_restarted_with_pending_mission")
+            finally:
+                service.close()
 
 
 if __name__ == "__main__":

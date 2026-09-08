@@ -64,7 +64,9 @@ Captura de estado transmitida periódicamente por el ESP32:
   - `_state: ConnectionState`: Estado actual de conexión protegido por `threading.Lock`.
 - **Comportamiento**:
   - Reconexión automática con backoff exponencial y jitter aleatorio (hasta 5 reintentos por ciclo).
-  - Límite de tamaño de paquete JSON entrante (máximo 4096 bytes).
+  - Límite de tamaño de paquete JSON entrante: 7168 bytes, igual al firmware.
+    Un rechazo registra tamaño real y límite; perder el WebSocket durante
+    calibración produce una cancelación segura en Core 1.
   - Emisión de callbacks thread-safe: `on_message`, `on_state`, `on_sent`.
 
 ---
@@ -145,8 +147,18 @@ Controlador cinemático de bucle cerrado:
 - **`controlarAvance()`**:
   - Lazo PD dinámico de rumbo: $\text{ctrlRumbo} = \text{constrain}(e_{\text{rumbo}} \cdot 4.0 - G_z \cdot 12.0, -45, +45)$.
   - Mantiene el avance recto sin detener el chasis.
-- **`iniciarCalibracion()`**:
-  - Ejecuta prueba de simetría angular (+25°, reposo 2.5 s, retorno a 0°).
+- **`iniciarCalibracion()` (Dogma Canónico del Sistema)**:
+  - Rutina inmutable y obligatoria de inicialización física:
+    1. `CAL_CUENTA`: 5 segundos de reposo para asentar la integración del giróscopo MPU6050 y registrar `yawInicioCalDeg`.
+    2. `CAL_A`: Búsqueda de torque inicial en Polaridad Positiva (rampa de 140 a 247/255) hasta confirmar `ticksOk` bilateralmente y `fabsf(gyro_z) >= 0.12 rad/s` por 100 ms. Si gira negativo, invierte `candidatoCal` con pausa de 750 ms hasta validar sentido positivo (`gyro_z > 0`).
+    3. `CAL_VALIDAR_25`: Pivote puro dinámico hasta alcanzar `yawInicio + 25°` ($\pm 2.5^\circ$) con reposo de asentamiento de 600 ms.
+    4. `CAL_PAUSA`: Reposo de motores detenidos durante 2.5 s.
+    5. `CAL_B`: Búsqueda de torque en Polaridad Opuesta (`candidatoCal = -candidatoGiroPos`) con validación bilateral y confirmación de que `candidatoGiroPos != candidatoGiroNeg`.
+    6. `CAL_PAUSA_RETORNO`: Reposo de 2.5 s.
+    7. `CAL_RETORNO`: Pivote puro de retorno hacia el `yawInicioCalDeg` original, restableciendo la odometría `PoseGlobal` (X=0, Y=0) y el rumbo angular al estabilizarse.
+- **Polaridad Harcodeada de Ejes**:
+  - `PWM_FORWARD_POLARITY = 1`: Los motores avanzan en sentido positivo hacia el eje +Y físico y cardinal concordante con la IU (0° mirando a +Y).
+  - Ángulos crecientes en sentido horario hacia el eje +X (90° hacia la derecha / +X).
 
 #### `Seguridad` (`include/Seguridad.h`, `src/Seguridad.cpp`)
 Guardián de integridad del robot:

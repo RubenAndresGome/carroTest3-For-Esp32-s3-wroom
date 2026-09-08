@@ -75,11 +75,23 @@ class DomainTests(unittest.TestCase):
                                "left_reliable_count": 1, "right_reliable_count": 2},
             "motor_control": {"requested": {"left": 736, "right": 736},
                               "physical": {"left": 736, "right": 736}},
-            "calibration_diagnostics": {"active": True, "ramp_level": 5,
-                                         "ramp_level_count": 23},
+            "calibration_diagnostics": {
+                "active": True, "ramp_level": 5, "ramp_level_count": 23,
+                "authority": "imu_primary_bilateral_pcnt",
+                "yaw_phase_delta": 1.4, "torque_detected": True,
+                "pivot_validated": True, "pivot_quality": "balanced_evidence",
+                "left_ticks": 4, "right_ticks": 3, "tick_ratio": 4 / 3,
+                "pwm_left_8bit": 188, "pwm_right_8bit": 194,
+                "encoder_direction_verified": False,
+                "estimated_translation_cm": 0.2,
+            },
             "fault": {"active": False, "state": "none"},
             "allowed_commands": ["estop", "stop", "step"],
             "capabilities": ["manual_drive_v1"],
+            "manual_phase": "waiting_first_frame",
+            "pcnt_init": {"ready": False, "fl": {"initialized": False,
+                           "failed_stage": "config", "error_code": 258}},
+            "torque_history": {"record_count": 4, "base_positive_8bit": 153},
             "firmware": "robot-s3-v2", "reset_reason": "power_on",
             "stack_web": 2048, "stack_control": 3072,
         }, 17)
@@ -99,9 +111,17 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(public["encoder_fusion"]["left_sources"], "BL")
         self.assertEqual(public["motor_control"]["physical"]["left"], 736)
         self.assertEqual(public["calibration_diagnostics"]["ramp_level_count"], 23)
+        self.assertEqual(public["calibration_diagnostics"]["authority"],
+                         "imu_primary_bilateral_pcnt")
+        self.assertTrue(public["calibration_diagnostics"]["pivot_validated"])
+        self.assertFalse(public["calibration_diagnostics"]["encoder_direction_verified"])
         self.assertFalse(public["fault"]["active"])
         self.assertEqual(public["allowed_commands"], ["estop", "stop", "step"])
         self.assertEqual(public["capabilities"], ["manual_drive_v1"])
+        self.assertEqual(public["manual_phase"], "waiting_first_frame")
+        self.assertFalse(public["pcnt_init"]["ready"])
+        self.assertEqual(public["pcnt_init"]["fl"]["failed_stage"], "config")
+        self.assertEqual(public["torque_history"]["record_count"], 4)
         self.assertEqual(public["rtos"]["stack_min_free_bytes"]["control"], 3072)
 
     def test_legacy_telemetry_remains_readable_for_exports(self) -> None:

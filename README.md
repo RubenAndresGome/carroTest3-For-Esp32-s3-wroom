@@ -59,6 +59,50 @@ La base del diseño es la siguiente:
 - El ESP32-S3 procesa sensores, odometría, seguridad y cinemática en su bucle
   de control y responde con telemetry para seguimiento y diagnóstico.
 
+### Memoria interna de torque
+
+El ESP32 conserva en SPIFFS las diez calibraciones de torque válidas más
+recientes. En cada encendido sigue siendo obligatorio calibrar, pero la búsqueda
+sube suavemente desde PWM cero hasta una base calculada con ese historial y
+continúa en pasos de 5/255 hasta confirmar movimiento. El archivo interno usa
+PWM de 8 bits como aproximación operativa; no representa torque mecánico en N·m.
+
+En una placa nueva, prepara una vez la partición SPIFFS. Desconecta físicamente
+VMOT y alimenta el ESP32 por un USB estable; una protoboard o fuente intermitente
+no debe participar en la alimentación durante la carga:
+
+```powershell
+.\scripts\firmware\preparar_spiffs.ps1 -ConfirmarVmotDesconectado
+```
+
+El script valida `partitions.csv`, la cabecera del CSV y el tamaño de la imagen,
+pero no ejecuta `erase` ni modifica NVS. Si se corta la alimentación, estabiliza
+la conexión y repite el mismo comando. Después del reinicio la telemetría debe
+mostrar `torque_history.mounted=true`, `loaded=true` y estado `loaded` o `empty`.
+`mount_failed` indica que falta repetir este despliegue inicial.
+
+El contrato `robot-s3-steps-v3` admite frames JSON de hasta 7168 bytes en ambos
+extremos. Si el WebSocket se pierde durante una calibración, el súper-ciclo de
+control detiene los motores y termina el intento como `cal_connection_lost`;
+la reconexión no reanuda automáticamente el movimiento anterior.
+
+Las cargas normales posteriores de firmware no borran el historial. La
+telemetría `torque_history` publica cantidad, promedios, bases y estado de la
+persistencia; `manual_phase` distingue el inicio y la sesión Touch activa.
+
+La calibración rutinaria se realiza con el robot apoyado e inmóvil durante el
+arranque de la MPU; después usa exclusivamente pivote sobre su centro. Busca
+torque en dos polaridades, exige signos MPU opuestos, reposa 2.5 s y vuelve al
+yaw inicial, sin avance lineal ni objetivo angular fijo. El MPU es la autoridad
+angular; un PCNT con 2 ticks detecta torque, pero el pivote sólo se valida con
+evidencia de al menos una fuente por lado y relación lateral entre 0.5 y 2.0.
+Los encoders silenciosos se informan, pero una fase aislada no los excluye
+globalmente. Esta evidencia reduce la traslación probable, pero no garantiza un
+pivote físico porque los PCNT actuales no miden dirección. Si el
+MPU confirma giro y los cuatro PCNT siguen en cero durante 500 ms, frena con
+`cal_encoders_all_zero_while_turning`. La prueba eléctrica inicial con ruedas
+elevadas sigue siendo un requisito único antes de operar en suelo.
+
 ### 3. Puesta en marcha en tablet
 
 - [android_app/](android_app/) reutiliza el mismo backend y HMI.

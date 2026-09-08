@@ -24,6 +24,8 @@ Galaxy Tab / APK
 - La fuente canónica de la lógica de backend vive en [`desktop_app/robot_app/`](../desktop_app/robot_app/).
 - Antes de cada compilación, Gradle ejecuta la tarea `syncPythonBackend` que sincroniza el código fuente hacia `app/build/generated/python/`.
 - El APK de Android asume la **propiedad única del WebSocket** cuando se opera desde la tablet Galaxy Tab.
+- La versión 0.2.10 acepta el límite común de 7168 bytes y registra el tamaño
+  real de cualquier frame rechazado.
 - **Regla Estricta**: No se deben tener abiertos simultáneamente el controlador de Windows y el de Android hacia el mismo robot.
 
 Para conocer la especificación detallada de objetos Python y diagramas UML:
@@ -80,4 +82,4 @@ una tablet, usar `-Serial <serie>`.
 1. Conectar la tablet a la red Wi-Fi `ROBOT_S3_LOCAL`.
 2. Abrir la aplicación **Robot S3 HMI**.
 3. Confirmar la dirección IP `192.168.4.1` y pulsar **Conectar**.
-4. Realizar la calibración obligatoria de torque con ruedas elevadas (+25° yaw, reposo 2.5 s, retorno a 0°) antes de iniciar misiones de navegación.
+4. Realizar la calibración obligatoria: MPU principal, evidencia PCNT equilibrada por ambos lados, reposo de 2.5 s y retorno al yaw inicial. La prueba eléctrica inicial con ruedas elevadas es un requisito separado y no una fase rutinaria de +25°.

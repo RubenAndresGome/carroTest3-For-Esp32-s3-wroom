@@ -146,7 +146,9 @@ static bool setMotorPWM(int pinFwd, int pinRev, int vel) {
 
 static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
   vel = constrain(vel, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  return setMotorPWM(pinFwd, pinRev, vel * PWM_FORWARD_POLARITY);
+  const int polaridad = pinFwd == PIN_FL_FWD ? PWM_POLARITY_FL :
+      pinFwd == PIN_FR_FWD ? PWM_POLARITY_FR : pinFwd == PIN_BL_FWD ? PWM_POLARITY_BL : PWM_POLARITY_BR;
+  return setMotorPWM(pinFwd, pinRev, vel * polaridad);
 }
 
 bool aplicarVelocidades(int velIzq, int velDer) {

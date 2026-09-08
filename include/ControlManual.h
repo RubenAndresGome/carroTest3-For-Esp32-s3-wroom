@@ -27,6 +27,11 @@ inline bool leaseVigente(uint32_t ahoraMs, uint32_t recibidoMs, uint32_t limiteM
     return recibidoMs != 0 && static_cast<uint32_t>(ahoraMs - recibidoMs) <= limiteMs;
 }
 
+inline bool esperaPrimerFrameVigente(uint32_t ahoraMs, uint32_t inicioMs,
+                                     uint32_t graciaMs) {
+    return static_cast<uint32_t>(ahoraMs - inicioMs) <= graciaMs;
+}
+
 inline int acercar(int actual, int objetivo, int paso) {
     if (objetivo == 0) return 0;
     if (actual < objetivo) return actual + paso > objetivo ? objetivo : actual + paso;

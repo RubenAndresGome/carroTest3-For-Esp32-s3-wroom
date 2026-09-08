@@ -6,14 +6,27 @@ import contextlib
 import hashlib
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 
 class Database:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, clock: Callable[[], datetime] | None = None) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._clock = clock or (lambda: datetime.now().astimezone())
+
+    def _session_timestamp(self) -> tuple[str, str, int, str]:
+        """Captura UTC y calendario local a partir del mismo instante."""
+        local_now = self._clock()
+        if local_now.tzinfo is None or local_now.utcoffset() is None:
+            local_now = local_now.astimezone()
+        offset = local_now.utcoffset()
+        offset_minutes = int(offset.total_seconds() // 60) if offset is not None else 0
+        timezone_name = getattr(local_now.tzinfo, "key", None) or local_now.tzname() or "local"
+        utc_text = local_now.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        return utc_text, local_now.date().isoformat(), offset_minutes, timezone_name
 
     def connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=5.0, isolation_level=None)
@@ -46,7 +59,10 @@ class Database:
             connection.executescript(sql)
             additions = {
                 "sessions": {
-                    "protocol": "TEXT", "disconnect_reason": "TEXT"
+                    "protocol": "TEXT", "disconnect_reason": "TEXT",
+                    "started_local_day": "TEXT", "ended_local_day": "TEXT",
+                    "started_utc_offset_min": "INTEGER", "ended_utc_offset_min": "INTEGER",
+                    "timezone_name": "TEXT",
                 },
                 "telemetry": {
                     "pfl": "INTEGER", "pfr": "INTEGER", "pbl": "INTEGER", "pbr": "INTEGER",
@@ -69,7 +85,7 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_telemetry_session_last "
                 "ON telemetry(session_id, source_seq_end)"
             )
-            connection.execute("PRAGMA user_version=4")
+            connection.execute("PRAGMA user_version=5")
             connection.execute("""CREATE TABLE IF NOT EXISTS touch_recordings (
                 id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
                 status TEXT NOT NULL, origin_json TEXT NOT NULL, final_json TEXT,
@@ -104,8 +120,13 @@ class Database:
             )
 
     def create_session(self) -> int:
+        utc_text, local_day, offset_minutes, timezone_name = self._session_timestamp()
         with self.transaction() as connection:
-            cursor = connection.execute("INSERT INTO sessions(started_at) VALUES(CURRENT_TIMESTAMP)")
+            cursor = connection.execute(
+                "INSERT INTO sessions(started_at,started_local_day,started_utc_offset_min,timezone_name) "
+                "VALUES(?,?,?,?)",
+                (utc_text, local_day, offset_minutes, timezone_name),
+            )
             return int(cursor.lastrowid)
 
     def update_session_identity(self, session_id: int, robot_id: str | None, firmware_version: str | None, protocol: str | None) -> None:
@@ -116,10 +137,13 @@ class Database:
             )
 
     def stop_session(self, session_id: int, reason: str | None = None) -> None:
+        utc_text, local_day, offset_minutes, timezone_name = self._session_timestamp()
         with self.transaction() as connection:
             connection.execute(
-                "UPDATE sessions SET ended_at=CURRENT_TIMESTAMP,disconnect_reason=COALESCE(?,disconnect_reason) WHERE id=? AND ended_at IS NULL",
-                (reason, session_id),
+                "UPDATE sessions SET ended_at=?,ended_local_day=?,ended_utc_offset_min=?,"
+                "timezone_name=COALESCE(timezone_name,?),disconnect_reason=COALESCE(?,disconnect_reason) "
+                "WHERE id=? AND ended_at IS NULL",
+                (utc_text, local_day, offset_minutes, timezone_name, reason, session_id),
             )
 
     def insert_command(self, command_id: str, session_id: int | None, name: str, payload: dict[str, Any], status: str) -> None:
@@ -152,10 +176,12 @@ class Database:
             return int(cursor.rowcount)
 
     def close_orphan_sessions(self, reason: str) -> int:
+        utc_text, local_day, offset_minutes, timezone_name = self._session_timestamp()
         with self.transaction() as connection:
             cursor = connection.execute(
-                "UPDATE sessions SET ended_at=CURRENT_TIMESTAMP,disconnect_reason=? WHERE ended_at IS NULL",
-                (reason,),
+                "UPDATE sessions SET ended_at=?,ended_local_day=?,ended_utc_offset_min=?,"
+                "timezone_name=COALESCE(timezone_name,?),disconnect_reason=? WHERE ended_at IS NULL",
+                (utc_text, local_day, offset_minutes, timezone_name, reason),
             )
             return int(cursor.rowcount)
 
@@ -224,6 +250,9 @@ class Database:
             "recovery": (snapshot.autonomous_recovery_reason, snapshot.recovery,
                          snapshot.anti_friction, tuple(snapshot.stall_accumulated_ms)),
             "terminal": snapshot.last_terminal,
+            "manual": snapshot.manual_phase,
+            "pcnt_init": snapshot.pcnt_init,
+            "torque_history": snapshot.torque_history,
         }
         encoded = json.dumps(data, sort_keys=True, default=str, separators=(",", ":"))
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()

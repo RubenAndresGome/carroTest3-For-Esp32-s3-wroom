@@ -181,6 +181,8 @@ class TouchRouteRecorder:
 
 class RobotService:
     MISSION_SEGMENT_TIMEOUT_S = 240.0
+    MISSION_MAX_AGE_S = 3600.0
+    MISSION_EXPIRED_ERROR = "Time_out_eliminada_por_tiempo_maximo_para_expiracion"
     TELEMETRY_FRESHNESS_S = 2.0
     CLOSE_STOP_TIMEOUT_S = 5.0
     PROTOCOL = "steps-v3"
@@ -235,39 +237,55 @@ class RobotService:
         self._mission_mode = "rectangular"
         self._mission_logical_steps: list[dict[str, Any]] = []
         self._mission_warnings: list[dict[str, Any]] = []
+        self._mission_created_at: float | None = None
         self._vectorial_routes_enabled = bool(
             database.get_setting("experimental_vectorial_routes", False)
         )
         saved_mission = database.get_setting("active_mission", None)
         if isinstance(saved_mission, dict) and saved_mission.get("id") and isinstance(saved_mission.get("points"), list):
-            self._mission_id = str(saved_mission["id"])
-            self._mission_points = list(saved_mission["points"])
-            self._mission_index = int(saved_mission.get("current_index", 0))
-            self._mission_revision = int(saved_mission.get("revision", 1))
-            self._mission_stage = str(saved_mission.get("stage") or "executing")
-            self._mission_blocked = bool(saved_mission.get("blocked", False))
-            self._mission_error = str(saved_mission.get("error") or "") or None
-            self._mission_command_id = str(saved_mission.get("active_command_id") or "") or None
-            self._mission_kind = str(saved_mission.get("kind") or "outbound")
-            self._mission_mode = str(saved_mission.get("mode") or "rectangular")
-            logical_steps = saved_mission.get("logical_steps")
-            self._mission_logical_steps = list(logical_steps) if isinstance(logical_steps, list) else []
-            warnings = saved_mission.get("warnings")
-            self._mission_warnings = list(warnings) if isinstance(warnings, list) else []
-            final_heading = saved_mission.get("final_heading")
-            self._mission_final_heading = float(final_heading) if final_heading is not None else None
-            origin = saved_mission.get("origin", {})
-            if isinstance(origin, dict):
-                self._mission_origin = {"x_mm": float(origin.get("x_mm", 0)), "y_mm": float(origin.get("y_mm", 0))}
-            self._mission_seq = int(saved_mission.get("active_seq", 0) or 0) or None
-            if self._mission_stage not in {"completed", "abandoned", "blocked"} and not self._mission_blocked:
-                self._mission_stage = "abandoned"
-                self._mission_blocked = True
-                self._mission_error = "app_restarted_with_pending_mission"
-                self._mission_command_id = None
-                self._mission_command_started_at = None
-                self._mission_seq = None
-                self._startup_stop_required = True
+            try:
+                mission_created = float(saved_mission.get("created_at") or 0.0)
+            except (ValueError, TypeError):
+                mission_created = 0.0
+            now = time.time()
+            is_expired = (mission_created > 0.0) and (now - mission_created > self.MISSION_MAX_AGE_S)
+            if is_expired:
+                database.set_setting("active_mission", None)
+                database.insert_event(None, "mission_expired", Severity.WARNING.value, {
+                    "mission_id": str(saved_mission.get("id")),
+                    "reason": self.MISSION_EXPIRED_ERROR,
+                    "created_at": mission_created,
+                })
+            else:
+                self._mission_id = str(saved_mission["id"])
+                self._mission_created_at = mission_created if mission_created > 0.0 else None
+                self._mission_points = list(saved_mission["points"])
+                self._mission_index = int(saved_mission.get("current_index", 0))
+                self._mission_revision = int(saved_mission.get("revision", 1))
+                self._mission_stage = str(saved_mission.get("stage") or "executing")
+                self._mission_blocked = bool(saved_mission.get("blocked", False))
+                self._mission_error = str(saved_mission.get("error") or "") or None
+                self._mission_command_id = str(saved_mission.get("active_command_id") or "") or None
+                self._mission_kind = str(saved_mission.get("kind") or "outbound")
+                self._mission_mode = str(saved_mission.get("mode") or "rectangular")
+                logical_steps = saved_mission.get("logical_steps")
+                self._mission_logical_steps = list(logical_steps) if isinstance(logical_steps, list) else []
+                warnings = saved_mission.get("warnings")
+                self._mission_warnings = list(warnings) if isinstance(warnings, list) else []
+                final_heading = saved_mission.get("final_heading")
+                self._mission_final_heading = float(final_heading) if final_heading is not None else None
+                origin = saved_mission.get("origin", {})
+                if isinstance(origin, dict):
+                    self._mission_origin = {"x_mm": float(origin.get("x_mm", 0)), "y_mm": float(origin.get("y_mm", 0))}
+                self._mission_seq = int(saved_mission.get("active_seq", 0) or 0) or None
+                if self._mission_stage not in {"completed", "abandoned", "blocked"} and not self._mission_blocked:
+                    self._mission_stage = "abandoned"
+                    self._mission_blocked = True
+                    self._mission_error = "app_restarted_with_pending_mission"
+                    self._mission_command_id = None
+                    self._mission_command_started_at = None
+                    self._mission_seq = None
+                    self._startup_stop_required = True
         failed_commands = database.fail_nonterminal_commands("app_restarted_command_abandoned")
         orphan_sessions = database.close_orphan_sessions("app_restarted_uncleanly")
         if failed_commands:
@@ -304,11 +322,14 @@ class RobotService:
             if self._closed:
                 return
             self._closed = True
+            has_mission_to_kill = self._mission_id is not None
         self.gateway.stop()
         with self._lock:
             if self._session_id is not None:
                 self.database.stop_session(self._session_id, "application_closed")
                 self._session_id = None
+        if has_mission_to_kill:
+            self.stop_mission("application_closed")
         self._recorder.stop()
 
     def get_robot_host(self) -> str:
@@ -383,6 +404,12 @@ class RobotService:
 
     def mission_status(self) -> dict[str, Any]:
         with self._lock:
+            created_at = self._mission_created_at
+            mission_id = self._mission_id
+        if mission_id is not None and created_at is not None and created_at > 0.0:
+            if (time.time() - created_at) >= self.MISSION_MAX_AGE_S:
+                self.stop_mission(self.MISSION_EXPIRED_ERROR)
+        with self._lock:
             return {
                 "id": self._mission_id,
                 "running": self._mission_id is not None and not self._mission_blocked
@@ -405,6 +432,7 @@ class RobotService:
                 "planned_points": [dict(point) for point in self._mission_points],
                 "logical_steps": list(self._mission_logical_steps),
                 "warnings": list(self._mission_warnings),
+                "created_at": self._mission_created_at,
             }
 
     def _persist_mission(self) -> None:
@@ -419,6 +447,7 @@ class RobotService:
                 "kind": self._mission_kind, "final_heading": self._mission_final_heading,
                 "mode": self._mission_mode, "logical_steps": self._mission_logical_steps,
                 "warnings": self._mission_warnings,
+                "created_at": self._mission_created_at,
             }
         self.database.set_setting("active_mission", value)
 
@@ -508,6 +537,7 @@ class RobotService:
             self._mission_mode = mode
             self._mission_logical_steps = list(logical_steps or [])
             self._mission_warnings = []
+            self._mission_created_at = time.time()
             self._next_seq = 1
             self.database.set_setting("next_command_seq", 1)
         self._queue_current_mission_step()
@@ -517,6 +547,7 @@ class RobotService:
         return snapshot
 
     def start_mission(self, request: object) -> dict[str, Any]:
+        self._expire_stalled_mission()
         body: dict[str, Any]
         if isinstance(request, list):
             body = {"points": request}
@@ -720,6 +751,7 @@ class RobotService:
             self._mission_mode = "rectangular"
             self._mission_logical_steps = []
             self._mission_warnings = []
+            self._mission_created_at = None
         self.gateway.cancel(active_command_id)
         if active_command_id:
             self._tracked_command_ids.discard(active_command_id)
@@ -852,14 +884,24 @@ class RobotService:
         self._persist_mission()
 
     def _expire_stalled_mission(self) -> None:
+        kill_by_age = False
+        kill_by_segment = False
         with self._lock:
+            if self._mission_id is not None:
+                created_at = self._mission_created_at
+                now = time.time()
+                if created_at is not None and created_at > 0.0 and (now - created_at >= self.MISSION_MAX_AGE_S):
+                    kill_by_age = True
             started = self._mission_command_started_at
             running = self._mission_command_id is not None
             # Es un límite de coordinación; los watchdogs eléctricos siguen
             # siendo responsabilidad del ESP32.
-            expired = (self._mission_stage in {"executing", "aligning_final"} and running and started is not None
-                       and time.monotonic() - started >= self.MISSION_SEGMENT_TIMEOUT_S)
-        if expired:
+            if (self._mission_stage in {"executing", "aligning_final"} and running and started is not None
+                    and time.monotonic() - started >= self.MISSION_SEGMENT_TIMEOUT_S):
+                kill_by_segment = True
+        if kill_by_age:
+            self.stop_mission(self.MISSION_EXPIRED_ERROR)
+        elif kill_by_segment:
             self._block_mission("mission_segment_timeout")
 
     def _block_mission(self, reason: str) -> None:
@@ -955,6 +997,17 @@ class RobotService:
         normalized_name = str(name or "").lower()
         if normalized_name in {"stop", "estop"}:
             self._touch.invalidate(f"manual_{normalized_name}")
+        if normalized_name == "estop":
+            with self._lock:
+                has_mission = self._mission_id is not None
+            if has_mission:
+                self.stop_mission("stopped_by_estop")
+            self.stop_session("stopped_by_estop")
+        elif normalized_name == "calibrate":
+            with self._lock:
+                has_mission = self._mission_id is not None
+            if has_mission:
+                self.stop_mission("calibration_started")
         with self._lock:
             if self._closed:
                 raise RuntimeError("La aplicación ya está cerrada")
@@ -1002,8 +1055,14 @@ class RobotService:
         with self._lock:
             session_id = self._session_id
             self._session_id = None
+            has_mission_to_kill = (
+                self._mission_id is not None
+                and self._mission_stage != "abandoned"
+            )
         if session_id is not None:
             self.database.stop_session(session_id, reason)
+        if has_mission_to_kill:
+            self.stop_mission(reason or "session_closed")
         self.events.publish("session", {"recording": False, "session_id": session_id})
         return session_id
 
@@ -1011,7 +1070,6 @@ class RobotService:
         payload = {"state": state.value, "detail": detail}
         self.events.publish("connection", payload)
         if state == ConnectionState.CONNECTED:
-            self.start_session()
             self.database.insert_event(self._session_id, "connection", Severity.INFO.value, payload)
         elif state in {ConnectionState.STOPPED, ConnectionState.BACKOFF}:
             self._touch.invalidate("connection_lost")
@@ -1040,6 +1098,8 @@ class RobotService:
             self._telemetry_sequence += 1
             snapshot = TelemetrySnapshot.from_message(message, self._telemetry_sequence)
             with self._lock:
+                if self._session_id is None:
+                    self.start_session()
                 self._last_telemetry = snapshot
                 session_id = self._session_id
             touch_was_recording = bool(self._touch.summary().get("recording"))
@@ -1052,6 +1112,12 @@ class RobotService:
                     pass
             if snapshot.state.lower() in {"fallo", "fault", "estop", "safe_stop"}:
                 self._touch.invalidate("robot_fault")
+            if snapshot.state.lower() == "estop":
+                with self._lock:
+                    has_mission = self._mission_id is not None
+                if has_mission:
+                    self.stop_mission("stopped_by_estop")
+                self.stop_session("stopped_by_estop")
             if session_id is not None and self._identity_session_id != session_id:
                 self.database.update_session_identity(
                     session_id, snapshot.robot_id, snapshot.firmware_version, self.gateway.snapshot()["protocol"]
@@ -1098,6 +1164,22 @@ class RobotService:
                     waiter.set()
                 self._tracked_command_ids.discard(command_id)
                 self._command_ids_by_seq.pop(seq, None)
+        detail_str = str(message.get("detail") or message.get("reason") or "").lower()
+        if detail_str.startswith("manual_") and detail_str not in {"manual_begin", "manual_end"}:
+            self._touch.invalidate(str(message.get("detail") or message.get("reason") or ""))
+        if (kind in {"completed", "already_done"} and detail_str == "cal_ok") or (
+            command_id and kind in {"completed", "already_done"} and detail_str == "cal_ok"
+        ):
+            with self._lock:
+                has_mission = self._mission_id is not None
+            if has_mission:
+                self.stop_mission("calibration_completed")
+        if any(k in detail_str for k in ("estop", "e-stop", "emergencia")):
+            with self._lock:
+                has_mission = self._mission_id is not None
+            if has_mission:
+                self.stop_mission("stopped_by_estop")
+            self.stop_session("stopped_by_estop")
         severity = Severity.ERROR if kind == "fault" else Severity.INFO
         self.database.insert_event(self._session_id, kind or "message", severity.value, message)
         public_event = {**message, "type": kind, "id": command_id or None}
@@ -1231,6 +1313,8 @@ class RobotService:
                 "stop_required": stop_required,
             })
         self.stop_session("operator_app_close" if not force else "forced_app_close")
+        if force:
+            self.stop_mission("forced_app_close")
         result = {
             "safe_to_close": True,
             "stop_required": stop_required,

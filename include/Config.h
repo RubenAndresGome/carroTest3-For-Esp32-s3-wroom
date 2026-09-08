@@ -1,10 +1,11 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.1";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.3";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
+constexpr uint32_t MANUAL_FIRST_FRAME_GRACE_MS = 500;
 constexpr uint32_t MANUAL_STALL_TIMEOUT_MS = 450;
 
 // WiFi
@@ -67,7 +68,15 @@ constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
-constexpr int PWM_FORWARD_POLARITY = -1;
+constexpr int PWM_FORWARD_POLARITY = 1;
+constexpr int PWM_POLARITY_FL = PWM_FORWARD_POLARITY;
+constexpr int PWM_POLARITY_FR = PWM_FORWARD_POLARITY;
+constexpr int PWM_POLARITY_BL = PWM_FORWARD_POLARITY;
+constexpr int PWM_POLARITY_BR = PWM_FORWARD_POLARITY;
+static_assert((PWM_POLARITY_FL == 1 || PWM_POLARITY_FL == -1) &&
+              (PWM_POLARITY_FR == 1 || PWM_POLARITY_FR == -1) &&
+              (PWM_POLARITY_BL == 1 || PWM_POLARITY_BL == -1) &&
+              (PWM_POLARITY_BR == 1 || PWM_POLARITY_BR == -1), "Polaridad de motor invalida");
 constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
@@ -129,7 +138,8 @@ constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(4 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_GIRO_DEG = 3.0f;
-constexpr float TOLERANCIA_CALIBRACION_DEG = 1.0f;
+constexpr float TOLERANCIA_CALIBRACION_DEG = 2.5f;
+constexpr float CALIBRACION_GIRO_TEST_DEG = 25.0f;
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 5.0f;
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
@@ -157,18 +167,22 @@ constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 8.0f;
 constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 135.0f;
 
-// Calibración y rampa incremental por búsqueda continua de torque (140 a 247/255).
+// Calibración por búsqueda de torque en dos polaridades y retorno por MPU.
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
-constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
 constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
 constexpr int      CALIBRATION_PWM_END   = PWM_TURN_MAX_LIMIT;
 constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
+constexpr uint32_t CAL_BASE_SLEW_INTERVAL_MS = 20;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
+constexpr uint32_t CAL_GIRO_SIN_ENCODERS_MS = 500;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
 constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
+constexpr float    CAL_RETURN_PROGRESS_DEG = 0.5f;
+constexpr uint32_t CAL_RETURN_NO_PROGRESS_MS = 15000;
+constexpr uint32_t CAL_RETURN_TIMEOUT_MS = 25000;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;

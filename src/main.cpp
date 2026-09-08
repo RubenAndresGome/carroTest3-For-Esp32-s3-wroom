@@ -13,6 +13,8 @@
 #include "DiagnosticoRTOS.h"
 #include "ControlSeguridad.h"
 #include "ControlManual.h"
+#include "MemoriaTorque.h"
+#include "ControlConexion.h"
 #include <esp_timer.h>
 
 TaskHandle_t TaskWebHandle;
@@ -21,14 +23,32 @@ volatile bool flag_ESTOP_ISR = false;
 volatile int seq_ESTOP_pendiente = 0;
 
 static portMUX_TYPE manualMux = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE conexionControlMux = portMUX_INITIALIZER_UNLOCKED;
 static volatile uint8_t manualSolicitud = 0;
 static volatile int manualSolicitudSeq = 0;
+static volatile bool desconexionControlPendiente = false;
 static ManualDriveFrame manualMailbox = {};
 static int manualPwmActualL = 0;
 static int manualPwmActualR = 0;
-bool solicitarManualBegin(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 1; manualSolicitudSeq = seq; portEXIT_CRITICAL(&manualMux); return true; }
+static uint32_t manualBeginSolicitadoMs = 0;
+static uint32_t manualActivoDesdeMs = 0;
+static bool manualEsperandoPrimerFrame = false;
+bool solicitarManualBegin(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 1; manualSolicitudSeq = seq; manualBeginSolicitadoMs = millis(); portEXIT_CRITICAL(&manualMux); return true; }
 bool solicitarManualEnd(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 2; manualSolicitudSeq = seq; portEXIT_CRITICAL(&manualMux); return true; }
 bool solicitarManualDesconexion() { portENTER_CRITICAL(&manualMux); manualSolicitud = 3; manualSolicitudSeq = 0; portEXIT_CRITICAL(&manualMux); return true; }
+bool solicitarDesconexionControl() {
+    portENTER_CRITICAL(&conexionControlMux);
+    desconexionControlPendiente = true;
+    portEXIT_CRITICAL(&conexionControlMux);
+    return true;
+}
+bool tomarDesconexionControl() {
+    portENTER_CRITICAL(&conexionControlMux);
+    const bool pendiente = desconexionControlPendiente;
+    desconexionControlPendiente = false;
+    portEXIT_CRITICAL(&conexionControlMux);
+    return pendiente;
+}
 bool publicarManualDrive(float throttle, float steering, uint32_t stream, uint32_t frame) {
     portENTER_CRITICAL(&manualMux);
     if (manualMailbox.recibidoMs != 0 && manualMailbox.stream == stream && frame <= manualMailbox.frame) {
@@ -44,18 +64,63 @@ bool tomarSolicitudManual(bool& comenzar, bool& terminar, bool& desconexion, int
 }
 bool leerManualDrive(ManualDriveFrame& trama) { portENTER_CRITICAL(&manualMux); trama = manualMailbox; portEXIT_CRITICAL(&manualMux); return trama.recibidoMs != 0; }
 void limpiarManualDrive() { portENTER_CRITICAL(&manualMux); manualMailbox = {}; portEXIT_CRITICAL(&manualMux); }
+static void reiniciarEstadoManual() {
+    limpiarManualDrive();
+    manualEsperandoPrimerFrame = false;
+    manualActivoDesdeMs = 0;
+    manualPwmActualL = manualPwmActualR = 0;
+}
+const char* faseManualTexto() {
+    if (estadoActual != MANUAL) return "idle";
+    return manualEsperandoPrimerFrame ? "waiting_first_frame" : "active";
+}
+uint32_t inicioManualMs() { return manualActivoDesdeMs; }
+static const char* detalleBloqueoMovimiento(const char* fallback) {
+    if (!pcntInicializados()) return "pcnt_init_failed";
+    if (!ControlSeguridad::fuentesPorLadoValidas(encoderConfiableGlobal)) return "enc_no_side";
+    if (persistenciaTorquePendiente()) return "torque_persist_pending";
+    return fallback;
+}
 static void procesarSolicitudesManual() {
     bool comenzar = false, terminar = false, desconexion = false; int seq = 0;
     if (!tomarSolicitudManual(comenzar, terminar, desconexion, seq)) return;
-    if (desconexion || terminar) { limpiarManualDrive(); manualPwmActualL = manualPwmActualR = 0; if (estadoActual == MANUAL) { frenarMotores(); estadoActual = robotCalibrado ? LISTO : DESARMADO; } if (terminar && seq > 0) encolarEvento(EVT_COMPLETED, seq, "manual_end"); else if (desconexion) encolarEvento(EVT_COMPLETED, 0, "manual_disconnected"); }
-    if (comenzar) { if (estadoActual == LISTO && robotCalibrado) { limpiarManualDrive(); manualPwmActualL = manualPwmActualR = 0; estadoActual = MANUAL; if (seq > 0) encolarEvento(EVT_COMPLETED, seq, "manual_begin"); } else if (seq > 0) encolarEvento(EVT_REJECTED, seq, "manual_unavailable"); }
+    if (desconexion || terminar) { reiniciarEstadoManual(); if (estadoActual == MANUAL) { frenarMotores(); estadoActual = robotCalibrado ? LISTO : DESARMADO; } if (terminar && seq > 0) encolarEvento(EVT_COMPLETED, seq, "manual_end"); else if (desconexion) encolarEvento(EVT_COMPLETED, 0, "manual_disconnected"); }
+    if (comenzar) {
+        if (estadoActual == LISTO && robotCalibrado && !persistenciaTorquePendiente() &&
+            pcntInicializados() &&
+            ControlSeguridad::fuentesPorLadoValidas(encoderConfiableGlobal)) {
+            portENTER_CRITICAL(&manualMux);
+            if (manualMailbox.recibidoMs == 0 ||
+                static_cast<int32_t>(manualMailbox.recibidoMs - manualBeginSolicitadoMs) < 0)
+                manualMailbox = {};
+            portEXIT_CRITICAL(&manualMux);
+            manualPwmActualL = manualPwmActualR = 0;
+            manualActivoDesdeMs = millis();
+            manualEsperandoPrimerFrame = true;
+            estadoActual = MANUAL;
+            if (seq > 0) encolarEvento(EVT_COMPLETED, seq, "manual_begin");
+        } else if (seq > 0) {
+            encolarEvento(EVT_REJECTED, seq, detalleBloqueoMovimiento("manual_unavailable"));
+        }
+    }
 }
 static void controlarManual() {
     ManualDriveFrame trama;
     if (estadoActual != MANUAL) return;
-    if (!leerManualDrive(trama) || !ControlManual::leaseVigente(millis(), trama.recibidoMs, MANUAL_LEASE_MS)) {
-        limpiarManualDrive();
-        manualPwmActualL = manualPwmActualR = 0;
+    const uint32_t ahora = millis();
+    const bool tramaValida = leerManualDrive(trama);
+    if (manualEsperandoPrimerFrame && !tramaValida) {
+        frenarMotores();
+        if (ControlManual::esperaPrimerFrameVigente(
+                ahora, manualActivoDesdeMs, MANUAL_FIRST_FRAME_GRACE_MS)) return;
+        reiniciarEstadoManual();
+        estadoActual = robotCalibrado ? LISTO : DESARMADO;
+        encolarEvento(EVT_COMPLETED, 0, "manual_first_frame_timeout");
+        return;
+    }
+    if (tramaValida) manualEsperandoPrimerFrame = false;
+    if (!tramaValida || !ControlManual::leaseVigente(ahora, trama.recibidoMs, MANUAL_LEASE_MS)) {
+        reiniciarEstadoManual();
         frenarMotores();
         estadoActual = robotCalibrado ? LISTO : DESARMADO;
         encolarEvento(EVT_COMPLETED, 0, "manual_lease_expired");
@@ -74,8 +139,7 @@ void procesarComandos() {
         const int seqInterrumpido = seqActivo;
         flag_ESTOP_ISR = false;
         seq_ESTOP_pendiente = 0;
-        limpiarManualDrive();
-        manualPwmActualL = manualPwmActualR = 0;
+        reiniciarEstadoManual();
         WatchdogSeguridad.forzarEStop();
         xQueueReset(colaComandos);
         if (seqInterrumpido > 0 && seqInterrumpido != seq) {
@@ -89,21 +153,21 @@ void procesarComandos() {
         switch (cmd.tipo) {
             case CMD_CALIBRATE:
                 if (!iniciarCalibracion(cmd.seq))
-                    encolarEvento(EVT_REJECTED, cmd.seq, "cal_unavailable");
+                    encolarEvento(EVT_REJECTED, cmd.seq,
+                        !pcntInicializados() ? "pcnt_init_failed" : "cal_unavailable");
                 break;
             case CMD_STEP:
                 if (!iniciarPaso(cmd.heading, cmd.distanciaCm, cmd.seq, cmd.targetXCm, cmd.targetYCm,
                                  cmd.tieneObjetivoAbsoluto, cmd.modoPaso))
-                    encolarEvento(EVT_REJECTED, cmd.seq, "step_invalid");
+                    encolarEvento(EVT_REJECTED, cmd.seq, detalleBloqueoMovimiento("step_invalid"));
                 break;
             case CMD_TURN_TO:
                 if (!iniciarGiroAbsoluto(cmd.heading, cmd.seq))
-                    encolarEvento(EVT_REJECTED, cmd.seq, "turn_unavailable");
+                    encolarEvento(EVT_REJECTED, cmd.seq, detalleBloqueoMovimiento("turn_unavailable"));
                 break;
             case CMD_STOP:
                 if (estadoActual == MANUAL) {
-                    limpiarManualDrive();
-                    manualPwmActualL = manualPwmActualR = 0;
+                    reiniciarEstadoManual();
                 }
                 cancelarMovimiento("stopped");
                 encolarEvento(EVT_COMPLETED, cmd.seq, "stop_ok");
@@ -111,8 +175,7 @@ void procesarComandos() {
             case CMD_ESTOP:
                 {
                 const int seqInterrumpido = seqActivo;
-                limpiarManualDrive();
-                manualPwmActualL = manualPwmActualR = 0;
+                reiniciarEstadoManual();
                 WatchdogSeguridad.forzarEStop();
                 xQueueReset(colaComandos);
                 if (seqInterrumpido > 0 && seqInterrumpido != cmd.seq)
@@ -128,6 +191,8 @@ void procesarComandos() {
                     encolarEvento(EVT_COMPLETED, cmd.seq, "fault_cleared");
                 else if (resultado == ResultadoRearme::SIN_FALLO_ACTIVO)
                     encolarEvento(EVT_REJECTED, cmd.seq, "no_fault_active");
+                else if (resultado == ResultadoRearme::PCNT_NO_DISPONIBLE)
+                    encolarEvento(EVT_REJECTED, cmd.seq, "pcnt_init_failed");
                 else
                     encolarEvento(EVT_REJECTED, cmd.seq, "motor_output_unavailable");
                 xQueueReset(colaComandos);
@@ -157,6 +222,9 @@ void Task_Web(void*) {
     LOG_CORE("Task_Web en Core 0");
     for (;;) {
         procesarWebSockets();
+        if (pwm_aplicado_L == 0 && pwm_aplicado_R == 0 &&
+            estadoActual != EJECUTANDO && estadoActual != CALIBRANDO && estadoActual != MANUAL)
+            procesarPersistenciaTorque();
         pushTelemetria();
         LOG_THROTTLED("Heartbeat Web", 20);
         static int c=0; if(++c>=20){
@@ -173,6 +241,12 @@ static void ejecutarCicloControl() {
     static uint32_t ultimoProgresoMs = 0;
 
     procesarComandos();
+    if (tomarDesconexionControl() &&
+        ControlConexion::accionAlPerderWebSocket(estadoActual == CALIBRANDO) ==
+            ControlConexion::AccionDesconexion::CANCELAR_CALIBRACION) {
+        LOG_CORE("CAL: WebSocket perdido; cancelacion segura en Core 1.");
+        cancelarMovimiento("cal_connection_lost");
+    }
     leerSensoresSincrono();
     const SensorSnapshot& snap = snapshotSensoresControl();
     bool fresco = snap.sequence != ultimoSensorSeq;
@@ -223,8 +297,16 @@ void setup() {
         ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
         Serial.printf("FALLO: salida de motores no inicializada (%s).\n", estadoMotores());
     }
-    setup_Red();
     setup_Sensores();
+    if (!pcntInicializados() && estadoActual != FALLO) {
+        estadoActual = FALLO;
+        strncpy(ultimoFalloDetalle, "pcnt_init_failed", sizeof(ultimoFalloDetalle) - 1);
+        ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
+        registrarMotivoFinalizacion("pcnt_init_failed");
+        Serial.println("FALLO: inicializacion PCNT incompleta; movimiento bloqueado.");
+    }
+    setup_MemoriaTorque();
+    setup_Red();
     Serial.println("Sistema listo. Iniciando FreeRTOS...");
 
     const BaseType_t webOk = xTaskCreatePinnedToCore(

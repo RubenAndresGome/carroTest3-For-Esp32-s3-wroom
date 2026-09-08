@@ -17,8 +17,10 @@
 3. Medir corriente de arranque y rotor bloqueado por motor.
 4. Confirmar PWM cero antes de calibrar, techo global 230/255 en avance, 247/255 en giros y al menos 250 ms
    a cero antes de toda inversión.
-5. Ejecutar calibración: búsqueda 140–247/255, validación +25°, reposo 2.5 s y
-   regreso independiente a yaw 0°.
+5. Ejecutar calibración: rampa desde cero y búsqueda hasta 247/255, detección
+   por 1° de yaw acumulado, corroboración equilibrada por ambos lados, reposo
+   2.5 s y regreso independiente al yaw inicial. No existe tramo adicional de
+   +10° o +25°.
 6. Probar E-STOP durante una maniobra y confirmar enclavamiento y PWM cero.
 
 No se afirmará seguridad eléctrica y no se operará en suelo hasta verificar

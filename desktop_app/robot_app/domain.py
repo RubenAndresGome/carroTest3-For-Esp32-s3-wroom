@@ -242,6 +242,9 @@ class TelemetrySnapshot:
     rtos_diagnostics: dict[str, Any] = field(default_factory=dict)
     motor_control: dict[str, Any] = field(default_factory=dict)
     calibration_diagnostics: dict[str, Any] = field(default_factory=dict)
+    pcnt_init: dict[str, Any] = field(default_factory=dict)
+    torque_history: dict[str, Any] = field(default_factory=dict)
+    manual_phase: str = "idle"
     fault: dict[str, Any] = field(default_factory=dict)
     allowed_commands: tuple[str, ...] = ()
     capabilities: tuple[str, ...] = ()
@@ -406,6 +409,11 @@ class TelemetrySnapshot:
             if isinstance(payload.get("motor_control", {}), Mapping) else {},
             calibration_diagnostics=dict(payload.get("calibration_diagnostics", {}))
             if isinstance(payload.get("calibration_diagnostics", {}), Mapping) else {},
+            pcnt_init=dict(payload.get("pcnt_init", {}))
+            if isinstance(payload.get("pcnt_init", {}), Mapping) else {},
+            torque_history=dict(payload.get("torque_history", {}))
+            if isinstance(payload.get("torque_history", {}), Mapping) else {},
+            manual_phase=str(payload.get("manual_phase", "idle"))[:32],
             fault=dict(payload.get("fault", {}))
             if isinstance(payload.get("fault", {}), Mapping) else {},
             allowed_commands=tuple(
@@ -522,6 +530,9 @@ class TelemetrySnapshot:
             "rtos": self.rtos_diagnostics,
             "motor_control": self.motor_control,
             "calibration_diagnostics": self.calibration_diagnostics,
+            "pcnt_init": self.pcnt_init,
+            "torque_history": self.torque_history,
+            "manual_phase": self.manual_phase,
             "fault": self.fault,
             "allowed_commands": list(self.allowed_commands),
             "capabilities": list(self.capabilities),

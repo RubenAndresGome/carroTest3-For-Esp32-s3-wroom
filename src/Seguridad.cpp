@@ -34,10 +34,42 @@ void Seguridad::reiniciarSaludEncoders() {
     ultimo_progreso_lado_ms[0] = ultimo_progreso_lado_ms[1] = 0;
 }
 
+void Seguridad::prepararRevalidacionEncoders() {
+    inicio_ventana_encoder_ms = 0;
+    encoderFusionDeltaL = encoderFusionDeltaR = 0.0f;
+    encoderSinProgresoLadoMs[0] = encoderSinProgresoLadoMs[1] = 0;
+    ultimo_progreso_lado_ms[0] = ultimo_progreso_lado_ms[1] = 0;
+    for (int i = 0; i < 4; ++i) {
+        encoderSinPulsosMs[i] = 0;
+        encoderDesviacionPct[i] = 0.0f;
+        encoderMuestrasReingreso[i] = 0;
+        estadoSaludEncoderGlobal[i] = encoderConfiableGlobal[i]
+            ? EstadoSaludEncoder::HEALTHY : EstadoSaludEncoder::RECOVERING;
+    }
+    modoDegradado = false;
+    for (bool confiable : encoderConfiableGlobal) modoDegradado |= !confiable;
+}
+
+void Seguridad::aplicarClasificacionEncoders(const bool confiables[4]) {
+    inicio_ventana_encoder_ms = 0;
+    modoDegradado = false;
+    for (int i = 0; i < 4; ++i) {
+        encoderConfiableGlobal[i] = confiables[i];
+        estadoSaludEncoderGlobal[i] = confiables[i]
+            ? EstadoSaludEncoder::HEALTHY : EstadoSaludEncoder::EXCLUDED;
+        encoderSinPulsosMs[i] = 0;
+        encoderDesviacionPct[i] = 0.0f;
+        encoderMuestrasReingreso[i] = 0;
+        modoDegradado |= !confiables[i];
+    }
+}
+
 void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
     const uint32_t ahora = millis();
     const int64_t actuales[4] = {snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR};
-    const bool auditando = (estadoActual == EJECUTANDO && enFaseAvance()) || estadoActual == MANUAL;
+    // La calibración conserva evidencia por fase sin mutar la máscara global.
+    // La clasificación persistente se reanuda en movimiento normal/manual.
+    const bool auditando = (estadoActual == EJECUTANDO) || (estadoActual == MANUAL);
     const bool ladoExigido[2] = {
         auditando && abs(pwm_L) >= ENCODER_HEALTH_PWM_MIN,
         auditando && abs(pwm_R) >= ENCODER_HEALTH_PWM_MIN
@@ -161,12 +193,18 @@ bool Seguridad::auditarSalud(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
         return false;
     }
 
+    // Cinematica aplica durante CALIBRANDO cortes específicos por MPU, PCNT,
+    // PWM máximo y progreso de retorno. El watchdog genérico por lado no debe
+    // contradecir esa autoridad con fallos genéricos por lado.
+    if (estadoActual == CALIBRANDO || enFaseCalibracion()) {
+        inicio_movimiento_ms = 0;
+        return false;
+    }
+
     // Selector dinámico de timeout por fase activa
     unsigned long timeout_ms = TIMEOUT_STALL_AVANCE_MS;
     if (estadoActual == MANUAL) {
         timeout_ms = MANUAL_STALL_TIMEOUT_MS;
-    } else if (estadoActual == CALIBRANDO || enFaseCalibracion()) {
-        timeout_ms = TIMEOUT_STALL_CALIBRANDO_MS; // 20 s para calibración
     } else if (enFaseGiro()) {
         timeout_ms = TIMEOUT_STALL_GIRO_MS;       // 12 s para maniobras de giro
     } else if (enFaseAvance()) {
@@ -248,9 +286,17 @@ ResultadoRearme Seguridad::resetFallo() {
         registrarMotivoFinalizacion("motor_output_unavailable");
         return ResultadoRearme::MOTORES_NO_DISPONIBLES;
     }
+    if (!pcntInicializados()) {
+        LOG_CORE("Rearme rechazado: inicializacion PCNT incompleta.");
+        estadoActual = FALLO;
+        registrarMotivoFinalizacion("pcnt_init_failed");
+        strncpy(ultimoFalloDetalle, "pcnt_init_failed", sizeof(ultimoFalloDetalle) - 1);
+        ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
+        return ResultadoRearme::PCNT_NO_DISPONIBLE;
+    }
     LOG_CORE("Sistema rearmado.");
     estadoActual = robotCalibrado ? LISTO : DESARMADO;
     inicio_movimiento_ms = 0;
-    reiniciarSaludEncoders();
+    prepararRevalidacionEncoders();
     return ResultadoRearme::REARMADO;
 }

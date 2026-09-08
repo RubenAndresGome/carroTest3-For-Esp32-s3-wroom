@@ -1217,13 +1217,15 @@
                     <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg>Ejecutar autoevaluación segura</button>
                     <div class="calibration-state" id="calibration-state" role="status" aria-live="polite">ESPERANDO CONEXIÓN</div>
                     <div class="calibration-cause" id="calibration-cause" role="alert"></div>
-                    <div class="calibration-note" id="calibration-detail">Con ruedas elevadas y alimentación limitada, la calibración busca torque, valida +25°, reposa 2.5 s y vuelve a yaw 0°. La calibración moverá el robot.</div>
+                    <div class="calibration-note" id="calibration-detail">La calibración mantiene el MPU como autoridad para detectar el giro y exige evidencia PCNT bilateral equilibrada antes de validar el pivote. Frena temprano ante movimiento unilateral o asimétrico, reposa 2.5 s y vuelve al yaw inicial. La calibración moverá el robot.</div>
                     <div class="calibration-diagnostics" id="calibration-diagnostics" aria-label="Diagnóstico de calibración en vivo">
                         <div class="cal-diag-summary">
                             <span>Fase <strong id="cal-diag-phase">—</strong></span>
                             <span>Rampa <strong id="cal-diag-ramp">—</strong></span>
                             <span>PWM <strong id="cal-diag-pwm">—</strong></span>
                             <span>Intento <strong id="cal-diag-attempt">—</strong></span>
+                            <span>Memoria torque <strong id="cal-diag-history">—</strong></span>
+                            <span>PCNT <strong id="cal-diag-pcnt">—</strong></span>
                         </div>
                         <div class="cal-diag-wheels">
                             <div class="cal-diag-wheel" id="cal-diag-fl" data-status="unknown"><strong>FL</strong><span id="cal-diag-delta-fl">Δ —</span><span id="cal-diag-status-fl">sin datos</span></div>
@@ -1231,7 +1233,7 @@
                             <div class="cal-diag-wheel" id="cal-diag-bl" data-status="unknown"><strong>BL</strong><span id="cal-diag-delta-bl">Δ —</span><span id="cal-diag-status-bl">sin datos</span></div>
                             <div class="cal-diag-wheel" id="cal-diag-br" data-status="unknown"><strong>BR</strong><span id="cal-diag-delta-br">Δ —</span><span id="cal-diag-status-br">sin datos</span></div>
                         </div>
-                        <div class="cal-diag-sides" id="cal-diag-sides">L/R: sin diagnóstico · stall — / — ms</div>
+                        <div class="cal-diag-sides" id="cal-diag-sides">MPU principal · pivote bilateral pendiente</div>
                     </div>
                     <div class="calibration-actions">
                         <button type="button" class="btn btn-accent" id="btn-calibrate"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>Calibrar torque y giro</button>
@@ -1268,8 +1270,8 @@
                 <div class="card-title">Historial de sesiones y exportaciones</div>
                 <div class="session-table-wrap" tabindex="0" role="region" aria-label="Historial de sesiones desplazable">
                     <table class="session-table">
-                        <thead><tr><th>ID</th><th>Inicio</th><th>Fin</th><th>Robot</th><th>Muestras</th><th>Motivo</th><th>Exportar</th></tr></thead>
-                        <tbody id="session-history"><tr><td colspan="7" class="session-empty">Sin sesiones registradas</td></tr></tbody>
+                        <thead><tr><th>ID</th><th>Día local</th><th>Inicio UTC</th><th>Fin UTC</th><th>Robot</th><th>Muestras</th><th>Motivo</th><th>Exportar</th></tr></thead>
+                        <tbody id="session-history"><tr><td colspan="8" class="session-empty">Sin sesiones registradas</td></tr></tbody>
                     </table>
                 </div>
             </section>
@@ -2083,7 +2085,18 @@
                 if(!this.canCalibrate()) return LogSystem.add('WARN',this.calibrationBlockReason());
                 this.commandPending=true;
                 this.updateAvailability();
+                if(typeof RouteManager !== 'undefined') {
+                    if(RouteManager.isRunning) {
+                        RouteManager.failRoute('Calibración solicitada: ruta activa descartada.');
+                    }
+                    RouteManager.queue = [];
+                    RouteManager.logicalSteps = [];
+                    RouteManager.currentStepIndex = 0;
+                    RouteManager.updateListUI();
+                    RouteManager.drawPlan();
+                }
                 try {
+                    await WSControl.api('/api/v1/missions',{method:'DELETE'}).catch(()=>{});
                     LogSystem.add('INFO','Enviando comando de calibración al robot...');
                     const result=await WSControl.send({cmd:'calibrate'});
                     if(!result){ this.commandPending=false; this.updateAvailability(); return; }
@@ -2140,6 +2153,8 @@
             if(!['DESARMADO','LISTO'].includes(this.robotState))return `Calibración no permitida durante ${this.robotState||'un estado desconocido'}.`;
             const mpu=this.mpuStatus(this.lastRaw||{});
             if(!mpu.ready)return mpu.reason;
+            const pcnt=this.lastRaw&&typeof this.lastRaw.pcnt_init==='object'?this.lastRaw.pcnt_init:{};
+            if(pcnt.ready===false)return 'Inicialización PCNT incompleta; revisa el diagnóstico de encoders y reinicia.';
             if(!this.hasAllowed('calibrate'))return 'El firmware no habilita calibración en este instante.';
             return 'Calibración temporalmente no disponible.';
         },
@@ -2181,12 +2196,32 @@
             const rampTotal=diag.ramp_level_count ?? diag.ramp_total ?? diag.pasosRampaTotal;
             const pwm10=diag.pwm_10bit ?? diag.pwm_target ?? diag.pwmObjetivo;
             const pwm8=diag.pwm_8bit ?? (Number.isFinite(Number(pwm10))?Math.round(Number(pwm10)*255/1023):undefined);
+            const pwmLeft8=diag.pwm_left_8bit, pwmRight8=diag.pwm_right_8bit;
             const attempt=diag.attempt ?? diag.retry_attempt;
             const attemptMax=diag.attempt_max ?? diag.retry_attempt_max;
             document.getElementById('cal-diag-phase').textContent=String(phase||'—').toUpperCase();
             document.getElementById('cal-diag-ramp').textContent=ramp===undefined?'—':`${ramp}/${rampTotal??'—'}`;
-            document.getElementById('cal-diag-pwm').textContent=pwm10===undefined?'—':`${pwm8??'—'}/255 · ${pwm10}/1023`;
+            document.getElementById('cal-diag-pwm').textContent=pwmLeft8!==undefined||pwmRight8!==undefined
+                ? `L/R ${pwmLeft8??'—'}/${pwmRight8??'—'} de 255`
+                : pwm10===undefined?'—':`${pwm8??'—'}/255 · ${pwm10}/1023`;
             document.getElementById('cal-diag-attempt').textContent=attempt===undefined?'—':`${attempt}/${attemptMax??'—'}`;
+            const history=raw&&typeof raw.torque_history==='object'&&raw.torque_history?raw.torque_history:{};
+            const historyCount=Number(history.record_count||0);
+            const historyStatus=String(history.status||'sin datos');
+            const basePosL=Number(history.base_positive_left_8bit??history.base_positive_8bit??140);
+            const basePosR=Number(history.base_positive_right_8bit??history.base_positive_8bit??140);
+            const baseNegL=Number(history.base_negative_left_8bit??history.base_negative_8bit??140);
+            const baseNegR=Number(history.base_negative_right_8bit??history.base_negative_8bit??140);
+            document.getElementById('cal-diag-history').textContent=historyCount
+                ? `${historyCount}/10 · base + L/R ${basePosL}/${basePosR} · − L/R ${baseNegL}/${baseNegR} · ${historyStatus}`
+                : `0/10 · base 140 · ${historyStatus}`;
+            const pcnt=raw&&typeof raw.pcnt_init==='object'&&raw.pcnt_init?raw.pcnt_init:{};
+            const pcntNames=['fl','fr','bl','br'];
+            const pcntFailures=pcntNames.filter(name=>pcnt[name]&&pcnt[name].initialized===false)
+                .map(name=>`${name.toUpperCase()}:${pcnt[name].failed_stage||'unknown'}(${Number(pcnt[name].error_code||0)})`);
+            document.getElementById('cal-diag-pcnt').textContent=pcnt.ready===true
+                ? 'FL/FR/BL/BR listos'
+                : pcnt.ready===false ? `FALLO · ${pcntFailures.join(' · ')||'sin detalle'}` : 'esperando telemetría';
             const deltas=diag.encoder_delta ?? diag.deltas ?? diag.deltaEncoders;
             const responding=diag.encoder_responding ?? diag.encoder_responds ?? diag.encoderResponde;
             const isolated=diag.encoder_isolated ?? diag.isolated ?? diag.encoderAislado;
@@ -2199,27 +2234,30 @@
                 let status='unknown',label='sin datos';
                 if(isIsolated || isTrusted===false){status='isolated';label='aislado';}
                 else if(responds===true || isTrusted===true){status='ok';label='responde';}
-                else if(responds===false){status='fault';label='sin respuesta';}
+                else if(responds===false){status='unknown';label='sin señal en esta fase';}
                 document.getElementById(`cal-diag-delta-${wheel}`).textContent=`Δ ${delta===undefined?'—':String(delta)}`;
                 document.getElementById(`cal-diag-status-${wheel}`).textContent=label;
                 document.getElementById(`cal-diag-${wheel}`).dataset.status=status;
             });
-            const sides=diag.sides&&typeof diag.sides==='object'?diag.sides:{};
-            const averages=diag.side_average ?? diag.promedioLados;
-            const valid=diag.sides_valid ?? diag.ladosValidos;
-            const stalls=diag.stall_accumulated_ms ?? diag.stallAcumuladoMs;
-            const side=(name,index)=>{
-                const item=sides[name]&&typeof sides[name]==='object'?sides[name]:{};
-                return {
-                    average:item.average ?? item.delta ?? this.valueAt(averages,name,index,'—'),
-                    ok:item.ok ?? item.valid ?? this.valueAt(valid,name,index,undefined),
-                    stall:item.stall_ms ?? this.valueAt(stalls,name,index,'—'),
-                    sources:item.sources
-                };
-            };
-            const left=side('left',0), right=side('right',1);
-            const sideLabel=item=>`${item.average} Δ · ${item.ok===true?'OK':item.ok===false?'SIN MOV.':'—'}${item.sources?` · ${item.sources}`:''}`;
-            document.getElementById('cal-diag-sides').textContent=`L ${sideLabel(left)} / R ${sideLabel(right)} · stall ${left.stall} / ${right.stall} ms`;
+            const silence=Number(diag.encoder_silence_ms||0), silenceLimit=Number(diag.encoder_silence_limit_ms||500);
+            const silenceLabel=diag.gyro_without_encoders===true?` · IMU sin PCNT ${silence}/${silenceLimit} ms`:'';
+            const responseCount=Number(diag.pcnt_response_count||0);
+            const authority=diag.authority==='imu_primary_bilateral_pcnt'
+                ? 'MPU principal · PCNT bilateral'
+                : diag.authority==='imu_primary_one_pcnt'?'MPU principal · firmware anterior':'Autoridad sin identificar';
+            const wait=String(diag.wait_reason||'esperando datos');
+            const pivot=diag.pivot_pwm&&typeof diag.pivot_pwm==='object'?diag.pivot_pwm:{};
+            const leftTicks=Number(diag.left_ticks||0), rightTicks=Number(diag.right_ticks||0);
+            const ratio=Number(diag.tick_ratio);
+            const ratioLabel=Number.isFinite(ratio)?ratio.toFixed(2):'—';
+            const yawDelta=Number(diag.yaw_phase_delta||0);
+            const quality=String(diag.pivot_quality||'unverified');
+            const balance=String(diag.balance_adjustment||'—');
+            const translation=Number(diag.estimated_translation_cm||0);
+            const torque=diag.torque_detected===true?'torque detectado':'buscando torque';
+            const pivotState=diag.pivot_validated===true?'pivote validado':'pivote pendiente';
+            const directionLabel=diag.encoder_direction_verified===false?' · dirección PCNT no verificable':'';
+            document.getElementById('cal-diag-sides').textContent=`${authority} · ${torque} · ${pivotState} · calidad ${quality} · balance ${balance} · ticks L/R ${leftTicks}/${rightTicks} (ratio ${ratioLabel}) · Δyaw ${yawDelta.toFixed(1)}° · traslación estimada ${translation.toFixed(2)} cm · PCNT ${responseCount}/4 · espera ${wait} · PWM lógico L/R ${pivot.logical_left??'—'}/${pivot.logical_right??'—'}${silenceLabel}${directionLabel}`;
         },
         applyTelemetry(raw) {
             this.lastRaw=raw||{};
@@ -2389,10 +2427,32 @@
             const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-steps-v3 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
             document.getElementById('connection-panel-detail').textContent=detail;
             document.getElementById('connection-panel-dot').classList.toggle('ok',state.connected);
+            if(!state.connected && typeof RouteManager !== 'undefined') {
+                if(RouteManager.isRunning) {
+                    RouteManager.failRoute('Conexión interrumpida con el robot; ruta cancelada.');
+                }
+                RouteManager.queue = [];
+                RouteManager.logicalSteps = [];
+                RouteManager.currentStepIndex = 0;
+                RouteManager.updateListUI();
+                RouteManager.drawPlan();
+            }
             Calibration.updateAvailability();
             Telemetry._ui();
         },
-        applySession(session) { document.getElementById('active-session').textContent=session.recording ? `#${session.session_id}` : '—'; },
+        applySession(session) {
+            document.getElementById('active-session').textContent=session.recording ? `#${session.session_id}` : '—';
+            if(!session.recording && typeof RouteManager !== 'undefined') {
+                if(RouteManager.isRunning) {
+                    RouteManager.failRoute('Sesión detenida; ruta cancelada.');
+                }
+                RouteManager.queue = [];
+                RouteManager.logicalSteps = [];
+                RouteManager.currentStepIndex = 0;
+                RouteManager.updateListUI();
+                RouteManager.drawPlan();
+            }
+        },
         applyIdentity(telemetry) {
             if(telemetry.robot_id)document.getElementById('robot-id').textContent=telemetry.robot_id;
             if(telemetry.firmware_version)document.getElementById('firmware-version').textContent=telemetry.firmware_version;
@@ -2404,8 +2464,15 @@
             try {
                 const rows=await WSControl.api('/api/v1/sessions');
                 const body=document.getElementById('session-history');
-                if(!rows.length){body.innerHTML='<tr><td colspan="7" class="session-empty">Sin sesiones registradas</td></tr>';return;}
-                body.innerHTML=rows.map(row=>`<tr><td>#${row.id}</td><td>${this.esc(row.started_at)}</td><td>${this.esc(row.ended_at||'ACTIVA')}</td><td>${this.esc(row.robot_id||'pendiente')}</td><td>${row.samples}</td><td>${this.esc(row.disconnect_reason||'—')}</td><td><a href="/api/v1/sessions/${row.id}/telemetry.csv">CSV</a><a href="/api/v1/sessions/${row.id}.json">JSON</a></td></tr>`).join('');
+                if(!rows.length){body.innerHTML='<tr><td colspan="8" class="session-empty">Sin sesiones registradas</td></tr>';return;}
+                const localDay=row=>{
+                    if(!row.started_local_day)return '—';
+                    const offset=Number(row.started_utc_offset_min);
+                    if(!Number.isFinite(offset))return row.started_local_day;
+                    const sign=offset>=0?'+':'−', absolute=Math.abs(offset);
+                    return `${row.started_local_day} · UTC${sign}${String(Math.floor(absolute/60)).padStart(2,'0')}:${String(absolute%60).padStart(2,'0')}`;
+                };
+                body.innerHTML=rows.map(row=>`<tr><td>#${row.id}</td><td>${this.esc(localDay(row))}</td><td>${this.esc(row.started_at)}</td><td>${this.esc(row.ended_at||'ACTIVA')}</td><td>${this.esc(row.robot_id||'pendiente')}</td><td>${row.samples}</td><td>${this.esc(row.disconnect_reason||'—')}</td><td><a href="/api/v1/sessions/${row.id}/telemetry.csv">CSV</a><a href="/api/v1/sessions/${row.id}.json">JSON</a></td></tr>`).join('');
             } catch(error){LogSystem.add('ERROR',`Historial: ${error.message}`);}
         }
     };
@@ -3441,12 +3508,12 @@
             return {x:(cx-r.left)*s, y:(cy-r.top)*s};
         },
         _sendManual(pwmL, pwmR, dirL, dirR, force=false) {
-            const now = Date.now();
-            if (!force && now - this._sendTimer < 80) return;
-            this._sendTimer = now;
             const l = dirL==='rev' ? -pwmL : dirL==='stop' ? 0 : pwmL;
             const r = dirR==='rev' ? -pwmR : dirR==='stop' ? 0 : pwmR;
             this._lastPwmL = l; this._lastPwmR = r;
+            const now = Date.now();
+            if (!force && now - this._sendTimer < 80) return;
+            this._sendTimer = now;
             if(!this._begun)return;
             WSControl.manual('drive',{left:l,right:r}).catch(error=>{
                 if(error.status===409&&state.joy.active)this.end();
@@ -3460,10 +3527,18 @@
             if(!['IDLE','MANUAL'].includes(state.estado))return LogSystem.add('WARN',`Joystick bloqueado mientras el robot está en ${state.estado}.`);
             if(e.touches && e.touches.length!==1)return;
             state.joy.active=true; this.wrap.classList.add('active');
+            this.move(e);
             this._beginPromise=WSControl.manual('start').then(recording=>{
                 this.recordingId=recording.id;
                 document.getElementById('touch-recording-status').textContent='Grabando pose y encoders a 10 Hz…';
-                if(state.joy.active){ this._begun=true; this.move(e); }
+                if(state.joy.active){
+                    this._begun=true;
+                    this._sendManual(Math.abs(this._lastPwmL),Math.abs(this._lastPwmR),this._lastPwmL<0?'rev':this._lastPwmL>0?'fwd':'stop',this._lastPwmR<0?'rev':this._lastPwmR>0?'fwd':'stop',true);
+                    clearInterval(this._leaseTimer);
+                    this._leaseTimer=setInterval(()=>{
+                        if(state.joy.active)this._sendManual(Math.abs(this._lastPwmL),Math.abs(this._lastPwmR),this._lastPwmL<0?'rev':this._lastPwmL>0?'fwd':'stop',this._lastPwmR<0?'rev':this._lastPwmR>0?'fwd':'stop',true);
+                    },100);
+                }
                 return recording;
             }).catch(error=>{
                 state.joy.active=false;this._begun=false;this._resetVis();
@@ -3471,10 +3546,6 @@
                 LogSystem.add('ERROR',`No se pudo iniciar Control Touch: ${error.message}`);
                 return null;
             });
-            clearInterval(this._leaseTimer);
-            this._leaseTimer=setInterval(()=>{
-                if(state.joy.active)this._sendManual(Math.abs(this._lastPwmL),Math.abs(this._lastPwmR),this._lastPwmL<0?'rev':this._lastPwmL>0?'fwd':'stop',this._lastPwmR<0?'rev':this._lastPwmR>0?'fwd':'stop',true);
-            },100);
         },
         move(e) {
             if(!state.joy.active)return; e.preventDefault();
@@ -3509,7 +3580,7 @@
             this._bars(0,0,'stop','stop');
             document.getElementById('joy-speed-val').textContent='0%';
             document.getElementById('joy-dir-val').textContent='EN REPOSO';
-            this._lastPwmL = -999; this._lastPwmR = -999;
+            this._lastPwmL = 0; this._lastPwmR = 0;
             this._begun=false;
             const begin=this._beginPromise;this._beginPromise=null;
             if(debeDetener)Promise.resolve(begin).catch(()=>null).then(()=>WSControl.manual('stop')).then(recording=>this.renderRecording(recording)).catch(error=>LogSystem.add('ERROR',`No se pudo cerrar Control Touch: ${error.message}`));

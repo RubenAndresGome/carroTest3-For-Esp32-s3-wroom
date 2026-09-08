@@ -19,6 +19,20 @@ import sys
 DEFAULT_DB_PATH = os.path.join("tmp_db", "robot.sqlite3")
 
 
+def local_session_label(row: sqlite3.Row, prefix: str = "started") -> str:
+    keys = set(row.keys())
+    day_key = f"{prefix}_local_day"
+    offset_key = f"{prefix}_utc_offset_min"
+    if day_key not in keys or not row[day_key]:
+        return "día local no registrado"
+    offset = row[offset_key] if offset_key in keys else None
+    if offset is None:
+        return str(row[day_key])
+    sign = "+" if int(offset) >= 0 else "-"
+    absolute = abs(int(offset))
+    return f"{row[day_key]} (UTC{sign}{absolute // 60:02d}:{absolute % 60:02d})"
+
+
 def connect_db(db_path: str) -> sqlite3.Connection:
     if not os.path.exists(db_path):
         print(f"[ERROR] No se encontró el archivo de base de datos en: {db_path}")
@@ -42,24 +56,24 @@ def show_summary(conn: sqlite3.Connection) -> None:
         count = cursor.fetchone()["count"]
         print(f"  • Tabla '{t}': {count} registros")
     print("\n--- ÚLTIMAS 5 SESIONES ---")
-    cursor.execute("SELECT id, started_at, ended_at, disconnect_reason FROM sessions ORDER BY id DESC LIMIT 5;")
+    cursor.execute("SELECT * FROM sessions ORDER BY id DESC LIMIT 5;")
     sessions = cursor.fetchall()
     if not sessions:
         print("  (No hay sesiones registradas)")
     for s in sessions:
         estado = f"Finalizada ({s['disconnect_reason']})" if s['ended_at'] else "Activa / Incompleta"
-        print(f"  [Sesión #{s['id']}] Inicio: {s['started_at']} | Fin: {s['ended_at'] or '---'} | {estado}")
+        print(f"  [Sesión #{s['id']}] Día: {local_session_label(s)} | Inicio UTC: {s['started_at']} | Fin UTC: {s['ended_at'] or '---'} | {estado}")
     print("==================================================")
 
 
 def list_sessions(conn: sqlite3.Connection, limit: int) -> None:
     cursor = conn.cursor()
     print(f"\n=== ÚLTIMAS {limit} SESIONES ===")
-    cursor.execute(f"SELECT id, started_at, ended_at, robot_id, firmware_version, disconnect_reason FROM sessions ORDER BY id DESC LIMIT {limit};")
+    cursor.execute(f"SELECT * FROM sessions ORDER BY id DESC LIMIT {limit};")
     for row in cursor.fetchall():
         end = row['ended_at'] or 'ACTIVA'
         reason = f" ({row['disconnect_reason']})" if row['disconnect_reason'] else ""
-        print(f"  • #{row['id']} | Inicio: {row['started_at']} | Fin: {end}{reason} | Robot: {row['robot_id'] or '---'}")
+        print(f"  • #{row['id']} | Día: {local_session_label(row)} | Inicio UTC: {row['started_at']} | Fin UTC: {end}{reason} | Robot: {row['robot_id'] or '---'}")
 
 
 def list_commands(conn: sqlite3.Connection, limit: int) -> None:

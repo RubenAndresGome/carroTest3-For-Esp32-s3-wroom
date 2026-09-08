@@ -8,19 +8,23 @@
 #include "Sensores.h"
 #include "Eventos.h"
 #include "Seguridad.h"
+#include "ControlSeguridad.h"
 #include "Cinematica.h"
 #include "DiagnosticoRTOS.h"
+#include "MemoriaTorque.h"
+#include "ProtocolLimits.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
 
-#define MAX_WS_MSG 4096
-
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 static AsyncWebSocketClient* clienteActivo = nullptr;
-static char msgBuf[MAX_WS_MSG + 1];
+static char msgBuf[ProtocolLimits::WS_MESSAGE_MAX_BYTES + 1];
+// La telemetría supera 4 KiB. Mantener el documento fuera de la pila de
+// Task_Web evita bajar del mínimo de 1024 bytes al serializar cada frame.
+static StaticJsonDocument<ProtocolLimits::WS_MESSAGE_MAX_BYTES> telemetriaDoc;
 static unsigned long ultimoIntentoApMs = 0;
 static bool servidorIniciado = false;
 static unsigned long ultimaTelemetriaMs = 0;
@@ -49,8 +53,13 @@ static bool iniciarAP() {
 // ------ envío de JSON por WebSocket ------
 static void enviarJSON(const JsonDocument& doc) {
   size_t len = measureJson(doc);
-  if (len > MAX_WS_MSG) return;
-  serializeJson(doc, msgBuf, MAX_WS_MSG + 1);
+  if (len > ProtocolLimits::WS_MESSAGE_MAX_BYTES) {
+    Serial.printf("[RED] JSON omitido: %u bytes > limite %u.\n",
+        static_cast<unsigned>(len),
+        static_cast<unsigned>(ProtocolLimits::WS_MESSAGE_MAX_BYTES));
+    return;
+  }
+  serializeJson(doc, msgBuf, ProtocolLimits::WS_MESSAGE_MAX_BYTES + 1);
   if (clienteActivo && clienteActivo->canSend()) ws.textAll(msgBuf, len);
 }
 
@@ -196,11 +205,16 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
       }
       break;
     case WS_EVT_DISCONNECT:
-      if (clienteActivo == c) { clienteActivo = nullptr; solicitarManualDesconexion(); }
+      if (clienteActivo == c) {
+        clienteActivo = nullptr;
+        solicitarManualDesconexion();
+        solicitarDesconexionControl();
+      }
       break;
     case WS_EVT_DATA: {
       AwsFrameInfo* info = static_cast<AwsFrameInfo*>(arg);
-      if (info && info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT && len <= MAX_WS_MSG)
+      if (info && info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT &&
+          len <= ProtocolLimits::WS_MESSAGE_MAX_BYTES)
         parsearMensaje(data, len);
       break;
     }
@@ -235,7 +249,8 @@ static const char* textoSaludEncoder(EstadoSaludEncoder estado) {
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  StaticJsonDocument<4096> doc;
+  telemetriaDoc.clear();
+  auto& doc = telemetriaDoc;
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
@@ -263,6 +278,17 @@ static void enviarTelemetria() {
   doc["mpu_calibrated"] = s.mpu_calibrated;
   doc["i2c_ok"] = s.mpu_present;
   enc.add(s.pulsosFL); enc.add(s.pulsosFR); enc.add(s.pulsosBL); enc.add(s.pulsosBR);
+  const ControlInicializacionPCNT::Canal* diagnosticoPcnt = diagnosticoInicializacionPCNT();
+  JsonObject pcntInit = doc.createNestedObject("pcnt_init");
+  pcntInit["ready"] = pcntInicializados();
+  static const char* nombresPcnt[4] = {"fl", "fr", "bl", "br"};
+  for (int i = 0; i < 4; ++i) {
+    JsonObject canal = pcntInit.createNestedObject(nombresPcnt[i]);
+    canal["initialized"] = diagnosticoPcnt[i].inicializado;
+    canal["failed_stage"] = ControlInicializacionPCNT::textoEtapa(
+        diagnosticoPcnt[i].etapaFallida);
+    canal["error_code"] = diagnosticoPcnt[i].codigoError;
+  }
   doc["degraded"] = modoDegradado;
   doc["degraded_mode"] = modoDegradado;
   JsonArray encConfiables = doc.createNestedArray("enc_trusted");
@@ -307,19 +333,67 @@ static void enviarTelemetria() {
   const DiagnosticoCalibracion diagnosticoCal = obtenerDiagnosticoCalibracion();
   JsonObject calDiag = doc.createNestedObject("calibration_diagnostics");
   calDiag["active"] = diagnosticoCal.activa;
+  calDiag["authority"] = "imu_primary_bilateral_pcnt";
+  calDiag["yaw_phase_start"] = diagnosticoCal.yawFaseInicioDeg;
+  calDiag["yaw_phase_delta"] = diagnosticoCal.yawFaseDeltaDeg;
+  calDiag["torque_detected"] = diagnosticoCal.torqueDetectado;
+  calDiag["pivot_validated"] = diagnosticoCal.pivotValidado;
+  calDiag["pivot_quality"] = diagnosticoCal.pivotValidado ? "balanced_evidence" : "unverified";
+  calDiag["pwm_left_8bit"] = diagnosticoCal.pwmLado8[0];
+  calDiag["pwm_right_8bit"] = diagnosticoCal.pwmLado8[1];
+  calDiag["phase_motion_elapsed_ms"] = diagnosticoCal.movimientoFaseMs;
+  calDiag["encoder_direction_verified"] = false;
+  const int64_t ticksLeft = max(diagnosticoCal.deltaEncoders[0], diagnosticoCal.deltaEncoders[2]);
+  const int64_t ticksRight = max(diagnosticoCal.deltaEncoders[1], diagnosticoCal.deltaEncoders[3]);
+  calDiag["left_ticks"] = ticksLeft;
+  calDiag["right_ticks"] = ticksRight;
+  if (ticksRight > 0) calDiag["tick_ratio"] = static_cast<float>(ticksLeft) / ticksRight;
+  else calDiag["tick_ratio"] = nullptr;
+  calDiag["left_torque_confirmed"] = ticksLeft >= 2;
+  calDiag["right_torque_confirmed"] = ticksRight >= 2;
+  calDiag["balance_adjustment"] = diagnosticoCal.pwmLado8[0] == diagnosticoCal.pwmLado8[1] ? "equal" : "independent";
+  calDiag["estimated_translation_cm"] = 0.5f * (ticksRight - ticksLeft) *
+      diagnosticoCal.candidatoDireccion * (3.14159265f * WHEEL_DIAMETER_ODOMETRY_CM / ENCODER_PPR);
+  calDiag["translation_estimate_basis"] = "commanded_sign_unsigned_pcnt";
   calDiag["phase"] = faseComando;
   calDiag["ramp_level"] = diagnosticoCal.pasoRampa;
   calDiag["ramp_level_count"] = diagnosticoCal.pasosRampaTotal;
   calDiag["pwm_10bit"] = diagnosticoCal.pwmObjetivo;
   calDiag["pwm_8bit"] = lroundf(diagnosticoCal.pwmObjetivo / PWM_SCALE_8_TO_10);
   calDiag["direction_candidate"] = diagnosticoCal.candidatoDireccion;
+  calDiag["gyro_confirmed"] = diagnosticoCal.gyroConfirmado;
+  calDiag["pcnt_corroborated"] = diagnosticoCal.pcntCorroborado;
+  calDiag["pcnt_response_count"] = diagnosticoCal.encodersQueResponden;
+  calDiag["wait_reason"] = diagnosticoCal.espera;
+  calDiag["yaw_start_deg"] = diagnosticoCal.yawInicioDeg;
+  calDiag["yaw_current_deg"] = diagnosticoCal.yawActualDeg;
+  calDiag["yaw_return_error_deg"] = diagnosticoCal.errorRetornoDeg;
+  calDiag["return_watchdog_armed"] = diagnosticoCal.retornoWatchdogArmado;
+  calDiag["return_no_progress_ms"] = diagnosticoCal.retornoSinProgresoMs;
+  calDiag["return_no_progress_limit_ms"] = CAL_RETURN_NO_PROGRESS_MS;
+  calDiag["base_pwm_8bit"] = diagnosticoCal.pwmBase8;
+  calDiag["max_pwm_window_ms"] = diagnosticoCal.ventanaMaxPwmMs;
+  JsonObject calPwm = calDiag.createNestedObject("pivot_pwm");
+  calPwm["logical_left"] = diagnosticoCal.pwmLogicoIzquierdo;
+  calPwm["logical_right"] = diagnosticoCal.pwmLogicoDerecho;
+  calPwm["bridge_left"] = diagnosticoCal.pwmPuenteIzquierdo;
+  calPwm["bridge_right"] = diagnosticoCal.pwmPuenteDerecho;
+  JsonArray calWheelPwm = calPwm.createNestedArray("bridge_wheels");
+  calWheelPwm.add(pwm_aplicado_L * PWM_POLARITY_FL);
+  calWheelPwm.add(pwm_aplicado_R * PWM_POLARITY_FR);
+  calWheelPwm.add(pwm_aplicado_L * PWM_POLARITY_BL);
+  calWheelPwm.add(pwm_aplicado_R * PWM_POLARITY_BR);
   JsonArray calDelta = calDiag.createNestedArray("encoder_delta");
   JsonArray calResponse = calDiag.createNestedArray("encoder_responding");
   JsonArray calIsolated = calDiag.createNestedArray("encoder_isolated");
+  JsonArray calResponseA = calDiag.createNestedArray("phase_a_response");
+  JsonArray calResponseB = calDiag.createNestedArray("phase_b_response");
   for (int i = 0; i < 4; ++i) {
     calDelta.add(diagnosticoCal.deltaEncoders[i]);
     calResponse.add(diagnosticoCal.encoderResponde[i]);
     calIsolated.add(diagnosticoCal.encoderAislado[i]);
+    calResponseA.add(diagnosticoCal.respuestaFaseA[i]);
+    calResponseB.add(diagnosticoCal.respuestaFaseB[i]);
   }
   JsonObject calSides = calDiag.createNestedObject("sides");
   JsonObject calLeft = calSides.createNestedObject("left");
@@ -332,6 +406,10 @@ static void enviarTelemetria() {
   calRight["stall_ms"] = diagnosticoCal.stallAcumuladoMs[1];
   calDiag["ticks_required"] = CAL_TICKS_MOVIMIENTO;
   calDiag["stall_limit_ms"] = CAL_MAX_PWM_STALL_MS;
+  calDiag["max_pwm_window_limit_ms"] = CAL_MAX_PWM_STALL_MS;
+  calDiag["gyro_without_encoders"] = diagnosticoCal.giroDetectadoSinEncoders;
+  calDiag["encoder_silence_ms"] = diagnosticoCal.silencioEncodersMs;
+  calDiag["encoder_silence_limit_ms"] = diagnosticoCal.limiteSilencioEncodersMs;
   JsonObject fault = doc.createNestedObject("fault");
   fault["active"] = estadoActual == FALLO || estadoActual == ESTOP;
   fault["state"] = estadoActual == ESTOP ? "estop" : (estadoActual == FALLO ? "fallo" : "none");
@@ -349,8 +427,11 @@ static void enviarTelemetria() {
     permitidos.add("set_comp");
   }
   if ((estadoActual == DESARMADO || estadoActual == LISTO) &&
-      s.mpu_present && s.mpu_calibrated && !s.mpu_stale) permitidos.add("calibrate");
-  if (estadoActual == LISTO && robotCalibrado) {
+      pcntInicializados() && s.mpu_present && s.mpu_calibrated && !s.mpu_stale)
+    permitidos.add("calibrate");
+  if (estadoActual == LISTO && robotCalibrado && !persistenciaTorquePendiente() &&
+      pcntInicializados() &&
+      ControlSeguridad::fuentesPorLadoValidas(encoderConfiableGlobal)) {
     permitidos.add("step");
     permitidos.add("turn_to");
     permitidos.add("manual_begin");
@@ -420,13 +501,35 @@ static void enviarTelemetria() {
   doc["protocol"] = PROTOCOL_NAME;
   JsonArray capacidades = doc.createNestedArray("capabilities");
   capacidades.add("manual_drive_v1");
+  capacidades.add("pcnt_init_diag_v1");
   ManualDriveFrame manual = {};
   const bool manualValida = leerManualDrive(manual);
   doc["manual_lease_ms"] = MANUAL_LEASE_MS;
+  doc["manual_first_frame_grace_ms"] = MANUAL_FIRST_FRAME_GRACE_MS;
+  doc["manual_phase"] = faseManualTexto();
   doc["manual_lease_remaining_ms"] = manualValida && estadoActual == MANUAL && millis() - manual.recibidoMs < MANUAL_LEASE_MS
       ? MANUAL_LEASE_MS - (millis() - manual.recibidoMs) : 0;
   doc["manual_stream"] = manual.stream;
   doc["manual_frame"] = manual.frame;
+  const DiagnosticoMemoriaTorque memoriaTorque = obtenerDiagnosticoMemoriaTorque();
+  JsonObject torqueHistory = doc.createNestedObject("torque_history");
+  torqueHistory["record_count"] = memoriaTorque.cantidad;
+  torqueHistory["average_positive_8bit"] = memoriaTorque.promedioPositivo8;
+  torqueHistory["average_negative_8bit"] = memoriaTorque.promedioNegativo8;
+  torqueHistory["base_positive_8bit"] = memoriaTorque.basePositiva8;
+  torqueHistory["base_negative_8bit"] = memoriaTorque.baseNegativa8;
+  torqueHistory["average_positive_left_8bit"] = memoriaTorque.promedioPositivo8;
+  torqueHistory["average_negative_left_8bit"] = memoriaTorque.promedioNegativo8;
+  torqueHistory["average_positive_right_8bit"] = memoriaTorque.promedioPositivoDerecho8;
+  torqueHistory["average_negative_right_8bit"] = memoriaTorque.promedioNegativoDerecho8;
+  torqueHistory["base_positive_left_8bit"] = memoriaTorque.basePositiva8;
+  torqueHistory["base_negative_left_8bit"] = memoriaTorque.baseNegativa8;
+  torqueHistory["base_positive_right_8bit"] = memoriaTorque.basePositivaDerecha8;
+  torqueHistory["base_negative_right_8bit"] = memoriaTorque.baseNegativaDerecha8;
+  torqueHistory["mounted"] = memoriaTorque.montada;
+  torqueHistory["loaded"] = memoriaTorque.cargada;
+  torqueHistory["pending"] = memoriaTorque.persistenciaPendiente;
+  torqueHistory["status"] = memoriaTorque.estado;
   doc["reset_reason"] = motivoResetESP32;
   doc["stack_web"] = stackMinimoWebBytes == UINT32_MAX ? 0 : stackMinimoWebBytes;
   doc["stack_control"] = stackMinimoControlBytes == UINT32_MAX ? 0 : stackMinimoControlBytes;

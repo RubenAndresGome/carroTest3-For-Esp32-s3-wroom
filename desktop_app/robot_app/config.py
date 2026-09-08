@@ -11,6 +11,7 @@ from platformdirs import user_data_path
 
 
 DEFAULT_ROBOT_HOST = "192.168.4.1"
+MAX_ROBOT_MESSAGE_BYTES = 7168
 
 
 def normalize_robot_host(value: object) -> str:
@@ -33,7 +34,7 @@ class AppConfig:
     start_gateway: bool = False
     telemetry_queue_size: int = 256
     event_queue_size: int = 64
-    max_message_bytes: int = 4096
+    max_message_bytes: int = MAX_ROBOT_MESSAGE_BYTES
 
     @classmethod
     def from_environment(cls) -> "AppConfig":

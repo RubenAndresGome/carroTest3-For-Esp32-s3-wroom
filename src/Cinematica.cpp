@@ -203,8 +203,6 @@ void calTorque(bool primera) {
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
       conservarEncodersAisladosDelDiagnostico();
       int guardado = min(PWM_TURN_MAX_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
-      if (s.gyro_z_filtrado_rad_s > 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
-      else { candidatoGiroNeg=candidatoCal; pwmMinGiroNeg=guardado; }
       frenarMotores();
       if (primera) {
         if (s.gyro_z_filtrado_rad_s < 0) {
@@ -213,12 +211,16 @@ void calTorque(bool primera) {
           inicioMovCalMs = 0;
           return;
         }
-        iniciarBaseGiro(normalizar360(yawInicioCalDeg + 25.0f), Fase::CAL_VALIDAR_25);
+        candidatoGiroPos = candidatoCal;
+        pwmMinGiroPos = guardado;
+        iniciarBaseGiro(normalizar360(yawInicioCalDeg + CALIBRACION_GIRO_TEST_DEG), Fase::CAL_VALIDAR_25);
         progresoComando=0.35f;
         strncpy(faseComando,"cal_mas_25",sizeof(faseComando));
       }
       else {
-        if (candidatoGiroPos==candidatoGiroNeg) { fallo("cal_dir_failed"); return; }
+        candidatoGiroNeg = candidatoCal;
+        pwmMinGiroNeg = guardado;
+        if (candidatoGiroPos == candidatoGiroNeg) { fallo("cal_dir_failed"); return; }
         iniciarFaseCal(Fase::CAL_PAUSA_RETORNO); progresoComando=0.85f; strncpy(faseComando,"cal_retorno",sizeof(faseComando));
       }
     }
@@ -374,7 +376,8 @@ void controlarGiro() {
     else if (watchdogGiroArmado && ahora-ultimoPulsoLadoGiroMs[i] > TURN_STALL_MS) { reintentarGiro(i==0?"turn_stall_left":"turn_stall_right"); return; }
   }
 
-  if (ahora - inicioGiroTotalMs > TURN_TIMEOUT_MS) { fallo("turn_timeout_total"); return; }
+  const uint32_t timeoutGiro = (fase == Fase::CAL_RETORNO) ? CAL_RETURN_TIMEOUT_MS : TURN_TIMEOUT_MS;
+  if (ahora - inicioGiroTotalMs > timeoutGiro) { fallo(fase == Fase::CAL_RETORNO ? "cal_return_timeout" : "turn_timeout_total"); return; }
   if (ahora - inicioIntentoGiroMs > TURN_ATTEMPT_TIMEOUT_MS) { reintentarGiro("turn_timeout_attempt"); return; }
 
   // --- latch de tolerancia ---

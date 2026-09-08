@@ -118,7 +118,7 @@ def main() -> int:
     except (FileNotFoundError, RuntimeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
-    codigo = ejecutar([str(adb), "-s", serial, "install", "-r", str(APK)])
+    codigo = ejecutar([str(adb), "-s", serial, "install", "-r", "-d", str(APK)])
     if codigo:
         return codigo
     comprobacion = subprocess.run([str(adb), "-s", serial, "shell", "pm", "path", PAQUETE],

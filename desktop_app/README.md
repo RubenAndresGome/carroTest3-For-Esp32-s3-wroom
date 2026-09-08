@@ -2,6 +2,10 @@
 
 La aplicación local backend/HMI separa la interfaz de usuario y la persistencia de datos del lazo de tiempo real del firmware. El navegador web utiliza exclusivamente HTTP REST y Server-Sent Events (SSE) contra `127.0.0.1:8080`; Python mantiene la única conexión WebSocket activa hacia `ws://192.168.4.1/ws` y almacena sesiones, historial y eventos en SQLite.
 
+El gateway acepta frames de robot de hasta 7168 bytes. Los rechazos por tamaño
+registran los bytes recibidos y el límite para que SQLite/ADB distingan un fallo
+de contrato de una caída de Wi-Fi.
+
 ---
 
 ## Arquitectura de Propiedad y Componentes
@@ -46,7 +50,7 @@ Para la especificación UML y detallada de atributos, consulte:
 1. El usuario arranca el HMI local en Windows mediante `INICIAR_ROBOT.bat` o ejecutable.
 2. El servidor Flask / Waitress se inicializa en `127.0.0.1:8080`.
 3. `RobotGateway` establece el socket hacia `ws://192.168.4.1/ws` en la red Wi-Fi `ROBOT_S3_LOCAL`.
-4. La HMI valida el estado del robot y bloquea misiones hasta completar la calibración obligatoria con ruedas elevadas (+25° yaw, reposo 2.5 s, retorno a 0°).
+4. La HMI bloquea misiones hasta completar la calibración: detección de torque por MPU, pivote PCNT bilateral equilibrado en ambas polaridades, reposo de 2.5 s y retorno al yaw inicial. No existe una validación adicional de +25°.
 5. Las misiones de navegación se descomponen en tramos ortogonales de hasta 2 metros (`split_segment_mm` / `decompose_to_orthogonal_steps`).
 
 ---
