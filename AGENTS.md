@@ -49,8 +49,7 @@
      hacia el `yawInicioCalDeg` original, reseteando la odometría de `PoseGlobal` (X=0, Y=0) y
      el yaw de la IMU al estabilizarse.
 - **Polaridad Harcodeada de Ejes y Motores**:
-  - `PWM_FORWARD_POLARITY = 1`: Los motores avanzan hacia +Y físico en concordancia directa con
-    el eje Y+ de la interfaz de usuario.
+  - `PWM_FORWARD_POLARITY = -1`: Correspondiente al cableado físico actual en las borneras del DRV8833, de modo que el avance y traslación concuerdan exactamente hacia +Y de la interfaz de usuario.
   - El sentido de giro positivo del yaw (horario / dextrógiro) corresponde a la orientación
     cardinal canónica donde el ángulo avanza de +Y hacia +X.
 - Todos los giros autónomos usan un único pivot dinámico. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo controlador; la aproximación fina (<5°) utiliza micro-pulsos intermitentes de exactitud (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia e integración del IMU y evitar sobrepasos. El movimiento se valida con `fabsf(gyro_z)` y deltas de encoder. Mientras no se confirme movimiento en macro-giros, el torque escala en rampa adaptativa sin exceder 247/255 (~97%). Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica produce parada segura.

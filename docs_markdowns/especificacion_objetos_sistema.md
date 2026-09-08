@@ -157,7 +157,7 @@ Controlador cinemático de bucle cerrado:
     6. `CAL_PAUSA_RETORNO`: Reposo de 2.5 s.
     7. `CAL_RETORNO`: Pivote puro de retorno hacia el `yawInicioCalDeg` original, restableciendo la odometría `PoseGlobal` (X=0, Y=0) y el rumbo angular al estabilizarse.
 - **Polaridad Harcodeada de Ejes**:
-  - `PWM_FORWARD_POLARITY = 1`: Los motores avanzan en sentido positivo hacia el eje +Y físico y cardinal concordante con la IU (0° mirando a +Y).
+  - `PWM_FORWARD_POLARITY = -1`: Correspondiente al cableado físico en el DRV8833, garantizando que el avance positivo traslade el chasis hacia el eje +Y físico y cardinal concordante con la IU (0° mirando a +Y).
   - Ángulos crecientes en sentido horario hacia el eje +X (90° hacia la derecha / +X).
 
 #### `Seguridad` (`include/Seguridad.h`, `src/Seguridad.cpp`)
