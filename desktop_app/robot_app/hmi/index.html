@@ -1597,11 +1597,11 @@
                     <label for="route-axis-default">Eje único</label>
                 </div>
                 <div class="cmd-input-group">
-                    <label id="route-label-1" for="route-input-1">Coordenada Relativa X:</label>
+                    <label id="route-label-1" for="route-input-1">Coordenada Relativa X (+X Derecha):</label>
                     <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-1" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-1" data-toggle-sign="route-input-1" aria-label="Cambiar signo del primer valor">&plusmn;</button></div>
                 </div>
                 <div class="cmd-input-group">
-                    <label id="route-label-2" for="route-input-2">Coordenada Relativa Y:</label>
+                    <label id="route-label-2" for="route-input-2">Coordenada Relativa Y (+Y Frente):</label>
                     <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-2" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-2" data-toggle-sign="route-input-2" aria-label="Cambiar signo del segundo valor">&plusmn;</button></div>
                 </div>
                 <button type="submit" class="btn btn-accent">+ Agregar paso</button>
@@ -2784,8 +2784,8 @@
     class RectangularRouteMode extends RoutePlanningMode {
         constructor() { super('rect'); }
         configureForm(manager) {
-            manager.lbl1.textContent = 'Coordenada Relativa X:';
-            manager.lbl2.textContent = 'Coordenada Relativa Y:';
+            manager.lbl1.textContent = 'Coordenada Relativa X (+X Derecha):';
+            manager.lbl2.textContent = 'Coordenada Relativa Y (+Y Frente):';
             manager.input1.removeAttribute('min'); manager.input1.removeAttribute('max');
             manager.input2.removeAttribute('min'); manager.input2.removeAttribute('max');
             document.getElementById('route-sign-1').style.display = '';
@@ -2996,8 +2996,8 @@
                     zoom:{ pan:{enabled:true,mode:'xy'}, zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'xy'} }
                 },
                 scales:{
-                    x:{ type:'linear', min:-50, max:50, title:{display:true,text:'X (cm)',color:text}, ticks:{color:text}, grid:{color:grid} },
-                    y:{ type:'linear', min:-50, max:50, title:{display:true,text:'Y (cm)',color:text}, ticks:{color:text}, grid:{color:grid} }
+                    x:{ type:'linear', min:-50, max:50, title:{display:true,text:'X (cm) [← Izq / Der →]',color:text}, ticks:{color:text}, grid:{color:grid} },
+                    y:{ type:'linear', min:-50, max:50, title:{display:true,text:'Y (cm) [↓ Rev / Fte ↑]',color:text}, ticks:{color:text}, grid:{color:grid} }
                 }
             };
         },
