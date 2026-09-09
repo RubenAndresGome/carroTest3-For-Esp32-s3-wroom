@@ -14,14 +14,15 @@ extern const char* password_AP;
 
 // Motores (DRV8833)
 // FL/BL: izquierdo superior/inferior. FR/BR: derecho superior/inferior.
-const int PIN_FL_FWD = 6;
-const int PIN_FL_REV = 7;
-const int PIN_BL_FWD = 5;
-const int PIN_BL_REV = 4;
-const int PIN_FR_FWD = 17;
-const int PIN_FR_REV = 18;
-const int PIN_BR_FWD = 15;
-const int PIN_BR_REV = 16;
+// Asignados segun polaridad fisica OUT (+) naranja / (-) negro en borneras:
+const int PIN_FL_FWD = 7;   // IN3 -> OUT3 (naranja +)
+const int PIN_FL_REV = 6;   // IN4 -> OUT4 (negro -)
+const int PIN_BL_FWD = 4;   // IN2 -> OUT2 (naranja +)
+const int PIN_BL_REV = 5;   // IN1 -> OUT1 (rojo/negro -)
+const int PIN_FR_FWD = 18;  // IN4 -> OUT4 (naranja +)
+const int PIN_FR_REV = 17;  // IN3 -> OUT3 (negro -)
+const int PIN_BR_FWD = 16;  // IN2 -> OUT2 (naranja +)
+const int PIN_BR_REV = 15;  // IN1 -> OUT1 (negro -)
 
 // Encoders (Cableado fisico real verificado por hardware)
 const int PIN_ENC_FL = 11;  // superior izquierdo, cable verde (TXS B5->A5)

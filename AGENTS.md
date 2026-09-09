@@ -53,7 +53,7 @@
   - El sentido de giro positivo del yaw (horario / dextrógiro) corresponde a la orientación
     cardinal canónica donde el ángulo avanza de +Y (0°) hacia +X (+90°).
   - **Mapeo Físico de Pines (Verificado por Hardware en Taller)**:
-    - Motores: FL (FWD=GPIO6, REV=GPIO7), BL (FWD=GPIO5, REV=GPIO4), FR (FWD=GPIO17, REV=GPIO18), BR (FWD=GPIO15, REV=GPIO16).
+    - Motores: FL (FWD=GPIO7, REV=GPIO6), BL (FWD=GPIO4, REV=GPIO5), FR (FWD=GPIO18, REV=GPIO17), BR (FWD=GPIO16, REV=GPIO15).
     - Encoders (TXS0108E): FL (GPIO11, verde, B5->A5), FR (GPIO10, blanco, B6->A6), BL (GPIO12, negro, B2->A2), BR (GPIO13, rojo, B1->A1).
     - IMU MPU6050: SDA=GPIO8, SCL=GPIO9.
 - Todos los giros autónomos usan un único pivot dinámico. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo controlador; la aproximación fina (<5°) utiliza micro-pulsos intermitentes de exactitud (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia e integración del IMU y evitar sobrepasos. El movimiento se valida con `fabsf(gyro_z)` y deltas de encoder. Mientras no se confirme movimiento en macro-giros, el torque escala en rampa adaptativa sin exceder 247/255 (~97%). Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica produce parada segura.

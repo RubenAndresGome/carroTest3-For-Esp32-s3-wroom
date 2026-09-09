@@ -41,21 +41,21 @@ flowchart LR
 
 | Rueda | Avance/FWD | Reversa/REV | Puente y entradas |
 |---|---:|---:|---|
-| FL, frontal izquierda | GPIO6 | GPIO7 | DRV izquierdo IN1 / IN2 |
-| BL, trasera izquierda | GPIO4 | GPIO5 | DRV izquierdo IN3 / IN4 |
-| FR, frontal derecha | GPIO17 | GPIO18 | DRV derecho IN1 / IN2 |
-| BR, trasera derecha | GPIO15 | GPIO16 | DRV derecho IN3 / IN4 |
+| FL, frontal izquierda | GPIO7 | GPIO6 | DRV izquierdo IN3 (+) / IN4 (-) |
+| BL, trasera izquierda | GPIO4 | GPIO5 | DRV izquierdo IN2 (+) / IN1 (-) |
+| FR, frontal derecha | GPIO18 | GPIO17 | DRV derecho IN4 (+) / IN3 (-) |
+| BR, trasera derecha | GPIO16 | GPIO15 | DRV derecho IN2 (+) / IN1 (-) |
 
 El firmware genera PWM a 5 kHz y 10 bits (0–1023). La polaridad lógica aprobada está implementada en software; no intercambie GPIO para corregir el sentido de una rueda sin revisar también el cableado y `Config.h`.
 
 ### Encoders PCNT
 
-| Encoder | GPIO | PCNT | Identificación física |
+| Encoder | GPIO | PCNT | Identificación física (TXS0108E) |
 |---|---:|---:|---|
-| FL | GPIO10 | UNIT 0 | cable rojo |
-| FR | GPIO11 | UNIT 1 | cable café |
-| BL | GPIO12 | UNIT 2 | cable negro |
-| BR | GPIO13 | UNIT 3 | cable blanco |
+| FL | GPIO11 | UNIT 0 | Verde (B5 $\to$ A5) |
+| FR | GPIO10 | UNIT 1 | Blanco (B6 $\to$ A6) |
+| BL | GPIO12 | UNIT 2 | Negro (B2 $\to$ A2) |
+| BR | GPIO13 | UNIT 3 | Rojo (B1 $\to$ A1) |
 
 Las salidas LM393 de 4.8 V pasan por el conversor de nivel antes del ESP32. La lectura se hace con PCNT, no con `attachInterrupt`.
 

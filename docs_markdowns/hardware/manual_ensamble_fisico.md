@@ -38,27 +38,29 @@ Si el módulo TXS0108E expone `OE` y la placa no lo mantiene activo internamente
 
 ## 4. Motores y DRV8833
 
-### Registro Fotográfico del Cableado Real (Notas de Taller)
+### Registro Fotográfico del Cableado Real (Notas de Taller y Montaje)
 
 ![Cableado Físico Real de Motores y Encoders](cableado_fisico_motores_encoders.png)
 
+![Montaje Físico en Protoboard](montaje_protoboard_drv8833.jpg)
+
 ### DRV8833 izquierdo
 
-| Entrada | Bornera / Canal | GPIO ESP32 | Color Cable | Función |
+| Entrada | Bornera / Canal | GPIO ESP32 | Polaridad OUT / Color Cable | Función |
 |---|---|---:|---|---|
-| IN4 | OUT4 | GPIO6 | Café | FL FWD |
-| IN3 | OUT3 | GPIO7 | Naranja 2 | FL REV |
-| IN1 | OUT1 | GPIO5 | Rojo | BL FWD |
-| IN2 | OUT2 | GPIO4 | Naranja 1 | BL REV |
+| IN3 | OUT3 | GPIO7 | Naranja (+) | **FL FWD** |
+| IN4 | OUT4 | GPIO6 | Negro / Café (-) | **FL REV** |
+| IN2 | OUT2 | GPIO4 | Naranja 1 (+) | **BL FWD** |
+| IN1 | OUT1 | GPIO5 | Rojo (-) | **BL REV** |
 
 ### DRV8833 derecho
 
-| Entrada | Bornera / Canal | GPIO ESP32 | Color Cable | Función |
+| Entrada | Bornera / Canal | GPIO ESP32 | Polaridad OUT / Color Cable | Función |
 |---|---|---:|---|---|
-| IN3 | OUT3 | GPIO17 | Amarillo | FR FWD |
-| IN4 | OUT4 | GPIO18 | Naranja | FR REV |
-| IN1 | OUT1 | GPIO15 | Verde | BR FWD |
-| IN2 | OUT2 | GPIO16 | Negro | BR REV |
+| IN4 | OUT4 | GPIO18 | Naranja (+) | **FR FWD** |
+| IN3 | OUT3 | GPIO17 | Negro / Amarillo (-) | **FR REV** |
+| IN2 | OUT2 | GPIO16 | Naranja (+) | **BR FWD** |
+| IN1 | OUT1 | GPIO15 | Negro / Verde (-) | **BR REV** |
 
 El PWM actual es de 5 kHz y 10 bits, con límite de 242/255 en avance y 247/255 en giro y calibración. La calibración parte eléctricamente de cero, alcanza la base desde 140/255 y ajusta el PWM de cada lado por separado. Un yaw acumulado de 1° más un PCNT detecta torque; para validar el pivote debe responder al menos un PCNT por lado y la relación entre `max(FL,BL)` y `max(FR,BR)` debe permanecer entre 0.5 y 2.0. Dos ventanas asimétricas de 250 ms, más de 3° o 1.5 s sin equilibrio frenan la fase. Toda inversión mantiene ambos canales del lado apagados al menos 250 ms y la calibración espera 750 ms antes de cambiar polaridad. Los PCNT actuales cuentan un flanco sin dirección física: la evidencia de equilibrio no garantiza por sí sola un pivote centrado. Si una rueda gira al revés, detenga el sistema y compruebe cableado y polaridad individual antes de cambiar configuración.
 

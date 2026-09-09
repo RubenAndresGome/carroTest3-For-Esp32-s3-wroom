@@ -63,10 +63,10 @@ de cablear una revisión distinta.
 
 | Elemento | Pines activos | Cableado físico real / Color | Comprobación sin VMOT |
 |---|---|---|---|
-| Motores FL | GPIO 6 / 7 | IN4 (café) / IN3 (naranja 2) | Ambas entradas permanecen LOW durante boot controlable. |
-| Motores BL | GPIO 5 / 4 | IN1 (rojo) / IN2 (naranja 1) | Ambas entradas permanecen LOW durante boot controlable. |
-| Motores FR | GPIO 17 / 18 | IN3 (amarillo) / IN4 (naranja) | Ambas entradas permanecen LOW durante boot controlable. |
-| Motores BR | GPIO 15 / 16 | IN1 (verde) / IN2 (negro) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores FL | GPIO 7 / 6 | IN3 (naranja 2, FWD +) / IN4 (café, REV -) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores BL | GPIO 4 / 5 | IN2 (naranja 1, FWD +) / IN1 (rojo, REV -) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores FR | GPIO 18 / 17 | IN4 (naranja, FWD +) / IN3 (amarillo, REV -) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores BR | GPIO 16 / 15 | IN2 (naranja, FWD +) / IN1 (verde, REV -) | Ambas entradas permanecen LOW durante boot controlable. |
 | Encoder FL | GPIO 11 | Verde (TXS B5 $\to$ A5) | Contador PCNT 0 cambia al girar sólo la rueda FL. |
 | Encoder FR | GPIO 10 | Blanco (TXS B6 $\to$ A6) | Contador PCNT 1 cambia al girar sólo la rueda FR. |
 | Encoder BL | GPIO 12 | Negro (TXS B2 $\to$ A2) | Contador PCNT 2 cambia al girar sólo la rueda BL. |

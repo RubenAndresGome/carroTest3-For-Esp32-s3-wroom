@@ -159,10 +159,10 @@ Controlador cinemático de bucle cerrado:
 - **Polaridad Harcodeada de Ejes y Mapeo Físico de Pines**:
   - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido por el operador), garantizando que el avance positivo traslade el chasis hacia el frente (eje +Y físico y cardinal concordante con la IU, 0° mirando a +Y) y el giro horario traslade hacia +X (90° a la derecha).
   - **Pines Motores (DRV8833)**:
-    - FL: FWD=GPIO6 (IN4), REV=GPIO7 (IN3)
-    - BL: FWD=GPIO5 (IN1), REV=GPIO4 (IN2)
-    - FR: FWD=GPIO17 (IN3), REV=GPIO18 (IN4)
-    - BR: FWD=GPIO15 (IN1), REV=GPIO16 (IN2)
+    - FL: FWD=GPIO7 (IN3), REV=GPIO6 (IN4)
+    - BL: FWD=GPIO4 (IN2), REV=GPIO5 (IN1)
+    - FR: FWD=GPIO18 (IN4), REV=GPIO17 (IN3)
+    - BR: FWD=GPIO16 (IN2), REV=GPIO15 (IN1)
   - **Pines Encoders (TXS0108E)**:
     - FL: GPIO11 (cable verde, canal B5 $\to$ A5)
     - FR: GPIO10 (cable blanco, canal B6 $\to$ A6)
