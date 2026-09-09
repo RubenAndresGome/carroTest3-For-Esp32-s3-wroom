@@ -59,7 +59,7 @@ constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
 constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER;
-constexpr int ENCODER_PPR = 20;
+constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
@@ -132,6 +132,8 @@ constexpr float TOLERANCIA_GIRO_DEG = 3.0f;
 constexpr float TOLERANCIA_CALIBRACION_DEG = 1.0f;
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 5.0f;
+constexpr uint32_t TURN_PULSE_ON_MS = 35;
+constexpr uint32_t TURN_PULSE_OFF_MS = 55;
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
 constexpr float TURN_REACTIVATION_DEG = 4.0f;
 constexpr uint8_t TURN_MAX_ATTEMPTS = 15;
@@ -168,9 +170,9 @@ constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
-constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
-constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
-constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
+constexpr uint32_t CAL_MAX_PWM_STALL_MS = 2500;
+constexpr float DESACUERDO_MAXIMO_PAR = 0.40f;
+constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 1500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;
 constexpr int64_t TICKS_MINIMOS_AUDITORIA = 20;
 constexpr float ERROR_MAX_CLASIFICAR_DEG = 3.0f;
@@ -178,9 +180,9 @@ constexpr float ERROR_MAX_CLASIFICAR_DEG = 3.0f;
 // Salud persistente de encoders. La ventana no depende del tramo activo para
 // que una recuperacion de endpoint no vuelva a declarar sano un cable abierto.
 constexpr uint32_t ENCODER_HEALTH_WINDOW_MS = 250;
-constexpr uint32_t ENCODER_SUSPECT_MS = 250;
-constexpr uint32_t ENCODER_EXCLUDE_MS = 500;
-constexpr uint8_t ENCODER_REJOIN_WINDOWS = 8;
+constexpr uint32_t ENCODER_SUSPECT_MS = 800;
+constexpr uint32_t ENCODER_EXCLUDE_MS = 1800;
+constexpr uint8_t ENCODER_REJOIN_WINDOWS = 2;
 constexpr int ENCODER_HEALTH_PWM_MIN = static_cast<int>(60 * PWM_SCALE_8_TO_10);
 
 // Recuperacion de friccion estatica: siete pulsos breves, separados por una

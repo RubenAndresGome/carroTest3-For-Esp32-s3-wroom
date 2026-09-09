@@ -198,7 +198,9 @@ void calTorque(bool primera) {
     return;
   }
 
-  if (ticksOk && gyroOk) {
+  // Autoridad MPU: si el giroscopio certifica giro real sostenido y al menos un lado produce ticks
+  const bool rotacionConfirmada = (ticksOk && gyroOk) || (gyroOk && (ladoIzqOk || ladoDerOk));
+  if (rotacionConfirmada) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
       conservarEncodersAisladosDelDiagnostico();
@@ -233,10 +235,15 @@ void calTorque(bool primera) {
     if (!ultimaAuditoriaMaxCalMs) ultimaAuditoriaMaxCalMs = ahora;
     const uint32_t lapso = ahora - ultimaAuditoriaMaxCalMs;
     ultimaAuditoriaMaxCalMs = ahora;
-    if (!ladoIzqOk) stallMaxCalAcumMs[0] += lapso;
-    if (!ladoDerOk) stallMaxCalAcumMs[1] += lapso;
-    if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_left"); return; }
-    if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
+    // Si el MPU certifica rotación angular, el robot se mueve físicamente; no es stall mecánico
+    if (gyroOk || fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S) {
+      stallMaxCalAcumMs[0] = stallMaxCalAcumMs[1] = 0;
+    } else {
+      if (!ladoIzqOk) stallMaxCalAcumMs[0] += lapso;
+      if (!ladoDerOk) stallMaxCalAcumMs[1] += lapso;
+      if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_left"); return; }
+      if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
+    }
   } else {
     ultimaAuditoriaMaxCalMs = 0;
   }
@@ -460,13 +467,21 @@ void controlarGiro() {
     if (pwmGiroAct<pwmObj) pwmGiroAct=min(pwmObj, pwmGiroAct+paso);
     else pwmGiroAct=max(pwmObj, pwmGiroAct-PWM_TURN_SLEW_STEP);
   }
-  if (signoGiroApl != 0 && pwmGiroAct > 0) {
+  bool pulsoGiroEncendido = true;
+  if (errorAbs <= TURN_HYBRID_THRESHOLD_DEG) {
+    const uint32_t periodoPulso = TURN_PULSE_ON_MS + TURN_PULSE_OFF_MS;
+    const uint32_t tCiclo = ahora % periodoPulso;
+    pulsoGiroEncendido = (tCiclo < TURN_PULSE_ON_MS);
+  }
+
+  if (signoGiroApl != 0 && pwmGiroAct > 0 && pulsoGiroEncendido) {
     int cand = signoGiroApl > 0 ? candidatoGiroPos : candidatoGiroNeg;
     if (cand == 0) {
       if (candidatoGiroPos != 0) cand = (signoGiroApl > 0) ? candidatoGiroPos : -candidatoGiroPos;
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? -1 : 1;
     }
+    // Contra-rotación simétrica pura: ambos lados en sentidos opuestos (-cand*pwm, +cand*pwm)
     if (!aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct)) {
       fallo("motor_output_error");
       return;

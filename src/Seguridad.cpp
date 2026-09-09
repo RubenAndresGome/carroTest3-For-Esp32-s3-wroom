@@ -86,22 +86,17 @@ void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, i
     }
     inicio_ventana_encoder_ms = ahora;
     const float referencia = ControlSeguridad::medianaCuatro(delta);
+    const float medianaActiva = ControlSeguridad::medianaCanalesActivos(delta, encoderConfiableGlobal);
 
     for (int i = 0; i < 4; ++i) {
         const bool pwmExigido = ladoExigido[(i == 0 || i == 2) ? 0 : 1];
         const int pareja = i < 2 ? i + 2 : i - 2;
         const float desviacion = fabsf(static_cast<float>(delta[i]) - referencia) /
             fmaxf(1.0f, fabsf(referencia));
-        const float desacuerdoPareja = fabsf(static_cast<float>(delta[i] - delta[pareja])) /
-            fmaxf(1.0f, fabsf(static_cast<float>(delta[pareja])));
         encoderDesviacionPct[i] = desviacion * 100.0f;
         // Los dos motores de un mismo lado reciben el mismo PWM. Compararlos
         // entre si evita excluir un lado completo cuando el PID reduce su
         // velocidad respecto al lado contrario durante una correccion.
-        // No excluir dos encoders que sí entregan pulsos sólo porque sus
-        // magnitudes difieren. En la sesión ADB 137 eso marcó simultáneamente
-        // FL/FR/BL/BR como EXCLUDED en 500 ms y provocó enc_no_estimation pese
-        // a que tres canales avanzaban. Sólo el cero aislado es concluyente.
         const bool incoherente = ControlSeguridad::encoderSinRespuestaAislada(
             delta[i], delta[pareja], pwmExigido);
 
@@ -120,8 +115,8 @@ void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, i
                 estadoSaludEncoderGlobal[i] = EstadoSaludEncoder::HEALTHY;
             }
         } else {
-            const bool coherente = pwmExigido && delta[i] > 0 && delta[pareja] > 0 &&
-                desacuerdoPareja <= DESACUERDO_MAXIMO_PAR;
+            const bool coherente = ControlSeguridad::encoderPuedeReingresar(
+                delta[i], delta[pareja], medianaActiva, pwmExigido, DESACUERDO_MAXIMO_PAR);
             if (coherente) {
                 estadoSaludEncoderGlobal[i] = EstadoSaludEncoder::RECOVERING;
                 if (encoderMuestrasReingreso[i] < ENCODER_REJOIN_WINDOWS)

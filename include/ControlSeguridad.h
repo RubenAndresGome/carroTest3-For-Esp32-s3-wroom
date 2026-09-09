@@ -141,4 +141,43 @@ inline bool stopDebePreservarFallo(bool fallo, bool estop) {
   return fallo || estop;
 }
 
+inline float medianaCanalesActivos(const int64_t valores[4], const bool confiable[4]) {
+  int64_t activos[4] = {};
+  int n = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (confiable[i] && valores[i] > 0) {
+      activos[n++] = valores[i];
+    }
+  }
+  if (n == 0) return 0.0f;
+  for (int i = 1; i < n; ++i) {
+    int64_t act = activos[i];
+    int j = i - 1;
+    while (j >= 0 && activos[j] > act) {
+      activos[j + 1] = activos[j];
+      --j;
+    }
+    activos[j + 1] = act;
+  }
+  if (n % 2 == 1) return static_cast<float>(activos[n / 2]);
+  return 0.5f * static_cast<float>(activos[(n / 2) - 1] + activos[n / 2]);
+}
+
+inline bool encoderPuedeReingresar(int64_t delta, int64_t deltaPareja,
+                                   float medianaActiva, bool ladoExigido,
+                                   float desacuerdoMaximo) {
+  if (!ladoExigido || delta <= 0) return false;
+  if (deltaPareja > 0) {
+    const float desacuerdo = fabsf(static_cast<float>(delta - deltaPareja)) /
+                             fmaxf(1.0f, static_cast<float>(deltaPareja));
+    if (desacuerdo <= desacuerdoMaximo) return true;
+  }
+  if (medianaActiva > 0.0f) {
+    const float desacuerdo = fabsf(static_cast<float>(delta) - medianaActiva) /
+                             fmaxf(1.0f, medianaActiva);
+    if (desacuerdo <= desacuerdoMaximo * 1.5f) return true;
+  }
+  return false;
+}
+
 }  // namespace ControlSeguridad
