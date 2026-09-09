@@ -476,6 +476,8 @@ Sólo después de registrar estas mediciones se puede repetir la ruta en suelo.
 
 ## 16. Documentación relacionada
 
+- [Diagrama de ensamble físico y conexiones de hardware](hardware/diagrama_ensamble.md)
+- [Manual de ensamble físico](hardware/manual_ensamble_fisico.md)
 - [Auditoría del estado actual](auditoria_estado_actual.md)
 - [Atlas UML integral](../DIAGRAMA_SISTEMA_GENERAL.md)
 - [Catálogo UML por carpeta](uml/README.md)

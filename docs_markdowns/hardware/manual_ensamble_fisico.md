@@ -36,6 +36,123 @@ Mantenga estas etiquetas tanto en motores como en encoders. No use “motor 1/2�
 
 Si el módulo TXS0108E expone `OE` y la placa no lo mantiene activo internamente, conéctelo a VCCA (3.3 V). Nunca lo deje flotante.
 
+### Arquitectura General de Hardware y Conexiones
+
+```mermaid
+flowchart TB
+    %% Definición de Estilos
+    classDef mcu fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#ffffff;
+    classDef sensor fill:#0f766e,stroke:#2dd4bf,stroke-width:2px,color:#ffffff;
+    classDef power fill:#7c2d12,stroke:#fb923c,stroke-width:2px,color:#ffffff;
+    classDef driver fill:#831843,stroke:#f472b6,stroke-width:2px,color:#ffffff;
+    classDef motor fill:#701a75,stroke:#e879f9,stroke-width:2px,color:#ffffff;
+    classDef level fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#ffffff;
+    classDef hmi fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#ffffff;
+
+    subgraph SISTEMA_COMPLETO["ROBOT ESP32-S3 4WD · ARQUITECTURA GENERAL DE HARDWARE Y CONEXIONES"]
+        direction TB
+
+        %% Capa de Interfaz y Enlace Inalámbrico
+        subgraph CAPA_HMI["1. Capa de Comunicación e Interfaz de Control"]
+            direction LR
+            HMI["<b>HMI / Panel de Control</b><br/>(Tablet Android / App Python Desktop)<br/>WebSocket Protocol: robot-s3-steps-v3"]:::hmi
+            WIFI["<b>Enlace Wi-Fi SoftAP</b><br/>SSID: robot-s3-ap (192.168.4.1)<br/>Puerto 80 / ws://192.168.4.1/ws"]:::hmi
+            HMI <-->|Frames JSON ≤ 7168 Bytes| WIFI
+        end
+
+        %% Capa de Alimentación Eléctrica
+        subgraph CAPA_POWER["2. Sistema de Potencia y Alimentación Aislada"]
+            direction LR
+            B1["<b>B1 · 3.3V Regulados</b><br/>Lógica ESP32-S3 y TXS0108E (VCCA)"]:::power
+            B2["<b>B2 · 4.8V Regulados</b><br/>Sensores LM393, MPU6050 y TXS (VCCB)"]:::power
+            B3["<b>B3 · 7.7V Li-Ion (2S)</b><br/>Alimentación Motores VMOT"]:::power
+            SWITCH["<b>Interruptor Físico VMOT</b><br/>Doble switch de seguridad"]:::power
+            GND_STAR["<b>GND ESTRELLA UNIFICADO</b><br/>(Punto común de referencia a tierra)"]:::power
+
+            B3 --> SWITCH
+            B1 --- GND_STAR
+            B2 --- GND_STAR
+            SWITCH --- GND_STAR
+        end
+
+        %% Microcontrolador Central
+        subgraph CAPA_MCU["3. Unidad de Procesamiento Central (ESP32-S3 DevKitC-1)"]
+            direction TB
+            ESP["<b>ESP32-S3 Microcontroller (N8)</b><br/>Xtensa LX7 Dual-Core @ 240 MHz<br/>• Core 0: Task_Web (AsyncTCP / WebSocket / JSON)<br/>• Core 1: loop() Súper-Ciclo Síncrono 100 Hz RTOS"]:::mcu
+        end
+
+        %% Capa de Sensores y Adaptación de Nivel
+        subgraph CAPA_SENSORES["4. Sensores de Odometría e Inercia (5V / 4.8V)"]
+            direction TB
+
+            subgraph TXS_BLOCK["Adaptación de Nivel Lógico (TXS0108E)"]
+                TXS_I2C["<b>TXS0108E (I2C)</b><br/>3.3V (VCCA) ↔ 4.8V (VCCB)"]:::level
+                TXS_ENC["<b>TXS0108E (Encoders)</b><br/>3.3V (VCCA) ↔ 4.8V (VCCB)"]:::level
+            end
+
+            subgraph SENSORES_HARDWARE["Módulos de Sensado"]
+                MPU["<b>IMU MPU6050 (6-DOF)</b><br/>I2C Addr: 0x68 (AD0=GND)<br/>Giroscopio Z: Autoridad Angular"]:::sensor
+                ENC_FL["<b>Encoder FL (LM393)</b><br/>Rueda Frontal Izq (20 PPR)"]:::sensor
+                ENC_FR["<b>Encoder FR (LM393)</b><br/>Rueda Frontal Der (20 PPR)"]:::sensor
+                ENC_BL["<b>Encoder BL (LM393)</b><br/>Rueda Trasera Izq (20 PPR)"]:::sensor
+                ENC_BR["<b>Encoder BR (LM393)</b><br/>Rueda Trasera Der (20 PPR)"]:::sensor
+            end
+        end
+
+        %% Capa de Actuadores y Drivers de Potencia
+        subgraph CAPA_ACTUADORES["5. Drivers Puente H y Motores de Tracción (4WD)"]
+            direction TB
+
+            subgraph DRIVERS_POTENCIA["Puentes H Duales (DRV8833)"]
+                DRV_L["<b>DRV8833 Izquierdo</b><br/>Canales FL + BL<br/>Capacitores 100µF + 0.1µF"]:::driver
+                DRV_R["<b>DRV8833 Derecho</b><br/>Canales FR + BR<br/>Capacitores 100µF + 0.1µF"]:::driver
+            end
+
+            subgraph MOTORES_TT["Motores Reductores DC (TT Amarillos 1:48)"]
+                M_FL["<b>Motor FL</b> (Frontal Izq)<br/>Montado con cuerpo hacia ATRÁS"]:::motor
+                M_BL["<b>Motor BL</b> (Trasero Izq)<br/>Montado con cuerpo hacia ADELANTE"]:::motor
+                M_FR["<b>Motor FR</b> (Frontal Der)<br/>Montado con cuerpo hacia ATRÁS"]:::motor
+                M_BR["<b>Motor BR</b> (Trasero Der)<br/>Montado con cuerpo hacia ADELANTE"]:::motor
+            end
+        end
+
+        %% Interconexiones de Señales y Buses
+        WIFI <-->|AsyncTCP Core 0| ESP
+        B1 -.->|3.3V Power| ESP
+        B1 -.->|VCCA 3.3V| TXS_BLOCK
+        B2 -.->|VCCB 4.8V| TXS_BLOCK
+        B2 -.->|Alimentación 4.8V| SENSORES_HARDWARE
+        SWITCH -.->|VMOT 7.7V Filtrado| DRIVERS_POTENCIA
+
+        %% I2C
+        ESP -- "GPIO8 (SDA) / GPIO9 (SCL)" --> TXS_I2C
+        TXS_I2C -- "SDA / SCL (4.8V)" --> MPU
+
+        %% Encoders PCNT
+        ENC_FL -- "Señal Digital (Verde B5)" --> TXS_ENC
+        ENC_FR -- "Señal Digital (Blanco B6)" --> TXS_ENC
+        ENC_BL -- "Señal Digital (Negro B2)" --> TXS_ENC
+        ENC_BR -- "Señal Digital (Rojo B1)" --> TXS_ENC
+
+        TXS_ENC -- "GPIO11 (PCNT Unit 0)" --> ESP
+        TXS_ENC -- "GPIO10 (PCNT Unit 1)" --> ESP
+        TXS_ENC -- "GPIO12 (PCNT Unit 2)" --> ESP
+        TXS_ENC -- "GPIO13 (PCNT Unit 3)" --> ESP
+
+        %% PWM Motores DRV8833
+        ESP -- "GPIO7 (IN3 · FWD+) / GPIO6 (IN4 · REV-)" --> DRV_L
+        ESP -- "GPIO4 (IN2 · FWD+) / GPIO5 (IN1 · REV-)" --> DRV_L
+        ESP -- "GPIO18 (IN4 · FWD+) / GPIO17 (IN3 · REV-)" --> DRV_R
+        ESP -- "GPIO16 (IN2 · FWD+) / GPIO15 (IN1 · REV-)" --> DRV_R
+
+        %% Conexión Borneras Motor
+        DRV_L -- "OUT3 (+) Naranja / OUT4 (-) Negro" --> M_FL
+        DRV_L -- "OUT2 (+) Naranja / OUT1 (-) Rojo" --> M_BL
+        DRV_R -- "OUT4 (+) Naranja / OUT3 (-) Negro" --> M_FR
+        DRV_R -- "OUT2 (+) Naranja / OUT1 (-) Negro" --> M_BR
+    end
+```
+
 ## 4. Motores, Chasis 4WD y DRV8833
 
 ### Dogma de Simetría y Espejado Mecánico del Chasis 4WD
