@@ -65,7 +65,7 @@ inline float correccionLateralParaDireccion(float correccionRumboDeg, int direcc
 // Invertir ambas ruedas también invierte el giro físico al frenar sólo un
 // lado. Esta función conserva el signo de corrección calibrado del yaw.
 inline bool frenarLadoIzquierdoParaRumbo(int candidatoGiro, int direccion) {
-  return (candidatoGiro > 0) != (direccion < 0);
+  return (candidatoGiro < 0) != (direccion < 0);
 }
 
 inline float distanciaPorTick(float diametroEfectivoCm, int pulsosPorRevolucion) {

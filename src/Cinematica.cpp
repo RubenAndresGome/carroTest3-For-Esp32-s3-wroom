@@ -193,7 +193,7 @@ void calTorque(bool primera) {
   bool ticksOk = ladoIzqOk && ladoDerOk;
   bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
   actualizarDiagnosticoCalibracion(d, evaluacion);
-  if (!aplicarVelocidades(-candidatoCal * pwmCal, candidatoCal * pwmCal)) {
+  if (!aplicarVelocidades(candidatoCal * pwmCal, -candidatoCal * pwmCal)) {
     fallo("motor_output_error");
     return;
   }
@@ -470,7 +470,7 @@ void controlarGiro() {
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? 1 : -1;
     }
-    if (!aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct)) {
+    if (!aplicarVelocidades(cand * pwmGiroAct, -cand * pwmGiroAct)) {
       fallo("motor_output_error");
       return;
     }

@@ -55,10 +55,10 @@ void test_reversa_invierte_solo_la_correccion_lateral_del_chasis() {
 }
 
 void test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo() {
-  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(1, 1));
-  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(1, -1));
-  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1, 1));
-  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1, -1));
+  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(1, 1));
+  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(1, -1));
+  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1, 1));
+  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1, -1));
 }
 
 void test_escala_y_freno_se_calculan_en_la_misma_unidad() {
