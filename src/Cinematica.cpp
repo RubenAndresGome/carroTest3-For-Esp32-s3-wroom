@@ -108,7 +108,7 @@ uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
 int64_t ticksBaseCal[4] = {};
 float yawInicioCalDeg = 0.0f;
-int  candidatoGiroPos = -1, candidatoGiroNeg = 1;
+int  candidatoGiroPos = 1, candidatoGiroNeg = -1;
 int  pwmMinGiroPos = static_cast<int>(148 * PWM_SCALE_8_TO_10), pwmMinGiroNeg = static_cast<int>(148 * PWM_SCALE_8_TO_10);
 DiagnosticoCalibracion diagnosticoCal = {};
 
@@ -468,7 +468,7 @@ void controlarGiro() {
     if (cand == 0) {
       if (candidatoGiroPos != 0) cand = (signoGiroApl > 0) ? candidatoGiroPos : -candidatoGiroPos;
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
-      else cand = (signoGiroApl > 0) ? -1 : 1;
+      else cand = (signoGiroApl > 0) ? 1 : -1;
     }
     if (!aplicarVelocidades(-cand * pwmGiroAct, cand * pwmGiroAct)) {
       fallo("motor_output_error");

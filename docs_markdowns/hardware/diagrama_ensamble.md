@@ -35,6 +35,12 @@ flowchart LR
     DRVR --> BR["Motor BR"]
 ```
 
+## Disposición Mecánica del Chasis 4WD y Simetría
+
+![Geometría del Chasis 4WD y Orientación de Motores](chasis_4wd_orientacion_motores.png)
+
+> **Dogma de Simetría Mecánica 4WD**: Los motores reductores TT delanteros (FL/FR) y traseros (BL/BR) están montados en oposición física ($180^\circ$ enfrentados hacia el interior del chasis). La asignación de pines FWD/REV y la conexión a las borneras del DRV8833 compensa esta orientación física para asegurar que la señal lógica de avance (`FWD`, $+Y$) produzca rotación armónica hacia el frente en todas las ruedas.
+
 ## Pinout canónico
 
 ### Motores DRV8833

@@ -48,6 +48,10 @@
   5. Reposo de 2.5 s (`CAL_PAUSA_RETORNO`) y retorno estricto (`CAL_RETORNO`): pivote puro
      hacia el `yawInicioCalDeg` original, reseteando la odometría de `PoseGlobal` (X=0, Y=0) y
      el yaw de la IMU al estabilizarse.
+- **Dogma de Simetría y Espejado Mecánico del Chasis 4WD**:
+  - En la estructura física del chasis 4WD acrílico de doble plataforma, los reductores TT están montados en pares opuestos: los motores delanteros (FL/FR) tienen sus cuerpos orientados hacia atrás y los traseros (BL/BR) hacia adelante (enfrentados entre sí en el eje longitudinal). Asimismo, los pares izquierdo y derecho están reflejados respecto al eje sagital.
+  - Al estar invertidos mecánicamente $180^\circ$, la polaridad eléctrica de las borneras DRV8833 y el mapeo de GPIO compensa esta simetría para que la señal lógica de avance (`FWD` = 1, cable naranja $+$, cable negro $-$) genere traslación positiva pura y uniforme hacia el vector $+Y$ en las cuatro ruedas.
+  - El sistema de cinemática y calibración asume esta compensación de hardware como dogma inmutable.
 - **Polaridad Harcodeada de Ejes y Motores**:
   - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido físicamente por el operador), de modo que el avance y traslación concuerdan exactamente hacia +Y (frente) y los desplazamientos en +X concuerdan hacia la derecha de la interfaz de usuario.
   - El sentido de giro positivo del yaw (horario / dextrógiro) corresponde a la orientación

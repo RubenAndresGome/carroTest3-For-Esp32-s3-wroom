@@ -36,7 +36,22 @@ Mantenga estas etiquetas tanto en motores como en encoders. No use “motor 1/2�
 
 Si el módulo TXS0108E expone `OE` y la placa no lo mantiene activo internamente, conéctelo a VCCA (3.3 V). Nunca lo deje flotante.
 
-## 4. Motores y DRV8833
+## 4. Motores, Chasis 4WD y DRV8833
+
+### Dogma de Simetría y Espejado Mecánico del Chasis 4WD
+
+En la estructura física del chasis 4WD acrílico de doble plataforma, la disposición espacial de los motores y sus reductores de engranaje amarillo (TT) define la relación entre el sentido de rotación angular del motor DC interno y la traslación vectorial del chasis:
+
+![Geometría del Chasis 4WD y Orientación de Motores](chasis_4wd_orientacion_motores.png)
+
+1. **Inversión Longitudinal (Frente vs Atrás)**:
+   - Los motores del par delantero (**FL / FR**) están montados con sus cajas reductoras hacia los extremos y sus cuerpos de motor DC orientados hacia atrás (hacia el centro del chasis).
+   - Los motores del par trasero (**BL / BR**) están montados con sus cuerpos de motor DC orientados hacia adelante (enfrentados a los motores delanteros).
+   - Debido a este giro físico de $180^\circ$ sobre el plano horizontal, una rotación idéntica del rotor DC interno produce desplazamientos lineales opuestos si no se compensa la polaridad.
+2. **Espejado Sagital (Izquierda vs Derecha)**:
+   - Los motores del lado izquierdo tienen sus ejes saliendo hacia la izquierda, y los del lado derecho hacia la derecha.
+3. **Dogma de Polaridad y Compensación Eléctrica**:
+   - Para que una orden de avance (`FWD`, $+Y$) resulte en un movimiento lineal positivo y uniforme sin torques antagónicos, la asignación de borneras en los puentes H (DRV8833) y la definición lógica de pines en el firmware compensan esta geometría de modo que **el cable naranja sea energizado con $(+)$ y el cable negro con $(-)$** en los 4 motores para traslación $+Y$.
 
 ### Registro Fotográfico del Cableado Real (Notas de Taller y Montaje)
 

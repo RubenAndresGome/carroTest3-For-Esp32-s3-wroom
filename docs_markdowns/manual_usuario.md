@@ -54,10 +54,11 @@ El firmware fuerza los GPIO de motor a LOW como primera operación controlable,
 pero no controla el intervalo del boot ROM. Por eso VMOT debe permanecer
 físicamente deshabilitado durante carga o reset.
 
-### Ensamble y verificación de señales
+### Ensamble, Geometría del Chasis y Verificación de Señales
 
-La tabla describe el corte auditado; confirmar siempre `include/Config.h` antes
-de cablear una revisión distinta.
+![Geometría del Chasis 4WD y Orientación de Motores](hardware/chasis_4wd_orientacion_motores.png)
+
+> **Dogma de Simetría Mecánica 4WD**: En el chasis de acrílico de dos niveles, los motores delanteros (FL/FR) y traseros (BL/BR) están orientados geométricamente en oposición ($180^\circ$ enfrentados hacia el centro). La asignación de pines FWD/REV y la conexión a las borneras del DRV8833 compensa esta orientación física para asegurar que la señal de avance (`FWD`, $+Y$) produzca rotación armónica hacia el frente en todas las ruedas.
 
 ![Cableado Físico Real de Motores y Encoders](hardware/cableado_fisico_motores_encoders.png)
 

@@ -156,6 +156,9 @@ Controlador cinemático de bucle cerrado:
     5. `CAL_B`: Búsqueda de torque en Polaridad Opuesta (`candidatoCal = -candidatoGiroPos`) con validación bilateral y confirmación de que `candidatoGiroPos != candidatoGiroNeg`.
     6. `CAL_PAUSA_RETORNO`: Reposo de 2.5 s.
     7. `CAL_RETORNO`: Pivote puro de retorno hacia el `yawInicioCalDeg` original, restableciendo la odometría `PoseGlobal` (X=0, Y=0) y el rumbo angular al estabilizarse.
+- **Dogma de Simetría y Espejado Mecánico del Chasis 4WD**:
+  - En la estructura de doble plataforma acrílica 4WD, los motores reductores amarillos (TT) delanteros (FL/FR) y traseros (BL/BR) están montados en oposición física ($180^\circ$ enfrentados en el eje longitudinal). Los pares izquierdo y derecho están espejados en el eje sagital.
+  - La polaridad eléctrica (+ naranja / - negro) en las borneras del DRV8833 y la asignación de pines GPIO compensan esta geometría, garantizando avance sincrónico y puro hacia $+Y$ en las cuatro ruedas.
 - **Polaridad Harcodeada de Ejes y Mapeo Físico de Pines**:
   - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido por el operador), garantizando que el avance positivo traslade el chasis hacia el frente (eje +Y físico y cardinal concordante con la IU, 0° mirando a +Y) y el giro horario traslade hacia +X (90° a la derecha).
   - **Pines Motores (DRV8833)**:
