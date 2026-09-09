@@ -15,8 +15,9 @@ y reincorporarlas únicamente después de evidencia repetida.
 2. Decidir el lado que reduce el PID mediante el signo geométrico del error de
    yaw. La polaridad eléctrica aprendida por la calibración no participa en esa
    decisión.
-3. Usar el mapeo físico documentado en `main`: `+PWM` es avance y las constantes
-   FWD/REV corresponden a las borneras físicas verificadas.
+3. Conservar el mapeo GPIO verificado y aplicar una única compensación global:
+   `PWM_FORWARD_POLARITY = -1` convierte `+PWM` lógico en el sentido eléctrico
+   que impulsa el frente marcado del chasis. No se intercambian además FWD/REV.
 4. Durante calibración exigir MPU válida y al menos una fuente PCNT por lado.
    Una fuente silenciosa no divide por dos la distancia de la fuente restante.
 5. Declarar confiable después de calibración sólo un encoder observado en los

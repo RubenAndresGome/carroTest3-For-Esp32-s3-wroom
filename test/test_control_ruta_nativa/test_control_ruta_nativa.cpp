@@ -1,5 +1,6 @@
 #include <unity.h>
 
+#include "Config.h"
 #include "ControlRuta.h"
 #include "ControlSeguridad.h"
 #include "ControlCalibracion.h"
@@ -10,6 +11,12 @@ extern "C" void setUp() {}
 extern "C" void tearDown() {}
 
 namespace {
+
+void test_polaridad_fisica_invierte_avance_y_reversa_sin_alterar_magnitud() {
+  TEST_ASSERT_EQUAL_INT(-320, ControlMotores::pwmElectricoDesdeLogico(320));
+  TEST_ASSERT_EQUAL_INT(320, ControlMotores::pwmElectricoDesdeLogico(-320));
+  TEST_ASSERT_EQUAL_INT(0, ControlMotores::pwmElectricoDesdeLogico(0));
+}
 
 void test_lateral_derecha_corrige_hacia_izquierda() {
   const auto errores = ControlRuta::calcularErroresTrayectoria(6.0f, 50.0f, 0.0f, 100.0f, 0.0f, 100.0f);
@@ -322,6 +329,7 @@ void test_control_manual_mezcla_satura_y_respeta_lease() {
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_polaridad_fisica_invierte_avance_y_reversa_sin_alterar_magnitud);
   RUN_TEST(test_lateral_derecha_corrige_hacia_izquierda);
   RUN_TEST(test_lateral_izquierda_corrige_hacia_derecha);
   RUN_TEST(test_errores_vectoriales_son_consistentes_en_rumbos_diagonales);

@@ -42,8 +42,8 @@ Si el módulo TXS0108E expone `OE` y la placa no lo mantiene activo internamente
 
 | Entrada | GPIO ESP32 | Función |
 |---|---:|---|
-| IN1 | GPIO6 | FL FWD |
-| IN2 | GPIO7 | FL REV |
+| IN1 | GPIO6 | FL REV nominal |
+| IN2 | GPIO7 | FL FWD nominal |
 | IN3 | GPIO4 | BL FWD |
 | IN4 | GPIO5 | BL REV |
 | OUT1 / OUT2 | — | motor FL |
@@ -53,14 +53,14 @@ Si el módulo TXS0108E expone `OE` y la placa no lo mantiene activo internamente
 
 | Entrada | GPIO ESP32 | Función |
 |---|---:|---|
-| IN1 | GPIO17 | FR FWD |
-| IN2 | GPIO18 | FR REV |
-| IN3 | GPIO15 | BR FWD |
-| IN4 | GPIO16 | BR REV |
+| IN1 | GPIO17 | FR REV nominal |
+| IN2 | GPIO18 | FR FWD nominal |
+| IN3 | GPIO15 | BR REV nominal |
+| IN4 | GPIO16 | BR FWD nominal |
 | OUT1 / OUT2 | — | motor FR |
 | OUT3 / OUT4 | — | motor BR |
 
-El PWM actual es de 5 kHz y 10 bits, con límite de 230/255 (aproximadamente 90 %, 923/1023) en avance y 247/255 en giro y calibración. La calibración reproduce la búsqueda continua del ensayo aprobado: comienza en 140/255, aumenta 5/255 cada 250 ms y se detiene al confirmar gyro sostenido y ticks acumulados en ambos lados. El watchdog individual de calibración se arma al alcanzar 247/255 y corta después de 800 ms acumulados sin ticks; un nivel bajo que todavía no vence fricción no se declara prematuramente como atasco. Toda inversión deja ambos canales del lado apagados durante al menos 250 ms; la calibración espera además 750 ms antes de cambiar polaridad y un reintento de giro espera 2500 ms. Si una rueda gira al revés, detenga el sistema y compruebe primero que sus dos cables de motor y sus entradas pertenecen a la rueda indicada.
+El PWM actual es de 5 kHz y 10 bits, con límite de 230/255 (aproximadamente 90 %, 923/1023) en avance y 247/255 en giro y calibración. `PWM_FORWARD_POLARITY = -1` compensa una sola vez la orientación mecánica global del chasis; no intercambie además FWD/REV. La calibración reproduce la búsqueda continua del ensayo aprobado: comienza en 140/255, aumenta 5/255 cada 250 ms y se detiene al confirmar gyro sostenido y ticks acumulados en ambos lados. El watchdog individual de calibración se arma al alcanzar 247/255 y corta después de 800 ms acumulados sin ticks; un nivel bajo que todavía no vence fricción no se declara prematuramente como atasco. Toda inversión deja ambos canales del lado apagados durante al menos 250 ms; la calibración espera además 750 ms antes de cambiar polaridad y un reintento de giro espera 2500 ms. Si una rueda individual gira contra las demás, detenga el sistema y compruebe su par de cables y GPIO sin cambiar otra vez la polaridad global.
 
 El DRV8833 original incorpora resistencias pull-down internas en sus entradas de control (aproximadamente 150 kΩ; `nSLEEP` usa aproximadamente 500 kΩ). Resistencias externas de 10 kΩ son opcionales como defensa adicional para módulos clon, no un requisito del integrado original.
 
@@ -70,12 +70,14 @@ Cada LM393 se alimenta desde B2. Su salida digital pasa por el lado de 4.8 V del
 
 | Rueda | Color de identificación | GPIO | Unidad PCNT |
 |---|---|---:|---:|
-| FL | rojo | GPIO10 | PCNT 0 |
-| FR | café | GPIO11 | PCNT 1 |
-| BL | negro | GPIO12 | PCNT 2 |
-| BR | blanco | GPIO13 | PCNT 3 |
+| FL | verde, TXS B5→A5 | GPIO11 | PCNT 0 |
+| FR | blanco, TXS B6→A6 | GPIO10 | PCNT 1 |
+| BL | negro, TXS B2→A2 | GPIO12 | PCNT 2 |
+| BR | rojo, TXS B1→A1 | GPIO13 | PCNT 3 |
 
-Use cable corto y separado de los conductores de motor. El firmware cuenta un flanco ascendente por ranura y usa 20 PPR nominales. No reemplace PCNT con interrupciones GPIO.
+Use cable corto y separado de los conductores de motor. El firmware cuenta
+ambos flancos de 20 ranuras y usa 40 ticks por vuelta. No reemplace PCNT con
+interrupciones GPIO.
 
 ## 6. MPU6050 e I2C
 

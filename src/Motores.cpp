@@ -146,7 +146,8 @@ static bool setMotorPWM(int pinFwd, int pinRev, int vel) {
 
 static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
   vel = constrain(vel, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  return setMotorPWM(pinFwd, pinRev, vel * PWM_FORWARD_POLARITY);
+  return setMotorPWM(pinFwd, pinRev,
+                     ControlMotores::pwmElectricoDesdeLogico(vel));
 }
 
 bool aplicarVelocidades(int velIzq, int velDer) {

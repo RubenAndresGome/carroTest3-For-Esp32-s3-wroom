@@ -31,6 +31,9 @@
 - PWM máximo de avance: 242/255 (~95%); giros autónomos, calibración y pivote continuo conservan 247/255 (~97%) para vencer fricción en superficies difíciles.
 - Tiempo muerto universal de 250 ms en `Motores.cpp:aplicarVelocidades()` al
   invertir sentido de giro. Aplica a joystick, giro autónomo y calibración.
+- `PWM_FORWARD_POLARITY = -1` es la única compensación global del montaje
+  mecánico actual: convierte avance lógico en el sentido eléctrico que impulsa
+  el frente marcado del chasis. No invertir además los pares GPIO FWD/REV.
 - Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog
   de 2.5 s por lado se arma sólo después de alcanzar el torque calibrado; el
   avance conserva su corte de 450 ms.

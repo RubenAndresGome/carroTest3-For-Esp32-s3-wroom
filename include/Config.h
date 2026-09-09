@@ -1,7 +1,8 @@
 #pragma once
-#include <Arduino.h>
+#include <stddef.h>
+#include <stdint.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.2";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.3";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -68,7 +69,18 @@ constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
-constexpr int PWM_FORWARD_POLARITY = 1;
+// El montaje mecánico actual invierte el avance eléctrico respecto al frente
+// marcado del chasis. Esta es la única compensación global: no intercambiar a
+// la vez los pares GPIO FWD/REV o se produciría una doble inversión.
+constexpr int PWM_FORWARD_POLARITY = -1;
+static_assert(PWM_FORWARD_POLARITY == 1 || PWM_FORWARD_POLARITY == -1,
+              "La polaridad física de avance sólo puede ser +1 o -1.");
+
+namespace ControlMotores {
+constexpr int pwmElectricoDesdeLogico(int pwmLogico) {
+  return pwmLogico * PWM_FORWARD_POLARITY;
+}
+}  // namespace ControlMotores
 constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
