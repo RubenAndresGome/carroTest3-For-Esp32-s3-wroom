@@ -13,6 +13,20 @@ if (!html.includes("user-scalable=yes") || !html.includes("maximum-scale=3.0")) 
 if ((html.match(/data-toggle-sign=/g) || []).length < 4) {
   throw new Error("Faltan controles ± para coordenadas negativas");
 }
+for (const axisLabel of [
+  "Coordenada Relativa X (+X Derecha):",
+  "Coordenada Relativa Y (+Y Frente):",
+  "X (cm) [← Izq / Der →]",
+  "Y (cm) [↓ Rev / Fte ↑]",
+]) {
+  if (!html.includes(axisLabel)) throw new Error(`Falta convención ortogonal visible: ${axisLabel}`);
+}
+for (const renderGuard of [
+  "frameIntervalMs:1000/15",
+  "document.hidden || now-this.lastTime < this.frameIntervalMs",
+]) {
+  if (!html.includes(renderGuard)) throw new Error(`Falta límite de render WebView: ${renderGuard}`);
+}
 for (const guard of [
   "state.activeTab === 'touch' && id !== 'touch') Touch.end()",
   "visibilitychange',()=>{if(document.hidden)Touch.end()",

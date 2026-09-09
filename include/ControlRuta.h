@@ -14,6 +14,11 @@ struct ErroresTrayectoria {
   float euclidianoCm;
 };
 
+struct VectorPlano {
+  float x;
+  float y;
+};
+
 struct EstadoPI {
   float integralGradoS = 0.0f;
 };
@@ -62,10 +67,18 @@ inline float correccionLateralParaDireccion(float correccionRumboDeg, int direcc
   return direccion < 0 ? -correccionRumboDeg : correccionRumboDeg;
 }
 
-// Invertir ambas ruedas también invierte el giro físico al frenar sólo un
-// lado. Esta función conserva el signo de corrección calibrado del yaw.
-inline bool frenarLadoIzquierdoParaRumbo(int candidatoGiro, int direccion) {
-  return (candidatoGiro > 0) != (direccion < 0);
+// Decide qué lado reducir a partir del marco cartesiano, sin depender del
+// signo eléctrico que haya aprendido la calibración del pivote.
+inline bool frenarLadoIzquierdoParaRumbo(float correccionRumbo, int direccion) {
+  // +yaw es horario: en avance se frena la derecha; en reversa se intercambia.
+  // La decisión geométrica no depende del candidato eléctrico aprendido.
+  return (correccionRumbo < 0.0f) != (direccion < 0);
+}
+
+inline VectorPlano vectorUnitarioRumbo(float rumboDeg) {
+  constexpr float kPi = 3.14159265358979323846f;
+  const float rumboRad = normalizar360(rumboDeg) * kPi / 180.0f;
+  return {sinf(rumboRad), cosf(rumboRad)};
 }
 
 inline float distanciaPorTick(float diametroEfectivoCm, int pulsosPorRevolucion) {
@@ -82,10 +95,9 @@ inline float distanciaFrenoPrevista(float pwm, float baseCm, float cmPorPwm,
 inline ErroresTrayectoria calcularErroresTrayectoria(
     float posicionXCm, float posicionYCm, float objetivoXCm, float objetivoYCm,
     float rumboPlanificadoDeg, float distanciaPlanificadaCm) {
-  constexpr float kPi = 3.14159265358979323846f;
-  const float rumboRad = rumboPlanificadoDeg * kPi / 180.0f;
-  const float ux = sinf(rumboRad);
-  const float uy = cosf(rumboRad);
+  const VectorPlano eje = vectorUnitarioRumbo(rumboPlanificadoDeg);
+  const float ux = eje.x;
+  const float uy = eje.y;
   const float inicioXCm = objetivoXCm - distanciaPlanificadaCm * ux;
   const float inicioYCm = objetivoYCm - distanciaPlanificadaCm * uy;
   const float dx = posicionXCm - inicioXCm;

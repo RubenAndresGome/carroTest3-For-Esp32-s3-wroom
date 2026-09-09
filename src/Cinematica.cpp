@@ -9,6 +9,7 @@
 #include "Motores.h"
 #include "PoseEstimator.h"
 #include "Sensores.h"
+#include "Seguridad.h"
 #include <Arduino.h>
 #include <cmath>
 
@@ -111,6 +112,8 @@ float yawInicioCalDeg = 0.0f;
 int  candidatoGiroPos = -1, candidatoGiroNeg = 1;
 int  pwmMinGiroPos = static_cast<int>(148 * PWM_SCALE_8_TO_10), pwmMinGiroNeg = static_cast<int>(148 * PWM_SCALE_8_TO_10);
 DiagnosticoCalibracion diagnosticoCal = {};
+bool encoderObservadoCalA[4] = {};
+bool encoderObservadoCalB[4] = {};
 
 void reiniciarDiagnosticoCalibracion() {
   diagnosticoCal = {};
@@ -138,21 +141,10 @@ void actualizarDiagnosticoCalibracion(
     diagnosticoCal.deltaEncoders[i] = deltasEncoder[i];
     diagnosticoCal.encoderResponde[i] = evaluacion.responde[i];
     diagnosticoCal.encoderAislado[i] = evaluacion.sinRespuestaAislada[i];
+    diagnosticoCal.respuestaFaseA[i] = encoderObservadoCalA[i];
+    diagnosticoCal.respuestaFaseB[i] = encoderObservadoCalB[i];
   }
 }
-
-void conservarEncodersAisladosDelDiagnostico() {
-  bool degradado = false;
-  for (int i = 0; i < 4; ++i) {
-    if (diagnosticoCal.encoderAislado[i]) {
-      encoderConfiableGlobal[i] = false;
-      estadoSaludEncoderGlobal[i] = EstadoSaludEncoder::EXCLUDED;
-    }
-    degradado |= !encoderConfiableGlobal[i];
-  }
-  modoDegradado = degradado;
-}
-
 
 void iniciarFaseCal(Fase f) { fase = f; inicioFaseMs = millis(); }
 
@@ -164,6 +156,10 @@ void calCuenta() {
   pwmMinGiroPos=0; pwmMinGiroNeg=0; candidatoGiroPos=0; candidatoGiroNeg=0;
   candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
   ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
+  for (int i = 0; i < 4; ++i) {
+    encoderObservadoCalA[i] = false;
+    encoderObservadoCalB[i] = false;
+  }
   reiniciarDiagnosticoCalibracion();
   copiarBase(ticksBaseCal, s);
   iniciarFaseCal(Fase::CAL_A);
@@ -192,18 +188,22 @@ void calTorque(bool primera) {
   const bool ladoDerOk = evaluacion.ladoDerechoValido;
   bool ticksOk = ladoIzqOk && ladoDerOk;
   bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
+  for (int i = 0; i < 4; ++i) {
+    if (primera) encoderObservadoCalA[i] |= evaluacion.responde[i];
+    else encoderObservadoCalB[i] |= evaluacion.responde[i];
+  }
   actualizarDiagnosticoCalibracion(d, evaluacion);
   if (!aplicarVelocidades(-candidatoCal * pwmCal, candidatoCal * pwmCal)) {
     fallo("motor_output_error");
     return;
   }
 
-  // Autoridad MPU: si el giroscopio certifica giro real sostenido y al menos un lado produce ticks
-  const bool rotacionConfirmada = (ticksOk && gyroOk) || (gyroOk && (ladoIzqOk || ladoDerOk));
+  // El MPU confirma el ángulo, pero PCNT debe conservar al menos una fuente
+  // por cada lado. Un encoder individual silencioso mantiene modo degradado.
+  const bool rotacionConfirmada = ticksOk && gyroOk;
   if (rotacionConfirmada) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
-      conservarEncodersAisladosDelDiagnostico();
       int guardado = min(PWM_TURN_MAX_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
       if (s.gyro_z_filtrado_rad_s > 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
       else { candidatoGiroNeg=candidatoCal; pwmMinGiroNeg=guardado; }
@@ -235,15 +235,12 @@ void calTorque(bool primera) {
     if (!ultimaAuditoriaMaxCalMs) ultimaAuditoriaMaxCalMs = ahora;
     const uint32_t lapso = ahora - ultimaAuditoriaMaxCalMs;
     ultimaAuditoriaMaxCalMs = ahora;
-    // Si el MPU certifica rotación angular, el robot se mueve físicamente; no es stall mecánico
-    if (gyroOk || fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S) {
-      stallMaxCalAcumMs[0] = stallMaxCalAcumMs[1] = 0;
-    } else {
-      if (!ladoIzqOk) stallMaxCalAcumMs[0] += lapso;
-      if (!ladoDerOk) stallMaxCalAcumMs[1] += lapso;
-      if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_left"); return; }
-      if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
-    }
+    if (!ladoIzqOk) stallMaxCalAcumMs[0] += lapso;
+    else stallMaxCalAcumMs[0] = 0;
+    if (!ladoDerOk) stallMaxCalAcumMs[1] += lapso;
+    else stallMaxCalAcumMs[1] = 0;
+    if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_left"); return; }
+    if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
   } else {
     ultimaAuditoriaMaxCalMs = 0;
   }
@@ -509,6 +506,15 @@ void completarGiro() {
   else if (ret == Fase::CAL_RETORNO) {
     frenarMotores();
     delay(50);
+    bool confiables[4] = {};
+    const ControlInicializacionPCNT::Canal* pcnt = diagnosticoInicializacionPCNT();
+    for (int i = 0; i < 4; ++i)
+      confiables[i] = pcnt[i].inicializado && encoderObservadoCalA[i] && encoderObservadoCalB[i];
+    if (!ControlSeguridad::fuentesPorLadoValidas(confiables)) {
+      fallo("cal_sensor_unstable_side");
+      return;
+    }
+    WatchdogSeguridad.aplicarClasificacionEncoders(confiables);
     robotCalibrado = true; PoseGlobal.reset(); resetOrientacionIMU();
     fin(EVT_COMPLETED, "cal_ok");
   }
@@ -564,6 +570,7 @@ float estimarTicksAvance(const int64_t v[4]) {
   return 0.5f*(promedioLado(v,true)+promedioLado(v,false));
 }
 void resetConfEncoders() {
+  WatchdogSeguridad.prepararRevalidacionEncoders();
   for (int i = 0; i < 4; ++i) {
     saludEnc[i] = encoderConfiableGlobal[i] ? 0 : 2;
     inicioOutlierEncMs[i] = 0;
@@ -638,9 +645,8 @@ void iniciarPausaReeval(const int64_t v[4]) {
 void completarPausaReeval() {
   const ControlSeguridad::ClasificacionEncoders clasificacion =
       ControlSeguridad::clasificarEncoders(ticksPausaClasif, DESACUERDO_MAXIMO_PAR);
-  modoDegradado = clasificacion.modoDegradado;
+  WatchdogSeguridad.aplicarClasificacionEncoders(clasificacion.confiable);
   for (int i=0;i<4;++i) {
-    encoderConfiableGlobal[i]=clasificacion.confiable[i];
     saludEnc[i]=clasificacion.confiable[i]?0:2;
     inicioOutlierEncMs[i]=0;
   }
@@ -894,10 +900,9 @@ bool controlarAvance() {
   int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_PRECISION_RECTO, PWM_MAX);
   int redL = 0, redR = 0;
   if (ctrlRumbo != 0.0f) {
-    const int cand = ctrlRumbo > 0.0f ? candidatoGiroPos : candidatoGiroNeg;
-    // La calibración decide el lado en avance; en reversa se intercambia para
-    // conservar el mismo signo físico de corrección del yaw.
-    if (ControlRuta::frenarLadoIzquierdoParaRumbo(cand, direccionTraslacion)) {
+    // El lado frenado depende de la geometría (+yaw horario), no de la
+    // polaridad eléctrica aprendida durante el pivote de calibración.
+    if (ControlRuta::frenarLadoIzquierdoParaRumbo(ctrlRumbo, direccionTraslacion)) {
       redL += aproximar(fabsf(ctrlRumbo));
       strncpy(pasoLadoFrenoRumbo, "left", sizeof(pasoLadoFrenoRumbo));
     } else {
@@ -1138,6 +1143,7 @@ bool iniciarCalibracion(int seq) {
   pasoObjetivoAbsoluto = false;
   tieneTargetEspacial = false;
   registrarMotivoFinalizacion("");
+  WatchdogSeguridad.prepararRevalidacionEncoders();
   reiniciarDiagnosticoCalibracion();
   fase = Fase::CAL_CUENTA; inicioFaseMs = millis();
   strncpy(faseComando, "cal", sizeof(faseComando));

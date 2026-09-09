@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.1";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.2";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -13,20 +13,21 @@ extern const char* password_AP;
 
 // Motores (DRV8833)
 // FL/BL: izquierdo superior/inferior. FR/BR: derecho superior/inferior.
-const int PIN_FL_FWD = 6;
-const int PIN_FL_REV = 7;
+// Mapeo verificado en taller: FWD corresponde a la bornera naranja (+).
+const int PIN_FL_FWD = 7;
+const int PIN_FL_REV = 6;
 const int PIN_BL_FWD = 4;
 const int PIN_BL_REV = 5;
-const int PIN_FR_FWD = 17;
-const int PIN_FR_REV = 18;
-const int PIN_BR_FWD = 15;
-const int PIN_BR_REV = 16;
+const int PIN_FR_FWD = 18;
+const int PIN_FR_REV = 17;
+const int PIN_BR_FWD = 16;
+const int PIN_BR_REV = 15;
 
 // Encoders
-const int PIN_ENC_FL = 10;  // superior izquierdo, cable rojo
-const int PIN_ENC_FR = 11;  // superior derecho, cable cafe
-const int PIN_ENC_BL = 12;  // inferior izquierdo, cable negro
-const int PIN_ENC_BR = 13;  // inferior derecho, cable blanco
+const int PIN_ENC_FL = 11;  // superior izquierdo, cable verde (TXS B5->A5)
+const int PIN_ENC_FR = 10;  // superior derecho, cable blanco (TXS B6->A6)
+const int PIN_ENC_BL = 12;  // inferior izquierdo, cable negro (TXS B2->A2)
+const int PIN_ENC_BR = 13;  // inferior derecho, cable rojo (TXS B1->A1)
 
 // MPU6050 (I2C)
 // Cableado físico actual del robot: SDA=GPIO8 y SCL=GPIO9.
@@ -67,7 +68,7 @@ constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 constexpr uint8_t PWM_RESOLUTION_BITS = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION_BITS) - 1;
 constexpr float PWM_SCALE_8_TO_10 = static_cast<float>(PWM_MAX) / 255.0f;
-constexpr int PWM_FORWARD_POLARITY = -1;
+constexpr int PWM_FORWARD_POLARITY = 1;
 constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
@@ -170,7 +171,7 @@ constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
-constexpr uint32_t CAL_MAX_PWM_STALL_MS = 2500;
+constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.40f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 1500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;

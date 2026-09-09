@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "ControlInicializacionPCNT.h"
 
 struct SensorSnapshot {
     int64_t pulsosFL;
@@ -25,6 +26,9 @@ struct SensorSnapshot {
 };
 
 void setup_Sensores();
+bool pcntFuentesPorLadoDisponibles();
+bool pcntTodosInicializados();
+const ControlInicializacionPCNT::Canal* diagnosticoInicializacionPCNT();
 SensorSnapshot leerSensoresSincrono();
 const SensorSnapshot& snapshotSensoresControl();
 bool obtenerUltimoSnapshotSensores(SensorSnapshot &destino);

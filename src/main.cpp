@@ -128,6 +128,8 @@ void procesarComandos() {
                     encolarEvento(EVT_COMPLETED, cmd.seq, "fault_cleared");
                 else if (resultado == ResultadoRearme::SIN_FALLO_ACTIVO)
                     encolarEvento(EVT_REJECTED, cmd.seq, "no_fault_active");
+                else if (resultado == ResultadoRearme::PCNT_SIN_FUENTE_POR_LADO)
+                    encolarEvento(EVT_REJECTED, cmd.seq, "pcnt_no_side");
                 else
                     encolarEvento(EVT_REJECTED, cmd.seq, "motor_output_unavailable");
                 xQueueReset(colaComandos);
@@ -225,6 +227,13 @@ void setup() {
     }
     setup_Red();
     setup_Sensores();
+    if (!pcntFuentesPorLadoDisponibles() && estadoActual != FALLO) {
+        estadoActual = FALLO;
+        strncpy(ultimoFalloDetalle, "pcnt_no_side", sizeof(ultimoFalloDetalle) - 1);
+        ultimoFalloDetalle[sizeof(ultimoFalloDetalle) - 1] = '\0';
+        registrarMotivoFinalizacion("pcnt_no_side");
+        Serial.println("FALLO: no existe una fuente PCNT inicializada por cada lado.");
+    }
     Serial.println("Sistema listo. Iniciando FreeRTOS...");
 
     const BaseType_t webOk = xTaskCreatePinnedToCore(

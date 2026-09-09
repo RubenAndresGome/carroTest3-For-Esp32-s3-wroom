@@ -34,6 +34,36 @@ void Seguridad::reiniciarSaludEncoders() {
     ultimo_progreso_lado_ms[0] = ultimo_progreso_lado_ms[1] = 0;
 }
 
+void Seguridad::prepararRevalidacionEncoders() {
+    inicio_ventana_encoder_ms = 0;
+    encoderFusionDeltaL = encoderFusionDeltaR = 0.0f;
+    encoderSinProgresoLadoMs[0] = encoderSinProgresoLadoMs[1] = 0;
+    ultimo_progreso_lado_ms[0] = ultimo_progreso_lado_ms[1] = 0;
+    for (int i = 0; i < 4; ++i) {
+        encoderSinPulsosMs[i] = 0;
+        encoderDesviacionPct[i] = 0.0f;
+        encoderMuestrasReingreso[i] = 0;
+        estadoSaludEncoderGlobal[i] = encoderConfiableGlobal[i]
+            ? EstadoSaludEncoder::HEALTHY : EstadoSaludEncoder::RECOVERING;
+    }
+    modoDegradado = false;
+    for (bool confiable : encoderConfiableGlobal) modoDegradado |= !confiable;
+}
+
+void Seguridad::aplicarClasificacionEncoders(const bool confiables[4]) {
+    inicio_ventana_encoder_ms = 0;
+    modoDegradado = false;
+    for (int i = 0; i < 4; ++i) {
+        encoderConfiableGlobal[i] = confiables[i];
+        estadoSaludEncoderGlobal[i] = confiables[i]
+            ? EstadoSaludEncoder::HEALTHY : EstadoSaludEncoder::EXCLUDED;
+        encoderSinPulsosMs[i] = 0;
+        encoderDesviacionPct[i] = 0.0f;
+        encoderMuestrasReingreso[i] = 0;
+        modoDegradado |= !confiables[i];
+    }
+}
+
 void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, int pwm_R) {
     const uint32_t ahora = millis();
     const int64_t actuales[4] = {snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR};
@@ -243,9 +273,15 @@ ResultadoRearme Seguridad::resetFallo() {
         registrarMotivoFinalizacion("motor_output_unavailable");
         return ResultadoRearme::MOTORES_NO_DISPONIBLES;
     }
+    if (!pcntFuentesPorLadoDisponibles()) {
+        LOG_CORE("Rearme rechazado: no existe una fuente PCNT inicializada por lado.");
+        estadoActual = FALLO;
+        registrarMotivoFinalizacion("pcnt_no_side");
+        return ResultadoRearme::PCNT_SIN_FUENTE_POR_LADO;
+    }
     LOG_CORE("Sistema rearmado.");
     estadoActual = robotCalibrado ? LISTO : DESARMADO;
     inicio_movimiento_ms = 0;
-    reiniciarSaludEncoders();
+    prepararRevalidacionEncoders();
     return ResultadoRearme::REARMADO;
 }

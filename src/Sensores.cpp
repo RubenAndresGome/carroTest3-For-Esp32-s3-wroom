@@ -21,6 +21,7 @@ static portMUX_TYPE muxOrientacionIMU = portMUX_INITIALIZER_UNLOCKED;
 static SensorSnapshot snapshotControl = {};
 static SensorSnapshot snapshotPublicado = {};
 static portMUX_TYPE muxSnapshotSensores = portMUX_INITIALIZER_UNLOCKED;
+static ControlInicializacionPCNT::Canal diagnosticoPCNT[4] = {};
 
 template <size_t N>
 class PromedioMovil {
@@ -59,7 +60,9 @@ static PromedioMovil<ENCODER_AVG_WINDOW> filtroEncoderBL;
 static PromedioMovil<ENCODER_AVG_WINDOW> filtroEncoderBR;
 static PromedioMovil<IMU_GYRO_AVG_WINDOW> filtroGyroZ;
 
-static void setup_PCNT(int pin, pcnt_unit_t unit) {
+static ControlInicializacionPCNT::Canal setup_PCNT(int pin, pcnt_unit_t unit) {
+    using ControlInicializacionPCNT::Etapa;
+    ControlInicializacionPCNT::Canal resultado = {};
     pcnt_config_t pcnt_config = {};
     pcnt_config.pulse_gpio_num = pin;
     pcnt_config.ctrl_gpio_num = PCNT_PIN_NOT_USED;
@@ -72,20 +75,40 @@ static void setup_PCNT(int pin, pcnt_unit_t unit) {
     pcnt_config.counter_l_lim = -32768;
     pcnt_config.unit = unit;
     pcnt_config.channel = PCNT_CHANNEL_0;
-    pcnt_unit_config(&pcnt_config);
-    pcnt_set_filter_value(unit, 100);
-    pcnt_filter_enable(unit);
-    pcnt_counter_pause(unit);
-    pcnt_counter_clear(unit);
-    pcnt_counter_resume(unit);
+    if (!ControlInicializacionPCNT::registrar(
+            resultado, Etapa::CONFIGURACION, pcnt_unit_config(&pcnt_config))) return resultado;
+    if (!ControlInicializacionPCNT::registrar(
+            resultado, Etapa::FILTRO_VALOR, pcnt_set_filter_value(unit, 100))) return resultado;
+    if (!ControlInicializacionPCNT::registrar(
+            resultado, Etapa::FILTRO_HABILITAR, pcnt_filter_enable(unit))) return resultado;
+    if (!ControlInicializacionPCNT::registrar(
+            resultado, Etapa::PAUSA, pcnt_counter_pause(unit))) return resultado;
+    if (!ControlInicializacionPCNT::registrar(
+            resultado, Etapa::LIMPIEZA, pcnt_counter_clear(unit))) return resultado;
+    ControlInicializacionPCNT::registrar(
+        resultado, Etapa::ARRANQUE, pcnt_counter_resume(unit));
+    return resultado;
 }
 
 void setup_Sensores() {
     LOG_CORE("Inicializando PCNT (4 encoders) y MPU6050...");
-    setup_PCNT(PIN_ENC_FL, PCNT_UNIT_0);
-    setup_PCNT(PIN_ENC_FR, PCNT_UNIT_1);
-    setup_PCNT(PIN_ENC_BL, PCNT_UNIT_2);
-    setup_PCNT(PIN_ENC_BR, PCNT_UNIT_3);
+    diagnosticoPCNT[0] = setup_PCNT(PIN_ENC_FL, PCNT_UNIT_0);
+    diagnosticoPCNT[1] = setup_PCNT(PIN_ENC_FR, PCNT_UNIT_1);
+    diagnosticoPCNT[2] = setup_PCNT(PIN_ENC_BL, PCNT_UNIT_2);
+    diagnosticoPCNT[3] = setup_PCNT(PIN_ENC_BR, PCNT_UNIT_3);
+    static const char* nombres[4] = {"FL", "FR", "BL", "BR"};
+    modoDegradado = false;
+    for (int i = 0; i < 4; ++i) {
+        encoderConfiableGlobal[i] = diagnosticoPCNT[i].inicializado;
+        estadoSaludEncoderGlobal[i] = diagnosticoPCNT[i].inicializado
+            ? EstadoSaludEncoder::HEALTHY : EstadoSaludEncoder::EXCLUDED;
+        modoDegradado |= !diagnosticoPCNT[i].inicializado;
+        Serial.printf("PCNT %s GPIO%d: %s etapa=%s error=%d\n", nombres[i],
+                      i == 0 ? PIN_ENC_FL : i == 1 ? PIN_ENC_FR : i == 2 ? PIN_ENC_BL : PIN_ENC_BR,
+                      diagnosticoPCNT[i].inicializado ? "OK" : "FALLO",
+                      ControlInicializacionPCNT::textoEtapa(diagnosticoPCNT[i].etapaFallida),
+                      diagnosticoPCNT[i].codigoError);
+    }
 
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
     Wire.setTimeout(10);
@@ -127,11 +150,27 @@ void setup_Sensores() {
     }
 }
 
+bool pcntFuentesPorLadoDisponibles() {
+    return ControlInicializacionPCNT::fuentesPorLadoDisponibles(diagnosticoPCNT);
+}
+
+bool pcntTodosInicializados() {
+    return ControlInicializacionPCNT::todosListos(diagnosticoPCNT);
+}
+
+const ControlInicializacionPCNT::Canal* diagnosticoInicializacionPCNT() {
+    return diagnosticoPCNT;
+}
+
 static void leerEncoders(SensorSnapshot &snap) {
     int16_t current_FL = 0, current_FR = 0, current_BL = 0, current_BR = 0;
     const pcnt_unit_t units[4] = {PCNT_UNIT_0, PCNT_UNIT_1, PCNT_UNIT_2, PCNT_UNIT_3};
     int16_t* values[4] = {&current_FL, &current_FR, &current_BL, &current_BR};
     for (int i = 0; i < 4; ++i) {
+        if (!diagnosticoPCNT[i].inicializado) {
+            *values[i] = 0;
+            continue;
+        }
         pcnt_counter_pause(units[i]);
         pcnt_get_counter_value(units[i], values[i]);
         pcnt_counter_clear(units[i]);

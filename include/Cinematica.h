@@ -16,6 +16,8 @@ struct DiagnosticoCalibracion {
   bool ladosValidos[2] = {};
   bool encoderResponde[4] = {};
   bool encoderAislado[4] = {};
+  bool respuestaFaseA[4] = {};
+  bool respuestaFaseB[4] = {};
   uint32_t stallAcumuladoMs[2] = {};
 };
 

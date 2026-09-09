@@ -34,8 +34,10 @@
 - Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog
   de 2.5 s por lado se arma sólo después de alcanzar el torque calibrado; el
   avance conserva su corte de 450 ms.
-- La calibración y confirmación de giro usan el promedio de ambos encoders por
-  lado. El control recto usa los deltas filtrados, no el error acumulado.
+- La calibración, odometría y confirmación de giro usan el promedio de las
+  fuentes confiables de cada lado. Un encoder sano por lado permite continuar
+  en modo degradado; perder todas las fuentes de cualquier lado detiene el
+  movimiento. El control recto usa los deltas filtrados, no el error acumulado.
 - Búsqueda continua de torque como el ensayo aprobado, desde 140 hasta 247/255
   en pasos de 5 cada 250 ms; confirmación sostenida mediante gyro y ticks por
   lado. Antes de cambiar polaridad espera 750 ms. El watchdog individual

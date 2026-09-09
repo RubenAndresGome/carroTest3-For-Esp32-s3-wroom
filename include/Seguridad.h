@@ -6,7 +6,8 @@
 enum class ResultadoRearme : uint8_t {
     REARMADO,
     SIN_FALLO_ACTIVO,
-    MOTORES_NO_DISPONIBLES
+    MOTORES_NO_DISPONIBLES,
+    PCNT_SIN_FUENTE_POR_LADO
 };
 
 class Seguridad {
@@ -17,6 +18,8 @@ public:
     void forzarEStop();
     ResultadoRearme resetFallo();
     void reiniciarSaludEncoders();
+    void prepararRevalidacionEncoders();
+    void aplicarClasificacionEncoders(const bool confiables[4]);
 
 private:
     unsigned long inicio_movimiento_ms;

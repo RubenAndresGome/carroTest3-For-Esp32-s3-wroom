@@ -4,6 +4,7 @@
 #include "ControlSeguridad.h"
 #include "ControlCalibracion.h"
 #include "ControlManual.h"
+#include "ControlInicializacionPCNT.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -43,10 +44,25 @@ void test_reversa_invierte_solo_la_correccion_lateral_del_chasis() {
 }
 
 void test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo() {
-  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(1, 1));
-  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(1, -1));
-  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1, 1));
-  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1, -1));
+  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(1.0f, 1));
+  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(1.0f, -1));
+  TEST_ASSERT_TRUE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1.0f, 1));
+  TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1.0f, -1));
+}
+
+void test_marco_cardinal_es_x_derecha_y_frente_y_yaw_horario() {
+  const auto norte = ControlRuta::vectorUnitarioRumbo(0.0f);
+  const auto este = ControlRuta::vectorUnitarioRumbo(90.0f);
+  const auto sur = ControlRuta::vectorUnitarioRumbo(180.0f);
+  const auto oeste = ControlRuta::vectorUnitarioRumbo(270.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, norte.x);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, norte.y);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, este.x);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, este.y);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, sur.x);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, sur.y);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, oeste.x);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, oeste.y);
 }
 
 void test_escala_y_freno_se_calculan_en_la_misma_unidad() {
@@ -207,14 +223,52 @@ void test_estop_se_reconoce() {
   TEST_ASSERT_FALSE(ControlSeguridad::estopSolicitado(false));
 }
 
-void test_calibracion_conserva_promedio_de_ambos_encoders_por_lado() {
+void test_calibracion_usa_solo_fuentes_que_responden_por_lado() {
   const int64_t deltas[4] = {0, 4, 4, 4};
   const auto evaluacion = ControlCalibracion::evaluarEncoders(deltas, 2);
-  TEST_ASSERT_EQUAL_INT64(2, evaluacion.promedioIzquierdo);
+  TEST_ASSERT_EQUAL_INT64(4, evaluacion.promedioIzquierdo);
+  TEST_ASSERT_EQUAL_UINT8(1, evaluacion.fuentesIzquierdas);
+  TEST_ASSERT_EQUAL_UINT8(2, evaluacion.fuentesDerechas);
   TEST_ASSERT_TRUE(evaluacion.ladoIzquierdoValido);
   TEST_ASSERT_TRUE(evaluacion.ladoDerechoValido);
   TEST_ASSERT_TRUE(evaluacion.sinRespuestaAislada[0]);
   TEST_ASSERT_FALSE(evaluacion.sinRespuestaAislada[2]);
+}
+
+void test_calibracion_acepta_exactamente_un_encoder_sano_por_lado() {
+  const int64_t deltas[4] = {3, 0, 0, 5};
+  const auto evaluacion = ControlCalibracion::evaluarEncoders(deltas, 2);
+  TEST_ASSERT_TRUE(evaluacion.ladoIzquierdoValido);
+  TEST_ASSERT_TRUE(evaluacion.ladoDerechoValido);
+  TEST_ASSERT_EQUAL_INT64(3, evaluacion.promedioIzquierdo);
+  TEST_ASSERT_EQUAL_INT64(5, evaluacion.promedioDerecho);
+  TEST_ASSERT_TRUE(evaluacion.sinRespuestaAislada[2]);
+  TEST_ASSERT_TRUE(evaluacion.sinRespuestaAislada[1]);
+}
+
+void test_pcnt_permite_degradado_si_conserva_una_fuente_por_lado() {
+  using namespace ControlInicializacionPCNT;
+  Canal canales[4] = {};
+  TEST_ASSERT_TRUE(todosListos(canales));
+  registrar(canales[0], Etapa::CONFIGURACION, -7);
+  registrar(canales[1], Etapa::ARRANQUE, -8);
+  TEST_ASSERT_FALSE(todosListos(canales));
+  TEST_ASSERT_TRUE(fuentesPorLadoDisponibles(canales));
+  registrar(canales[2], Etapa::FILTRO_HABILITAR, -9);
+  TEST_ASSERT_FALSE(fuentesPorLadoDisponibles(canales));
+  TEST_ASSERT_EQUAL_STRING("config", textoEtapa(canales[0].etapaFallida));
+  TEST_ASSERT_EQUAL_INT(-7, canales[0].codigoError);
+}
+
+void test_encoder_excluido_solo_reingresa_con_pulsos_coherentes_y_pwm() {
+  TEST_ASSERT_TRUE(ControlSeguridad::encoderPuedeReingresar(
+      10, 11, 10.5f, true, 0.40f));
+  TEST_ASSERT_FALSE(ControlSeguridad::encoderPuedeReingresar(
+      10, 11, 10.5f, false, 0.40f));
+  TEST_ASSERT_FALSE(ControlSeguridad::encoderPuedeReingresar(
+      0, 11, 10.5f, true, 0.40f));
+  TEST_ASSERT_FALSE(ControlSeguridad::encoderPuedeReingresar(
+      3, 11, 10.5f, true, 0.40f));
 }
 
 void test_calibracion_rechaza_un_lado_completo_sin_pulsos() {
@@ -274,6 +328,7 @@ int main(int, char**) {
   RUN_TEST(test_reversa_automatica_conserva_el_chasis_ante_objetivo_detras);
   RUN_TEST(test_reversa_invierte_solo_la_correccion_lateral_del_chasis);
   RUN_TEST(test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo);
+  RUN_TEST(test_marco_cardinal_es_x_derecha_y_frente_y_yaw_horario);
   RUN_TEST(test_escala_y_freno_se_calculan_en_la_misma_unidad);
   RUN_TEST(test_integral_se_acota_y_no_crece_en_saturacion);
   RUN_TEST(test_integral_acumula_y_se_limita_fuera_de_saturacion);
@@ -290,7 +345,10 @@ int main(int, char**) {
   RUN_TEST(test_antifriccion_escala_siete_pulsos_y_exige_ambos_lados);
   RUN_TEST(test_stop_no_borra_fallo_o_estop_enclavado);
   RUN_TEST(test_estop_se_reconoce);
-  RUN_TEST(test_calibracion_conserva_promedio_de_ambos_encoders_por_lado);
+  RUN_TEST(test_calibracion_usa_solo_fuentes_que_responden_por_lado);
+  RUN_TEST(test_calibracion_acepta_exactamente_un_encoder_sano_por_lado);
+  RUN_TEST(test_pcnt_permite_degradado_si_conserva_una_fuente_por_lado);
+  RUN_TEST(test_encoder_excluido_solo_reingresa_con_pulsos_coherentes_y_pwm);
   RUN_TEST(test_calibracion_rechaza_un_lado_completo_sin_pulsos);
   RUN_TEST(test_calibracion_identifica_cualquier_encoder_aislado);
   RUN_TEST(test_rampa_calibracion_expone_todos_los_niveles);

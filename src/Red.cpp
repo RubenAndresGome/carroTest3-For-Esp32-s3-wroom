@@ -304,6 +304,11 @@ static void enviarTelemetria() {
   reingreso["br"] = encoderMuestrasReingreso[3];
   fusionEncoders["distance_scale_factor"] = FACTOR_ESCALA_ENCODER;
   fusionEncoders["distance_error_pct"] = ENCODER_ERROR_PORCENTAJE;
+  fusionEncoders["pcnt_all_initialized"] = pcntTodosInicializados();
+  fusionEncoders["pcnt_per_side_ready"] = pcntFuentesPorLadoDisponibles();
+  const ControlInicializacionPCNT::Canal* pcntDiag = diagnosticoInicializacionPCNT();
+  JsonArray pcntCanales = fusionEncoders.createNestedArray("pcnt_initialized");
+  for (int i = 0; i < 4; ++i) pcntCanales.add(pcntDiag[i].inicializado);
   const DiagnosticoCalibracion diagnosticoCal = obtenerDiagnosticoCalibracion();
   JsonObject calDiag = doc.createNestedObject("calibration_diagnostics");
   calDiag["active"] = diagnosticoCal.activa;
@@ -316,10 +321,14 @@ static void enviarTelemetria() {
   JsonArray calDelta = calDiag.createNestedArray("encoder_delta");
   JsonArray calResponse = calDiag.createNestedArray("encoder_responding");
   JsonArray calIsolated = calDiag.createNestedArray("encoder_isolated");
+  JsonArray calResponseA = calDiag.createNestedArray("phase_a_response");
+  JsonArray calResponseB = calDiag.createNestedArray("phase_b_response");
   for (int i = 0; i < 4; ++i) {
     calDelta.add(diagnosticoCal.deltaEncoders[i]);
     calResponse.add(diagnosticoCal.encoderResponde[i]);
     calIsolated.add(diagnosticoCal.encoderAislado[i]);
+    calResponseA.add(diagnosticoCal.respuestaFaseA[i]);
+    calResponseB.add(diagnosticoCal.respuestaFaseB[i]);
   }
   JsonObject calSides = calDiag.createNestedObject("sides");
   JsonObject calLeft = calSides.createNestedObject("left");
