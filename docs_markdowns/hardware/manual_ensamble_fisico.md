@@ -38,27 +38,27 @@ Si el módulo TXS0108E expone `OE` y la placa no lo mantiene activo internamente
 
 ## 4. Motores y DRV8833
 
+### Registro Fotográfico del Cableado Real (Notas de Taller)
+
+![Cableado Físico Real de Motores y Encoders](cableado_fisico_motores_encoders.png)
+
 ### DRV8833 izquierdo
 
-| Entrada | GPIO ESP32 | Función |
-|---|---:|---|
-| IN1 | GPIO6 | FL FWD |
-| IN2 | GPIO7 | FL REV |
-| IN3 | GPIO4 | BL FWD |
-| IN4 | GPIO5 | BL REV |
-| OUT1 / OUT2 | — | motor FL |
-| OUT3 / OUT4 | — | motor BL |
+| Entrada | Bornera / Canal | GPIO ESP32 | Color Cable | Función |
+|---|---|---:|---|---|
+| IN4 | OUT4 | GPIO6 | Café | FL FWD |
+| IN3 | OUT3 | GPIO7 | Naranja 2 | FL REV |
+| IN1 | OUT1 | GPIO5 | Rojo | BL FWD |
+| IN2 | OUT2 | GPIO4 | Naranja 1 | BL REV |
 
 ### DRV8833 derecho
 
-| Entrada | GPIO ESP32 | Función |
-|---|---:|---|
-| IN1 | GPIO17 | FR FWD |
-| IN2 | GPIO18 | FR REV |
-| IN3 | GPIO15 | BR FWD |
-| IN4 | GPIO16 | BR REV |
-| OUT1 / OUT2 | — | motor FR |
-| OUT3 / OUT4 | — | motor BR |
+| Entrada | Bornera / Canal | GPIO ESP32 | Color Cable | Función |
+|---|---|---:|---|---|
+| IN3 | OUT3 | GPIO17 | Amarillo | FR FWD |
+| IN4 | OUT4 | GPIO18 | Naranja | FR REV |
+| IN1 | OUT1 | GPIO15 | Verde | BR FWD |
+| IN2 | OUT2 | GPIO16 | Negro | BR REV |
 
 El PWM actual es de 5 kHz y 10 bits, con límite de 242/255 en avance y 247/255 en giro y calibración. La calibración parte eléctricamente de cero, alcanza la base desde 140/255 y ajusta el PWM de cada lado por separado. Un yaw acumulado de 1° más un PCNT detecta torque; para validar el pivote debe responder al menos un PCNT por lado y la relación entre `max(FL,BL)` y `max(FR,BR)` debe permanecer entre 0.5 y 2.0. Dos ventanas asimétricas de 250 ms, más de 3° o 1.5 s sin equilibrio frenan la fase. Toda inversión mantiene ambos canales del lado apagados al menos 250 ms y la calibración espera 750 ms antes de cambiar polaridad. Los PCNT actuales cuentan un flanco sin dirección física: la evidencia de equilibrio no garantiza por sí sola un pivote centrado. Si una rueda gira al revés, detenga el sistema y compruebe cableado y polaridad individual antes de cambiar configuración.
 
@@ -66,14 +66,14 @@ El DRV8833 original incorpora resistencias pull-down internas en sus entradas de
 
 ## 5. Encoders LM393 y PCNT
 
-Cada LM393 se alimenta desde B2. Su salida digital pasa por el lado de 4.8 V del TXS0108E; el lado de 3.3 V llega al GPIO del ESP32.
+Cada LM393 se alimenta desde B2. Su salida digital pasa por el lado de 4.8 V del conversor de nivel TXS0108E; el lado de 3.3 V llega directamente al GPIO del ESP32.
 
-| Rueda | Color de identificación | GPIO | Unidad PCNT |
-|---|---|---:|---:|
-| FL | rojo | GPIO10 | PCNT 0 |
-| FR | café | GPIO11 | PCNT 1 |
-| BL | negro | GPIO12 | PCNT 2 |
-| BR | blanco | GPIO13 | PCNT 3 |
+| Rueda | Canal TXS0108E | Color de Cable | GPIO ESP32 | Unidad PCNT |
+|---|---|---|---:|---:|
+| **FL** (Frontal Izquierda) | B5 $\to$ A5 | Verde | **GPIO11** | PCNT 0 |
+| **FR** (Frontal Derecha) | B6 $\to$ A6 | Blanco | **GPIO10** | PCNT 1 |
+| **BL** (Trasera Izquierda) | B2 $\to$ A2 | Negro | **GPIO12** | PCNT 2 |
+| **BR** (Trasera Derecha) | B1 $\to$ A1 | Rojo | **GPIO13** | PCNT 3 |
 
 Use cable corto y separado de los conductores de motor. El firmware cuenta un flanco ascendente por ranura y usa 20 PPR nominales. No reemplace PCNT con interrupciones GPIO.
 

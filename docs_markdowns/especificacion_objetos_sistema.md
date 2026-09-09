@@ -156,8 +156,18 @@ Controlador cinemático de bucle cerrado:
     5. `CAL_B`: Búsqueda de torque en Polaridad Opuesta (`candidatoCal = -candidatoGiroPos`) con validación bilateral y confirmación de que `candidatoGiroPos != candidatoGiroNeg`.
     6. `CAL_PAUSA_RETORNO`: Reposo de 2.5 s.
     7. `CAL_RETORNO`: Pivote puro de retorno hacia el `yawInicioCalDeg` original, restableciendo la odometría `PoseGlobal` (X=0, Y=0) y el rumbo angular al estabilizarse.
-- **Polaridad Harcodeada de Ejes**:
+- **Polaridad Harcodeada de Ejes y Mapeo Físico de Pines**:
   - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido por el operador), garantizando que el avance positivo traslade el chasis hacia el frente (eje +Y físico y cardinal concordante con la IU, 0° mirando a +Y) y el giro horario traslade hacia +X (90° a la derecha).
+  - **Pines Motores (DRV8833)**:
+    - FL: FWD=GPIO6 (IN4), REV=GPIO7 (IN3)
+    - BL: FWD=GPIO5 (IN1), REV=GPIO4 (IN2)
+    - FR: FWD=GPIO17 (IN3), REV=GPIO18 (IN4)
+    - BR: FWD=GPIO15 (IN1), REV=GPIO16 (IN2)
+  - **Pines Encoders (TXS0108E)**:
+    - FL: GPIO11 (cable verde, canal B5 $\to$ A5)
+    - FR: GPIO10 (cable blanco, canal B6 $\to$ A6)
+    - BL: GPIO12 (cable negro, canal B2 $\to$ A2)
+    - BR: GPIO13 (cable rojo, canal B1 $\to$ A1)
 
 #### `Seguridad` (`include/Seguridad.h`, `src/Seguridad.cpp`)
 Guardián de integridad del robot:

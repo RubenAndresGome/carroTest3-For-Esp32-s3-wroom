@@ -59,14 +59,19 @@ físicamente deshabilitado durante carga o reset.
 La tabla describe el corte auditado; confirmar siempre `include/Config.h` antes
 de cablear una revisión distinta.
 
-| Elemento | Pines activos | Comprobación sin VMOT |
-|---|---|---|
-| Motores FL | GPIO 6/7 | Ambas entradas permanecen LOW durante boot controlable. |
-| Motores BL | GPIO 4/5 | Ambas entradas permanecen LOW durante boot controlable. |
-| Motores FR | GPIO 17/18 | Ambas entradas permanecen LOW durante boot controlable. |
-| Motores BR | GPIO 15/16 | Ambas entradas permanecen LOW durante boot controlable. |
-| Encoders FL/FR/BL/BR | GPIO 10/11/12/13 | Cada contador cambia al girar manualmente sólo su rueda. |
-| MPU6050 I²C | SDA 8, SCL 9 | El escaneo detecta el sensor; no confundir con RX/TX. |
+![Cableado Físico Real de Motores y Encoders](hardware/cableado_fisico_motores_encoders.png)
+
+| Elemento | Pines activos | Cableado físico real / Color | Comprobación sin VMOT |
+|---|---|---|---|
+| Motores FL | GPIO 6 / 7 | IN4 (café) / IN3 (naranja 2) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores BL | GPIO 5 / 4 | IN1 (rojo) / IN2 (naranja 1) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores FR | GPIO 17 / 18 | IN3 (amarillo) / IN4 (naranja) | Ambas entradas permanecen LOW durante boot controlable. |
+| Motores BR | GPIO 15 / 16 | IN1 (verde) / IN2 (negro) | Ambas entradas permanecen LOW durante boot controlable. |
+| Encoder FL | GPIO 11 | Verde (TXS B5 $\to$ A5) | Contador PCNT 0 cambia al girar sólo la rueda FL. |
+| Encoder FR | GPIO 10 | Blanco (TXS B6 $\to$ A6) | Contador PCNT 1 cambia al girar sólo la rueda FR. |
+| Encoder BL | GPIO 12 | Negro (TXS B2 $\to$ A2) | Contador PCNT 2 cambia al girar sólo la rueda BL. |
+| Encoder BR | GPIO 13 | Rojo (TXS B1 $\to$ A1) | Contador PCNT 3 cambia al girar sólo la rueda BR. |
+| MPU6050 I²C | SDA 8, SCL 9 | Conversor I2C a 3.3 V | El escaneo detecta el sensor; no confundir con RX/TX. |
 
 No alimentar motores desde el regulador del ESP32. Unir tierras, respetar la
 tensión admitida por cada módulo y comprobar polaridad antes de energizar.

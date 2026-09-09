@@ -16,18 +16,18 @@ extern const char* password_AP;
 // FL/BL: izquierdo superior/inferior. FR/BR: derecho superior/inferior.
 const int PIN_FL_FWD = 6;
 const int PIN_FL_REV = 7;
-const int PIN_BL_FWD = 4;
-const int PIN_BL_REV = 5;
+const int PIN_BL_FWD = 5;
+const int PIN_BL_REV = 4;
 const int PIN_FR_FWD = 17;
 const int PIN_FR_REV = 18;
 const int PIN_BR_FWD = 15;
 const int PIN_BR_REV = 16;
 
-// Encoders
-const int PIN_ENC_FL = 10;  // superior izquierdo, cable rojo
-const int PIN_ENC_FR = 11;  // superior derecho, cable cafe
-const int PIN_ENC_BL = 12;  // inferior izquierdo, cable negro
-const int PIN_ENC_BR = 13;  // inferior derecho, cable blanco
+// Encoders (Cableado fisico real verificado por hardware)
+const int PIN_ENC_FL = 11;  // superior izquierdo, cable verde (TXS B5->A5)
+const int PIN_ENC_FR = 10;  // superior derecho, cable blanco (TXS B6->A6)
+const int PIN_ENC_BL = 12;  // inferior izquierdo, cable negro (TXS B2->A2)
+const int PIN_ENC_BR = 13;  // inferior derecho, cable rojo (TXS B1->A1)
 
 // MPU6050 (I2C)
 // Cableado físico actual del robot: SDA=GPIO8 y SCL=GPIO9.
