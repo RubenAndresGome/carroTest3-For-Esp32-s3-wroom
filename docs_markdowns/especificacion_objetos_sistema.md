@@ -159,6 +159,52 @@ Controlador cinemático de bucle cerrado:
 - **Dogma de Simetría y Espejado Mecánico del Chasis 4WD**:
   - En la estructura de doble plataforma acrílica 4WD, los motores reductores amarillos (TT) delanteros (FL/FR) y traseros (BL/BR) están montados en oposición física ($180^\circ$ enfrentados en el eje longitudinal). Los pares izquierdo y derecho están espejados en el eje sagital.
   - La polaridad eléctrica (+ naranja / - negro) en las borneras del DRV8833 y la asignación de pines GPIO compensan esta geometría, garantizando avance sincrónico y puro hacia $+Y$ en las cuatro ruedas.
+
+```
+                  FRENTE (+Y, Yaw = 0°)
+          ┌───────────────────────────────────┐
+          │   [Motor FL]          [Motor FR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │      atrás)              atrás)   │
+          │                                   │
+IZQUIERDA │        (ESP32-S3 / Baterías)      │ DERECHA (+X, Yaw = 90°)
+(-X)      │         Pose (0,0) IMU            │
+          │                                   │
+          │   [Motor BL]          [Motor BR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │     adelante)           adelante) │
+          └───────────────────────────────────┘
+                  ATRÁS (-Y, Yaw = 180°)
+```
+
+```mermaid
+flowchart TB
+    subgraph CHASIS["CHASIS 4WD · VISTA SUPERIOR Y ORIENTACIÓN DE MOTORES"]
+        direction TB
+        subgraph FRENTE_DIR["FRENTE (+Y · Yaw 0°)"]
+            direction LR
+            FL["<b>Motor FL</b><br/>Frontal Izquierdo<br/><i>(Cuerpo hacia ATRÁS)</i><br/>GPIO7 (+), GPIO6 (-)"]
+            FR["<b>Motor FR</b><br/>Frontal Derecho<br/><i>(Cuerpo hacia ATRÁS)</i><br/>GPIO18 (+), GPIO17 (-)"]
+        end
+
+        subgraph CENTRO_CHASIS["Plataforma Central / Baterías / ESP32-S3"]
+            direction LR
+            IZQ_LABEL["<b>IZQUIERDA</b><br/>(-X)"]
+            IMU_POSE["<b>IMU MPU6050 & Pose (0,0)</b><br/>SDA: GPIO8 · SCL: GPIO9"]
+            DER_LABEL["<b>DERECHA</b><br/>(+X · Yaw +90°)"]
+        end
+
+        subgraph ATRAS_DIR["ATRÁS (-Y · Yaw 180°)"]
+            direction LR
+            BL["<b>Motor BL</b><br/>Trasero Izquierdo<br/><i>(Cuerpo hacia ADELANTE)</i><br/>GPIO4 (+), GPIO5 (-)"]
+            BR["<b>Motor BR</b><br/>Trasero Derecho<br/><i>(Cuerpo hacia ADELANTE)</i><br/>GPIO16 (+), GPIO15 (-)"]
+        end
+
+        FL --- CENTRO_CHASIS --- BL
+        FR --- CENTRO_CHASIS --- BR
+    end
+```
+
 - **Polaridad Harcodeada de Ejes y Mapeo Físico de Pines**:
   - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido por el operador), garantizando que el avance positivo traslade el chasis hacia el frente (eje +Y físico y cardinal concordante con la IU, 0° mirando a +Y) y el giro horario traslade hacia +X (90° a la derecha).
   - **Pines Motores (DRV8833)**:

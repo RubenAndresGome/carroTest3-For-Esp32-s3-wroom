@@ -44,6 +44,51 @@ En la estructura física del chasis 4WD acrílico de doble plataforma, la dispos
 
 ![Geometría del Chasis 4WD y Orientación de Motores](chasis_4wd_orientacion_motores.png)
 
+```
+                  FRENTE (+Y, Yaw = 0°)
+          ┌───────────────────────────────────┐
+          │   [Motor FL]          [Motor FR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │      atrás)              atrás)   │
+          │                                   │
+IZQUIERDA │        (ESP32-S3 / Baterías)      │ DERECHA (+X, Yaw = 90°)
+(-X)      │         Pose (0,0) IMU            │
+          │                                   │
+          │   [Motor BL]          [Motor BR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │     adelante)           adelante) │
+          └───────────────────────────────────┘
+                  ATRÁS (-Y, Yaw = 180°)
+```
+
+```mermaid
+flowchart TB
+    subgraph CHASIS["CHASIS 4WD · VISTA SUPERIOR Y ORIENTACIÓN DE MOTORES"]
+        direction TB
+        subgraph FRENTE_DIR["FRENTE (+Y · Yaw 0°)"]
+            direction LR
+            FL["<b>Motor FL</b><br/>Frontal Izquierdo<br/><i>(Cuerpo hacia ATRÁS)</i><br/>GPIO7 (+), GPIO6 (-)"]
+            FR["<b>Motor FR</b><br/>Frontal Derecho<br/><i>(Cuerpo hacia ATRÁS)</i><br/>GPIO18 (+), GPIO17 (-)"]
+        end
+
+        subgraph CENTRO_CHASIS["Plataforma Central / Baterías / ESP32-S3"]
+            direction LR
+            IZQ_LABEL["<b>IZQUIERDA</b><br/>(-X)"]
+            IMU_POSE["<b>IMU MPU6050 & Pose (0,0)</b><br/>SDA: GPIO8 · SCL: GPIO9"]
+            DER_LABEL["<b>DERECHA</b><br/>(+X · Yaw +90°)"]
+        end
+
+        subgraph ATRAS_DIR["ATRÁS (-Y · Yaw 180°)"]
+            direction LR
+            BL["<b>Motor BL</b><br/>Trasero Izquierdo<br/><i>(Cuerpo hacia ADELANTE)</i><br/>GPIO4 (+), GPIO5 (-)"]
+            BR["<b>Motor BR</b><br/>Trasero Derecho<br/><i>(Cuerpo hacia ADELANTE)</i><br/>GPIO16 (+), GPIO15 (-)"]
+        end
+
+        FL --- CENTRO_CHASIS --- BL
+        FR --- CENTRO_CHASIS --- BR
+    end
+```
+
 1. **Inversión Longitudinal (Frente vs Atrás)**:
    - Los motores del par delantero (**FL / FR**) están montados con sus cajas reductoras hacia los extremos y sus cuerpos de motor DC orientados hacia atrás (hacia el centro del chasis).
    - Los motores del par trasero (**BL / BR**) están montados con sus cuerpos de motor DC orientados hacia adelante (enfrentados a los motores delanteros).

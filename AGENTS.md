@@ -52,6 +52,24 @@
   - En la estructura física del chasis 4WD acrílico de doble plataforma, los reductores TT están montados en pares opuestos: los motores delanteros (FL/FR) tienen sus cuerpos orientados hacia atrás y los traseros (BL/BR) hacia adelante (enfrentados entre sí en el eje longitudinal). Asimismo, los pares izquierdo y derecho están reflejados respecto al eje sagital.
   - Al estar invertidos mecánicamente $180^\circ$, la polaridad eléctrica de las borneras DRV8833 y el mapeo de GPIO compensa esta simetría para que la señal lógica de avance (`FWD` = 1, cable naranja $+$, cable negro $-$) genere traslación positiva pura y uniforme hacia el vector $+Y$ en las cuatro ruedas.
   - El sistema de cinemática y calibración asume esta compensación de hardware como dogma inmutable.
+
+```
+                  FRENTE (+Y, Yaw = 0°)
+          ┌───────────────────────────────────┐
+          │   [Motor FL]          [Motor FR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │      atrás)              atrás)   │
+          │                                   │
+IZQUIERDA │        (ESP32-S3 / Baterías)      │ DERECHA (+X, Yaw = 90°)
+(-X)      │         Pose (0,0) IMU            │
+          │                                   │
+          │   [Motor BL]          [Motor BR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │     adelante)           adelante) │
+          └───────────────────────────────────┘
+                  ATRÁS (-Y, Yaw = 180°)
+```
+
 - **Polaridad Harcodeada de Ejes y Motores**:
   - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido físicamente por el operador), de modo que el avance y traslación concuerdan exactamente hacia +Y (frente) y los desplazamientos en +X concuerdan hacia la derecha de la interfaz de usuario.
   - El sentido de giro positivo del yaw (horario / dextrógiro) corresponde a la orientación
