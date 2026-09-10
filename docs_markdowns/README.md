@@ -10,6 +10,8 @@ Este directorio reúne la documentación técnica vigente, esquemas de funcionam
 - [**Informe de cobertura de la entrega**](informe_entrega_documentacion.md): matriz requisito–evidencia y resultados de todas las puertas ejecutadas.
 -  [**UML de todas las funciones por carpeta**](uml/README.md): inventario regenerable de las fuentes activas.
 - 🎬 [**Evidencia audiovisual**](../evidencia/README.md): videos normalizados, hashes, fotogramas y lectura tutorial.
+- 🔌 [**Dogma físico de cableado**](../evidencia/README.md#evidencia-física-de-cableado): fotografía versionada, hash y transcripción de terminales, GPIO y colores.
+- 🛠️ [**Plan de corrección de regresiones del Milestone**](plan_correccion_regresiones_milestone.md): recuperación priorizada de parada, calibración, pivote, PID y HMI.
 
 ---
 

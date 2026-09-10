@@ -1,6 +1,6 @@
 # Diagrama de ensamble físico actual
 
-> Fuente canónica: `include/Config.h`. Si cambia un GPIO en firmware, este documento y el diagrama interactivo deben actualizarse en el mismo cambio.
+> Fuentes canónicas: la [hoja física dogmática](../../evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg) fija terminales, GPIO y colores; `include/Config.h` debe coincidir con ella. Los GPIO no se cambian para corregir control, ejes o polaridad.
 
 ## Alimentación
 
@@ -37,14 +37,16 @@ flowchart LR
 
 ## Pinout canónico
 
+![Hoja física de cableado del Milestone](../../evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg)
+
 ### Motores DRV8833
 
-| Rueda | Canal FWD nominal | Canal REV nominal | Puente y entradas |
-|---|---:|---:|---|
-| FL, frontal izquierda | GPIO7 | GPIO6 | DRV izquierdo IN1 / IN2 |
-| BL, trasera izquierda | GPIO4 | GPIO5 | DRV izquierdo IN3 / IN4 |
-| FR, frontal derecha | GPIO18 | GPIO17 | DRV derecho IN1 / IN2 |
-| BR, trasera derecha | GPIO16 | GPIO15 | DRV derecho IN3 / IN4 |
+| Rueda | FWD nominal | REV nominal | Entradas/salidas físicas | Colores |
+|---|---:|---:|---|---|
+| FL, frontal izquierda | GPIO7 | GPIO6 | izquierdo IN3/OUT3 · IN4/OUT4 | naranja 2 · café |
+| BL, trasera izquierda | GPIO4 | GPIO5 | izquierdo IN2/OUT2 · IN1/OUT1 | naranja 1 · rojo |
+| FR, frontal derecha | GPIO18 | GPIO17 | derecho IN4/OUT4 · IN3/OUT3 | naranja · amarillo |
+| BR, trasera derecha | GPIO16 | GPIO15 | derecho IN2/OUT2 · IN1/OUT1 | negro · verde |
 
 El firmware genera PWM a 5 kHz y 10 bits (0–1023). Los nombres FWD/REV de la
 tabla identifican los canales nominales del cableado. La orientación mecánica

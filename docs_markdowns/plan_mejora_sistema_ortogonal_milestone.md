@@ -1,5 +1,10 @@
 # Plan de mejora del sistema ortogonal Milestone
 
+> **Estado: supersedido para recuperación.** Este documento conserva las
+> decisiones de la iteración original. La corrección de las regresiones
+> observadas se rige por
+> [`plan_correccion_regresiones_milestone.md`](plan_correccion_regresiones_milestone.md).
+
 ## Objetivo verificable
 
 El robot debe interpretar `+Y` como frente físico, `+X` como derecha física y

@@ -5,6 +5,36 @@ certificación de seguridad. Muestran interfaz y movimiento observable; no
 demuestran por sí solas corriente, ticks de encoder, integridad SQLite ni
 ausencia de reinicios.
 
+## Evidencia física de cableado
+
+![Hoja dogmática de cableado del Milestone](hardware/cableado_dogmatico_milestone_2026-09-08.jpeg)
+
+La fotografía fue proporcionada por el operador y fija el cableado físico del
+Milestone. SHA-256 de la copia versionada:
+`DCA0C9CC0AB23B237AA78239A8798E16296F3E9279F6A59F853006A228BE55D4`.
+
+| Motor | DRV8833 | GPIO | Color |
+|---|---|---:|---|
+| FL | izquierdo IN4/OUT4 | 6 | café |
+| FL | izquierdo IN3/OUT3 | 7 | naranja 2 |
+| BL | izquierdo IN1/OUT1 | 5 | rojo |
+| BL | izquierdo IN2/OUT2 | 4 | naranja 1 |
+| FR | derecho IN3/OUT3 | 17 | amarillo |
+| FR | derecho IN4/OUT4 | 18 | naranja |
+| BR | derecho IN1/OUT1 | 15 | verde |
+| BR | derecho IN2/OUT2 | 16 | negro |
+
+| Encoder | TXS0108E | Color | GPIO |
+|---|---|---|---:|
+| FL | B5→A5 | verde | 11 |
+| FR | B6→A6 | blanco | 10 |
+| BL | B2→A2 | negro | 12 |
+| BR | B1→A1 | rojo | 13 |
+
+La imagen documenta conexiones; no contiene instrucciones de operación. La
+semántica FWD/REV y la polaridad lógica se documentan por separado en
+[`docs_markdowns/hardware/manual_ensamble_fisico.md`](../docs_markdowns/hardware/manual_ensamble_fisico.md).
+
 ## Videos versionados
 
 | Evidencia | SHA-256 de la versión del repositorio |

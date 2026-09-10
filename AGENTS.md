@@ -13,6 +13,10 @@
   la implementación activa sin una revisión explícita.
 - El mockup web antiguo se conserva íntegro en `archive/legacy/IUInWeb/`. No se
   elimina ni se vacía.
+- La fotografía [`evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg`](evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg)
+  y su transcripción fijan el cableado físico del Milestone. `include/Config.h`
+  debe representarlo exactamente; ninguno de esos GPIO se cambia para corregir
+  dirección, PID, calibración o ejes.
 
 ## Arquitectura y seguridad
 
@@ -26,6 +30,38 @@
   como plantilla local de `include/Secrets.h`.
 
 ### Protección eléctrica del DRV8833
+
+#### Dogma de cableado físico del Milestone (inmutable)
+
+![Hoja física de cableado del Milestone](evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg)
+
+La hoja anterior fue proporcionada por el operador y se conserva como evidencia
+física. Fija entrada, salida, GPIO y color; los nombres lógicos FWD/REV y
+`PWM_FORWARD_POLARITY` son otra capa y no autorizan a reinterpretar el cableado.
+
+| Motor | Entrada/salida DRV8833 | GPIO | Color | Representación nominal en `Config.h` |
+|---|---|---:|---|---|
+| FL | izquierdo IN4/OUT4 | 6 | café | `PIN_FL_REV` |
+| FL | izquierdo IN3/OUT3 | 7 | naranja 2 | `PIN_FL_FWD` |
+| BL | izquierdo IN1/OUT1 | 5 | rojo | `PIN_BL_REV` |
+| BL | izquierdo IN2/OUT2 | 4 | naranja 1 | `PIN_BL_FWD` |
+| FR | derecho IN3/OUT3 | 17 | amarillo | `PIN_FR_REV` |
+| FR | derecho IN4/OUT4 | 18 | naranja | `PIN_FR_FWD` |
+| BR | derecho IN1/OUT1 | 15 | verde | `PIN_BR_REV` |
+| BR | derecho IN2/OUT2 | 16 | negro | `PIN_BR_FWD` |
+
+| Encoder | Canal TXS0108E | Color | GPIO ESP32-S3 |
+|---|---|---|---:|
+| FL | B5→A5 | verde | 11 |
+| FR | B6→A6 | blanco | 10 |
+| BL | B2→A2 | negro | 12 |
+| BR | B1→A1 | rojo | 13 |
+
+- No intercambiar GPIO ni ruedas para compensar un signo de movimiento.
+- Corregir la convención sólo en la frontera lógica de motores, después de una
+  prueba individual con ruedas elevadas.
+- Si código, documentación y hoja difieren, detener la integración y resolver
+  la contradicción explícitamente; no elegir una fuente por conveniencia.
 
 #### Límites por firmware (todas las rutas de control)
 - PWM máximo de avance: 242/255 (~95%); giros autónomos, calibración y pivote continuo conservan 247/255 (~97%) para vencer fricción en superficies difíciles.
