@@ -137,13 +137,31 @@ void test_fallo_endpoint_despues_de_dos_intentos() {
                           static_cast<uint8_t>(ControlRuta::decidirEndpoint(true, false, 2, 2)));
 }
 
+void test_presupuesto_unico_permite_21_reingresos_y_bloquea_el_22() {
+  TEST_ASSERT_EQUAL_UINT8(21, ROUTE_RECOVERY_MAX_ATTEMPTS);
+  TEST_ASSERT_FALSE(ControlRuta::agotoIntentosEndpoint(
+      ROUTE_RECOVERY_MAX_ATTEMPTS - 1, INTENTOS_RECUPERACION_ENDPOINT_MAX));
+  TEST_ASSERT_TRUE(ControlRuta::agotoIntentosEndpoint(
+      ROUTE_RECOVERY_MAX_ATTEMPTS, INTENTOS_RECUPERACION_ENDPOINT_MAX));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::DecisionEndpoint::RECUPERAR),
+      static_cast<uint8_t>(ControlRuta::decidirEndpoint(
+          true, false, ROUTE_RECOVERY_MAX_ATTEMPTS - 1,
+          INTENTOS_RECUPERACION_ENDPOINT_MAX)));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::DecisionEndpoint::FALLAR),
+      static_cast<uint8_t>(ControlRuta::decidirEndpoint(
+          true, false, ROUTE_RECOVERY_MAX_ATTEMPTS,
+          INTENTOS_RECUPERACION_ENDPOINT_MAX)));
+}
+
 void test_endpoint_corto_falla_y_el_largo_se_recupera() {
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlRuta::DecisionEndpoint::FALLAR),
                           static_cast<uint8_t>(ControlRuta::decidirEndpointSeguro(
-                              true, false, 0, 2, 6.7f, 13.0f)));
+                              true, false, 0, 2, 1.8f, DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM)));
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlRuta::DecisionEndpoint::RECUPERAR),
                           static_cast<uint8_t>(ControlRuta::decidirEndpointSeguro(
-                              true, false, 0, 2, 24.0f, 13.0f)));
+                              true, false, 0, 2, 5.2f, DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM)));
 }
 
 void test_reingreso_se_proyecta_sobre_ejes_ortogonales_y_se_limita_al_endpoint() {
@@ -161,13 +179,86 @@ void test_disparadores_recentrado_y_sentido_incorrecto_exigen_persistencia() {
   TEST_ASSERT_FALSE(ControlRuta::debeRecentrar(
       5.0f, 299, 5.0f, 300, 0.0f, 0, 1.0f, 500));
   TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
-      5.0f, 300, 5.0f, 300, 0.0f, 0, 1.0f, 500));
+      5.1f, 300, 5.0f, 300, 0.0f, 0, 1.0f, 500));
   TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
       3.0f, 0, 5.0f, 300, 1.0f, 500, 1.0f, 500));
   TEST_ASSERT_FALSE(ControlRuta::progresoEnSentidoIncorrecto(
       52.0f, 50.0f, 399, 2.0f, 400));
   TEST_ASSERT_TRUE(ControlRuta::progresoEnSentidoIncorrecto(
       52.0f, 50.0f, 400, 2.0f, 400));
+}
+
+void test_guard_maniobra_acepta_reversa_convergente_y_frena_divergencia() {
+  const float objetivos[4][2] = {
+      {0.0f, 100.0f}, {100.0f, 0.0f}, {0.0f, -100.0f}, {-100.0f, 0.0f}};
+  const float sobrepasos[4][2] = {
+      {0.0f, 120.0f}, {120.0f, 0.0f}, {0.0f, -120.0f}, {-120.0f, 0.0f}};
+  const float regresos[4][2] = {
+      {0.0f, 116.0f}, {116.0f, 0.0f}, {0.0f, -116.0f}, {-116.0f, 0.0f}};
+
+  for (int i = 0; i < 4; ++i) {
+    ControlRuta::SeguimientoProgreso seguimiento{};
+    const float inicial = hypotf(objetivos[i][0] - sobrepasos[i][0],
+                                 objetivos[i][1] - sobrepasos[i][1]);
+    const float convergente = hypotf(objetivos[i][0] - regresos[i][0],
+                                     objetivos[i][1] - regresos[i][1]);
+    ControlRuta::iniciarSeguimientoProgreso(seguimiento, inicial);
+    TEST_ASSERT_FALSE(ControlRuta::actualizarSeguimientoProgreso(
+        seguimiento, convergente, 100, 2.0f, 400));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 16.0f, seguimiento.mejorRestanteCm);
+  }
+
+  ControlRuta::SeguimientoProgreso divergente{};
+  ControlRuta::iniciarSeguimientoProgreso(divergente, 16.0f);
+  TEST_ASSERT_FALSE(ControlRuta::actualizarSeguimientoProgreso(
+      divergente, 18.0f, 0, 2.0f, 400));
+  TEST_ASSERT_FALSE(ControlRuta::actualizarSeguimientoProgreso(
+      divergente, 18.0f, 399, 2.0f, 400));
+  TEST_ASSERT_TRUE(ControlRuta::actualizarSeguimientoProgreso(
+      divergente, 18.0f, 400, 2.0f, 400));
+}
+
+void test_realineacion_conserva_progreso_en_baselines_repetidos() {
+  const float cmPorTick = 0.5f;
+  float acumulada = ControlRuta::distanciaConBaseline(0.0f, 80.0f, cmPorTick);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 40.0f, acumulada);
+
+  // El pivote ocurre antes de tomar el baseline siguiente: sus ticks no se
+  // pasan a esta función. Sólo los ocho centímetros traducidos se agregan.
+  acumulada = ControlRuta::distanciaConBaseline(acumulada, 16.0f, cmPorTick);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 48.0f, acumulada);
+  acumulada = ControlRuta::distanciaConBaseline(acumulada, 4.0f, cmPorTick);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 50.0f, acumulada);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 50.0f, 100.0f - (100.0f - acumulada));
+}
+
+void test_episodio_recuperacion_no_renueva_reintentos_y_cubre_rollover() {
+  ControlRuta::EpisodioRecuperacion episodio{};
+  ControlRuta::abrirEpisodioRecuperacion(episodio, 100);
+  ControlRuta::abrirEpisodioRecuperacion(episodio, 29000);  // verify_retry
+  TEST_ASSERT_EQUAL_UINT32(100, episodio.inicioMs);
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::EstadoEpisodioRecuperacion::ACTIVO),
+      static_cast<uint8_t>(ControlRuta::procesarEpisodioRecuperacion(
+          episodio, 30099, 30000, false)));
+  // La transición a resumed en el instante exacto del límite debe fallar antes
+  // de poder cerrar y renovar el presupuesto.
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::EstadoEpisodioRecuperacion::VENCIDO),
+      static_cast<uint8_t>(ControlRuta::procesarEpisodioRecuperacion(
+          episodio, 30100, 30000, true)));
+  TEST_ASSERT_TRUE(episodio.activo);
+
+  ControlRuta::cancelarEpisodioRecuperacion(episodio);
+  ControlRuta::abrirEpisodioRecuperacion(episodio, 0xFFFFFFF0u);
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::EstadoEpisodioRecuperacion::ACTIVO),
+      static_cast<uint8_t>(ControlRuta::procesarEpisodioRecuperacion(
+          episodio, 0x00000020u, 49)));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::EstadoEpisodioRecuperacion::VENCIDO),
+      static_cast<uint8_t>(ControlRuta::procesarEpisodioRecuperacion(
+          episodio, 0x00000021u, 49)));
 }
 
 void test_reingreso_exige_centro_y_mejora_real() {
@@ -460,8 +551,10 @@ void test_guard_relativo_ignora_ticks_anteriores_al_baseline() {
   TEST_ASSERT_FALSE(evidencia.equilibrado);
 }
 
-void test_guard_calibracion_permite_once_intentos() {
+void test_guard_calibracion_conserva_once_intentos_independientes() {
   TEST_ASSERT_EQUAL_UINT8(11, CAL_GUARD_MAX_ATTEMPTS);
+  TEST_ASSERT_EQUAL_UINT8(21, ROUTE_RECOVERY_MAX_ATTEMPTS);
+  TEST_ASSERT_NOT_EQUAL(CAL_GUARD_MAX_ATTEMPTS, ROUTE_RECOVERY_MAX_ATTEMPTS);
   TEST_ASSERT_EQUAL_UINT8(
       static_cast<uint8_t>(ControlCalibracion::AccionGuardPivot::PAUSAR_REINTENTO),
       static_cast<uint8_t>(ControlCalibracion::decidirAccionGuardPivot(
@@ -571,9 +664,20 @@ void test_interlock_fin_pulsado_y_memoria_impulso() {
 }
 
 void test_recentrado_ignora_desviaciones_pequenas_o_pasos_cortos() {
-  TEST_ASSERT_FALSE(ControlRuta::debeRecentrar(
-      2.3f, 500, RECENTER_TRIGGER_CM, RECENTER_TRIGGER_MS,
-      1.0f, 500, RECENTER_GROWTH_TRIGGER_CM, RECENTER_GROWTH_MS));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.0f,
+                           ControlRuta::umbralLateralSegmento(
+                               10.0f, RECENTER_LATERAL_RATIO,
+                               RECENTER_LATERAL_MIN_CM));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f,
+                           ControlRuta::umbralLateralSegmento(
+                               100.0f, RECENTER_LATERAL_RATIO,
+                               RECENTER_LATERAL_MIN_CM));
+  TEST_ASSERT_TRUE(ControlRuta::lateralEnRango(
+      2.0f, 10.0f, RECENTER_LATERAL_RATIO, RECENTER_LATERAL_MIN_CM));
+  TEST_ASSERT_FALSE(ControlRuta::lateralEnRango(
+      2.1f, 10.0f, RECENTER_LATERAL_RATIO, RECENTER_LATERAL_MIN_CM));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.10f,
+                           ControlRuta::proporcionLateralSegmento(6.0f, 60.0f));
 
   TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
       12.1f, 300, RECENTER_TRIGGER_CM, RECENTER_TRIGGER_MS,
@@ -582,10 +686,68 @@ void test_recentrado_ignora_desviaciones_pequenas_o_pasos_cortos() {
   TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
       5.0f, 0, RECENTER_TRIGGER_CM, RECENTER_TRIGGER_MS,
       6.1f, 500, RECENTER_GROWTH_TRIGGER_CM, RECENTER_GROWTH_MS));
+  TEST_ASSERT_TRUE(ControlRuta::cruzoEjeConErrorBajo(1.0f, -1.5f, 2.0f));
+  TEST_ASSERT_FALSE(ControlRuta::cruzoEjeConErrorBajo(1.0f, -2.1f, 2.0f));
+  TEST_ASSERT_FALSE(ControlRuta::cruzoEjeConErrorBajo(1.0f, 1.5f, 2.0f));
+}
 
-  constexpr float pasoSesion33 = 50.0f;
-  const bool permiteRecentrado = pasoSesion33 >= RECENTER_MIN_STEP_CM;
-  TEST_ASSERT_FALSE(permiteRecentrado);
+void test_candidato_reingreso_elige_el_menor_coste_y_respeta_reversa() {
+  const ControlRuta::PuntoReingreso punto = {0.0f, 52.0f, 10.0f};
+  const auto avance = ControlRuta::evaluarCandidatoReingreso(
+      6.0f, 40.0f, punto, 0.0f, 100.0f, 0.0f, 1, 1);
+  const auto reversa = ControlRuta::evaluarCandidatoReingreso(
+      6.0f, 40.0f, punto, 0.0f, 100.0f, 180.0f, -1, 1);
+  TEST_ASSERT_TRUE(avance.valido);
+  TEST_ASSERT_TRUE(reversa.valido);
+  TEST_ASSERT_TRUE(avance.coste < reversa.coste);
+  TEST_ASSERT_EQUAL_INT(1,
+                        ControlRuta::elegirCandidatoReingreso(avance, reversa).direccion);
+
+  const auto reversaPreferida = ControlRuta::evaluarCandidatoReingreso(
+      6.0f, 40.0f, punto, 0.0f, 100.0f, 180.0f, -1, -1);
+  const auto avanceLejano = ControlRuta::evaluarCandidatoReingreso(
+      6.0f, 40.0f, punto, 0.0f, 100.0f, 180.0f, 1, -1);
+  TEST_ASSERT_EQUAL_INT(-1,
+                        ControlRuta::elegirCandidatoReingreso(
+                            avanceLejano, reversaPreferida).direccion);
+  TEST_ASSERT_TRUE(ControlRuta::costeReingreso(
+      10.0f, 10.0f, 0.0f, 0.0f, true) >
+                   ControlRuta::costeReingreso(
+                       10.0f, 10.0f, 0.0f, 0.0f, false));
+}
+
+void test_coste_reingreso_usa_rumbo_planificado_para_retorno() {
+  const ControlRuta::PuntoReingreso punto = {0.0f, 52.0f, 10.0f};
+  const auto candidatoReversa = ControlRuta::evaluarCandidatoReingreso(
+      0.0f, 40.0f, punto, 0.0f, 100.0f, 180.0f, -1, 1);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 180.0f,
+                           fabsf(candidatoReversa.giroRetornoDeg));
+  const auto candidatoMismaDireccion = ControlRuta::evaluarCandidatoReingreso(
+      0.0f, 40.0f, punto, 0.0f, 100.0f, 180.0f, -1, -1);
+  TEST_ASSERT_TRUE(candidatoReversa.coste > candidatoMismaDireccion.coste);
+}
+
+void test_endpoint_fino_permite_recuperacion_pulsada_y_evita_zona_muerta() {
+  // Caso de la sesion real ADB #35: pose final a 5.18 cm del target (fuera de tolerancia 5.0 cm).
+  // La distancia minima anterior (7.5 cm) causaba fallo prematuro; la nueva (2.5 cm)
+  // autoriza la recuperacion mediante modo pulsado.
+  const float errorResidualAdb35Cm = 5.18f;
+  TEST_ASSERT_FALSE(ControlRuta::endpointAceptable(
+      3.96f, errorResidualAdb35Cm, 0.0f, TOLERANCIA_ENDPOINT_CM, TOLERANCIA_GIRO_DEG));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::DecisionEndpoint::RECUPERAR),
+      static_cast<uint8_t>(ControlRuta::decidirEndpointSeguro(
+          true, false, 0, INTENTOS_RECUPERACION_ENDPOINT_MAX,
+          errorResidualAdb35Cm, DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM)));
+  // Residual por debajo de la tolerancia de pulsos no es recuperable de forma segura
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::DecisionEndpoint::FALLAR),
+      static_cast<uint8_t>(ControlRuta::decidirEndpointSeguro(
+          true, false, 0, INTENTOS_RECUPERACION_ENDPOINT_MAX,
+          1.8f, DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM)));
+  // El tramo fino de 5.18 cm se deriva deterministamente al modo de micropulsos
+  TEST_ASSERT_TRUE(ControlRuta::tramoRequiereModoPulsado(
+      errorResidualAdb35Cm, PULSE_DRIVE_THRESHOLD_CM));
 }
 
 }  // namespace
@@ -605,9 +767,13 @@ int main(int, char**) {
   RUN_TEST(test_integral_acumula_y_se_limita_fuera_de_saturacion);
   RUN_TEST(test_distancia_sola_no_acepta_endpoint);
   RUN_TEST(test_fallo_endpoint_despues_de_dos_intentos);
+  RUN_TEST(test_presupuesto_unico_permite_21_reingresos_y_bloquea_el_22);
   RUN_TEST(test_endpoint_corto_falla_y_el_largo_se_recupera);
   RUN_TEST(test_reingreso_se_proyecta_sobre_ejes_ortogonales_y_se_limita_al_endpoint);
   RUN_TEST(test_disparadores_recentrado_y_sentido_incorrecto_exigen_persistencia);
+  RUN_TEST(test_guard_maniobra_acepta_reversa_convergente_y_frena_divergencia);
+  RUN_TEST(test_realineacion_conserva_progreso_en_baselines_repetidos);
+  RUN_TEST(test_episodio_recuperacion_no_renueva_reintentos_y_cubre_rollover);
   RUN_TEST(test_reingreso_exige_centro_y_mejora_real);
   RUN_TEST(test_imu_perdida_se_detecta);
   RUN_TEST(test_encoder_incoherente_se_detecta);
@@ -633,12 +799,15 @@ int main(int, char**) {
   RUN_TEST(test_guard_pivote_detecta_desbalance_persistente);
   RUN_TEST(test_guard_no_frena_por_desbalance_mientras_aun_busca_torque);
   RUN_TEST(test_guard_relativo_ignora_ticks_anteriores_al_baseline);
-  RUN_TEST(test_guard_calibracion_permite_once_intentos);
+  RUN_TEST(test_guard_calibracion_conserva_once_intentos_independientes);
   RUN_TEST(test_supervision_vencida_detiene_cualquier_movimiento);
   RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
   RUN_TEST(test_modo_pulsado_umbral_y_decision);
   RUN_TEST(test_calculo_pulso_traccion_y_correccion_rumbo);
   RUN_TEST(test_interlock_fin_pulsado_y_memoria_impulso);
   RUN_TEST(test_recentrado_ignora_desviaciones_pequenas_o_pasos_cortos);
+  RUN_TEST(test_candidato_reingreso_elige_el_menor_coste_y_respeta_reversa);
+  RUN_TEST(test_coste_reingreso_usa_rumbo_planificado_para_retorno);
+  RUN_TEST(test_endpoint_fino_permite_recuperacion_pulsada_y_evita_zona_muerta);
   return UNITY_END();
 }

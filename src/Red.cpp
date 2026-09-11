@@ -467,6 +467,11 @@ static void enviarTelemetria() {
   target["longitudinal_error_cm"] = pasoErrorLongitudinalCm;
   target["lateral_error_cm"] = pasoErrorLateralCm;
   target["distance_error_cm"] = pasoErrorEuclidianoCm;
+  target["lateral_ratio"] = pasoProporcionLateral;
+  target["lateral_threshold_cm"] = pasoUmbralLateralCm;
+  target["window_start_cm"] = pasoVentanaInicioCm;
+  target["window_progress_cm"] = pasoVentanaProgresoCm;
+  target["window_index"] = pasoVentanaIndice;
   target["endpoint_attempt"] = pasoIntentosEndpoint;
   target["finish_reason"] = pasoMotivoFinalizacion;
   JsonObject recuperacion = doc.createNestedObject("recovery");
@@ -483,6 +488,14 @@ static void enviarTelemetria() {
   recuperacion["rejoin_y_cm"] = pasoReingresoYCm;
   recuperacion["initial_lateral_cm"] = pasoErrorLateralInicialRecentradoCm;
   recuperacion["improvement_cm"] = pasoMejoraRecentradoCm;
+  recuperacion["turn_to_line_deg"] = pasoGiroHaciaLineaDeg;
+  recuperacion["turn_restore_deg"] = pasoGiroRetornoDeg;
+  recuperacion["forward_cost"] = pasoCosteReingresoAvance;
+  recuperacion["reverse_cost"] = pasoCosteReingresoReversa;
+  recuperacion["selected_cost"] = pasoCosteReingresoElegido;
+  recuperacion["mpu_authority"] = pasoAutoridadMpu;
+  JsonArray recoveryEncoders = recuperacion.createNestedArray("encoder_flags");
+  for (int i = 0; i < 4; ++i) recoveryEncoders.add(encoderConfiableGlobal[i]);
   JsonObject antiFriccion = doc.createNestedObject("anti_friction");
   antiFriccion["active"] = antiFriccionActiva;
   antiFriccion["pulse_on"] = antiFriccionPulsoEncendido;

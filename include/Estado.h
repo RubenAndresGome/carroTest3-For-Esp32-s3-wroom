@@ -88,6 +88,17 @@ extern float pasoReingresoXCm;
 extern float pasoReingresoYCm;
 extern float pasoErrorLateralInicialRecentradoCm;
 extern float pasoMejoraRecentradoCm;
+extern float pasoProporcionLateral;
+extern float pasoUmbralLateralCm;
+extern float pasoVentanaInicioCm;
+extern float pasoVentanaProgresoCm;
+extern uint16_t pasoVentanaIndice;
+extern float pasoGiroHaciaLineaDeg;
+extern float pasoGiroRetornoDeg;
+extern float pasoCosteReingresoAvance;
+extern float pasoCosteReingresoReversa;
+extern float pasoCosteReingresoElegido;
+extern bool pasoAutoridadMpu;
 
 // Diagnóstico longitudinal publicado por JSON. Permite ajustar escala y
 // frenado desde la telemetría de tablet cuando no hay osciloscopio.

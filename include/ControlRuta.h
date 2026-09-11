@@ -25,6 +25,39 @@ struct PuntoReingreso {
   float avanceDesdeProyeccionCm;
 };
 
+struct CandidatoReingreso {
+  bool valido;
+  int direccion;
+  float rumboTrayectoDeg;
+  float rumboCuerpoDeg;
+  float giroHaciaLineaDeg;
+  float giroRetornoDeg;
+  float distanciaCm;
+  float coste;
+};
+
+// Seguimiento de una maniobra de traslación concreta. La magnitud observada
+// siempre es la distancia restante a su objetivo activo (segmento, punto de
+// reingreso o endpoint), por lo que una reversa convergente también disminuye.
+struct SeguimientoProgreso {
+  bool inicializado = false;
+  float mejorRestanteCm = 0.0f;
+  bool divergenciaActiva = false;
+  uint32_t inicioDivergenciaMs = 0;
+};
+
+struct EpisodioRecuperacion {
+  bool activo = false;
+  uint32_t inicioMs = 0;
+};
+
+enum class EstadoEpisodioRecuperacion : uint8_t {
+  INACTIVO,
+  ACTIVO,
+  VENCIDO,
+  CERRADO,
+};
+
 struct EstadoPI {
   float integralGradoS = 0.0f;
 };
@@ -98,6 +131,55 @@ inline float distanciaFrenoPrevista(float pwm, float baseCm, float cmPorPwm,
   return limitar(baseCm + fabsf(pwm) * cmPorPwm, baseCm, maximoCm);
 }
 
+inline float distanciaConBaseline(float acumuladaCm, float ticksDesdeBaseline,
+                                  float cmPorTick) {
+  return fmaxf(0.0f, acumuladaCm) +
+         fmaxf(0.0f, ticksDesdeBaseline) * fmaxf(0.0f, cmPorTick);
+}
+
+inline float distanciaRestanteObjetivoActivo(
+    float errorLongitudinalCm, float distanciaEndpointCm,
+    float distanciaReingresoCm, bool recuperacionEndpoint,
+    bool avanceReingreso) {
+  if (avanceReingreso) return fmaxf(0.0f, distanciaReingresoCm);
+  if (recuperacionEndpoint) return fmaxf(0.0f, distanciaEndpointCm);
+  return fabsf(errorLongitudinalCm);
+}
+
+inline float umbralLateralSegmento(float longitudSegmentoCm, float proporcion,
+                                   float pisoCm) {
+  const float longitud = fmaxf(0.0f, longitudSegmentoCm);
+  return fmaxf(pisoCm, longitud * proporcion);
+}
+
+inline float proporcionLateralSegmento(float errorLateralCm,
+                                       float longitudSegmentoCm) {
+  const float denominador = fmaxf(longitudSegmentoCm, 0.1f);
+  return fabsf(errorLateralCm) / denominador;
+}
+
+inline bool lateralEnRango(float errorLateralCm, float longitudSegmentoCm,
+                           float proporcion, float pisoCm) {
+  return fabsf(errorLateralCm) <=
+         umbralLateralSegmento(longitudSegmentoCm, proporcion, pisoCm);
+}
+
+inline bool lateralRecuperado(float errorLateralCm, float longitudSegmentoCm,
+                              float proporcionSalida, float pisoCm) {
+  return fabsf(errorLateralCm) <=
+         umbralLateralSegmento(longitudSegmentoCm, proporcionSalida, pisoCm);
+}
+
+// Cruzar el eje con un error pequeño no requiere consumir un intento de
+// recuperación: basta frenar, limpiar el integral y recuperar el rumbo de la
+// línea. Se mantiene aquí para que firmware y pruebas compartan exactamente
+// el mismo criterio de signo y tolerancia.
+inline bool cruzoEjeConErrorBajo(float errorAnteriorCm, float errorActualCm,
+                                 float toleranciaCm) {
+  return errorAnteriorCm * errorActualCm < 0.0f &&
+         fabsf(errorActualCm) <= toleranciaCm;
+}
+
 inline ErroresTrayectoria calcularErroresTrayectoria(
     float posicionXCm, float posicionYCm, float objetivoXCm, float objetivoYCm,
     float rumboPlanificadoDeg, float distanciaPlanificadaCm) {
@@ -137,6 +219,70 @@ inline PuntoReingreso calcularPuntoReingreso(
   };
 }
 
+inline float rumboEntrePuntosDeg(float origenXCm, float origenYCm,
+                                 float destinoXCm, float destinoYCm,
+                                 float rumboAlternativoDeg) {
+  const float dx = destinoXCm - origenXCm;
+  const float dy = destinoYCm - origenYCm;
+  return hypotf(dx, dy) > 0.001f
+      ? normalizar360(atan2f(dx, dy) * 180.0f / 3.14159265358979323846f)
+      : normalizar360(rumboAlternativoDeg);
+}
+
+inline float costeReingreso(float distanciaCm, float longitudSegmentoCm,
+                            float giroHaciaLineaDeg, float giroRetornoDeg,
+                            bool reversa, float penalizacionReversa = 0.10f) {
+  const float denominador = fmaxf(longitudSegmentoCm, 10.0f);
+  const float costeTraslacion = fmaxf(0.0f, distanciaCm) / denominador;
+  const float costeGiro =
+      (fabsf(giroHaciaLineaDeg) + fabsf(giroRetornoDeg)) / 360.0f;
+  return costeTraslacion + costeGiro + (reversa ? penalizacionReversa : 0.0f);
+}
+
+inline CandidatoReingreso evaluarCandidatoReingreso(
+    float posicionXCm, float posicionYCm, const PuntoReingreso& punto,
+    float rumboSegmentoDeg, float longitudSegmentoCm, float headingActualDeg,
+    int direccion, float rumboRetornoCuerpoDeg) {
+  CandidatoReingreso candidato{};
+  candidato.direccion = direccion < 0 ? -1 : 1;
+  candidato.distanciaCm = hypotf(punto.xCm - posicionXCm,
+                                 punto.yCm - posicionYCm);
+  candidato.rumboTrayectoDeg = rumboEntrePuntosDeg(
+      posicionXCm, posicionYCm, punto.xCm, punto.yCm, rumboSegmentoDeg);
+  candidato.rumboCuerpoDeg = rumboCuerpoParaTrayecto(
+      candidato.rumboTrayectoDeg, candidato.direccion);
+  candidato.giroHaciaLineaDeg = errorAngularDeg(
+      candidato.rumboCuerpoDeg, headingActualDeg);
+  candidato.giroRetornoDeg = errorAngularDeg(
+      rumboRetornoCuerpoDeg, candidato.rumboCuerpoDeg);
+  candidato.coste = costeReingreso(
+      candidato.distanciaCm, longitudSegmentoCm,
+      candidato.giroHaciaLineaDeg, candidato.giroRetornoDeg,
+      candidato.direccion < 0);
+  candidato.valido = isfinite(candidato.distanciaCm) &&
+                     candidato.distanciaCm >= 0.5f;
+  return candidato;
+}
+
+inline CandidatoReingreso evaluarCandidatoReingreso(
+    float posicionXCm, float posicionYCm, const PuntoReingreso& punto,
+    float rumboSegmentoDeg, float longitudSegmentoCm, float headingActualDeg,
+    int direccion, int direccionPlanificada) {
+  return evaluarCandidatoReingreso(
+      posicionXCm, posicionYCm, punto, rumboSegmentoDeg, longitudSegmentoCm,
+      headingActualDeg, direccion,
+      rumboCuerpoParaTrayecto(rumboSegmentoDeg, direccionPlanificada));
+}
+
+inline CandidatoReingreso elegirCandidatoReingreso(
+    const CandidatoReingreso& avance, const CandidatoReingreso& reversa) {
+  if (!avance.valido) return reversa;
+  if (!reversa.valido) return avance;
+  // Un empate favorece avance: mantiene la semántica histórica y evita una
+  // inversión innecesaria del chasis.
+  return reversa.coste + 1e-4f < avance.coste ? reversa : avance;
+}
+
 inline bool desviacionFueraDeRango(float errorLateralCm, float maximoCm) {
   return fabsf(errorLateralCm) > maximoCm;
 }
@@ -145,7 +291,7 @@ inline bool debeRecentrar(float errorLateralCm, uint32_t persistenciaMs,
                           float umbralCm, uint32_t esperaMs,
                           float crecimientoCm, uint32_t crecimientoMs,
                           float umbralCrecimientoCm, uint32_t esperaCrecimientoMs) {
-  return (fabsf(errorLateralCm) >= umbralCm && persistenciaMs >= esperaMs) ||
+  return (fabsf(errorLateralCm) > umbralCm && persistenciaMs >= esperaMs) ||
          (crecimientoCm >= umbralCrecimientoCm &&
           crecimientoMs >= esperaCrecimientoMs);
 }
@@ -157,6 +303,66 @@ inline bool progresoEnSentidoIncorrecto(float errorLongitudinalCm,
                                         uint32_t esperaMs) {
   return errorLongitudinalCm >= mejorErrorLongitudinalCm + crecimientoMaxCm &&
          persistenciaMs >= esperaMs;
+}
+
+inline void iniciarSeguimientoProgreso(SeguimientoProgreso& seguimiento,
+                                       float distanciaRestanteCm) {
+  seguimiento.inicializado = true;
+  seguimiento.mejorRestanteCm = fmaxf(0.0f, distanciaRestanteCm);
+  seguimiento.divergenciaActiva = false;
+  seguimiento.inicioDivergenciaMs = 0;
+}
+
+inline bool actualizarSeguimientoProgreso(
+    SeguimientoProgreso& seguimiento, float distanciaRestanteCm,
+    uint32_t ahoraMs, float crecimientoMaxCm, uint32_t esperaMs) {
+  const float restante = fmaxf(0.0f, distanciaRestanteCm);
+  if (!seguimiento.inicializado) {
+    iniciarSeguimientoProgreso(seguimiento, restante);
+    return false;
+  }
+  if (restante < seguimiento.mejorRestanteCm) {
+    seguimiento.mejorRestanteCm = restante;
+    seguimiento.divergenciaActiva = false;
+  } else if (restante >= seguimiento.mejorRestanteCm + crecimientoMaxCm) {
+    if (!seguimiento.divergenciaActiva) {
+      seguimiento.divergenciaActiva = true;
+      seguimiento.inicioDivergenciaMs = ahoraMs;
+    }
+  } else {
+    seguimiento.divergenciaActiva = false;
+  }
+  return seguimiento.divergenciaActiva &&
+         static_cast<uint32_t>(ahoraMs - seguimiento.inicioDivergenciaMs) >=
+             esperaMs;
+}
+
+inline void abrirEpisodioRecuperacion(EpisodioRecuperacion& episodio,
+                                      uint32_t ahoraMs) {
+  if (!episodio.activo) {
+    episodio.activo = true;
+    episodio.inicioMs = ahoraMs;
+  }
+}
+
+inline EstadoEpisodioRecuperacion procesarEpisodioRecuperacion(
+    EpisodioRecuperacion& episodio, uint32_t ahoraMs, uint32_t presupuestoMs,
+    bool solicitarCierre = false) {
+  if (!episodio.activo) return EstadoEpisodioRecuperacion::INACTIVO;
+  // La resta unsigned conserva la semántica correcta al cruzar rollover y el
+  // vencimiento tiene prioridad sobre una transición que intentaría cerrar.
+  if (static_cast<uint32_t>(ahoraMs - episodio.inicioMs) >= presupuestoMs) {
+    return EstadoEpisodioRecuperacion::VENCIDO;
+  }
+  if (solicitarCierre) {
+    episodio.activo = false;
+    return EstadoEpisodioRecuperacion::CERRADO;
+  }
+  return EstadoEpisodioRecuperacion::ACTIVO;
+}
+
+inline void cancelarEpisodioRecuperacion(EpisodioRecuperacion& episodio) {
+  episodio.activo = false;
 }
 
 inline bool reingresoAceptable(float errorLateralCm, float distanciaReingresoCm,

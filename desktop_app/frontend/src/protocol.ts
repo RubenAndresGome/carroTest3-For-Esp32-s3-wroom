@@ -79,6 +79,11 @@ export interface Telemetry {
     readonly longitudinal_error_cm?: number;
     readonly lateral_error_cm?: number;
     readonly distance_error_cm?: number;
+    readonly lateral_ratio?: number;
+    readonly lateral_threshold_cm?: number;
+    readonly window_start_cm?: number;
+    readonly window_progress_cm?: number;
+    readonly window_index?: number;
     readonly endpoint_attempt?: number;
     readonly finish_reason?: string;
   };
@@ -101,7 +106,7 @@ export interface Telemetry {
     readonly pivot_avoided?: boolean;
     readonly min_distance_cm?: number;
     readonly phase?: "inactive" | "pause" | "turn_to_axis" | "drive_to_axis" |
-      "verify" | "restore_heading" | "resumed" | string;
+      "verify" | "restore_heading" | "resumed" | "realign_pause" | "realign_axis" | "fault" | string;
     readonly trigger?: string;
     readonly attempt?: number;
     readonly attempt_max?: number;
@@ -109,6 +114,13 @@ export interface Telemetry {
     readonly rejoin_y_cm?: number;
     readonly initial_lateral_cm?: number;
     readonly improvement_cm?: number;
+    readonly turn_to_line_deg?: number;
+    readonly turn_restore_deg?: number;
+    readonly forward_cost?: number;
+    readonly reverse_cost?: number;
+    readonly selected_cost?: number;
+    readonly mpu_authority?: boolean;
+    readonly encoder_flags?: readonly boolean[];
   };
   readonly turn_requested_mode: "AUTO" | "PIVOT" | string;
   readonly turn_mode: "PIVOT_CONTINUOUS" | string;

@@ -2064,6 +2064,7 @@
                 LogSystem.add('INFO',`Yaw MPU recentrado en reposo por múltiplos de 360° (#${yawRecenterCount}).`);
             }
             this.lastYawRecenterCount=yawRecenterCount;
+            if(typeof RouteManager!=='undefined')RouteManager.applyVectorialTelemetry(raw);
             Telemetry._process({
                 distancia:totalDistance, angulo:yaw, posX:telemX, posY:telemY,
                 orientacion:yaw*Math.PI/180, estado:uiState,
@@ -2071,7 +2072,6 @@
                 pwmL:Number(pwm.left||0), pwmR:Number(pwm.right||0),
                 target:raw.target||{}, driveControl:raw.drive_control||{}, motion:raw.motion||{}, recovery:raw.recovery||{}
             });
-            if(typeof RouteManager!=='undefined')RouteManager.applyVectorialTelemetry(raw);
             Calibration.applyTelemetry(raw);
             ConnectionPanel.applyIdentity(raw);
         },
@@ -2677,7 +2677,7 @@
             document.getElementById('route-live-pwm').textContent=`${t.pwmL} / ${t.pwmR}`;
             const target=t.target||{}, control=t.driveControl||{};
             document.getElementById('route-live-error').textContent=target.absolute
-                ? `Av ${Number(target.longitudinal_error_cm||0).toFixed(1)} · L ${Number(target.lateral_error_cm||0).toFixed(1)} · D ${Number(target.distance_error_cm||0).toFixed(1)} cm · #${Number(target.endpoint_attempt||0)}${target.finish_reason?` · ${target.finish_reason}`:''}`
+                ? `Av ${Number(target.longitudinal_error_cm||0).toFixed(1)} · L ${Number(target.lateral_error_cm||0).toFixed(1)} cm (${(Number(target.lateral_ratio||0)*100).toFixed(1)}%/${Number(target.lateral_threshold_cm||0).toFixed(1)}) · D ${Number(target.distance_error_cm||0).toFixed(1)} cm · ventana ${Number(target.window_index||0)} ${Number(target.window_progress_cm||0).toFixed(1)} cm · #${Number(target.endpoint_attempt||0)}${target.finish_reason?` · ${target.finish_reason}`:''}`
                 : 'paso relativo';
             document.getElementById('route-live-control').textContent=`${Number(control.p||0).toFixed(1)} / ${Number(control.i||0).toFixed(1)} / ${Number(control.d||0).toFixed(1)}`;
             document.getElementById('route-live-heading').textContent=`${Number(control.dynamic_heading_deg||0).toFixed(1)}° / ${Number(control.heading_error_deg||0).toFixed(1)}°`;
@@ -2688,8 +2688,9 @@
             document.getElementById('route-live-brake').textContent=`pred ${Number(motion.brake_prediction_cm||0).toFixed(1)} · arrastre ${Number(motion.coast_cm||0).toFixed(1)} cm · asent. ${Number(motion.settle_elapsed_ms||0)} ms`;
             const recovery=t.recovery||{};
             document.getElementById('route-live-endpoint').textContent=`${recovery.decision||'none'} · error ${Number(recovery.distance_cm||0).toFixed(1)} / mín ${Number(recovery.min_distance_cm||0).toFixed(1)} cm`;
+            const mirror=typeof RouteManager!=='undefined' ? RouteManager.routeRecoveryMirror : null;
             document.getElementById('route-live-recovery').textContent=recovery.phase&&recovery.phase!=='inactive'
-                ? `${recovery.phase} · ${recovery.trigger||'none'} · intento ${Number(recovery.attempt||0)}/${Number(recovery.attempt_max||2)} · eje (${Number(recovery.rejoin_x_cm||0).toFixed(1)}, ${Number(recovery.rejoin_y_cm||0).toFixed(1)}) · mejora ${Number(recovery.improvement_cm||0).toFixed(1)} cm`
+                ? `${recovery.phase} · ${recovery.trigger||'none'} · intento ${Number(recovery.attempt||0)}/${Number(recovery.attempt_max||21)} · ${recovery.direction||'forward'} · línea ${Number(recovery.turn_to_line_deg||0).toFixed(1)}° · retorno ${Number(recovery.turn_restore_deg||0).toFixed(1)}° · coste ${Number(recovery.selected_cost||0).toFixed(2)} (F ${Number(recovery.forward_cost||0).toFixed(2)}/R ${Number(recovery.reverse_cost||0).toFixed(2)}) · MPU ${recovery.mpu_authority?'OK':'FALLO'} · eje (${Number(recovery.rejoin_x_cm||0).toFixed(1)}, ${Number(recovery.rejoin_y_cm||0).toFixed(1)}) · mejora ${Number(recovery.improvement_cm||0).toFixed(1)} cm${mirror?` · espejo L ${(mirror.lateralRatio*100).toFixed(1)}%/${mirror.threshold.toFixed(1)} cm · ${mirror.selected.direction<0?'R':'A'} (${mirror.projection.x.toFixed(1)},${mirror.projection.y.toFixed(1)})→(${mirror.rejoin.x.toFixed(1)},${mirror.rejoin.y.toFixed(1)})`:''}`
                 : (recovery.pivot_avoided ? `${recovery.direction||'reverse'} · sin pivote` : `${recovery.direction||'forward'} · recentrado listo`);
             document.getElementById('route-live-fl').textContent=t.pfl || 0;
             document.getElementById('route-live-fr').textContent=t.pfr || 0;
@@ -2896,7 +2897,7 @@
     };
 
     const RouteManager = {
-        queue: [], logicalSteps: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, routeStartedAt:0, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null, lockedMode:null, nextLogicalStepId:1, vectorialEnabled:false, lastRobotTelemetry:null,
+        queue: [], logicalSteps: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, routeStartedAt:0, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null, lockedMode:null, nextLogicalStepId:1, vectorialEnabled:false, lastRobotTelemetry:null, routeRecoveryMirror:null,
         init() {
             this.modeSelect = document.getElementById('route-mode');
             this.input1 = document.getElementById('route-input-1');
@@ -3062,7 +3063,9 @@
                     { label:'Orientación', data:[{x:0,y:0},{x:0,y:8}], showLine:true, borderColor:this.colors.accent, borderWidth:2, pointRadius:0 },
                     { label:'Origen', data:[{x:0,y:0}], pointRadius:4, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse },
                     { label:'Ruta planificada', data:[], showLine:true, borderColor:this.colors.muted, borderDash:[6,4], borderWidth:1.5, pointRadius:0 },
-                    { label:'Tolerancia final (±5 cm)', data:[], pointRadius:4, pointBackgroundColor:'#f59e0b', pointBorderColor:'#f59e0b' }
+                    { label:'Tolerancia final (±5 cm)', data:[], pointRadius:4, pointBackgroundColor:'#f59e0b', pointBorderColor:'#f59e0b' },
+                    { label:'Proyección sobre eje', data:[], pointRadius:5, pointStyle:'crossRot', borderColor:'#ffd166', backgroundColor:'#ffd166' },
+                    { label:'Punto de reingreso (espejo)', data:[], pointRadius:6, pointStyle:'triangle', borderColor:'#ff7b9c', backgroundColor:'#ff7b9c' }
                 ]},
                 options:this._chartOptions(), plugins:[tolerancePlugin]
             });
@@ -3089,7 +3092,73 @@
         },
         applyVectorialTelemetry(raw) {
             this.lastRobotTelemetry=raw||null;
+            this.routeRecoveryMirror=this.mirrorRecoveryGeometry(raw||{});
+            if (this.telemChart) {
+                const mirror=this.routeRecoveryMirror;
+                const toRelative=point => point ? {
+                    x:point.x-this.currentOrigin.x, y:point.y-this.currentOrigin.y
+                } : null;
+                this.telemChart.data.datasets[6].data=mirror ? [toRelative(mirror.projection)] : [];
+                this.telemChart.data.datasets[7].data=mirror ? [toRelative(mirror.rejoin)] : [];
+            }
             this.renderVectorialSafety();
+        },
+        // Espejo visual de la geometría que ejecuta el firmware. No decide ni
+        // envía maniobras: sólo proyecta la pose sobre el segmento activo y
+        // calcula los dos costes para que una telemetría incompleta siga
+        // siendo diagnosticable desde el HMI.
+        mirrorRecoveryGeometry(raw) {
+            const target=raw?.target||{};
+            if(target.absolute!==true || target.x_cm==null || target.y_cm==null) return null;
+            const endX=Number(target.x_cm), endY=Number(target.y_cm);
+            const poseX=Number(raw.x), poseY=Number(raw.y), yaw=Number(raw.yaw);
+            if(![endX,endY,poseX,poseY,yaw].every(Number.isFinite)) return null;
+            const index=Math.min(this.currentStepIndex, Math.max(0,this.queue.length-1));
+            const queuedEnd=this.queue[index];
+            const queuedStart=index>0?this.queue[index-1]:this.currentOrigin;
+            const startX=Number.isFinite(queuedStart?.x)?queuedStart.x:this.currentOrigin.x;
+            const startY=Number.isFinite(queuedStart?.y)?queuedStart.y:this.currentOrigin.y;
+            const qEndX=Number.isFinite(queuedEnd?.x)?queuedEnd.x:endX;
+            const qEndY=Number.isFinite(queuedEnd?.y)?queuedEnd.y:endY;
+            const dx=qEndX-startX, dy=qEndY-startY, length=Math.hypot(dx,dy);
+            if(length<.001) return null;
+            const ux=dx/length, uy=dy/length;
+            const px=poseX-startX, py=poseY-startY;
+            const projectionDistance=Math.max(0,Math.min(length,px*ux+py*uy));
+            const lateral=px*uy-py*ux;
+            const lookahead=Math.min(length-projectionDistance,
+                Math.max(10,2*Math.abs(lateral)));
+            const rejoinDistance=projectionDistance+Math.max(0,lookahead);
+            const projection={x:startX+projectionDistance*ux,y:startY+projectionDistance*uy};
+            const rejoin={x:startX+rejoinDistance*ux,y:startY+rejoinDistance*uy};
+            const norm=value => (value%360+360)%360;
+            const angleError=(targetDeg,actualDeg) => {
+                let error=norm(targetDeg)-norm(actualDeg);
+                if(error>180)error-=360; if(error<=-180)error+=360;
+                return error;
+            };
+            const lineHeading=norm(Math.atan2(dx,dy)*180/Math.PI);
+            const plannedDirection = (raw.recovery?.direction_planned != null)
+                ? (raw.recovery.direction_planned < 0 || raw.recovery.direction_planned === 'reverse' ? -1 : 1)
+                : ((queuedEnd?.drive_mode === 'reverse' || queuedEnd?.direction < 0) ? -1 : 1);
+            const bodyLine=norm(lineHeading+(plannedDirection<0?180:0));
+            const candidate=direction=>{
+                const heading=norm(Math.atan2(rejoin.x-poseX,rejoin.y-poseY)*180/Math.PI);
+                const body=norm(heading+(direction<0?180:0));
+                const turnToLine=angleError(body,yaw);
+                const turnRestore=angleError(bodyLine,body);
+                return {direction,body,heading,turnToLine,turnRestore,
+                    distance:Math.hypot(rejoin.x-poseX,rejoin.y-poseY),
+                    cost:Math.hypot(rejoin.x-poseX,rejoin.y-poseY)/Math.max(length,10)+
+                        (Math.abs(turnToLine)+Math.abs(turnRestore))/360+(direction<0?.10:0)};
+            };
+            const forward=candidate(1), reverse=candidate(-1);
+            const selected=reverse.cost+.0001<forward.cost?reverse:forward;
+            return {start:{x:startX,y:startY},end:{x:qEndX,y:qEndY},projection,rejoin,
+                lateral,lateralRatio:Math.abs(lateral)/Math.max(length,.1),
+                threshold:Math.max(2,.1*length),windowStart:Math.floor(projectionDistance/10)*10,
+                windowProgress:projectionDistance%10,lineHeading,forward,reverse,selected,
+                phase:String(raw.recovery?.phase||'inactive'),trigger:String(raw.recovery?.trigger||'none')};
         },
         vectorialReadiness() {
             if(!this.vectorialEnabled)return {ready:false,reason:'La bandera experimental está deshabilitada.'};

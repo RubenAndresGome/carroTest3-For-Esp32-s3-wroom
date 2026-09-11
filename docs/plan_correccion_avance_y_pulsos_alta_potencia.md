@@ -91,11 +91,23 @@ stateDiagram-v2
 
 ---
 
-## 5. Blindaje del Avance Recto Continuo
+## 5. Política vigente en MILESTONE
 
-1. **Desactivación de Recentrado Intrusivo**:
-   - Para movimientos rectos menores a 70 cm, se deshabilita la interrupción por `recenter_turn`. El chasis debe completar el avance.
-   - Se incrementa `RECENTER_TRIGGER_CM` a 12.0 cm y `RECENTER_GROWTH_TRIGGER_CM` a 8.0 cm para que sólo intervenga ante desviaciones extremas en recorridos largos.
-2. **Piso de Potencia en Desaceleración**:
-   - Se eleva `VELOCIDAD_PRECISION_RECTO` a 720 PWM (en 10 bits) para que el modo continuo nunca descienda a la zona muerta de calado.
-   - Al alcanzar los últimos 10 cm, el control transiciona suavemente al modo de micro-pulsos para garantizar detención milimétrica.
+Las recomendaciones originales de esta sección quedan sustituidas por el
+control por rangos relativo de MILESTONE. El incidente de la sesión #33 se
+conserva como evidencia histórica (`recenter_diverging`); el firmware vigente
+lo clasifica como `recenter_not_converged` cuando no existe mejora real.
+
+1. El umbral lateral es `max(2 cm, 10 % de la longitud del segmento)` y se
+   supervisa en ventanas internas de 10 cm, incluso cuando el segmento entra
+   al modo de micro-pulsos. Dentro del rango sólo se aplica corrección
+   diferencial suave, limitada a ±3°.
+2. Una desviación fuera del rango durante 300 ms inicia la máquina de pausa,
+   giro hacia la proyección, avance al eje, verificación y restauración del
+   rumbo. Una desviación superior a 27 cm sostenida durante 300 ms, falta de
+   mejora de 1 cm tras 1 s/3 cm, pérdida de MPU o sentido longitudinal
+   incorrecto detienen la misión con un motivo explícito.
+3. La calibración y todas las recuperaciones comparten un presupuesto de 21
+   intentos por segmento; cada intento conserva el límite de 30 s. La
+   geometría de avance/reversa se decide por coste total de traslación, giros
+   y penalización de reversa sin crear waypoints adicionales.

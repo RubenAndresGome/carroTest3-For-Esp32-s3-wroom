@@ -136,11 +136,13 @@ constexpr uint32_t ASENTAMIENTO_MAX_MS = 1500;
 // Una misión con objetivo absoluto no puede terminar únicamente por el
 // contador longitudinal: debe converger al punto planificado.
 constexpr float TOLERANCIA_ENDPOINT_CM = 5.0f;
-// Por debajo de este umbral el arrastre de frenado puede ser mayor que la
-// corrección. No se gira ni se avanza automáticamente: se reporta calibración.
-constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM =
-    TOLERANCIA_ENDPOINT_CM + FRENO_RESIDUAL_MAX_CM;
-constexpr uint8_t INTENTOS_RECUPERACION_ENDPOINT_MAX = 2;
+// Con modo pulsado (PULSE_DRIVE), el tramo fino se gobierna por pulsos de
+// ~1 cm y tolerancia de 2.5 cm. La distancia mínima recuperable se alinea
+// con esa tolerancia para eliminar la zona muerta entre 5.0 y 7.5 cm.
+constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM = PULSE_DRIVE_TOLERANCIA_CM;
+// Un solo presupuesto por segmento para recentrado, reingreso y endpoint.
+constexpr uint8_t ROUTE_RECOVERY_MAX_ATTEMPTS = 21;
+constexpr uint8_t INTENTOS_RECUPERACION_ENDPOINT_MAX = ROUTE_RECOVERY_MAX_ATTEMPTS;
 constexpr float GYRO_MOVEMENT_RAD_S = 0.08f;
 constexpr float GYRO_MOVEMENT_MIN_YAW_DEG = 0.5f;
 constexpr uint32_t DRIVE_STALL_MS = 6000;
@@ -202,16 +204,21 @@ constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 35.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
 constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 3.0f;
-constexpr float RECENTER_LATERAL_DEADBAND_CM = 4.0f;
-constexpr float RECENTER_TRIGGER_CM = 12.0f;
-constexpr float RECENTER_MAX_LATERAL_CM = 20.0f;
+// Control por rangos relativo al segmento. El piso de 2 cm evita que el
+// porcentaje active recuperaciones por ruido en tramos cortos.
+constexpr float RECENTER_LATERAL_RATIO = 0.10f;
+constexpr float RECENTER_LATERAL_EXIT_RATIO = 0.07f;
+constexpr float RECENTER_LATERAL_MIN_CM = 2.0f;
+constexpr float RECENTER_LATERAL_DEADBAND_CM = RECENTER_LATERAL_MIN_CM;
+constexpr float RECENTER_TRIGGER_CM = RECENTER_LATERAL_MIN_CM;
+constexpr float RECENTER_MAX_LATERAL_CM = 27.0f;
 constexpr uint32_t RECENTER_TRIGGER_MS = 300;
-constexpr float RECENTER_GROWTH_TRIGGER_CM = 6.0f;
+constexpr float RECENTER_GROWTH_TRIGGER_CM = 1.0f;
 constexpr uint32_t RECENTER_GROWTH_MS = 500;
-constexpr float RECENTER_MIN_STEP_CM = 60.0f;
+constexpr float RECENTER_MONITOR_WINDOW_CM = 10.0f;
 constexpr uint32_t RECENTER_SETTLE_MS = 300;
 constexpr uint32_t RECENTER_TIMEOUT_MS = 30000;
-constexpr uint8_t RECENTER_MAX_ATTEMPTS = 2;
+constexpr uint8_t RECENTER_MAX_ATTEMPTS = ROUTE_RECOVERY_MAX_ATTEMPTS;
 constexpr float RECENTER_LOOKAHEAD_MIN_CM = 10.0f;
 constexpr float RECENTER_POINT_TOLERANCE_CM = 5.0f;
 constexpr float RECENTER_MIN_IMPROVEMENT_CM = 1.0f;

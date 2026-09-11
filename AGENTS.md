@@ -83,7 +83,7 @@ el cableado.
   y la rampa continúa hasta que el MPU o el movimiento relativo confirmen el
   pivote; no se congela por un tick bilateral aislado. Al alcanzar el PWM
   máximo se audita durante 350 ms y, si falta confirmación o hay desbalance,
-  permite pausas de 750 ms y hasta once barridos antes de fallar. Signo
+  permite pausas de 750 ms y hasta veintiún barridos antes de fallar. Signo
   contrario, pérdida total de un lado o deriva >10 cm producen
   `cal_yaw_sign_mismatch`, `cal_pivot_unbalanced` o `cal_origin_drift`.
 - El signo del giro sigue continuamente el error real. Al entrar en ±2° se

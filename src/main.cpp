@@ -225,10 +225,26 @@ static void ejecutarCicloControl() {
             if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO || estadoActual == MANUAL) {
                 frenarMotores();
                 reiniciarControlRumbo();
-                registrarMotivoFinalizacion("mpu_lost");
+                // Una ruta autónoma queda enclavada con una causa explícita de
+                // recuperación para que el HMI no la confunda con una simple
+                // pérdida de conexión. Calibración y control manual conservan
+                // su motivo histórico.
+                const bool rutaAutonoma = estadoActual == EJECUTANDO;
+                const char* motivoMpu = rutaAutonoma
+                    ? "mpu_lost_recovery" : "mpu_lost";
+                pasoAutoridadMpu = false;
+                if (rutaAutonoma) {
+                    strncpy(pasoDisparadorRecentrado, "mpu_lost",
+                            sizeof(pasoDisparadorRecentrado) - 1);
+                    pasoDisparadorRecentrado[sizeof(pasoDisparadorRecentrado) - 1] = '\0';
+                    strncpy(pasoFaseRecentrado, "fault",
+                            sizeof(pasoFaseRecentrado) - 1);
+                    pasoFaseRecentrado[sizeof(pasoFaseRecentrado) - 1] = '\0';
+                }
+                registrarMotivoFinalizacion(motivoMpu);
                 estadoActual = FALLO;
                 LOG_CORE("FAULT: MPU ausente/obsoleto durante movimiento.");
-                encolarEvento(EVT_FAULT, seqActivo, "mpu_lost");
+                encolarEvento(EVT_FAULT, seqActivo, motivoMpu);
             }
         }
         WatchdogSeguridad.auditarSalud(snap, pwm_aplicado_L, pwm_aplicado_R);

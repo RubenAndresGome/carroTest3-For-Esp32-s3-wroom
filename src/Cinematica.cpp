@@ -12,6 +12,7 @@
 #include "Seguridad.h"
 #include <Arduino.h>
 #include <cmath>
+#include <cstring>
 
 namespace {
 
@@ -21,7 +22,7 @@ enum class Fase : uint8_t {
   GIRO_INICIAL, AVANCE, AVANCE_PULSADO, GIRO_RECUPERACION, GIRO_FINAL, GIRO_SOLO,
   PAUSA_REEVALUACION, ASENTAMIENTO_FINAL, VERIFICAR_FINAL,
   PAUSA_RECENTRADO, GIRO_A_REINGRESO, AVANCE_A_EJE,
-  VERIFICAR_REINGRESO, GIRO_A_RUMBO
+  VERIFICAR_REINGRESO, GIRO_A_RUMBO, GIRO_REALINEAR_EJE
 };
 
 Fase fase = Fase::NINGUNA;
@@ -45,6 +46,10 @@ void iniciarRecentrado(const char* disparador, float distanciaActualCm);
 void iniciarAvanceReingreso();
 void verificarReingreso();
 void reanudarTrasRecentrado();
+void reanudarTrasRealineacion();
+void iniciarRealineacionEje(float distanciaActualCm);
+void actualizarVentanaSupervision(float distanciaMedidaCm);
+bool vigilarDesviacionMaxima();
 void iniciarPasoInterno();
 void fallo(const char* d);
 
@@ -67,14 +72,32 @@ float ticksAsentamientoAnterior = 0.0f;
 uint32_t inicioAsentamientoMs = 0;
 uint32_t ultimoMovimientoAsentamientoMs = 0;
 uint32_t inicioDesviacionLateralMs = 0;
+uint32_t inicioLateralExtremoMs = 0;
 uint32_t inicioCrecimientoLateralMs = 0;
-uint32_t inicioSentidoIncorrectoMs = 0;
-uint32_t inicioRecentradoMs = 0;
 uint32_t inicioFaseRecentradoMs = 0;
 float mejorErrorLateralAbsCm = 0.0f;
-float mejorErrorLongitudinalCm = 0.0f;
 float distanciaReingresoCm = 0.0f;
 int direccionTraslacionPlanificada = 1;
+int direccionReingreso = 1;
+float rumboReingresoTrayectoDeg = 0.0f;
+float rumboReingresoCuerpoDeg = 0.0f;
+float errorLateralAnteriorCm = 0.0f;
+bool errorLateralAnteriorValido = false;
+ControlRuta::SeguimientoProgreso seguimientoProgreso = {};
+ControlRuta::EpisodioRecuperacion episodioRecuperacion = {};
+
+float distanciaRestanteObjetivoActivo(bool avanceReingreso) {
+  const float distanciaEndpointCm = tieneTargetEspacial
+      ? PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY)
+      : fabsf(pasoErrorLongitudinalCm);
+  const float distanciaPuntoReingresoCm = avanceReingreso
+      ? PoseGlobal.distanciaAlObjetivo(pasoReingresoXCm, pasoReingresoYCm)
+      : 0.0f;
+  return ControlRuta::distanciaRestanteObjetivoActivo(
+      pasoErrorLongitudinalCm, distanciaEndpointCm,
+      distanciaPuntoReingresoCm, recuperacionEndpointActiva,
+      avanceReingreso);
+}
 
 
 // ===== helpers de angulo (yaw normalizado 0..360, error -180..180) =====
@@ -103,6 +126,7 @@ void deltas(const int64_t base[4], const SensorSnapshot& s, int64_t out[4]) {
 // ===== terminar / fallar =====
 void fin(TipoEvento t, const char* d) {
   frenarMotores(); fase = Fase::NINGUNA;
+  ControlRuta::cancelarEpisodioRecuperacion(episodioRecuperacion);
   antiFriccionActiva = false;
   antiFriccionPulsoEncendido = false;
   antiFriccionPwmObjetivo = 0;
@@ -502,6 +526,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   else if (retorno == Fase::GIRO_RECUPERACION) strncpy(faseComando,"recup",sizeof(faseComando));
   else if (retorno == Fase::GIRO_A_REINGRESO) strncpy(faseComando,"recenter_turn",sizeof(faseComando));
   else if (retorno == Fase::GIRO_A_RUMBO) strncpy(faseComando,"recenter_heading",sizeof(faseComando));
+  else if (retorno == Fase::GIRO_REALINEAR_EJE) strncpy(faseComando,"realign_axis",sizeof(faseComando));
   else if (retorno == Fase::GIRO_SOLO) strncpy(faseComando,"giro_solo",sizeof(faseComando));
   else if (retorno == Fase::CAL_RETORNO) strncpy(faseComando,"cal_ret",sizeof(faseComando));
 }
@@ -518,7 +543,8 @@ void reintentarGiro(const char* motivo) {
 void controlarGiro() {
   if (fase != Fase::GIRO_INICIAL && fase != Fase::GIRO_FINAL &&
       fase != Fase::GIRO_RECUPERACION && fase != Fase::GIRO_A_REINGRESO &&
-      fase != Fase::GIRO_A_RUMBO && fase != Fase::GIRO_SOLO &&
+      fase != Fase::GIRO_A_RUMBO && fase != Fase::GIRO_REALINEAR_EJE &&
+      fase != Fase::GIRO_SOLO &&
       fase != Fase::CAL_VALIDAR_25 && fase != Fase::CAL_RETORNO) return;
   uint32_t ahora = millis();
   if (ahora - ultimoCtrlGiroMs < TURN_CONTROL_PERIOD_MS) return;
@@ -760,6 +786,7 @@ void completarGiro() {
   else if (ret == Fase::GIRO_RECUPERACION) { iniciarAvance(true); }
   else if (ret == Fase::GIRO_A_REINGRESO) { iniciarAvanceReingreso(); }
   else if (ret == Fase::GIRO_A_RUMBO) { reanudarTrasRecentrado(); }
+  else if (ret == Fase::GIRO_REALINEAR_EJE) { reanudarTrasRealineacion(); }
   else if (ret == Fase::GIRO_FINAL) { iniciarVerificacionFinal(); }
   else if (ret == Fase::GIRO_SOLO) { fin(EVT_COMPLETED, "turn_ok"); }
   else if (ret == Fase::CAL_VALIDAR_25) {
@@ -828,6 +855,12 @@ uint8_t pulsosConsecutivosSinTicks = 0;
 float pasoDistanciaPorPulsoCm = 1.0f;
 
 void reanudarTrasRecentrado() {
+  const auto estadoEpisodio = ControlRuta::procesarEpisodioRecuperacion(
+      episodioRecuperacion, millis(), RECENTER_TIMEOUT_MS, true);
+  if (estadoEpisodio == ControlRuta::EstadoEpisodioRecuperacion::VENCIDO) {
+    fallo("recenter_timeout");
+    return;
+  }
   direccionTraslacion = direccionTraslacionPlanificada;
   pasoEnReversa = direccionTraslacion < 0;
   pasoRumboTrayectoDeg = pasoHeading;
@@ -838,8 +871,84 @@ void reanudarTrasRecentrado() {
   distAcumuladaCm = constrain(
       distanciaPlanificadaCm - pasoErrorLongitudinalCm,
       0.0f, distanciaPlanificadaCm);
+  ControlRuta::iniciarSeguimientoProgreso(
+      seguimientoProgreso, distanciaRestanteObjetivoActivo(false));
   strncpy(pasoFaseRecentrado, "resumed", sizeof(pasoFaseRecentrado));
   iniciarAvance(true);
+}
+
+void reanudarTrasRealineacion() {
+  direccionTraslacion = direccionTraslacionPlanificada;
+  pasoEnReversa = direccionTraslacion < 0;
+  pasoRumboTrayectoDeg = pasoHeading;
+  pasoRumboCuerpoDeg = ControlRuta::rumboCuerpoParaTrayecto(
+      pasoHeading, direccionTraslacion);
+  rumboObjetivoDeg = pasoRumboCuerpoDeg;
+  strncpy(pasoFaseRecentrado, "realigned", sizeof(pasoFaseRecentrado));
+  inicioDesviacionLateralMs = 0;
+  inicioLateralExtremoMs = 0;
+  inicioCrecimientoLateralMs = 0;
+  actualizarErroresTrayectoria();
+  mejorErrorLateralAbsCm = fabsf(pasoErrorLateralCm);
+  ControlRuta::iniciarSeguimientoProgreso(
+      seguimientoProgreso, distanciaRestanteObjetivoActivo(false));
+  errorLateralAnteriorValido = false;
+  iniciarAvance(true);
+}
+
+void actualizarVentanaSupervision(float distanciaMedidaCm) {
+  if (distanciaMedidaCm < 0.0f) distanciaMedidaCm = 0.0f;
+  while (distanciaMedidaCm >= pasoVentanaInicioCm + RECENTER_MONITOR_WINDOW_CM &&
+         pasoVentanaInicioCm + RECENTER_MONITOR_WINDOW_CM <= distanciaPlanificadaCm) {
+    pasoVentanaInicioCm += RECENTER_MONITOR_WINDOW_CM;
+    ++pasoVentanaIndice;
+  }
+  pasoVentanaProgresoCm = fmaxf(0.0f, distanciaMedidaCm - pasoVentanaInicioCm);
+}
+
+bool progresoLongitudinalIncorrecto(uint32_t ahora) {
+  return ControlRuta::actualizarSeguimientoProgreso(
+      seguimientoProgreso,
+      distanciaRestanteObjetivoActivo(fase == Fase::AVANCE_A_EJE), ahora,
+      WRONG_WAY_GROWTH_CM, WRONG_WAY_PERSIST_MS);
+}
+
+bool vigilarDesviacionMaxima() {
+  if (!tieneTargetEspacial) return false;
+  actualizarErroresTrayectoria();
+  const uint32_t ahora = millis();
+  if (fabsf(pasoErrorLateralCm) > RECENTER_MAX_LATERAL_CM) {
+    if (!inicioLateralExtremoMs) inicioLateralExtremoMs = ahora;
+    if (ahora - inicioLateralExtremoMs >= RECENTER_TRIGGER_MS) {
+      fallo("recenter_out_of_range");
+      return true;
+    }
+  } else {
+    inicioLateralExtremoMs = 0;
+  }
+  return false;
+}
+
+void iniciarRealineacionEje(float distanciaActualCm) {
+  frenarMotores();
+  reiniciarControlRumbo();
+  // Congelar la traslación ya observada antes del giro. El nuevo baseline se
+  // toma al reanudar, así los ticks del pivote no se cuentan ni se pierde lo
+  // recorrido antes del cruce.
+  distAcumuladaCm = fmaxf(0.0f, distanciaActualCm);
+  pasoGiroHaciaLineaDeg = 0.0f;
+  pasoGiroRetornoDeg = 0.0f;
+  strncpy(pasoDisparadorRecentrado, "axis_cross_low", sizeof(pasoDisparadorRecentrado));
+  strncpy(pasoFaseRecentrado, "realign_pause", sizeof(pasoFaseRecentrado));
+  strncpy(pasoDecisionRecuperacion, "realign_axis", sizeof(pasoDecisionRecuperacion));
+  errorLateralAnteriorValido = false;
+  rumboReingresoCuerpoDeg = ControlRuta::rumboCuerpoParaTrayecto(
+      pasoHeading, direccionTraslacionPlanificada);
+  inicioFaseRecentradoMs = millis();
+  // No se bloquea el súper-ciclo: la pausa se consume como una fase explícita
+  // y el giro sólo se habilita después del asentamiento breve.
+  fase = Fase::PAUSA_RECENTRADO;
+  strncpy(faseComando, "realign_pause", sizeof(faseComando));
 }
 
 void actualizarErroresTrayectoria() {
@@ -891,8 +1000,12 @@ void iniciarAvance(bool conservar) {
     distAcumuladaCm = 0.0f;
     intentosRecup = 0;
     inicioDesviacionLateralMs = 0;
+    inicioLateralExtremoMs = 0;
     inicioCrecimientoLateralMs = 0;
-    inicioSentidoIncorrectoMs = 0;
+    pasoVentanaInicioCm = 0.0f;
+    pasoVentanaIndice = 0;
+    pasoVentanaProgresoCm = 0.0f;
+    errorLateralAnteriorValido = false;
   }
   reiniciarControlRumbo();
   pasoEnReversa = direccionTraslacion < 0;
@@ -923,7 +1036,16 @@ void iniciarAvance(bool conservar) {
     distTargetMinimaCm = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
     actualizarErroresTrayectoria();
     mejorErrorLateralAbsCm = fabsf(pasoErrorLateralCm);
-    mejorErrorLongitudinalCm = pasoErrorLongitudinalCm;
+    ControlRuta::iniciarSeguimientoProgreso(
+        seguimientoProgreso, distanciaRestanteObjetivoActivo(false));
+    pasoUmbralLateralCm = ControlRuta::umbralLateralSegmento(
+        distanciaPlanificadaCm, RECENTER_LATERAL_RATIO,
+        RECENTER_LATERAL_MIN_CM);
+    pasoProporcionLateral = ControlRuta::proporcionLateralSegmento(
+        pasoErrorLateralCm, distanciaPlanificadaCm);
+    actualizarVentanaSupervision(distAcumuladaCm);
+    errorLateralAnteriorCm = pasoErrorLateralCm;
+    errorLateralAnteriorValido = true;
   }
   fase = Fase::AVANCE;
   strncpy(faseComando, "avance", sizeof(faseComando));
@@ -931,6 +1053,7 @@ void iniciarAvance(bool conservar) {
 
 void iniciarRecentrado(const char* disparador, float distanciaActualCm) {
   const bool iniciaDesdeRuta = fase == Fase::AVANCE;
+  ControlRuta::abrirEpisodioRecuperacion(episodioRecuperacion, millis());
   actualizarErroresTrayectoria();
   if (pasoIntentoRecentrado >= RECENTER_MAX_ATTEMPTS) {
     fallo("recenter_not_converged");
@@ -940,23 +1063,51 @@ void iniciarRecentrado(const char* disparador, float distanciaActualCm) {
       PoseGlobal.getX(), PoseGlobal.getY(), pasoTargetX, pasoTargetY,
       pasoHeading, distanciaPlanificadaCm, pasoErrorLateralCm,
       RECENTER_LOOKAHEAD_MIN_CM);
+  const float rumboRetornoCuerpoDeg = ControlRuta::rumboCuerpoParaTrayecto(
+      pasoHeading, direccionTraslacionPlanificada);
+  const ControlRuta::CandidatoReingreso candidatoAvance =
+      ControlRuta::evaluarCandidatoReingreso(
+          PoseGlobal.getX(), PoseGlobal.getY(), punto,
+          pasoHeading, distanciaPlanificadaCm, heading360, 1,
+          rumboRetornoCuerpoDeg);
+  const ControlRuta::CandidatoReingreso candidatoReversa =
+      ControlRuta::evaluarCandidatoReingreso(
+          PoseGlobal.getX(), PoseGlobal.getY(), punto,
+          pasoHeading, distanciaPlanificadaCm, heading360, -1,
+          rumboRetornoCuerpoDeg);
+  const ControlRuta::CandidatoReingreso candidato =
+      ControlRuta::elegirCandidatoReingreso(candidatoAvance, candidatoReversa);
   pasoReingresoXCm = punto.xCm;
   pasoReingresoYCm = punto.yCm;
-  distanciaReingresoCm = hypotf(pasoReingresoXCm - PoseGlobal.getX(),
-                                pasoReingresoYCm - PoseGlobal.getY());
+  distanciaReingresoCm = candidato.distanciaCm;
   if (!isfinite(distanciaReingresoCm) || distanciaReingresoCm < 0.5f ||
       distanciaReingresoCm > STEP_MAX_DISTANCE_CM) {
     fallo("recenter_out_of_range");
     return;
   }
+  direccionReingreso = candidato.direccion;
+  rumboReingresoTrayectoDeg = candidato.rumboTrayectoDeg;
+  rumboReingresoCuerpoDeg = candidato.rumboCuerpoDeg;
+  pasoGiroHaciaLineaDeg = candidato.giroHaciaLineaDeg;
+  pasoGiroRetornoDeg = candidato.giroRetornoDeg;
+  pasoCosteReingresoAvance = candidatoAvance.coste;
+  pasoCosteReingresoReversa = candidatoReversa.coste;
+  pasoCosteReingresoElegido = candidato.coste;
+  pasoRecuperacionUsaReversa = direccionReingreso < 0;
   ++pasoIntentoRecentrado;
+  pasoIntentosEndpoint = pasoIntentoRecentrado;
   pasoErrorLateralInicialRecentradoCm = pasoErrorLateralCm;
   pasoMejoraRecentradoCm = 0.0f;
   pasoDistanciaRecuperacionCm = distanciaReingresoCm;
+  // La ventana y los temporizadores del tramo anterior no deben contaminar
+  // la nueva maniobra. El presupuesto de intentos sí se conserva.
+  inicioLateralExtremoMs = 0;
+  inicioDesviacionLateralMs = 0;
+  inicioCrecimientoLateralMs = 0;
+  errorLateralAnteriorValido = false;
   distAcumuladaCm = distanciaActualCm;
   if (iniciaDesdeRuta) direccionTraslacionPlanificada = direccionTraslacion;
-  inicioRecentradoMs = millis();
-  inicioFaseRecentradoMs = inicioRecentradoMs;
+  inicioFaseRecentradoMs = millis();
   strncpy(pasoDisparadorRecentrado, disparador,
           sizeof(pasoDisparadorRecentrado));
   strncpy(pasoFaseRecentrado, "pause", sizeof(pasoFaseRecentrado));
@@ -970,14 +1121,16 @@ void iniciarRecentrado(const char* disparador, float distanciaActualCm) {
 
 void iniciarAvanceReingreso() {
   const SensorSnapshot s = sensar();
-  direccionTraslacion = 1;
-  pasoEnReversa = false;
+  direccionTraslacion = direccionReingreso;
+  pasoEnReversa = direccionTraslacion < 0;
   distAcumuladaCm = 0.0f;
   distanciaReingresoCm = PoseGlobal.distanciaAlObjetivo(
       pasoReingresoXCm, pasoReingresoYCm);
-  rumboObjetivoDeg = normalizar360(
-      PoseGlobal.anguloAlObjetivoRad(pasoReingresoXCm, pasoReingresoYCm) *
-      180.0f / M_PI);
+  ControlRuta::iniciarSeguimientoProgreso(
+      seguimientoProgreso, distanciaRestanteObjetivoActivo(true));
+  rumboObjetivoDeg = rumboReingresoCuerpoDeg;
+  pasoRumboTrayectoDeg = rumboReingresoTrayectoDeg;
+  pasoRumboCuerpoDeg = rumboReingresoCuerpoDeg;
   copiarBase(ticksBaseAvance, s);
   inicioAvanceMs = millis();
   ticksLadoAvAnt[0] = ticksLadoAvAnt[1] = 0;
@@ -1140,7 +1293,8 @@ bool controlarAvance() {
   // usaba el diámetro nominal y la odometría otro valor, por lo que el gráfico
   // podía indicar corrección sin que el robot frenara antes.
   const float cmPorTick = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
-  float distMedida = distAcumuladaCm + ticksEst * cmPorTick;
+  float distMedida = ControlRuta::distanciaConBaseline(
+      distAcumuladaCm, ticksEst, cmPorTick);
   if (!avanceReingreso) pasoDistanciaActualCm = distMedida;
   const float objetivoMovimientoCm = avanceReingreso
       ? distanciaReingresoCm : distObjetivoCm;
@@ -1153,10 +1307,35 @@ bool controlarAvance() {
       pwmReferenciaFreno, FRENO_RESIDUAL_BASE_CM, FRENO_RESIDUAL_POR_PWM_CM,
       FRENO_RESIDUAL_MAX_CM);
   actualizarErroresTrayectoria();
-
-  if (avanceReingreso && millis() - inicioRecentradoMs > RECENTER_TIMEOUT_MS) {
-    fallo("recenter_timeout");
-    return false;
+  pasoAutoridadMpu = s.mpu_present && s.mpu_calibrated && !s.mpu_stale;
+  const uint32_t ahora = millis();
+  if (tieneTargetEspacial) {
+    const float lateralAbs = fabsf(pasoErrorLateralCm);
+    if (lateralAbs > RECENTER_MAX_LATERAL_CM) {
+      if (!inicioLateralExtremoMs) inicioLateralExtremoMs = ahora;
+      if (ahora - inicioLateralExtremoMs >= RECENTER_TRIGGER_MS) {
+        fallo("recenter_out_of_range");
+        return false;
+      }
+    } else {
+      inicioLateralExtremoMs = 0;
+    }
+  }
+  if (tieneTargetEspacial) {
+    pasoUmbralLateralCm = ControlRuta::umbralLateralSegmento(
+        distanciaPlanificadaCm, RECENTER_LATERAL_RATIO,
+        RECENTER_LATERAL_MIN_CM);
+    pasoProporcionLateral = ControlRuta::proporcionLateralSegmento(
+        pasoErrorLateralCm, distanciaPlanificadaCm);
+    const uint16_t ventanaAnterior = pasoVentanaIndice;
+    const float progresoSobreSegmento = constrain(
+        distanciaPlanificadaCm - pasoErrorLongitudinalCm,
+        0.0f, distanciaPlanificadaCm);
+    actualizarVentanaSupervision(progresoSobreSegmento);
+    if (!avanceReingreso && ventanaAnterior != pasoVentanaIndice) {
+      mejorErrorLateralAbsCm = fabsf(pasoErrorLateralCm);
+      inicioCrecimientoLateralMs = 0;
+    }
   }
 
   uint32_t timeout = DRIVE_BASE_TIMEOUT_MS + (uint32_t)(objetivoMovimientoCm * DRIVE_TIMEOUT_PER_CM_MS);
@@ -1182,7 +1361,7 @@ bool controlarAvance() {
             distMedida, millis() - inicioAvanceMs,
             RECENTER_MIN_IMPROVEMENT_CM, RECENTER_EVALUATION_DISTANCE_CM,
             RECENTER_EVALUATION_MS)) {
-      fallo("recenter_diverging");
+      fallo("recenter_not_converged");
       return false;
     }
   } else if (ControlRuta::tramoRequiereModoPulsado(restante, PULSE_DRIVE_THRESHOLD_CM)) {
@@ -1191,6 +1370,14 @@ bool controlarAvance() {
     return false;
   } else if (restante <= TOLERANCIA_DISTANCIA_CM + pasoFrenoPrevistoCm) {
     iniciarAsentamientoFinal(distMedida);
+    return false;
+  }
+
+  // La corrección lateral no puede ocultar un avance en sentido opuesto. Se
+  // aplica también durante el reingreso y el endpoint, con un baseline nuevo
+  // por maniobra para no arrastrar el error de la fase anterior.
+  if (progresoLongitudinalIncorrecto(ahora)) {
+    fallo("route_progress_wrong_sign");
     return false;
   }
 
@@ -1218,30 +1405,42 @@ bool controlarAvance() {
   }
 
   if (!avanceReingreso && pasoObjetivoAbsoluto && !recuperacionEndpointActiva) {
-    const uint32_t ahora = millis();
     const float lateralAbs = fabsf(pasoErrorLateralCm);
-    if (ControlRuta::desviacionFueraDeRango(
-            pasoErrorLateralCm, RECENTER_MAX_LATERAL_CM)) {
-      fallo("recenter_out_of_range");
+    const float umbralSalida = ControlRuta::umbralLateralSegmento(
+        distanciaPlanificadaCm, RECENTER_LATERAL_EXIT_RATIO,
+        RECENTER_LATERAL_MIN_CM);
+
+    const bool cruzoEjeConErrorBajo =
+        errorLateralAnteriorValido &&
+        ControlRuta::cruzoEjeConErrorBajo(
+            errorLateralAnteriorCm, pasoErrorLateralCm,
+            RECENTER_LATERAL_MIN_CM) &&
+        restante > TOLERANCIA_DISTANCIA_CM;
+    if (cruzoEjeConErrorBajo) {
+      iniciarRealineacionEje(distMedida);
       return false;
     }
-    if (lateralAbs >= RECENTER_TRIGGER_CM) {
-      if (!inicioDesviacionLateralMs) inicioDesviacionLateralMs = ahora;
-    } else inicioDesviacionLateralMs = 0;
+
+    if (lateralAbs <= umbralSalida) {
+      inicioDesviacionLateralMs = 0;
+    } else if (lateralAbs > pasoUmbralLateralCm &&
+               !inicioDesviacionLateralMs) {
+      inicioDesviacionLateralMs = ahora;
+    }
     if (lateralAbs < mejorErrorLateralAbsCm) {
       mejorErrorLateralAbsCm = lateralAbs;
       inicioCrecimientoLateralMs = 0;
-    } else if (lateralAbs > RECENTER_LATERAL_DEADBAND_CM &&
-               lateralAbs >= mejorErrorLateralAbsCm + RECENTER_GROWTH_TRIGGER_CM) {
+    } else if (lateralAbs >= mejorErrorLateralAbsCm + RECENTER_GROWTH_TRIGGER_CM) {
       if (!inicioCrecimientoLateralMs) inicioCrecimientoLateralMs = ahora;
-    } else inicioCrecimientoLateralMs = 0;
+    } else if (lateralAbs <= umbralSalida) {
+      inicioCrecimientoLateralMs = 0;
+    }
     const uint32_t persistencia = inicioDesviacionLateralMs
         ? ahora - inicioDesviacionLateralMs : 0;
     const uint32_t crecimientoMs = inicioCrecimientoLateralMs
         ? ahora - inicioCrecimientoLateralMs : 0;
-    const bool tramoPermiteRecentrado = (pasoDistanciaCm >= RECENTER_MIN_STEP_CM) && !avanceReingreso;
-    if (tramoPermiteRecentrado && ControlRuta::debeRecentrar(
-            pasoErrorLateralCm, persistencia, RECENTER_TRIGGER_CM,
+    if (ControlRuta::debeRecentrar(
+            pasoErrorLateralCm, persistencia, pasoUmbralLateralCm,
             RECENTER_TRIGGER_MS, lateralAbs - mejorErrorLateralAbsCm,
             crecimientoMs, RECENTER_GROWTH_TRIGGER_CM,
             RECENTER_GROWTH_MS)) {
@@ -1249,20 +1448,8 @@ bool controlarAvance() {
           ? "lateral_persistent" : "lateral_growing", distMedida);
       return false;
     }
-    if (pasoErrorLongitudinalCm < mejorErrorLongitudinalCm) {
-      mejorErrorLongitudinalCm = pasoErrorLongitudinalCm;
-      inicioSentidoIncorrectoMs = 0;
-    } else if (pasoErrorLongitudinalCm >=
-               mejorErrorLongitudinalCm + WRONG_WAY_GROWTH_CM) {
-      if (!inicioSentidoIncorrectoMs) inicioSentidoIncorrectoMs = ahora;
-    } else inicioSentidoIncorrectoMs = 0;
-    if (ControlRuta::progresoEnSentidoIncorrecto(
-            pasoErrorLongitudinalCm, mejorErrorLongitudinalCm,
-            inicioSentidoIncorrectoMs ? ahora - inicioSentidoIncorrectoMs : 0,
-            WRONG_WAY_GROWTH_CM, WRONG_WAY_PERSIST_MS)) {
-      fallo("route_progress_wrong_sign");
-      return false;
-    }
+    errorLateralAnteriorCm = pasoErrorLateralCm;
+    errorLateralAnteriorValido = true;
   }
 
 
@@ -1421,8 +1608,8 @@ void iniciarAvancePulsado(bool conservar) {
     distAcumuladaCm = 0.0f;
     intentosRecup = 0;
     inicioDesviacionLateralMs = 0;
+    inicioLateralExtremoMs = 0;
     inicioCrecimientoLateralMs = 0;
-    inicioSentidoIncorrectoMs = 0;
     resetConfEncoders();
     pasoDistanciaPorPulsoCm = 1.0f;
   }
@@ -1449,26 +1636,131 @@ void iniciarAvancePulsado(bool conservar) {
     distTargetMinimaCm = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
     actualizarErroresTrayectoria();
     mejorErrorLateralAbsCm = fabsf(pasoErrorLateralCm);
-    mejorErrorLongitudinalCm = pasoErrorLongitudinalCm;
+    ControlRuta::iniciarSeguimientoProgreso(
+        seguimientoProgreso, distanciaRestanteObjetivoActivo(false));
+    pasoUmbralLateralCm = ControlRuta::umbralLateralSegmento(
+        distanciaPlanificadaCm, RECENTER_LATERAL_RATIO,
+        RECENTER_LATERAL_MIN_CM);
+    pasoProporcionLateral = ControlRuta::proporcionLateralSegmento(
+        pasoErrorLateralCm, distanciaPlanificadaCm);
+    actualizarVentanaSupervision(distAcumuladaCm);
+    errorLateralAnteriorCm = pasoErrorLateralCm;
+    errorLateralAnteriorValido = true;
   }
   fase = Fase::AVANCE_PULSADO;
   strncpy(faseComando, "pulse_drive", sizeof(faseComando));
 }
 
+// El modo de micro-pulsos se usa precisamente en los tramos cortos, por lo
+// que no puede quedar exento del mismo control por rangos que el avance
+// continuo. Devuelve true cuando cambió de fase o enclavó un fallo.
+bool supervisarRangosAvancePulsado(float distanciaMedidaCm, float restante) {
+  (void)distanciaMedidaCm;
+  if (!tieneTargetEspacial) {
+    return false;
+  }
+
+  const uint32_t ahora = millis();
+  const float lateralAbs = fabsf(pasoErrorLateralCm);
+  pasoUmbralLateralCm = ControlRuta::umbralLateralSegmento(
+      distanciaPlanificadaCm, RECENTER_LATERAL_RATIO,
+      RECENTER_LATERAL_MIN_CM);
+  pasoProporcionLateral = ControlRuta::proporcionLateralSegmento(
+      pasoErrorLateralCm, distanciaPlanificadaCm);
+  const uint16_t ventanaAnterior = pasoVentanaIndice;
+  const float progresoSobreSegmento = constrain(
+      distanciaPlanificadaCm - pasoErrorLongitudinalCm,
+      0.0f, distanciaPlanificadaCm);
+  actualizarVentanaSupervision(progresoSobreSegmento);
+  if (ventanaAnterior != pasoVentanaIndice) {
+    mejorErrorLateralAbsCm = lateralAbs;
+    inicioCrecimientoLateralMs = 0;
+  }
+
+  if (lateralAbs > RECENTER_MAX_LATERAL_CM) {
+    if (!inicioLateralExtremoMs) inicioLateralExtremoMs = ahora;
+    if (ahora - inicioLateralExtremoMs >= RECENTER_TRIGGER_MS) {
+      fallo("recenter_out_of_range");
+      return true;
+    }
+  } else {
+    inicioLateralExtremoMs = 0;
+  }
+
+  // También se vigila el sentido durante la recuperación de endpoint; sólo
+  // la corrección lateral se omite en esa subfase.
+  if (progresoLongitudinalIncorrecto(ahora)) {
+    fallo("route_progress_wrong_sign");
+    return true;
+  }
+  if (!pasoObjetivoAbsoluto || recuperacionEndpointActiva) {
+    return false;
+  }
+
+  if (errorLateralAnteriorValido &&
+      ControlRuta::cruzoEjeConErrorBajo(
+          errorLateralAnteriorCm, pasoErrorLateralCm,
+          RECENTER_LATERAL_MIN_CM) &&
+      restante > TOLERANCIA_DISTANCIA_CM) {
+    iniciarRealineacionEje(distanciaMedidaCm);
+    return true;
+  }
+
+  const float umbralSalida = ControlRuta::umbralLateralSegmento(
+      distanciaPlanificadaCm, RECENTER_LATERAL_EXIT_RATIO,
+      RECENTER_LATERAL_MIN_CM);
+  if (lateralAbs <= umbralSalida) {
+    inicioDesviacionLateralMs = 0;
+    inicioCrecimientoLateralMs = 0;
+  } else if (lateralAbs > pasoUmbralLateralCm &&
+             !inicioDesviacionLateralMs) {
+    inicioDesviacionLateralMs = ahora;
+  }
+  if (lateralAbs < mejorErrorLateralAbsCm) {
+    mejorErrorLateralAbsCm = lateralAbs;
+    inicioCrecimientoLateralMs = 0;
+  } else if (lateralAbs >= mejorErrorLateralAbsCm + RECENTER_GROWTH_TRIGGER_CM) {
+    if (!inicioCrecimientoLateralMs) inicioCrecimientoLateralMs = ahora;
+  }
+  const uint32_t persistencia = inicioDesviacionLateralMs
+      ? ahora - inicioDesviacionLateralMs : 0;
+  const uint32_t crecimientoMs = inicioCrecimientoLateralMs
+      ? ahora - inicioCrecimientoLateralMs : 0;
+  if (ControlRuta::debeRecentrar(
+          pasoErrorLateralCm, persistencia, pasoUmbralLateralCm,
+          RECENTER_TRIGGER_MS, lateralAbs - mejorErrorLateralAbsCm,
+          crecimientoMs, RECENTER_GROWTH_TRIGGER_CM,
+          RECENTER_GROWTH_MS)) {
+    iniciarRecentrado(persistencia >= RECENTER_TRIGGER_MS
+        ? "lateral_persistent" : "lateral_growing", distanciaMedidaCm);
+    return true;
+  }
+
+  errorLateralAnteriorCm = pasoErrorLateralCm;
+  errorLateralAnteriorValido = true;
+  return false;
+}
+
 bool controlarAvancePulsado() {
   const SensorSnapshot s = sensar();
+  pasoAutoridadMpu = s.mpu_present && s.mpu_calibrated && !s.mpu_stale;
   if (!hayPorLado()) { fallo("enc_no_side"); return false; }
   int64_t d[4]; deltas(ticksBaseAvance, s, d);
   float ticksEst = estimarTicksAvance(d);
   if (ticksEst < 0.0f) { fallo("enc_no_estimation"); return false; }
   const float cmPorTick = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
-  float distMedida = distAcumuladaCm + ticksEst * cmPorTick;
+  float distMedida = ControlRuta::distanciaConBaseline(
+      distAcumuladaCm, ticksEst, cmPorTick);
   pasoDistanciaActualCm = distMedida;
   float restante = distObjetivoCm - distMedida;
   pasoDistanciaRestanteCm = restante;
   progresoComando = distObjetivoCm > 0.0f
       ? constrain(distMedida / distObjetivoCm, 0.0f, 0.99f) : 0.99f;
   actualizarErroresTrayectoria();
+
+  if (supervisarRangosAvancePulsado(distMedida, restante)) {
+    return false;
+  }
 
   // Interlock de meta alcanzada o waypoint absoluto
   if (tieneTargetEspacial) {
@@ -1590,6 +1882,7 @@ void iniciarVerificacionFinal() {
 }
 
 void iniciarRecuperacionEndpoint() {
+  ControlRuta::abrirEpisodioRecuperacion(episodioRecuperacion, millis());
   actualizarErroresTrayectoria();
   const float distancia = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
   pasoDistanciaRecuperacionCm = distancia;
@@ -1599,7 +1892,7 @@ void iniciarRecuperacionEndpoint() {
     return;
   }
   const ControlRuta::DecisionEndpoint decision = ControlRuta::decidirEndpointSeguro(
-      true, false, intentosEndpoint, INTENTOS_RECUPERACION_ENDPOINT_MAX, distancia,
+      true, false, pasoIntentoRecentrado, INTENTOS_RECUPERACION_ENDPOINT_MAX, distancia,
       DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM);
   if (decision == ControlRuta::DecisionEndpoint::CALIBRAR) {
     strncpy(pasoDecisionRecuperacion, "strict_residual", sizeof(pasoDecisionRecuperacion));
@@ -1611,23 +1904,43 @@ void iniciarRecuperacionEndpoint() {
     fallo("endpoint_not_reached");
     return;
   }
-  ++intentosEndpoint;
-  pasoIntentosEndpoint = intentosEndpoint;
-  // Se conserva el rumbo final. Si el punto quedó detrás, se usa reversa y no
-  // se ordena un pivote de 180° que pueda romper la siguiente secuencia.
+  ++pasoIntentoRecentrado;
+  intentosEndpoint = pasoIntentoRecentrado;
+  pasoIntentosEndpoint = pasoIntentoRecentrado;
   recuperacionEndpointActiva = true;
-  const float rumboRecuperacion = normalizar360(
-      PoseGlobal.anguloAlObjetivoRad(pasoTargetX, pasoTargetY) * 180.0f / M_PI);
-  direccionTraslacion = ControlRuta::reversaAutomatica(
-      rumboRecuperacion, heading360, UMBRAL_REVERSA_AUTOMATICA_DEG) ? -1 : 1;
+  const ControlRuta::PuntoReingreso objetivoReingreso = {
+      pasoTargetX, pasoTargetY, 0.0f};
+  const auto candidatoAvance = ControlRuta::evaluarCandidatoReingreso(
+      PoseGlobal.getX(), PoseGlobal.getY(), objetivoReingreso,
+      pasoHeading, distanciaPlanificadaCm, heading360, 1,
+      pasoRumboFinalDeg);
+  const auto candidatoReversa = ControlRuta::evaluarCandidatoReingreso(
+      PoseGlobal.getX(), PoseGlobal.getY(), objetivoReingreso,
+      pasoHeading, distanciaPlanificadaCm, heading360, -1,
+      pasoRumboFinalDeg);
+  const auto candidato = ControlRuta::elegirCandidatoReingreso(
+      candidatoAvance, candidatoReversa);
+  direccionTraslacion = candidato.direccion;
+  direccionReingreso = candidato.direccion;
+  rumboReingresoTrayectoDeg = candidato.rumboTrayectoDeg;
+  rumboReingresoCuerpoDeg = candidato.rumboCuerpoDeg;
+  pasoGiroHaciaLineaDeg = candidato.giroHaciaLineaDeg;
+  pasoGiroRetornoDeg = candidato.giroRetornoDeg;
+  pasoCosteReingresoAvance = candidatoAvance.coste;
+  pasoCosteReingresoReversa = candidatoReversa.coste;
+  pasoCosteReingresoElegido = candidato.coste;
   pasoRecuperacionUsaReversa = direccionTraslacion < 0;
   pasoEnReversa = pasoRecuperacionUsaReversa;
+  const float rumboRecuperacion = candidato.rumboTrayectoDeg;
   strncpy(pasoDecisionRecuperacion, pasoRecuperacionUsaReversa
       ? "reverse_no_pivot" : "forward_recovery", sizeof(pasoDecisionRecuperacion));
   strncpy(pasoModoEfectivo, "recovery", sizeof(pasoModoEfectivo));
   pasoDistanciaCm = distancia;
   pasoDistanciaObjetivoCm = distancia;
   distAcumuladaCm = 0.0f;
+  inicioFaseRecentradoMs = millis();
+  ControlRuta::iniciarSeguimientoProgreso(
+      seguimientoProgreso, distanciaRestanteObjetivoActivo(false));
   pasoRumboTrayectoDeg = rumboRecuperacion;
   pasoRumboCuerpoDeg = ControlRuta::rumboCuerpoParaTrayecto(
       rumboRecuperacion, direccionTraslacion);
@@ -1662,7 +1975,7 @@ void completarPaso() {
   const float distancia = pasoObjetivoAbsoluto
       ? PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY) : 0.0f;
   const ControlRuta::DecisionEndpoint decision = ControlRuta::decidirEndpointSeguro(
-      pasoObjetivoAbsoluto, objetivoAbsolutoAlcanzado(), intentosEndpoint,
+      pasoObjetivoAbsoluto, objetivoAbsolutoAlcanzado(), pasoIntentoRecentrado,
       INTENTOS_RECUPERACION_ENDPOINT_MAX, distancia,
       DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM);
   if (decision == ControlRuta::DecisionEndpoint::CALIBRAR) {
@@ -1717,15 +2030,18 @@ void registrarMotivoFinalizacion(const char* detalle) {
   pasoMotivoFinalizacion[sizeof(pasoMotivoFinalizacion) - 1] = '\0';
 }
 bool enFaseAvance() {
-  return fase == Fase::AVANCE || fase == Fase::AVANCE_A_EJE;
+  return fase == Fase::AVANCE || fase == Fase::AVANCE_PULSADO ||
+         fase == Fase::AVANCE_A_EJE;
 }
 bool enFaseTraslacion() {
-  return fase == Fase::AVANCE || fase == Fase::AVANCE_A_EJE ||
+  return fase == Fase::AVANCE || fase == Fase::AVANCE_PULSADO ||
+         fase == Fase::AVANCE_A_EJE ||
          fase == Fase::ASENTAMIENTO_FINAL;
 }
 bool enFaseGiro() {
   return fase == Fase::GIRO_INICIAL || fase == Fase::GIRO_RECUPERACION ||
          fase == Fase::GIRO_A_REINGRESO || fase == Fase::GIRO_A_RUMBO ||
+         fase == Fase::GIRO_REALINEAR_EJE ||
          fase == Fase::GIRO_FINAL || fase == Fase::GIRO_SOLO ||
          fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO;
 }
@@ -1823,12 +2139,28 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   pasoReingresoYCm = NAN;
   pasoErrorLateralInicialRecentradoCm = 0.0f;
   pasoMejoraRecentradoCm = 0.0f;
-  inicioRecentradoMs = 0;
+  pasoProporcionLateral = 0.0f;
+  pasoUmbralLateralCm = 0.0f;
+  pasoVentanaInicioCm = 0.0f;
+  pasoVentanaProgresoCm = 0.0f;
+  pasoVentanaIndice = 0;
+  pasoGiroHaciaLineaDeg = 0.0f;
+  pasoGiroRetornoDeg = 0.0f;
+  pasoCosteReingresoAvance = 0.0f;
+  pasoCosteReingresoReversa = 0.0f;
+  pasoCosteReingresoElegido = 0.0f;
+  pasoAutoridadMpu = false;
+  ControlRuta::cancelarEpisodioRecuperacion(episodioRecuperacion);
   inicioFaseRecentradoMs = 0;
   strncpy(pasoFaseRecentrado, "inactive", sizeof(pasoFaseRecentrado));
   strncpy(pasoDisparadorRecentrado, "none", sizeof(pasoDisparadorRecentrado));
   intentosEndpoint = 0;
   recuperacionEndpointActiva = false;
+  direccionReingreso = direccionTraslacion;
+  rumboReingresoTrayectoDeg = heading;
+  rumboReingresoCuerpoDeg = pasoRumboCuerpoDeg;
+  errorLateralAnteriorCm = 0.0f;
+  errorLateralAnteriorValido = false;
   distanciaPlanificadaCm = distanciaCm;
   direccionTraslacionPlanificada = direccionTraslacion;
 
@@ -1890,6 +2222,7 @@ void cancelarMovimiento(const char* detalle) {
   const bool falloEnclavado = ControlSeguridad::stopDebePreservarFallo(
       estadoActual == FALLO, estadoActual == ESTOP);
   frenarMotores(); fase = Fase::NINGUNA;
+  ControlRuta::cancelarEpisodioRecuperacion(episodioRecuperacion);
   reiniciarControlRumbo();
   antiFriccionActiva = false;
   antiFriccionPulsoEncendido = false;
@@ -1914,11 +2247,38 @@ void controlarMovimiento() {
   if (estadoActual == CALIBRANDO) { controlarCalibracion(); return; }
   if (estadoActual != EJECUTANDO) return;
 
+  // El MPU es la autoridad angular de toda maniobra autónoma. Ante una
+  // muestra ausente, vieja o sin calibración se desenergiza y se enclava el
+  // fallo; los encoders permanecen únicamente como banderas diagnósticas.
+  if (fase != Fase::NINGUNA) {
+    const SensorSnapshot s = sensar();
+    pasoAutoridadMpu = s.mpu_present && s.mpu_calibrated && !s.mpu_stale;
+    if (!pasoAutoridadMpu) {
+      frenarMotores();
+      strncpy(pasoDisparadorRecentrado, "mpu_lost", sizeof(pasoDisparadorRecentrado));
+      strncpy(pasoFaseRecentrado, "fault", sizeof(pasoFaseRecentrado));
+      fallo("mpu_lost_recovery");
+      return;
+    }
+  }
+  // El límite lateral también debe gobernar pausas, giros y asentamiento: si
+  // el robot ya quedó fuera de la zona segura, no se intenta corregirlo desde
+  // una subfase que no está avanzando sobre la línea.
+  if (vigilarDesviacionMaxima()) return;
+
+  if (ControlRuta::procesarEpisodioRecuperacion(
+          episodioRecuperacion, millis(), RECENTER_TIMEOUT_MS) ==
+      ControlRuta::EstadoEpisodioRecuperacion::VENCIDO) {
+    fallo("recenter_timeout");
+    return;
+  }
+
   switch (fase) {
     case Fase::GIRO_INICIAL:
     case Fase::GIRO_RECUPERACION:
     case Fase::GIRO_A_REINGRESO:
     case Fase::GIRO_A_RUMBO:
+    case Fase::GIRO_REALINEAR_EJE:
     case Fase::GIRO_FINAL:
     case Fase::GIRO_SOLO:
     case Fase::CAL_RETORNO:
@@ -1939,11 +2299,14 @@ void controlarMovimiento() {
     case Fase::PAUSA_RECENTRADO:
       frenarMotores();
       if (millis() - inicioFaseRecentradoMs >= RECENTER_SETTLE_MS) {
-        const float rumbo = normalizar360(
-            PoseGlobal.anguloAlObjetivoRad(pasoReingresoXCm, pasoReingresoYCm) *
-            180.0f / M_PI);
-        strncpy(pasoFaseRecentrado, "turn_to_axis", sizeof(pasoFaseRecentrado));
-        iniciarBaseGiro(rumbo, Fase::GIRO_A_REINGRESO);
+        const float rumbo = rumboReingresoCuerpoDeg;
+        if (strncmp(pasoDecisionRecuperacion, "realign_axis", sizeof(pasoDecisionRecuperacion)) == 0) {
+          strncpy(pasoFaseRecentrado, "realign_axis", sizeof(pasoFaseRecentrado));
+          iniciarBaseGiro(rumbo, Fase::GIRO_REALINEAR_EJE);
+        } else {
+          strncpy(pasoFaseRecentrado, "turn_to_axis", sizeof(pasoFaseRecentrado));
+          iniciarBaseGiro(rumbo, Fase::GIRO_A_REINGRESO);
+        }
       }
       break;
     case Fase::VERIFICAR_REINGRESO:
@@ -1962,11 +2325,6 @@ void controlarMovimiento() {
 
   // progreso general
   if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO) {
-    if (pasoIntentoRecentrado > 0 && fase != Fase::NINGUNA &&
-        inicioRecentradoMs && millis() - inicioRecentradoMs > RECENTER_TIMEOUT_MS) {
-      fallo("recenter_timeout");
-      return;
-    }
     if (fase == Fase::GIRO_INICIAL) progresoComando = min(0.30f, progresoComando);
     else if (fase == Fase::AVANCE || fase == Fase::AVANCE_PULSADO || fase == Fase::ASENTAMIENTO_FINAL)
       progresoComando = 0.30f + 0.60f * fminf(1.0f, pasoDistanciaActualCm/max(pasoDistanciaObjetivoCm,0.1f));
