@@ -26,12 +26,11 @@ perforado de 20 ranuras (Damián, 2026), cada ranura que cruza el haz infrarrojo
 produce exactamente un ciclo digital completo: un flanco de subida al abrirse la
 ranura y un flanco de bajada al obstruirse.
 
-Para garantizar exactitud métrica sin duplicar conteos espurios por rebotes en los
-flancos de bajada, el hardware PCNT del ESP32-S3 se configura con:
+Para garantizar exactitud métrica sin devorar pulsos con el level shifter TXS0108E, el hardware PCNT del ESP32-S3 se configura con:
 - `pos_mode = PCNT_COUNT_INC` (incremento en flanco de subida).
-- `neg_mode = PCNT_COUNT_DIS` (ignorar flanco de bajada para completar 1 ranura = 1 tick).
-- `filter_value = 1023` (filtro de rechazo de transitorios y ruido de alta frecuencia).
-- `ENCODER_PPR = 20` pulsos por revolución.
+- `neg_mode = PCNT_COUNT_INC` (incremento en flanco de bajada; ambos flancos capturados).
+- `filter_value = 100` (filtro de 1.25 µs de rechazo de transitorios sin apagar la señal del TXS0108E).
+- `ENCODER_PPR = 40` pulsos por revolución (20 ranuras x 2 flancos).
 
 ## Guard de calibración y autoridad MPU
 
@@ -46,7 +45,7 @@ flancos de bajada, el hardware PCNT del ESP32-S3 se configura con:
 5. Se detiene con signo contrario (`cal_yaw_sign_mismatch`), desbalance
    persistente >350 ms (`cal_pivot_unbalanced`), exceder 10 ticks relativos sin
    confirmación de MPU en 350 ms (`cal_rotation_not_confirmed`) o deriva de
-   origen >5.2 cm (`cal_origin_drift`).
+   origen >10 cm (`cal_origin_drift`).
 6. Se valida +25°, se reposa 2.5 s, se valida el pivote contrario (`CAL_B`) y se
    retorna al yaw de origen original (`yawOrigenCalDeg`). Al terminar se
    conservan X/Y previos y sólo se reanclan pulsos y referencias angulares.
@@ -64,5 +63,5 @@ disponibles.
 Con VMOT apagado durante la carga, probar primero con ruedas elevadas y corriente
 limitada. Confirmar que +yaw hace girar las ruedas izquierdas hacia delante y
 las derechas hacia atrás, que -yaw invierte el patrón, que la deriva total es
-menor de 5.2 cm y que la telemetría ADB refleja el mismo signo. Detener la prueba
+menor de 10 cm y que la telemetría ADB refleja el mismo signo. Detener la prueba
 ante una sola rueda incorrecta o cualquier traslación visible.

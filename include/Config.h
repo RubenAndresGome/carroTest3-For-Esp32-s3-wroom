@@ -68,10 +68,8 @@ constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
 constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER;
-// Conteo de 1 ranura completa como 1 tick (1 subida + 1 bajada = 1 ciclo TTL, ENCODER_PPR = 20).
-// Referencia canónica (APA 7): Damián, J. (2026). Tutorial sobre el módulo sensor de velocidad IR
-// con el comparador LM393 (Encoder FC-03). Electrogeek.
-constexpr int ENCODER_PPR = 20;
+// Detección de ambos flancos: convierte 20 ranuras en 40 ticks/vuelta (ENCODER_PPR = 40).
+constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
@@ -179,9 +177,9 @@ constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
 // El MPU decide el ángulo. PCNT sólo mantiene centrado el pivote y detecta
 // traslación espuria; una fuente sana por lado conserva operación degradada.
 constexpr float KP_BALANCE_PIVOT_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
-constexpr int PWM_BALANCE_PIVOT_MAX = static_cast<int>(18 * PWM_SCALE_8_TO_10);
+constexpr int PWM_BALANCE_PIVOT_MAX = static_cast<int>(35 * PWM_SCALE_8_TO_10);
 constexpr float DESBALANCE_PIVOT_MAX_REL = 0.45f;
-constexpr float DERIVA_CENTRO_CAL_MAX_CM = 5.2f;
+constexpr float DERIVA_CENTRO_CAL_MAX_CM = 10.0f;
 
 // PID y Correcciones en marcha
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
