@@ -15,7 +15,7 @@
 #include <AsyncTCP.h>
 #include <ArduinoJson.h>
 
-#define MAX_WS_MSG 4096
+#define MAX_WS_MSG 7168
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -265,7 +265,7 @@ static const char* textoSaludEncoder(EstadoSaludEncoder estado) {
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  static StaticJsonDocument<5632> doc;
+  static StaticJsonDocument<7168> doc;
   doc.clear();
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");

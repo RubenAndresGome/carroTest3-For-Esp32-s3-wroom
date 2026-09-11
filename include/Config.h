@@ -120,9 +120,9 @@ constexpr float TOLERANCIA_DISTANCIA_CM = 3.0f;
 constexpr float DISTANCIA_APROXIMACION_CM = 40.0f;
 // Modelo inicial de avance por inercia. La fase de asentamiento publica el
 // resultado real por JSON para afinar estos valores con pruebas de piso.
-constexpr float FRENO_RESIDUAL_BASE_CM = 1.5f;
-constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.006f;
-constexpr float FRENO_RESIDUAL_MAX_CM = 8.0f;
+constexpr float FRENO_RESIDUAL_BASE_CM = 0.5f;
+constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.0015f;
+constexpr float FRENO_RESIDUAL_MAX_CM = 2.5f;
 constexpr uint32_t ASENTAMIENTO_MIN_MS = 250;
 constexpr uint32_t ASENTAMIENTO_SIN_PULSOS_MS = 300;
 constexpr uint32_t ASENTAMIENTO_MAX_MS = 1500;
