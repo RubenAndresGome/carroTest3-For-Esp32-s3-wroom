@@ -42,7 +42,7 @@ class RobotGateway:
         on_state: Callable[[ConnectionState, str | None], None],
         on_sent: Callable[[RobotCommand], None],
         session_getter: Callable[[], str] = lambda: "",
-        max_message_bytes: int = 4096,
+        max_message_bytes: int = 7168,
     ) -> None:
         self._host_getter = host_getter
         self._on_message = on_message

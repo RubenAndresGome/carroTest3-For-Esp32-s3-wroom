@@ -187,7 +187,7 @@ class RobotService:
     ACTIVE_TELEMETRY_PERIOD_S = 0.2
     IDLE_TELEMETRY_PERIOD_S = 10.0
 
-    def __init__(self, database: Database, start_gateway: bool = True, max_message_bytes: int = 4096) -> None:
+    def __init__(self, database: Database, start_gateway: bool = True, max_message_bytes: int = 7168) -> None:
         self.database = database
         self.events = EventHub()
         self._lock = threading.RLock()
