@@ -219,6 +219,8 @@ inline bool endpointAceptable(float errorLateralCm, float errorEuclidianoCm,
          fabsf(errorYawDeg) <= toleranciaYawDeg;
 }
 
+
+
 inline bool agotoIntentosEndpoint(uint8_t intentosRealizados, uint8_t maximoIntentos) {
   return intentosRealizados >= maximoIntentos;
 }
@@ -242,6 +244,50 @@ inline DecisionEndpoint decidirEndpointSeguro(bool objetivoAbsoluto, bool endpoi
   return decision == DecisionEndpoint::RECUPERAR &&
              distanciaErrorCm < distanciaMinimaRecuperableCm
       ? DecisionEndpoint::FALLAR : decision;
+}
+
+// --- Sistema de micro-pulsos deterministas de alto par con interlocks ---
+struct SalidaPulso {
+  int pwmIzquierdo = 0;
+  int pwmDerecho = 0;
+  int correccionDiferencial = 0;
+};
+
+inline bool tramoRequiereModoPulsado(float distanciaRestanteCm, float umbralPulsadoCm) {
+  return distanciaRestanteCm > 0.0f && distanciaRestanteCm <= umbralPulsadoCm;
+}
+
+inline SalidaPulso calcularPulsoTraccion(int pwmBase, float errorRumboDeg,
+                                         float kpRumbo, int diffMax, int pwmMaxLimit) {
+  int diff = static_cast<int>(lroundf(errorRumboDeg * kpRumbo));
+  if (diff > diffMax) diff = diffMax;
+  if (diff < -diffMax) diff = -diffMax;
+
+  int pwmL = pwmBase - diff;
+  int pwmR = pwmBase + diff;
+  if (pwmL < 0) pwmL = 0;
+  if (pwmL > pwmMaxLimit) pwmL = pwmMaxLimit;
+  if (pwmR < 0) pwmR = 0;
+  if (pwmR > pwmMaxLimit) pwmR = pwmMaxLimit;
+
+  SalidaPulso s;
+  s.pwmIzquierdo = pwmL;
+  s.pwmDerecho = pwmR;
+  s.correccionDiferencial = diff;
+  return s;
+}
+
+inline bool interlockFinPulsado(float distanciaRestanteCm, float toleranciaCm,
+                                float distanciaPorPulsoPromedioCm) {
+  return distanciaRestanteCm <= toleranciaCm ||
+         (distanciaPorPulsoPromedioCm > 0.0f && distanciaRestanteCm <= distanciaPorPulsoPromedioCm * 0.45f);
+}
+
+inline float actualizarMemoriaImpulso(float memoriaActualCm, float deltaMedidoCm) {
+  if (deltaMedidoCm >= 0.2f && deltaMedidoCm <= 5.0f) {
+    return 0.7f * memoriaActualCm + 0.3f * deltaMedidoCm;
+  }
+  return memoriaActualCm;
 }
 
 }  // namespace ControlRuta

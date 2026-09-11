@@ -18,7 +18,7 @@ namespace {
 enum class Fase : uint8_t {
   NINGUNA,
   CAL_CUENTA, CAL_A, CAL_VALIDAR_25, CAL_PAUSA, CAL_B, CAL_PAUSA_RETORNO, CAL_RETORNO,
-  GIRO_INICIAL, AVANCE, GIRO_RECUPERACION, GIRO_FINAL, GIRO_SOLO,
+  GIRO_INICIAL, AVANCE, AVANCE_PULSADO, GIRO_RECUPERACION, GIRO_FINAL, GIRO_SOLO,
   PAUSA_REEVALUACION, ASENTAMIENTO_FINAL, VERIFICAR_FINAL,
   PAUSA_RECENTRADO, GIRO_A_REINGRESO, AVANCE_A_EJE,
   VERIFICAR_REINGRESO, GIRO_A_RUMBO
@@ -32,6 +32,8 @@ void controlarGiro();
 void completarGiro();
 void iniciarAvance(bool conservar);
 bool controlarAvance();
+void iniciarAvancePulsado(bool conservar);
+bool controlarAvancePulsado();
 void iniciarAsentamientoFinal(float distanciaAntesDeFrenarCm);
 bool controlarAsentamientoFinal();
 void completarPaso();
@@ -817,6 +819,14 @@ float errorRumboMaxTramo = 0.0f;
 uint32_t inicioFaseAntiFriccionMs = 0;
 int64_t ticksBaseAntiFriccion[4] = {};
 
+// --- Variables para modo de micro-pulsos de alto par gobernados por tiempo con interlocks ---
+enum class PulsoDriveEstado : uint8_t { ON, OFF };
+PulsoDriveEstado pulsoDriveEstado = PulsoDriveEstado::ON;
+uint32_t inicioPulsoDriveMs = 0;
+int64_t ticksBasePulsoOff[4] = {};
+uint8_t pulsosConsecutivosSinTicks = 0;
+float pasoDistanciaPorPulsoCm = 1.0f;
+
 void reanudarTrasRecentrado() {
   direccionTraslacion = direccionTraslacionPlanificada;
   pasoEnReversa = direccionTraslacion < 0;
@@ -872,6 +882,10 @@ void resetConfEncoders() {
 }
 
 void iniciarAvance(bool conservar) {
+  if (ControlRuta::tramoRequiereModoPulsado(pasoDistanciaCm, PULSE_DRIVE_THRESHOLD_CM)) {
+    iniciarAvancePulsado(conservar);
+    return;
+  }
   const SensorSnapshot s = sensar();
   if (!conservar) {
     distAcumuladaCm = 0.0f;
@@ -1171,6 +1185,10 @@ bool controlarAvance() {
       fallo("recenter_diverging");
       return false;
     }
+  } else if (ControlRuta::tramoRequiereModoPulsado(restante, PULSE_DRIVE_THRESHOLD_CM)) {
+    distAcumuladaCm = distMedida;
+    iniciarAvancePulsado(true);
+    return false;
   } else if (restante <= TOLERANCIA_DISTANCIA_CM + pasoFrenoPrevistoCm) {
     iniciarAsentamientoFinal(distMedida);
     return false;
@@ -1221,7 +1239,8 @@ bool controlarAvance() {
         ? ahora - inicioDesviacionLateralMs : 0;
     const uint32_t crecimientoMs = inicioCrecimientoLateralMs
         ? ahora - inicioCrecimientoLateralMs : 0;
-    if (ControlRuta::debeRecentrar(
+    const bool tramoPermiteRecentrado = (pasoDistanciaCm >= RECENTER_MIN_STEP_CM) && !avanceReingreso;
+    if (tramoPermiteRecentrado && ControlRuta::debeRecentrar(
             pasoErrorLateralCm, persistencia, RECENTER_TRIGGER_CM,
             RECENTER_TRIGGER_MS, lateralAbs - mejorErrorLateralAbsCm,
             crecimientoMs, RECENTER_GROWTH_TRIGGER_CM,
@@ -1392,6 +1411,129 @@ bool controlarAvance() {
   }
 
   if (ticksEst >= 2.0f) { /* movimiento ok: se resetea watchdog externo via pulsos */ }
+  return false;
+}
+
+// ============== MODO DE MICRO-PULSOS DETERMINISTAS DE ALTO PAR CON INTERLOCKS ==============
+void iniciarAvancePulsado(bool conservar) {
+  const SensorSnapshot s = sensar();
+  if (!conservar) {
+    distAcumuladaCm = 0.0f;
+    intentosRecup = 0;
+    inicioDesviacionLateralMs = 0;
+    inicioCrecimientoLateralMs = 0;
+    inicioSentidoIncorrectoMs = 0;
+    resetConfEncoders();
+    pasoDistanciaPorPulsoCm = 1.0f;
+  }
+  reiniciarControlRumbo();
+  pasoEnReversa = direccionTraslacion < 0;
+  antiFriccionActiva = false;
+  conservarAcumulado = conservar;
+  distObjetivoCm = pasoDistanciaCm;
+  pasoDistanciaObjetivoCm = distObjetivoCm;
+  rumboObjetivoDeg = pasoRumboCuerpoDeg;
+  copiarBase(ticksBaseAvance, s);
+  copiarBase(ticksBasePulsoOff, s);
+  inicioAvanceMs = millis();
+  inicioPulsoDriveMs = inicioAvanceMs;
+  pulsoDriveEstado = PulsoDriveEstado::ON;
+  pulsosConsecutivosSinTicks = 0;
+  pasoDistanciaRestanteCm = distObjetivoCm - distAcumuladaCm;
+  pasoFrenoPrevistoCm = 0.0f;
+  pasoArrastreFrenoCm = 0.0f;
+  pasoAsentamientoMs = 0;
+  pasoRampaReversaMs = 0;
+  strncpy(pasoLadoFrenoRumbo, "none", sizeof(pasoLadoFrenoRumbo));
+  if (tieneTargetEspacial) {
+    distTargetMinimaCm = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
+    actualizarErroresTrayectoria();
+    mejorErrorLateralAbsCm = fabsf(pasoErrorLateralCm);
+    mejorErrorLongitudinalCm = pasoErrorLongitudinalCm;
+  }
+  fase = Fase::AVANCE_PULSADO;
+  strncpy(faseComando, "pulse_drive", sizeof(faseComando));
+}
+
+bool controlarAvancePulsado() {
+  const SensorSnapshot s = sensar();
+  if (!hayPorLado()) { fallo("enc_no_side"); return false; }
+  int64_t d[4]; deltas(ticksBaseAvance, s, d);
+  float ticksEst = estimarTicksAvance(d);
+  if (ticksEst < 0.0f) { fallo("enc_no_estimation"); return false; }
+  const float cmPorTick = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
+  float distMedida = distAcumuladaCm + ticksEst * cmPorTick;
+  pasoDistanciaActualCm = distMedida;
+  float restante = distObjetivoCm - distMedida;
+  pasoDistanciaRestanteCm = restante;
+  progresoComando = distObjetivoCm > 0.0f
+      ? constrain(distMedida / distObjetivoCm, 0.0f, 0.99f) : 0.99f;
+  actualizarErroresTrayectoria();
+
+  // Interlock de meta alcanzada o waypoint absoluto
+  if (tieneTargetEspacial) {
+    float distEspacial = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
+    if (distEspacial <= TOLERANCIA_ENDPOINT_CM) {
+      iniciarAsentamientoFinal(distMedida);
+      return false;
+    }
+  }
+  if (ControlRuta::interlockFinPulsado(restante, PULSE_DRIVE_TOLERANCIA_CM, pasoDistanciaPorPulsoCm)) {
+    iniciarAsentamientoFinal(distMedida);
+    return false;
+  }
+
+  const uint32_t ahora = millis();
+  if (pulsoDriveEstado == PulsoDriveEstado::ON) {
+    const float errRumbo = errorAng360(rumboObjetivoDeg, heading360);
+    pasoErrorRumboDeg = errRumbo;
+    const ControlRuta::SalidaPulso salida = ControlRuta::calcularPulsoTraccion(
+        PULSE_DRIVE_PWM, errRumbo, PULSE_DRIVE_KP_RUMBO_PWM,
+        PULSE_DRIVE_MAX_DIFF_PWM, PWM_TURN_MAX_LIMIT);
+    if (!aplicarVelocidades(direccionTraslacion * salida.pwmIzquierdo,
+                            direccionTraslacion * salida.pwmDerecho)) {
+      fallo("motor_output_error");
+      return false;
+    }
+    if (ahora - inicioPulsoDriveMs >= PULSE_DRIVE_ON_MS) {
+      frenarMotores();
+      pulsoDriveEstado = PulsoDriveEstado::OFF;
+      inicioPulsoDriveMs = ahora;
+      copiarBase(ticksBasePulsoOff, s);
+    }
+    return false;
+  }
+
+  // PulsoDriveEstado::OFF: motores frenados mientras se mide y amortigua
+  frenarMotores();
+  if (ahora - inicioPulsoDriveMs >= PULSE_DRIVE_OFF_MS) {
+    int64_t dPulso[4]; deltas(ticksBasePulsoOff, s, dPulso);
+    const float ticksPulso = estimarTicksAvance(dPulso);
+    const float deltaMedidoCm = ticksPulso > 0.0f ? ticksPulso * cmPorTick : 0.0f;
+
+    // Interlock de atasco físico (anti-stall)
+    if (ticksPulso <= 0.0f && fabsf(s.gyro_z_filtrado_rad_s) < 0.06f) {
+      ++pulsosConsecutivosSinTicks;
+      if (pulsosConsecutivosSinTicks >= PULSE_DRIVE_STALL_MAX) {
+        fallo("drive_stall_pulses");
+        return false;
+      }
+    } else {
+      pulsosConsecutivosSinTicks = 0;
+      pasoDistanciaPorPulsoCm = ControlRuta::actualizarMemoriaImpulso(
+          pasoDistanciaPorPulsoCm, deltaMedidoCm);
+    }
+
+    if (ControlRuta::interlockFinPulsado(restante - deltaMedidoCm,
+                                        PULSE_DRIVE_TOLERANCIA_CM,
+                                        pasoDistanciaPorPulsoCm)) {
+      iniciarAsentamientoFinal(distMedida);
+      return false;
+    }
+
+    pulsoDriveEstado = PulsoDriveEstado::ON;
+    inicioPulsoDriveMs = ahora;
+  }
   return false;
 }
 
@@ -1783,9 +1925,14 @@ void controlarMovimiento() {
       controlarGiro();
       break;
     case Fase::AVANCE:
+    case Fase::AVANCE_PULSADO:
     case Fase::PAUSA_REEVALUACION:
     case Fase::AVANCE_A_EJE:
-      if (controlarAvance()) {
+      if (fase == Fase::AVANCE_PULSADO) {
+        if (controlarAvancePulsado()) {
+          iniciarVerificacionFinal();
+        }
+      } else if (controlarAvance()) {
         iniciarVerificacionFinal();
       }
       break;
@@ -1821,7 +1968,7 @@ void controlarMovimiento() {
       return;
     }
     if (fase == Fase::GIRO_INICIAL) progresoComando = min(0.30f, progresoComando);
-    else if (fase == Fase::AVANCE || fase == Fase::ASENTAMIENTO_FINAL)
+    else if (fase == Fase::AVANCE || fase == Fase::AVANCE_PULSADO || fase == Fase::ASENTAMIENTO_FINAL)
       progresoComando = 0.30f + 0.60f * fminf(1.0f, pasoDistanciaActualCm/max(pasoDistanciaObjetivoCm,0.1f));
     else if (fase == Fase::GIRO_FINAL) progresoComando = 0.90f + 0.10f * min(1.0f, (millis()-estableGiroDesdeMs)/float(TURN_SETTLE_MS));
   }

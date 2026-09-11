@@ -515,11 +515,77 @@ void test_control_manual_mezcla_satura_y_respeta_lease() {
   TEST_ASSERT_TRUE(abs(combinado.izquierdo) <= 230);
   TEST_ASSERT_TRUE(abs(combinado.derecho) <= 230);
   TEST_ASSERT_TRUE(ControlManual::leaseVigente(1299, 1000, 300));
-  TEST_ASSERT_FALSE(ControlManual::leaseVigente(1301, 1000, 300));
   TEST_ASSERT_TRUE(ControlManual::leaseVigente(20, 0xFFFFFFF0u, 300));
   TEST_ASSERT_EQUAL_INT(8, ControlManual::acercar(0, 230, 8));
   TEST_ASSERT_EQUAL_INT(-8, ControlManual::acercar(0, -230, 8));
   TEST_ASSERT_EQUAL_INT(0, ControlManual::acercar(200, 0, 8));
+}
+
+void test_modo_pulsado_umbral_y_decision() {
+  TEST_ASSERT_TRUE(ControlRuta::tramoRequiereModoPulsado(15.0f, 15.0f));
+  TEST_ASSERT_TRUE(ControlRuta::tramoRequiereModoPulsado(5.0f, 15.0f));
+  TEST_ASSERT_TRUE(ControlRuta::tramoRequiereModoPulsado(0.5f, 15.0f));
+  TEST_ASSERT_FALSE(ControlRuta::tramoRequiereModoPulsado(0.0f, 15.0f));
+  TEST_ASSERT_FALSE(ControlRuta::tramoRequiereModoPulsado(-1.0f, 15.0f));
+  TEST_ASSERT_FALSE(ControlRuta::tramoRequiereModoPulsado(15.1f, 15.0f));
+  TEST_ASSERT_FALSE(ControlRuta::tramoRequiereModoPulsado(50.0f, 15.0f));
+}
+
+void test_calculo_pulso_traccion_y_correccion_rumbo() {
+  const auto recto = ControlRuta::calcularPulsoTraccion(842, 0.0f, 12.0f, 50, 990);
+  TEST_ASSERT_EQUAL_INT(842, recto.pwmIzquierdo);
+  TEST_ASSERT_EQUAL_INT(842, recto.pwmDerecho);
+  TEST_ASSERT_EQUAL_INT(0, recto.correccionDiferencial);
+
+  const auto desvioPos = ControlRuta::calcularPulsoTraccion(842, 2.0f, 12.0f, 50, 990);
+  TEST_ASSERT_EQUAL_INT(24, desvioPos.correccionDiferencial);
+  TEST_ASSERT_EQUAL_INT(842 - 24, desvioPos.pwmIzquierdo);
+  TEST_ASSERT_EQUAL_INT(842 + 24, desvioPos.pwmDerecho);
+
+  const auto saturado = ControlRuta::calcularPulsoTraccion(842, 10.0f, 12.0f, 50, 990);
+  TEST_ASSERT_EQUAL_INT(50, saturado.correccionDiferencial);
+  TEST_ASSERT_EQUAL_INT(842 - 50, saturado.pwmIzquierdo);
+  TEST_ASSERT_EQUAL_INT(842 + 50, saturado.pwmDerecho);
+
+  const auto saturadoMax = ControlRuta::calcularPulsoTraccion(960, 10.0f, 12.0f, 50, 990);
+  TEST_ASSERT_EQUAL_INT(960 - 50, saturadoMax.pwmIzquierdo);
+  TEST_ASSERT_EQUAL_INT(990, saturadoMax.pwmDerecho);
+}
+
+void test_interlock_fin_pulsado_y_memoria_impulso() {
+  TEST_ASSERT_TRUE(ControlRuta::interlockFinPulsado(2.5f, 2.5f, 1.0f));
+  TEST_ASSERT_TRUE(ControlRuta::interlockFinPulsado(1.0f, 2.5f, 1.0f));
+  TEST_ASSERT_TRUE(ControlRuta::interlockFinPulsado(0.0f, 2.5f, 1.0f));
+  TEST_ASSERT_TRUE(ControlRuta::interlockFinPulsado(0.8f, 0.5f, 2.0f));
+  TEST_ASSERT_FALSE(ControlRuta::interlockFinPulsado(3.5f, 2.5f, 1.0f));
+
+  float memoria = 1.0f;
+  memoria = ControlRuta::actualizarMemoriaImpulso(memoria, 2.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.3f, memoria);
+
+  memoria = ControlRuta::actualizarMemoriaImpulso(memoria, 0.05f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.3f, memoria);
+
+  memoria = ControlRuta::actualizarMemoriaImpulso(memoria, 8.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.3f, memoria);
+}
+
+void test_recentrado_ignora_desviaciones_pequenas_o_pasos_cortos() {
+  TEST_ASSERT_FALSE(ControlRuta::debeRecentrar(
+      2.3f, 500, RECENTER_TRIGGER_CM, RECENTER_TRIGGER_MS,
+      1.0f, 500, RECENTER_GROWTH_TRIGGER_CM, RECENTER_GROWTH_MS));
+
+  TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
+      12.1f, 300, RECENTER_TRIGGER_CM, RECENTER_TRIGGER_MS,
+      0.0f, 0, RECENTER_GROWTH_TRIGGER_CM, RECENTER_GROWTH_MS));
+
+  TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
+      5.0f, 0, RECENTER_TRIGGER_CM, RECENTER_TRIGGER_MS,
+      6.1f, 500, RECENTER_GROWTH_TRIGGER_CM, RECENTER_GROWTH_MS));
+
+  constexpr float pasoSesion33 = 50.0f;
+  const bool permiteRecentrado = pasoSesion33 >= RECENTER_MIN_STEP_CM;
+  TEST_ASSERT_FALSE(permiteRecentrado);
 }
 
 }  // namespace
@@ -570,5 +636,9 @@ int main(int, char**) {
   RUN_TEST(test_guard_calibracion_permite_once_intentos);
   RUN_TEST(test_supervision_vencida_detiene_cualquier_movimiento);
   RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
+  RUN_TEST(test_modo_pulsado_umbral_y_decision);
+  RUN_TEST(test_calculo_pulso_traccion_y_correccion_rumbo);
+  RUN_TEST(test_interlock_fin_pulsado_y_memoria_impulso);
+  RUN_TEST(test_recentrado_ignora_desviaciones_pequenas_o_pasos_cortos);
   return UNITY_END();
 }

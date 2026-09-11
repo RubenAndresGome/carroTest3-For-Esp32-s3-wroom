@@ -241,14 +241,19 @@ stateDiagram-v2
     [*] --> Validar
     Validar --> Rechazado: no calibrado / ocupado / rango
     Validar --> GiroInicial: comando válido
-    GiroInicial --> Avance: rumbo dentro de tolerancia
+    GiroInicial --> Avance: rumbo dentro de tolerancia (> 15 cm)
+    GiroInicial --> AvancePulsado: tramo corto (<= 15 cm)
     GiroInicial --> Fallo: IMU / stall / timeout
-    Avance --> Recuperacion: error de rumbo persistente
+    Avance --> AvancePulsado: restante <= 15 cm (aproximación fina)
+    Avance --> Recuperacion: desviación lateral persistente (solo tramos >= 60 cm)
     Recuperacion --> Avance: rumbo recuperado
-    Avance --> GiroFinal: distancia alcanzada
+    AvancePulsado --> Asentamiento: meta alcanzada (<= 2.5 cm o interlock de impulso)
+    AvancePulsado --> Fallo: 3 pulsos sin ticks (drive_stall_pulses)
+    Avance --> Asentamiento: distancia alcanzada + inercia prevista
+    Asentamiento --> GiroFinal: chasis detenido
     GiroFinal --> Completado: alineación cardinal
     GiroFinal --> Fallo: IMU / stall / timeout
-    Recuperacion --> Fallo: intentos agotados
+    Recuperacion --> Fallo: reingreso divergente o intentos agotados
     Completado --> [*]: step_ok
     Rechazado --> [*]
     Fallo --> [*]

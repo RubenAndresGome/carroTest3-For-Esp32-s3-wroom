@@ -107,15 +107,24 @@ constexpr int VELOCIDAD_BASE_RECTO = PWM_SAFE_HARD_LIMIT;
 // fino quede zumbando por debajo de la fricción estática. Sigue por debajo del
 // tope de avance solicitado (242/255, ~95 %).
 constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(200 * PWM_SCALE_8_TO_10);
-constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(165 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 // La reversa no entra directamente a crucero: después del interlock se rampa
 // desde el torque mínimo para que el PID confirme yaw antes de potencia plena.
 constexpr uint32_t RAMPA_REVERSA_MS = 900;
-// Dentro del cierre se reduce el torque sin debilitar el arranque de crucero.
-// Esto evita que un paso corto llegue al umbral con 65 % de PWM todavía activo.
-constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(150 * PWM_SCALE_8_TO_10);
+// Piso de potencia elevado para no caer en la zona muerta de fricción estática
+constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(175 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 3.0f;
 constexpr float DISTANCIA_APROXIMACION_CM = 40.0f;
+
+// --- SISTEMA DE MICRO-PULSOS DETERMINISTAS DE ALTO PAR CON INTERLOCKS ---
+constexpr float    PULSE_DRIVE_THRESHOLD_CM  = 15.0f;       // Tramos <= 15 cm usan modo pulsado
+constexpr int      PULSE_DRIVE_PWM           = static_cast<int>(210 * PWM_SCALE_8_TO_10); // ~842 (10-bit)
+constexpr uint32_t PULSE_DRIVE_ON_MS         = 55;           // 55 ms de ráfaga de choque
+constexpr uint32_t PULSE_DRIVE_OFF_MS        = 85;           // 85 ms de reposo, medición e interlocks
+constexpr uint8_t  PULSE_DRIVE_STALL_MAX     = 3;            // 3 pulsos sin respuesta = parada segura
+constexpr float    PULSE_DRIVE_TOLERANCIA_CM = 2.5f;          // Tolerancia de llegada en modo pulsado
+constexpr float    PULSE_DRIVE_KP_RUMBO_PWM  = 12.0f;        // Corrección diferencial de rumbo en ráfaga
+constexpr int      PULSE_DRIVE_MAX_DIFF_PWM  = 50;           // Máxima asimetría diferencial por pulso
 // Modelo inicial de avance por inercia. La fase de asentamiento publica el
 // resultado real por JSON para afinar estos valores con pruebas de piso.
 constexpr float FRENO_RESIDUAL_BASE_CM = 0.5f;
@@ -193,12 +202,13 @@ constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 35.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
 constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 3.0f;
-constexpr float RECENTER_LATERAL_DEADBAND_CM = 2.0f;
-constexpr float RECENTER_TRIGGER_CM = 5.0f;
+constexpr float RECENTER_LATERAL_DEADBAND_CM = 4.0f;
+constexpr float RECENTER_TRIGGER_CM = 12.0f;
 constexpr float RECENTER_MAX_LATERAL_CM = 20.0f;
 constexpr uint32_t RECENTER_TRIGGER_MS = 300;
-constexpr float RECENTER_GROWTH_TRIGGER_CM = 1.0f;
+constexpr float RECENTER_GROWTH_TRIGGER_CM = 6.0f;
 constexpr uint32_t RECENTER_GROWTH_MS = 500;
+constexpr float RECENTER_MIN_STEP_CM = 60.0f;
 constexpr uint32_t RECENTER_SETTLE_MS = 300;
 constexpr uint32_t RECENTER_TIMEOUT_MS = 30000;
 constexpr uint8_t RECENTER_MAX_ATTEMPTS = 2;
