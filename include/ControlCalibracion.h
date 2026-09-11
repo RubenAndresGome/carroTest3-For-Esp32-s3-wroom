@@ -115,19 +115,22 @@ inline ResultadoGuardPivot evaluarGuardPivot(
     uint32_t yawCorrectoSostenidoMs, uint32_t desbalanceSostenidoMs,
     float gyroMinimoRadS, uint32_t yawSostenidoRequeridoMs,
     uint32_t ventanaMaximaMs, int64_t ticksMaximosPorLado,
-    uint32_t desbalanceMaximoMs) {
+    uint32_t desbalanceMaximoMs, float deltaYawMinimoConfirmarDeg = 0.5f) {
   if (!evidencia.bilateral) return ResultadoGuardPivot::ESPERANDO_TICKS;
+  const int signo = signoYawEsperado >= 0 ? 1 : -1;
   if (signoGyroContrario(signoYawEsperado, gyroZRadS, gyroMinimoRadS) ||
-      deltaYawDeg * (signoYawEsperado >= 0 ? 1.0f : -1.0f) <= -1.0f) {
+      deltaYawDeg * static_cast<float>(signo) <= -1.0f) {
     return ResultadoGuardPivot::SIGNO_INCORRECTO;
   }
   if (!evidencia.equilibrado &&
       desbalanceSostenidoMs >= desbalanceMaximoMs) {
     return ResultadoGuardPivot::DESBALANCEADO;
   }
-  if (evidencia.equilibrado &&
-      signoGyroCorrecto(signoYawEsperado, gyroZRadS, gyroMinimoRadS) &&
-      yawCorrectoSostenidoMs >= yawSostenidoRequeridoMs) {
+  // MPU como autoridad: confirmación por velocidad sostenida O desplazamiento angular acumulado
+  const bool rotacionPorGyro = signoGyroCorrecto(signoYawEsperado, gyroZRadS, gyroMinimoRadS) &&
+                               yawCorrectoSostenidoMs >= yawSostenidoRequeridoMs;
+  const bool rotacionPorAngulo = deltaYawDeg * static_cast<float>(signo) >= deltaYawMinimoConfirmarDeg;
+  if (evidencia.equilibrado && (rotacionPorGyro || rotacionPorAngulo)) {
     return ResultadoGuardPivot::CONFIRMADO;
   }
   if (verificacionMs >= ventanaMaximaMs ||

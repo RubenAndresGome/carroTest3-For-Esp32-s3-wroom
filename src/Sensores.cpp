@@ -69,8 +69,11 @@ static ControlInicializacionPCNT::Canal setup_PCNT(int pin, pcnt_unit_t unit) {
     pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
     pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
     pcnt_config.pos_mode = PCNT_COUNT_INC;
-    // Detección de ambos flancos: convierte 20 ranuras en 40 ticks/vuelta (ENCODER_PPR = 40).
-    pcnt_config.neg_mode = PCNT_COUNT_INC;
+    // Conteo de 1 ranura completa como 1 tick (1 subida + 1 bajada = 1 ciclo TTL, ENCODER_PPR = 20).
+    // Referencia canónica (APA 7): Damián, J. (2026). Tutorial sobre el módulo sensor de velocidad IR
+    // con el comparador LM393 (Encoder FC-03). Electrogeek.
+    // Al contar en flanco positivo y descartar el negativo se evitan rebotes en conmutación de bajada.
+    pcnt_config.neg_mode = PCNT_COUNT_DIS;
     pcnt_config.counter_h_lim = 32767;
     pcnt_config.counter_l_lim = -32768;
     pcnt_config.unit = unit;
@@ -78,7 +81,7 @@ static ControlInicializacionPCNT::Canal setup_PCNT(int pin, pcnt_unit_t unit) {
     if (!ControlInicializacionPCNT::registrar(
             resultado, Etapa::CONFIGURACION, pcnt_unit_config(&pcnt_config))) return resultado;
     if (!ControlInicializacionPCNT::registrar(
-            resultado, Etapa::FILTRO_VALOR, pcnt_set_filter_value(unit, 100))) return resultado;
+            resultado, Etapa::FILTRO_VALOR, pcnt_set_filter_value(unit, 1023))) return resultado;
     if (!ControlInicializacionPCNT::registrar(
             resultado, Etapa::FILTRO_HABILITAR, pcnt_filter_enable(unit))) return resultado;
     if (!ControlInicializacionPCNT::registrar(

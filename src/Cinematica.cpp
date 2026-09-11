@@ -110,6 +110,7 @@ bool rampaCalCongelada = false;
 uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
 int64_t ticksBaseCal[4] = {};
+int64_t ticksBasePruebaRotacionCal[4] = {};
 float yawInicioCalDeg = 0.0f;
 float xInicioCalCm = 0.0f;
 float yInicioCalCm = 0.0f;
@@ -157,6 +158,7 @@ void iniciarFaseCal(Fase f) {
   inicioDesbalanceCalMs = 0;
   inicioMovCalMs = 0;
   rampaCalCongelada = false;
+  memset(ticksBasePruebaRotacionCal, 0, sizeof(ticksBasePruebaRotacionCal));
 }
 
 void calCuenta() {
@@ -188,21 +190,28 @@ void calTorque(bool primera) {
   const bool ladoIzqOk = evaluacion.ladoIzquierdoValido;
   const bool ladoDerOk = evaluacion.ladoDerechoValido;
   const bool ticksOk = ladoIzqOk && ladoDerOk;
-  const float mayorLado = max(static_cast<float>(evaluacion.promedioIzquierdo),
-                              static_cast<float>(evaluacion.promedioDerecho));
-  const float desbalanceRelativo = mayorLado > 0.0f
-      ? fabsf(static_cast<float>(evaluacion.promedioIzquierdo - evaluacion.promedioDerecho)) /
-          mayorLado
-      : 0.0f;
-  const bool equilibrado = ticksOk && desbalanceRelativo <= DESBALANCE_PIVOT_MAX_REL;
-  const float deltaYaw = errorAng360(heading360, yawInicioCalDeg);
+
   if (ticksOk && !inicioPruebaRotacionCalMs) {
     inicioPruebaRotacionCalMs = ahora;
     rampaCalCongelada = true;
+    copiarBase(ticksBasePruebaRotacionCal, s);
   }
-  if (ticksOk && !equilibrado) {
+
+  int64_t dRel[4] = {};
+  if (inicioPruebaRotacionCalMs) {
+    deltas(ticksBasePruebaRotacionCal, s, dRel);
+  }
+  bool fuentesCal[4] = {};
+  for (int i = 0; i < 4; ++i) fuentesCal[i] = evaluacion.responde[i];
+
+  const float deltaYaw = errorAng360(heading360, yawInicioCalDeg);
+  const ControlCalibracion::EvidenciaPivot evidenciaRel =
+      ControlCalibracion::evaluarPivot(
+          deltaYaw, dRel, fuentesCal, 0, DESBALANCE_PIVOT_MAX_REL);
+
+  if (ticksOk && !evidenciaRel.equilibrado) {
     if (!inicioDesbalanceCalMs) inicioDesbalanceCalMs = ahora;
-  } else if (equilibrado) {
+  } else if (evidenciaRel.equilibrado) {
     inicioDesbalanceCalMs = 0;
   }
   const uint32_t pruebaMs = inicioPruebaRotacionCalMs
@@ -224,38 +233,43 @@ void calTorque(bool primera) {
   diagnosticoCal.tiempoPruebaMs = pruebaMs;
   diagnosticoCal.rotacionConfirmada = false;
   diagnosticoCal.rampaCongelada = rampaCalCongelada;
-  if (ControlCalibracion::signoGyroContrario(
-          signoYawCal, s.gyro_z_filtrado_rad_s, GYRO_MOVEMENT_RAD_S) ||
-      deltaYaw * (signoYawCal >= 0 ? 1.0f : -1.0f) <= -1.0f) {
+
+  const uint32_t yawSostenidoMs = inicioMovCalMs ? (ahora - inicioMovCalMs) : 0;
+  const uint32_t desbalanceSostenidoMs = inicioDesbalanceCalMs ? (ahora - inicioDesbalanceCalMs) : 0;
+
+  const ControlCalibracion::ResultadoGuardPivot resultadoGuard =
+      ControlCalibracion::evaluarGuardPivot(
+          signoYawCal, s.gyro_z_filtrado_rad_s, deltaYaw,
+          evidenciaRel, pruebaMs, yawSostenidoMs, desbalanceSostenidoMs,
+          GYRO_MOVEMENT_RAD_S, CAL_MOVE_SUSTAINED_MS,
+          CAL_PIVOT_GUARD_WINDOW_MS, CAL_PIVOT_GUARD_TICKS_MAX,
+          CAL_PIVOT_UNBALANCED_MS, GYRO_MOVEMENT_MIN_YAW_DEG);
+
+  if (resultadoGuard == ControlCalibracion::ResultadoGuardPivot::SIGNO_INCORRECTO) {
     diagnosticoCal.motivoGuard = "cal_yaw_sign_mismatch";
     frenarMotores();
     fallo("cal_yaw_sign_mismatch");
     return;
   }
-  if (ticksOk && !equilibrado && inicioDesbalanceCalMs &&
-      ahora - inicioDesbalanceCalMs >= CAL_PIVOT_UNBALANCED_MS) {
+  if (resultadoGuard == ControlCalibracion::ResultadoGuardPivot::DESBALANCEADO) {
     diagnosticoCal.motivoGuard = "cal_pivot_unbalanced";
     frenarMotores();
     fallo("cal_pivot_unbalanced");
     return;
   }
-  const bool rotacionConfirmada = ticksOk && equilibrado &&
-      ControlCalibracion::signoGyroCorrecto(
-          signoYawCal, s.gyro_z_filtrado_rad_s, GYRO_MOVEMENT_RAD_S) &&
-      inicioMovCalMs && ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS;
+  if (resultadoGuard == ControlCalibracion::ResultadoGuardPivot::ROTACION_NO_CONFIRMADA) {
+    diagnosticoCal.motivoGuard = "cal_rotation_not_confirmed";
+    frenarMotores();
+    fallo("cal_rotation_not_confirmed");
+    return;
+  }
+
+  const bool rotacionConfirmada =
+      resultadoGuard == ControlCalibracion::ResultadoGuardPivot::CONFIRMADO;
   if (rotacionConfirmada) {
     diagnosticoCal.rotacionConfirmada = true;
     diagnosticoCal.motivoGuard = "confirmed";
-  } else if (ticksOk && inicioPruebaRotacionCalMs &&
-             (pruebaMs >= CAL_PIVOT_GUARD_WINDOW_MS ||
-              (evaluacion.promedioIzquierdo >= CAL_PIVOT_GUARD_TICKS_MAX &&
-               evaluacion.promedioDerecho >= CAL_PIVOT_GUARD_TICKS_MAX))) {
-    diagnosticoCal.motivoGuard = equilibrado
-        ? "cal_rotation_not_confirmed" : "cal_pivot_unbalanced";
-    frenarMotores();
-    fallo(diagnosticoCal.motivoGuard);
-    return;
-  } else if (ticksOk) {
+  } else if (resultadoGuard == ControlCalibracion::ResultadoGuardPivot::CONFIRMANDO_YAW) {
     diagnosticoCal.motivoGuard = "confirming_yaw";
   } else {
     diagnosticoCal.motivoGuard = "waiting_bilateral_ticks";

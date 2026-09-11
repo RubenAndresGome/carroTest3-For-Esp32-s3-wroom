@@ -68,7 +68,10 @@ constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
 constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER;
-constexpr int ENCODER_PPR = 40;
+// Conteo de 1 ranura completa como 1 tick (1 subida + 1 bajada = 1 ciclo TTL, ENCODER_PPR = 20).
+// Referencia canónica (APA 7): Damián, J. (2026). Tutorial sobre el módulo sensor de velocidad IR
+// con el comparador LM393 (Encoder FC-03). Electrogeek.
+constexpr int ENCODER_PPR = 20;
 constexpr float MPU_YAW_POLARITY = -1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
@@ -131,7 +134,8 @@ constexpr float TOLERANCIA_ENDPOINT_CM = 5.0f;
 constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM =
     TOLERANCIA_ENDPOINT_CM + FRENO_RESIDUAL_MAX_CM;
 constexpr uint8_t INTENTOS_RECUPERACION_ENDPOINT_MAX = 2;
-constexpr float GYRO_MOVEMENT_RAD_S = 0.12f;
+constexpr float GYRO_MOVEMENT_RAD_S = 0.08f;
+constexpr float GYRO_MOVEMENT_MIN_YAW_DEG = 0.5f;
 constexpr uint32_t DRIVE_STALL_MS = 6000;
 constexpr uint32_t DRIVE_BASE_TIMEOUT_MS = 15000;
 constexpr uint32_t DRIVE_TIMEOUT_PER_CM_MS = 400;
@@ -193,19 +197,19 @@ constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 8.0f;
 constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 135.0f;
 
-// Calibración y rampa incremental por búsqueda continua de torque (140 a 247/255).
+// Calibración y rampa incremental por búsqueda continua de torque nativa en 10 bits (560 a 990 / 1023).
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
 constexpr uint32_t PAUSA_CALIBRACION_MS = 1000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
-constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
-constexpr int      CALIBRATION_PWM_END   = PWM_TURN_MAX_LIMIT;
-constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
-constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
+constexpr int      CALIBRATION_PWM_START = 560; // 10-bit (~55% duty, equiv 140/255)
+constexpr int      CALIBRATION_PWM_END   = PWM_TURN_MAX_LIMIT; // 990 (10-bit)
+constexpr int      CALIBRATION_PWM_STEP  = 10;  // 10-bit nativo (~1% duty por paso)
+constexpr uint32_t CAL_RAMP_INTERVAL_MS = 150; // 150 ms para rampa progresiva suave
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
-constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
-constexpr uint32_t CAL_PIVOT_GUARD_WINDOW_MS = 300;
-constexpr int64_t  CAL_PIVOT_GUARD_TICKS_MAX = 4;
-constexpr uint32_t CAL_PIVOT_UNBALANCED_MS = 300;
+constexpr int64_t  CAL_TICKS_MOVIMIENTO = 1;  // Con 20 PPR, 1 tick representa 1 ranura completa
+constexpr uint32_t CAL_PIVOT_GUARD_WINDOW_MS = 350;
+constexpr int64_t  CAL_PIVOT_GUARD_TICKS_MAX = 10; // Ticks relativos tolerados antes de confirmar rotación
+constexpr uint32_t CAL_PIVOT_UNBALANCED_MS = 350;
 constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.40f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 1500;
