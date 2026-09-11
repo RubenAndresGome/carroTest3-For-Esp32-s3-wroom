@@ -17,6 +17,8 @@ pequeño, pero no oculta una desviación que requiere calibración física.
 - **Navegación Robusta y Watchdogs Dinámicos**: Se resolvió el estancamiento (stall) al rotar ajustando los watchdogs por fase de movimiento y una rampa de torque adaptativo sin sobrepasar la seguridad eléctrica (97% de PWM).
 - **Precisión de Alineación**: Los giros emplean ahora micropulsos para aproximación fina y logran tolerancia estricta (< 1.0°) en calibración.
 - **Corrección de Polaridad MPU**: Se estandarizó la polaridad del Yaw del sensor (antihorario positivo) coordinado con el sistema de coordenadas.
+- **Validación Exitosa de Rutas Ortogonales (Sesión #41 / Commit 92ab106)**: Se resolvió el deadlock en `giro_fin` liberando el latch de tolerancia al asentar estacionario. El robot completó 8 comandos consecutivos con `step_ok` gobernando rumbos cardinales con desviación < 1.0°.
+- **Calibración Empírica de Marcas y Asimetría Dinámica**: Se identificó sobreavance residual sobre marcas de cinta y una tracción superior en el tren izquierdo que el lazo actual compensa suavemente. Se formalizó la estrategia de balance dinámico de PWM hasta un 30% proporcional para evitar oscilaciones bang-bang.
 
 ## Publicación en GitHub Pages
 
