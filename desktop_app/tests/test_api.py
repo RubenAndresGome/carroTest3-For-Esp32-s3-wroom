@@ -105,7 +105,8 @@ class ApiTests(unittest.TestCase):
 
     def test_hmi_describes_physical_calibration_and_steps_v3(self) -> None:
         html = self.client.get("/").get_data(as_text=True)
-        self.assertIn("La calibración moverá el robot", html)
+        self.assertIn("sólo rota sobre su centro", html)
+        self.assertIn("45° respecto al chasis", html)
         self.assertIn("robot-s3-steps-v3", html)
         self.assertIn("Cerrar aplicación", html)
         self.assertNotIn("Este botón sólo recentra la pose", html)
@@ -138,6 +139,9 @@ class ApiTests(unittest.TestCase):
             "diag.sides",
             "Causa exacta:",
             "FALLO:'tv-fault',ESTOP:'tv-estop'",
+            "calibration_pivot_guard_v1",
+            "pivotGuardSupported",
+            "guard_reason",
         ):
             with self.subTest(contract=contract):
                 self.assertIn(contract, html)

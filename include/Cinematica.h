@@ -10,7 +10,16 @@ struct DiagnosticoCalibracion {
   uint8_t pasoRampa = 0;
   uint8_t pasosRampaTotal = 0;
   int pwmObjetivo = 0;
-  int candidatoDireccion = 0;
+  int candidatoDireccion = 0; // compatibilidad: ahora es el signo yaw esperado
+  int signoYawEsperado = 0;
+  float gyroZRadS = 0.0f;
+  float deltaYawDeg = 0.0f;
+  float derivaXCm = 0.0f;
+  float derivaYCm = 0.0f;
+  uint32_t tiempoPruebaMs = 0;
+  bool rotacionConfirmada = false;
+  bool rampaCongelada = false;
+  const char* motivoGuard = "idle";
   int64_t deltaEncoders[4] = {};
   int64_t promedioLados[2] = {};
   bool ladosValidos[2] = {};

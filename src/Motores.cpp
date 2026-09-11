@@ -22,6 +22,7 @@ enum class EstadoMotores : uint8_t {
 
 static EstadoMotores estadoSalidaMotores = EstadoMotores::NO_CONFIGURADOS;
 static uint8_t mascaraCanalesPWM = 0;
+static DiagnosticoSalidaMotor diagnosticoMotores[4] = {};
 
 enum class EstadoInterlock : uint8_t { APAGADO, ACTIVO, ESPERANDO_INVERSION };
 
@@ -125,29 +126,35 @@ static void apagarCanalesPWM() {
   for (int canal = 0; canal < 8; ++canal) {
     if ((mascaraCanalesPWM & (1U << canal)) != 0U) ledcWrite(canal, 0);
   }
+  for (auto& diagnostico : diagnosticoMotores) {
+    diagnostico.pwmLogico = 0;
+    diagnostico.gpioActivo = -1;
+    diagnostico.duty = 0;
+    diagnostico.dutyAvance = 0;
+    diagnostico.dutyReversa = 0;
+  }
 }
 
-static bool setMotorPWM(int pinFwd, int pinRev, int vel) {
+static bool setMotorPWM(MotorId motor, int pinFwd, int pinRev, int vel) {
   if (!parMotorValido(pinFwd, pinRev)) return false;
   const int canalFwd = canalParaPin(pinFwd);
   const int canalRev = canalParaPin(pinRev);
-  if (vel > 0) {
-    ledcWrite(canalFwd, vel);
-    ledcWrite(canalRev, 0);
-  } else if (vel < 0) {
-    ledcWrite(canalFwd, 0);
-    ledcWrite(canalRev, -vel);
-  } else {
-    ledcWrite(canalFwd, 0);
-    ledcWrite(canalRev, 0);
-  }
+  const ControlMotores::SalidaElectrica salida =
+      ControlMotores::resolverSalida(pinFwd, pinRev, vel);
+  ledcWrite(canalFwd, salida.dutyAvance);
+  ledcWrite(canalRev, salida.dutyReversa);
+  DiagnosticoSalidaMotor& diagnostico = diagnosticoMotores[static_cast<uint8_t>(motor)];
+  diagnostico.pwmLogico = salida.pwmLogico;
+  diagnostico.gpioActivo = salida.gpioActivo;
+  diagnostico.duty = salida.duty;
+  diagnostico.dutyAvance = salida.dutyAvance;
+  diagnostico.dutyReversa = salida.dutyReversa;
   return true;
 }
 
-static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
+static bool aplicarLadoUnico(MotorId motor, int pinFwd, int pinRev, int vel) {
   vel = constrain(vel, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  return setMotorPWM(pinFwd, pinRev,
-                     ControlMotores::pwmElectricoDesdeLogico(vel));
+  return setMotorPWM(motor, pinFwd, pinRev, vel);
 }
 
 bool aplicarVelocidades(int velIzq, int velDer) {
@@ -179,10 +186,10 @@ bool aplicarVelocidades(int velIzq, int velDer) {
   pwm_aplicado_L = interlockL.actualizar(pwm_solicitado_L, ahora);
   pwm_aplicado_R = interlockR.actualizar(pwm_solicitado_R, ahora);
 
-  const bool escrito = aplicarLadoUnico(PIN_FL_FWD, PIN_FL_REV, pwm_aplicado_L) &&
-                       aplicarLadoUnico(PIN_BL_FWD, PIN_BL_REV, pwm_aplicado_L) &&
-                       aplicarLadoUnico(PIN_FR_FWD, PIN_FR_REV, pwm_aplicado_R) &&
-                       aplicarLadoUnico(PIN_BR_FWD, PIN_BR_REV, pwm_aplicado_R);
+  const bool escrito = aplicarLadoUnico(MotorId::FL, PIN_FL_FWD, PIN_FL_REV, pwm_aplicado_L) &&
+                       aplicarLadoUnico(MotorId::BL, PIN_BL_FWD, PIN_BL_REV, pwm_aplicado_L) &&
+                       aplicarLadoUnico(MotorId::FR, PIN_FR_FWD, PIN_FR_REV, pwm_aplicado_R) &&
+                       aplicarLadoUnico(MotorId::BR_WHEEL, PIN_BR_FWD, PIN_BR_REV, pwm_aplicado_R);
   if (!escrito) {
     estadoSalidaMotores = EstadoMotores::ERROR_SALIDA;
     pwm_solicitado_L = 0;
@@ -258,6 +265,10 @@ int signoEnergizadoL() { return interlockL.signoActivo; }
 int signoEnergizadoR() { return interlockR.signoActivo; }
 int signoPendienteL() { return interlockL.signoPendiente; }
 int signoPendienteR() { return interlockR.signoPendiente; }
+
+DiagnosticoSalidaMotor diagnosticoSalidaMotor(MotorId motor) {
+  return diagnosticoMotores[static_cast<uint8_t>(motor)];
+}
 
 bool motoresListos() { return estadoSalidaMotores == EstadoMotores::LISTOS; }
 

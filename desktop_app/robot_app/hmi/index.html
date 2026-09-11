@@ -1217,7 +1217,7 @@
                     <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg>Ejecutar autoevaluación segura</button>
                     <div class="calibration-state" id="calibration-state" role="status" aria-live="polite">ESPERANDO CONEXIÓN</div>
                     <div class="calibration-cause" id="calibration-cause" role="alert"></div>
-                    <div class="calibration-note" id="calibration-detail">Con ruedas elevadas y alimentación limitada, la calibración busca torque, valida +25°, reposa 2.5 s y vuelve a yaw 0°. La calibración moverá el robot.</div>
+                    <div class="calibration-note" id="calibration-detail">Con ruedas elevadas y alimentación limitada, la calibración sólo rota sobre su centro: valida +25°, reposa 2.5 s y vuelve a yaw 0°. Los encoders deben quedar a 45° respecto al chasis.</div>
                     <div class="calibration-diagnostics" id="calibration-diagnostics" aria-label="Diagnóstico de calibración en vivo">
                         <div class="cal-diag-summary">
                             <span>Fase <strong id="cal-diag-phase">—</strong></span>
@@ -2068,7 +2068,7 @@
     };
 
     const Calibration = {
-        calibrated:false, commandId:null, commandPending:false, rearmCommandId:null, rearmPending:false,
+        calibrated:false, pivotGuardSupported:false, commandId:null, commandPending:false, rearmCommandId:null, rearmPending:false,
         selfTestCommandId:null, selfTestPassed:true, robotState:'', mpuReady:false, allowedCommands:null,
         lastRaw:{}, lastTurnMode:'PIVOT_CONTINUOUS', lastRequestedTurnMode:'AUTO', lastPowerKey:'',
         lastRobotState:'', lastTerminalKey:'', lastBrakingPhase:'OFF', lastAlignmentStage:'OFF',
@@ -2126,7 +2126,7 @@
         },
         canCalibrate() {
             return state.connected && ['DESARMADO','LISTO'].includes(this.robotState) && this.mpuReady &&
-                !this.commandPending && !this.rearmPending && this.hasAllowed('calibrate');
+                this.pivotGuardSupported && !this.commandPending && !this.rearmPending && this.hasAllowed('calibrate');
         },
         canRearm() {
             return state.connected && ['FALLO','ESTOP'].includes(this.robotState) && !this.rearmPending &&
@@ -2141,6 +2141,7 @@
             const mpu=this.mpuStatus(this.lastRaw||{});
             if(!mpu.ready)return mpu.reason;
             if(!this.hasAllowed('calibrate'))return 'El firmware no habilita calibración en este instante.';
+            if(!this.pivotGuardSupported)return 'Firmware/HMI incompatible: se requiere calibration_pivot_guard_v1.';
             return 'Calibración temporalmente no disponible.';
         },
         updateAvailability() {
@@ -2219,11 +2220,15 @@
             };
             const left=side('left',0), right=side('right',1);
             const sideLabel=item=>`${item.average} Δ · ${item.ok===true?'OK':item.ok===false?'SIN MOV.':'—'}${item.sources?` · ${item.sources}`:''}`;
-            document.getElementById('cal-diag-sides').textContent=`L ${sideLabel(left)} / R ${sideLabel(right)} · stall ${left.stall} / ${right.stall} ms`;
+            document.getElementById('cal-diag-sides').textContent=`L ${sideLabel(left)} / R ${sideLabel(right)} · stall ${left.stall} / ${right.stall} ms · yaw ${Number(diag.expected_yaw_sign||0)>0?'+':'-'} · gyro ${Number(diag.gyro_z_rad_s||0).toFixed(3)} · Δyaw ${Number(diag.delta_yaw_deg||0).toFixed(1)}° · guard ${diag.guard_reason||'—'} (${Number(diag.verification_ms||0)} ms)`;
         },
         applyTelemetry(raw) {
             this.lastRaw=raw||{};
             this.selfTestPassed=true;
+            const capabilities=raw.capabilities||raw.features||[];
+            this.pivotGuardSupported=Array.isArray(capabilities)
+                ? capabilities.includes('calibration_pivot_guard_v1')
+                : capabilities.calibration_pivot_guard_v1===true || raw.calibration_pivot_guard_v1===true;
             const intento=Number(raw.turn_attempt||0), max=Number(raw.turn_attempt_max||0);
             const requestedMode=String(raw.turn_requested_mode||'AUTO');
             const turnMode=String(raw.turn_mode||'PIVOT');
@@ -2306,7 +2311,8 @@
                 this.showCause('',false);
                 if(raw.calibrated)this.setState('LISTO — RUTAS HABILITADAS',true);
                 else if(robotState==='CALIBRANDO')this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
-                else if(['DESARMADO','LISTO'].includes(robotState) && this.mpuReady)this.setState('LISTO PARA CALIBRAR',false);
+                else if(['DESARMADO','LISTO'].includes(robotState) && this.mpuReady && this.pivotGuardSupported)this.setState('LISTO PARA CALIBRAR',false);
+                else if(['DESARMADO','LISTO'].includes(robotState) && this.mpuReady)this.setState('CALIBRACIÓN BLOQUEADA — ACTUALIZA FIRMWARE',false,'fault');
                 else this.setState(this.mpuStatus(raw).reason.toUpperCase(),false);
             }
         },

@@ -159,7 +159,8 @@ class RobotGateway:
                     self._connect_attempt = 0
                 self._set_state(ConnectionState.CONNECTED, url)
                 connection.send(json.dumps(
-                    {"cmd": "hello", "session": self._session_getter(), "seq": 0},
+                    {"cmd": "hello", "session": self._session_getter(), "seq": 0,
+                     "capabilities": ["calibration_pivot_guard_v1"]},
                     separators=(",", ":"),
                 ))
                 while not self._stop.is_set() and not self._reconnect.is_set():

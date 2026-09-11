@@ -99,19 +99,20 @@ void fin(TipoEvento t, const char* d) {
 void fallo(const char* d) { fin(EVT_FAULT, d); }
 
 // ============== CALIBRACION (test: rampa continua, ambos sentidos, retorno) ==============
-int  candidatoCal = 1;
+int  signoYawCal = 1;
 int  pwmCal = 0;
 uint32_t ultimoRampaCalMs = 0;
 uint32_t inicioMovCalMs = 0;
-uint32_t inicioPausaReintentoCalMs = 0;
+uint32_t inicioPruebaRotacionCalMs = 0;
+uint32_t inicioDesbalanceCalMs = 0;
 uint32_t ultimaAuditoriaMaxCalMs = 0;
+bool rampaCalCongelada = false;
 uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
 int64_t ticksBaseCal[4] = {};
 float yawInicioCalDeg = 0.0f;
 float xInicioCalCm = 0.0f;
 float yInicioCalCm = 0.0f;
-int  candidatoGiroPos = -1, candidatoGiroNeg = 1;
 int  pwmMinGiroPos = static_cast<int>(148 * PWM_SCALE_8_TO_10), pwmMinGiroNeg = static_cast<int>(148 * PWM_SCALE_8_TO_10);
 DiagnosticoCalibracion diagnosticoCal = {};
 bool encoderObservadoCalA[4] = {};
@@ -132,7 +133,8 @@ void actualizarDiagnosticoCalibracion(
       pwmCal, CALIBRATION_PWM_START, CALIBRATION_PWM_END,
       CALIBRATION_PWM_STEP);
   diagnosticoCal.pwmObjetivo = pwmCal;
-  diagnosticoCal.candidatoDireccion = candidatoCal;
+  diagnosticoCal.candidatoDireccion = signoYawCal;
+  diagnosticoCal.signoYawEsperado = signoYawCal;
   diagnosticoCal.promedioLados[0] = evaluacion.promedioIzquierdo;
   diagnosticoCal.promedioLados[1] = evaluacion.promedioDerecho;
   diagnosticoCal.ladosValidos[0] = evaluacion.ladoIzquierdoValido;
@@ -148,15 +150,24 @@ void actualizarDiagnosticoCalibracion(
   }
 }
 
-void iniciarFaseCal(Fase f) { fase = f; inicioFaseMs = millis(); }
+void iniciarFaseCal(Fase f) {
+  fase = f;
+  inicioFaseMs = millis();
+  inicioPruebaRotacionCalMs = 0;
+  inicioDesbalanceCalMs = 0;
+  inicioMovCalMs = 0;
+  rampaCalCongelada = false;
+}
 
 void calCuenta() {
   if (millis() - inicioFaseMs < CUENTA_CALIBRACION_MS) { progresoComando = min(0.10f, (millis()-inicioFaseMs)/float(CUENTA_CALIBRACION_MS)*0.10f); return; }
   const SensorSnapshot s = sensar();
   if (!s.mpu_present || s.mpu_stale || !s.mpu_calibrated) { fallo("mpu_unavailable_cal"); return; }
   yawInicioCalDeg = normalizar360(anguloZ);
-  pwmMinGiroPos=0; pwmMinGiroNeg=0; candidatoGiroPos=0; candidatoGiroNeg=0;
-  candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
+  pwmMinGiroPos=0; pwmMinGiroNeg=0;
+  signoYawCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis();
+  inicioMovCalMs=0; inicioPruebaRotacionCalMs=0; inicioDesbalanceCalMs=0;
+  rampaCalCongelada=false;
   ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
   for (int i = 0; i < 4; ++i) {
     encoderObservadoCalA[i] = false;
@@ -170,34 +181,88 @@ void calCuenta() {
 
 void calTorque(bool primera) {
   const uint32_t ahora = millis();
-  if (inicioPausaReintentoCalMs) {
-    frenarMotores();
-    if (ahora - inicioPausaReintentoCalMs < CAL_RETRY_PAUSE_MS) return;
-    inicioPausaReintentoCalMs = 0;
-    const SensorSnapshot reinicio = sensar();
-    copiarBase(ticksBaseCal, reinicio);
-    pwmCal = CALIBRATION_PWM_START;
-    ultimoRampaCalMs = ahora;
-    inicioMovCalMs = 0;
-    ultimaAuditoriaMaxCalMs = 0;
-    stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
-  }
   const SensorSnapshot s = sensar();
   int64_t d[4]; deltas(ticksBaseCal, s, d);
   const ControlCalibracion::EvaluacionEncoders evaluacion =
       ControlCalibracion::evaluarEncoders(d, CAL_TICKS_MOVIMIENTO);
   const bool ladoIzqOk = evaluacion.ladoIzquierdoValido;
   const bool ladoDerOk = evaluacion.ladoDerechoValido;
-  bool ticksOk = ladoIzqOk && ladoDerOk;
-  bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
+  const bool ticksOk = ladoIzqOk && ladoDerOk;
+  const float mayorLado = max(static_cast<float>(evaluacion.promedioIzquierdo),
+                              static_cast<float>(evaluacion.promedioDerecho));
+  const float desbalanceRelativo = mayorLado > 0.0f
+      ? fabsf(static_cast<float>(evaluacion.promedioIzquierdo - evaluacion.promedioDerecho)) /
+          mayorLado
+      : 0.0f;
+  const bool equilibrado = ticksOk && desbalanceRelativo <= DESBALANCE_PIVOT_MAX_REL;
+  const float deltaYaw = errorAng360(heading360, yawInicioCalDeg);
+  if (ticksOk && !inicioPruebaRotacionCalMs) {
+    inicioPruebaRotacionCalMs = ahora;
+    rampaCalCongelada = true;
+  }
+  if (ticksOk && !equilibrado) {
+    if (!inicioDesbalanceCalMs) inicioDesbalanceCalMs = ahora;
+  } else if (equilibrado) {
+    inicioDesbalanceCalMs = 0;
+  }
+  const uint32_t pruebaMs = inicioPruebaRotacionCalMs
+      ? ahora - inicioPruebaRotacionCalMs : 0;
+  if (ticksOk && ControlCalibracion::signoGyroCorrecto(
+          signoYawCal, s.gyro_z_filtrado_rad_s, GYRO_MOVEMENT_RAD_S)) {
+    if (!inicioMovCalMs) inicioMovCalMs = ahora;
+  } else if (!ticksOk || !ControlCalibracion::signoGyroCorrecto(
+          signoYawCal, s.gyro_z_filtrado_rad_s, GYRO_MOVEMENT_RAD_S)) {
+    inicioMovCalMs = 0;
+  }
   for (int i = 0; i < 4; ++i) {
     if (primera) encoderObservadoCalA[i] |= evaluacion.responde[i];
     else encoderObservadoCalB[i] |= evaluacion.responde[i];
   }
   actualizarDiagnosticoCalibracion(d, evaluacion);
+  diagnosticoCal.gyroZRadS = s.gyro_z_filtrado_rad_s;
+  diagnosticoCal.deltaYawDeg = deltaYaw;
+  diagnosticoCal.tiempoPruebaMs = pruebaMs;
+  diagnosticoCal.rotacionConfirmada = false;
+  diagnosticoCal.rampaCongelada = rampaCalCongelada;
+  if (ControlCalibracion::signoGyroContrario(
+          signoYawCal, s.gyro_z_filtrado_rad_s, GYRO_MOVEMENT_RAD_S) ||
+      deltaYaw * (signoYawCal >= 0 ? 1.0f : -1.0f) <= -1.0f) {
+    diagnosticoCal.motivoGuard = "cal_yaw_sign_mismatch";
+    frenarMotores();
+    fallo("cal_yaw_sign_mismatch");
+    return;
+  }
+  if (ticksOk && !equilibrado && inicioDesbalanceCalMs &&
+      ahora - inicioDesbalanceCalMs >= CAL_PIVOT_UNBALANCED_MS) {
+    diagnosticoCal.motivoGuard = "cal_pivot_unbalanced";
+    frenarMotores();
+    fallo("cal_pivot_unbalanced");
+    return;
+  }
+  const bool rotacionConfirmada = ticksOk && equilibrado &&
+      ControlCalibracion::signoGyroCorrecto(
+          signoYawCal, s.gyro_z_filtrado_rad_s, GYRO_MOVEMENT_RAD_S) &&
+      inicioMovCalMs && ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS;
+  if (rotacionConfirmada) {
+    diagnosticoCal.rotacionConfirmada = true;
+    diagnosticoCal.motivoGuard = "confirmed";
+  } else if (ticksOk && inicioPruebaRotacionCalMs &&
+             (pruebaMs >= CAL_PIVOT_GUARD_WINDOW_MS ||
+              (evaluacion.promedioIzquierdo >= CAL_PIVOT_GUARD_TICKS_MAX &&
+               evaluacion.promedioDerecho >= CAL_PIVOT_GUARD_TICKS_MAX))) {
+    diagnosticoCal.motivoGuard = equilibrado
+        ? "cal_rotation_not_confirmed" : "cal_pivot_unbalanced";
+    frenarMotores();
+    fallo(diagnosticoCal.motivoGuard);
+    return;
+  } else if (ticksOk) {
+    diagnosticoCal.motivoGuard = "confirming_yaw";
+  } else {
+    diagnosticoCal.motivoGuard = "waiting_bilateral_ticks";
+  }
   const ControlCalibracion::ComandoPivot comandoCal =
       ControlCalibracion::comandoPivotCentrado(
-          candidatoCal, pwmCal,
+          signoYawCal, pwmCal,
           static_cast<float>(evaluacion.promedioIzquierdo),
           static_cast<float>(evaluacion.promedioDerecho),
           KP_BALANCE_PIVOT_PWM_POR_TICK, PWM_BALANCE_PIVOT_MAX,
@@ -207,35 +272,23 @@ void calTorque(bool primera) {
     return;
   }
 
-  // El MPU confirma el ángulo, pero PCNT debe conservar al menos una fuente
-  // por cada lado. Un encoder individual silencioso mantiene modo degradado.
-  const bool rotacionConfirmada = ticksOk && gyroOk;
   if (rotacionConfirmada) {
-    if (!inicioMovCalMs) inicioMovCalMs = ahora;
-    if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
-      int guardado = min(PWM_TURN_MAX_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
-      if (s.gyro_z_filtrado_rad_s > 0) { candidatoGiroPos=candidatoCal; pwmMinGiroPos=guardado; }
-      else { candidatoGiroNeg=candidatoCal; pwmMinGiroNeg=guardado; }
-      frenarMotores();
-      if (primera) {
-        if (s.gyro_z_filtrado_rad_s < 0) {
-          candidatoCal = -candidatoCal;
-          inicioPausaReintentoCalMs = ahora;
-          inicioMovCalMs = 0;
-          return;
-        }
-        iniciarBaseGiro(normalizar360(yawInicioCalDeg + 25.0f), Fase::CAL_VALIDAR_25);
-        progresoComando=0.35f;
-        strncpy(faseComando,"cal_mas_25",sizeof(faseComando));
-      }
-      else {
-        if (candidatoGiroPos==candidatoGiroNeg) { fallo("cal_dir_failed"); return; }
-        iniciarFaseCal(Fase::CAL_PAUSA_RETORNO); progresoComando=0.85f; strncpy(faseComando,"cal_retorno",sizeof(faseComando));
-      }
+    int guardado = min(PWM_TURN_MAX_LIMIT, pwmCal + PWM_CALIBRATION_MARGIN);
+    if (primera) pwmMinGiroPos = guardado;
+    else pwmMinGiroNeg = guardado;
+    frenarMotores();
+    if (primera) {
+      iniciarBaseGiro(normalizar360(yawInicioCalDeg + 25.0f), Fase::CAL_VALIDAR_25);
+      progresoComando=0.35f;
+      strncpy(faseComando,"cal_mas_25",sizeof(faseComando));
+    } else {
+      iniciarFaseCal(Fase::CAL_PAUSA_RETORNO); progresoComando=0.85f;
+      strncpy(faseComando,"cal_retorno",sizeof(faseComando));
     }
-  } else { inicioMovCalMs = 0; }
+    return;
+  }
 
-  if (ahora - ultimoRampaCalMs >= CAL_RAMP_INTERVAL_MS) {
+  if (!rampaCalCongelada && ahora - ultimoRampaCalMs >= CAL_RAMP_INTERVAL_MS) {
     ultimoRampaCalMs = ahora;
     pwmCal = min(CALIBRATION_PWM_END, pwmCal + CALIBRATION_PWM_STEP);
   }
@@ -259,6 +312,15 @@ void controlarCalibracion() {
   if (estadoActual != CALIBRANDO) return;
   const SensorSnapshot s = sensar();
   if (!s.mpu_present || s.mpu_stale) { fallo("mpu_lost_cal"); return; }
+  diagnosticoCal.derivaXCm = PoseGlobal.getX() - xInicioCalCm;
+  diagnosticoCal.derivaYCm = PoseGlobal.getY() - yInicioCalCm;
+  if (hypotf(diagnosticoCal.derivaXCm, diagnosticoCal.derivaYCm) >
+      DERIVA_CENTRO_CAL_MAX_CM) {
+    diagnosticoCal.motivoGuard = "cal_origin_drift";
+    frenarMotores();
+    fallo("cal_origin_drift");
+    return;
+  }
 
   switch (fase) {
     case Fase::CAL_CUENTA: calCuenta(); break;
@@ -266,7 +328,18 @@ void controlarCalibracion() {
     case Fase::CAL_VALIDAR_25: controlarGiro(); break;
     case Fase::CAL_PAUSA:
       frenarMotores();
-      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) { candidatoCal=-candidatoGiroPos; pwmCal=CALIBRATION_PWM_START; inicioPausaReintentoCalMs=0; inicioMovCalMs=0; ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0; copiarBase(ticksBaseCal,s); ultimoRampaCalMs=millis(); iniciarFaseCal(Fase::CAL_B); strncpy(faseComando,"cal_b",sizeof(faseComando)); progresoComando=0.60f; }
+      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) {
+        signoYawCal = -1;
+        pwmCal=CALIBRATION_PWM_START;
+        ultimaAuditoriaMaxCalMs=0;
+        stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
+        copiarBase(ticksBaseCal,s);
+        yawInicioCalDeg = heading360;
+        ultimoRampaCalMs=millis();
+        iniciarFaseCal(Fase::CAL_B);
+        strncpy(faseComando,"cal_b",sizeof(faseComando));
+        progresoComando=0.60f;
+      }
       break;
     case Fase::CAL_B: calTorque(false); break;
     case Fase::CAL_PAUSA_RETORNO:
@@ -306,6 +379,7 @@ int pwmBusquedaGiro = 0;
 int pwmBoostFrenado = 0;
 float yawInicioGiroDeg = 0.0f;
 uint32_t inicioDesbalanceGiroMs = 0;
+uint32_t inicioSignoIncorrectoGiroMs = 0;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   reiniciarControlRumbo();
@@ -313,6 +387,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   copiarBase(ticksBaseGiroLocal, s);
   yawInicioGiroDeg = heading360;
   inicioDesbalanceGiroMs = 0;
+  inicioSignoIncorrectoGiroMs = 0;
   PoseGlobal.iniciarMedicionTraslacionGiro();
   giroObjetivo = objetivoDeg;
   giroEnTol = false; pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false;
@@ -356,6 +431,7 @@ void controlarGiro() {
     copiarBase(ticksBaseGiroLocal, s);
     yawInicioGiroDeg = heading360;
     inicioDesbalanceGiroMs = 0;
+    inicioSignoIncorrectoGiroMs = 0;
     ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
     ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=ahora;
     watchdogGiroArmado=false;
@@ -393,8 +469,24 @@ void controlarGiro() {
   const ControlCalibracion::EvidenciaPivot evidenciaPivot =
       ControlCalibracion::evaluarPivot(
           errorAng360(heading360, yawInicioGiroDeg), d, fuentesGiro,
-          CAL_TICKS_MOVIMIENTO, DESBALANCE_PIVOT_MAX_REL);
-  if (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S &&
+           CAL_TICKS_MOVIMIENTO, DESBALANCE_PIVOT_MAX_REL);
+  const int signoMovimientoEsperado = signoGiroApl != 0 ? signoGiroApl : signoEsperado;
+  if (ControlCalibracion::signoGyroContrario(
+          signoMovimientoEsperado, s.gyro_z_filtrado_rad_s,
+          GYRO_MOVEMENT_RAD_S) && pwm_aplicado_L != 0 && pwm_aplicado_R != 0) {
+    if (!inicioSignoIncorrectoGiroMs) inicioSignoIncorrectoGiroMs = ahora;
+    if (ahora - inicioSignoIncorrectoGiroMs >= CAL_MOVE_SUSTAINED_MS) {
+      fallo("turn_yaw_sign_mismatch");
+      return;
+    }
+  } else if (!ControlCalibracion::signoGyroContrario(
+                 signoMovimientoEsperado, s.gyro_z_filtrado_rad_s,
+                 GYRO_MOVEMENT_RAD_S)) {
+    inicioSignoIncorrectoGiroMs = 0;
+  }
+  if (ControlCalibracion::signoGyroCorrecto(
+          signoMovimientoEsperado, s.gyro_z_filtrado_rad_s,
+          GYRO_MOVEMENT_RAD_S) &&
       evidenciaPivot.bilateral) {
     movGiroConfirmado = true;
   }
@@ -510,17 +602,11 @@ void controlarGiro() {
   }
 
   if (signoGiroApl != 0 && pwmGiroAct > 0 && pulsoGiroEncendido) {
-    int cand = signoGiroApl > 0 ? candidatoGiroPos : candidatoGiroNeg;
-    if (cand == 0) {
-      if (candidatoGiroPos != 0) cand = (signoGiroApl > 0) ? candidatoGiroPos : -candidatoGiroPos;
-      else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
-      else cand = (signoGiroApl > 0) ? -1 : 1;
-    }
     // El MPU manda sobre el ángulo; PCNT ajusta únicamente el balance bilateral
     // para que el centro no se traslade durante la contra-rotación.
     const ControlCalibracion::ComandoPivot comando =
         ControlCalibracion::comandoPivotCentrado(
-            cand, pwmGiroAct, evidenciaPivot.izquierda,
+            signoGiroApl, pwmGiroAct, evidenciaPivot.izquierda,
             evidenciaPivot.derecha, KP_BALANCE_PIVOT_PWM_POR_TICK,
             PWM_BALANCE_PIVOT_MAX, PWM_TURN_MAX_LIMIT);
     if (!aplicarVelocidades(comando.izquierda, comando.derecha)) {
@@ -529,7 +615,9 @@ void controlarGiro() {
     }
   } else frenarMotores();
 
-  if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S &&
+  if (ControlCalibracion::signoGyroCorrecto(
+          signoMovimientoEsperado, s.gyro_z_filtrado_rad_s,
+          GYRO_MOVEMENT_RAD_S) &&
       evidenciaPivot.bilateral) {
     movGiroConfirmado = true;
   } else if (ahora - inicioIntentoGiroMs > 5000) { reintentarGiro("turn_no_progress"); }
@@ -570,7 +658,11 @@ void completarGiro() {
     WatchdogSeguridad.aplicarClasificacionEncoders(confiables);
     const SensorSnapshot s = sensar();
     robotCalibrado = true;
-    PoseGlobal.fijarOrigenConPulsos(
+    diagnosticoCal.motivoGuard = "cal_ok";
+    // La calibración valida el pivote sin convertirlo en un nuevo origen:
+    // conserva la pose XY previa y sólo reancla los pulsos/yaw de referencia.
+    PoseGlobal.fijarPoseConPulsos(
+        xInicioCalCm, yInicioCalCm, 0.0f,
         s.pulsosFL, s.pulsosFR, s.pulsosBL, s.pulsosBR);
     resetOrientacionIMU();
     fin(EVT_COMPLETED, "cal_ok");

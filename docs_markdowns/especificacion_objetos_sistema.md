@@ -132,12 +132,13 @@ Odometría diferencial y fusión de orientación:
   - Actualiza $X_{\text{global}}$ y $Y_{\text{global}}$ en centímetros.
 - **`actualizarOrientacion(deltaZ_rad)`**: Integra variación angular del giroscopio.
 - **`recentrarYawIMUEnReposo()`**: Corrección continua de drift angular mientras el robot permanece inmóvil en `LISTO` o `DESARMADO`.
-- **Candidatos de Giro Iniciales**: `candidatoGiroPos = -1` (avance izq / reversa der) y `candidatoGiroNeg = 1` para simetría angular inmediata.
+- **Pivote de calibración v3.5**: no descubre ni invierte polaridades. El MPU6050 es la autoridad angular; los encoders sólo confirman que ambos lados tienen movimiento, aceptando un encoder sano por lado.
 
 #### `Cinematica` (`include/Cinematica.h`, `src/Cinematica.cpp`)
 Controlador cinemático de bucle cerrado:
 - **`controlarGiro()`**:
   - Ejecuta maniobra de pivote único dinámico.
+  - `+yaw` (derecha) ordena lado izquierdo `+` y derecho `-`; `-yaw` invierte el patrón.
   - **MODO 1 (5° a 25°)**: Rampa adaptativa de torque desde `PWM_TURN_START` (130) hasta `247/255` (~97%) para vencer fricción estática.
   - **MODO 2 (<5°)**: Ráfagas de micro-pulsos de exactitud (`TURN_PULSE_ON_MS` = 50 ms ON, `TURN_PULSE_OFF_MS` = 100 ms OFF con `pwmObj = 0`) para estabilizar inercia e integración IMU.
   - Detección de movimiento validada con precisión flotante mediante `fabsf(gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S`.

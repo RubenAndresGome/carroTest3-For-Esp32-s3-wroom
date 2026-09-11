@@ -47,25 +47,25 @@ física. No se cambia para corregir ejes, sentido, calibración o PID.
 |---|---:|---|---|
 | IN1/OUT1 | GPIO5 | BL REV | rojo |
 | IN2/OUT2 | GPIO4 | BL FWD | naranja 1 |
-| IN3/OUT3 | GPIO7 | FL FWD | naranja 2 |
-| IN4/OUT4 | GPIO6 | FL REV | café |
+| IN3/OUT3 | GPIO7 | FL REV | naranja 2 |
+| IN4/OUT4 | GPIO6 | FL FWD | café |
 
 ### DRV8833 derecho
 
 | Entrada/salida | GPIO ESP32 | Motor y función nominal | Color |
 |---|---:|---|---|
 | IN1/OUT1 | GPIO15 | BR REV | verde |
-| IN2/OUT2 | GPIO16 | BR FWD | negro |
-| IN3/OUT3 | GPIO17 | FR REV | amarillo |
-| IN4/OUT4 | GPIO18 | FR FWD | naranja |
+| IN2/OUT2 | GPIO16 | BR REV | negro |
+| IN3/OUT3 | GPIO17 | FR FWD | amarillo |
+| IN4/OUT4 | GPIO18 | FR REV | naranja |
 
-El PWM actual es de 5 kHz y 10 bits, con límite de 230/255 (aproximadamente 90 %, 923/1023) en avance y 247/255 en giro y calibración. `PWM_FORWARD_POLARITY = -1` compensa una sola vez la orientación mecánica global del chasis; no intercambie además FWD/REV. La calibración reproduce la búsqueda continua del ensayo aprobado: comienza en 140/255, aumenta 5/255 cada 250 ms y se detiene al confirmar gyro sostenido y ticks acumulados en ambos lados. El watchdog individual de calibración se arma al alcanzar 247/255 y corta después de 800 ms acumulados sin ticks; un nivel bajo que todavía no vence fricción no se declara prematuramente como atasco. Toda inversión deja ambos canales del lado apagados durante al menos 250 ms; la calibración espera además 750 ms antes de cambiar polaridad y un reintento de giro espera 2500 ms. Si una rueda individual gira contra las demás, detenga el sistema y compruebe su par de cables y GPIO sin cambiar otra vez la polaridad global.
+El PWM actual es de 5 kHz y 10 bits, con límite de 230/255 (aproximadamente 90 %, 923/1023) en avance y 247/255 en giro y calibración. La dirección lógica es individual por rueda: positivo activa FL6/BL4/FR17/BR15 y negativo FL7/BL5/FR18/BR16. La calibración v3.5 sólo pivota sobre el centro: congela la rampa al primer tick bilateral, exige signo MPU sostenido 100 ms y falla por signo contrario, falta de rotación, desbalance o deriva superior a 1 cm. Toda inversión deja ambos canales del lado apagados durante al menos 250 ms. Si una rueda individual gira contra las demás, detenga el sistema y compruebe su par de cables y GPIO.
 
 El DRV8833 original incorpora resistencias pull-down internas en sus entradas de control (aproximadamente 150 kΩ; `nSLEEP` usa aproximadamente 500 kΩ). Resistencias externas de 10 kΩ son opcionales como defensa adicional para módulos clon, no un requisito del integrado original.
 
 ## 5. Encoders LM393 y PCNT
 
-Cada LM393 se alimenta desde B2. Su salida digital pasa por el lado de 4.8 V del TXS0108E; el lado de 3.3 V llega al GPIO del ESP32.
+Cada LM393 se alimenta desde B2. Su salida digital pasa por el lado de 4.8 V del TXS0108E; el lado de 3.3 V llega al GPIO del ESP32. Los sensores deben quedar orientados a 45° respecto al chasis; el firmware usa PCNT como magnitud, no como autoridad de dirección.
 Los canales y colores proceden de la misma [hoja física dogmática](../../evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg).
 
 | Rueda | Color de identificación | GPIO | Unidad PCNT |

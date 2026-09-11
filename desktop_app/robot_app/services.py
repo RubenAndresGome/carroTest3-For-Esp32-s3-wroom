@@ -953,6 +953,13 @@ class RobotService:
     def send_command(self, name: object, payload: dict[str, Any] | None,
                      seq_override: int | None = None, command_id_override: str | None = None) -> RobotCommand:
         normalized_name = str(name or "").lower()
+        if normalized_name == "calibrate":
+            with self._lock:
+                telemetry = self._last_telemetry
+            if telemetry is None or "calibration_pivot_guard_v1" not in telemetry.capabilities:
+                raise RuntimeError(
+                    "La calibración requiere calibration_pivot_guard_v1; actualiza firmware y HMI"
+                )
         if normalized_name in {"stop", "estop"}:
             self._touch.invalidate(f"manual_{normalized_name}")
         with self._lock:

@@ -36,19 +36,20 @@
 ![Hoja física de cableado del Milestone](evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg)
 
 La hoja anterior fue proporcionada por el operador y se conserva como evidencia
-física. Fija entrada, salida, GPIO y color; los nombres lógicos FWD/REV y
-`PWM_FORWARD_POLARITY` son otra capa y no autorizan a reinterpretar el cableado.
+física. Fija entrada, salida, GPIO y color; los nombres lógicos FWD/REV sólo
+documentan la dirección individual verificada y no autorizan a reinterpretar
+el cableado.
 
 | Motor | Entrada/salida DRV8833 | GPIO | Color | Representación nominal en `Config.h` |
 |---|---|---:|---|---|
-| FL | izquierdo IN4/OUT4 | 6 | café | `PIN_FL_REV` |
-| FL | izquierdo IN3/OUT3 | 7 | naranja 2 | `PIN_FL_FWD` |
+| FL | izquierdo IN4/OUT4 | 6 | café | `PIN_FL_FWD` |
+| FL | izquierdo IN3/OUT3 | 7 | naranja 2 | `PIN_FL_REV` |
 | BL | izquierdo IN1/OUT1 | 5 | rojo | `PIN_BL_REV` |
 | BL | izquierdo IN2/OUT2 | 4 | naranja 1 | `PIN_BL_FWD` |
-| FR | derecho IN3/OUT3 | 17 | amarillo | `PIN_FR_REV` |
-| FR | derecho IN4/OUT4 | 18 | naranja | `PIN_FR_FWD` |
-| BR | derecho IN1/OUT1 | 15 | verde | `PIN_BR_REV` |
-| BR | derecho IN2/OUT2 | 16 | negro | `PIN_BR_FWD` |
+| FR | derecho IN3/OUT3 | 17 | amarillo | `PIN_FR_FWD` |
+| FR | derecho IN4/OUT4 | 18 | naranja | `PIN_FR_REV` |
+| BR | derecho IN1/OUT1 | 15 | verde | `PIN_BR_FWD` |
+| BR | derecho IN2/OUT2 | 16 | negro | `PIN_BR_REV` |
 
 | Encoder | Canal TXS0108E | Color | GPIO ESP32-S3 |
 |---|---|---|---:|
@@ -67,9 +68,9 @@ física. Fija entrada, salida, GPIO y color; los nombres lógicos FWD/REV y
 - PWM máximo de avance: 242/255 (~95%); giros autónomos, calibración y pivote continuo conservan 247/255 (~97%) para vencer fricción en superficies difíciles.
 - Tiempo muerto universal de 250 ms en `Motores.cpp:aplicarVelocidades()` al
   invertir sentido de giro. Aplica a joystick, giro autónomo y calibración.
-- `PWM_FORWARD_POLARITY = -1` es la única compensación global del montaje
-  mecánico actual: convierte avance lógico en el sentido eléctrico que impulsa
-  el frente marcado del chasis. No invertir además los pares GPIO FWD/REV.
+- La versión 3.5 no usa inversión global: la dirección lógica es individual por
+  rueda. `PWM lógico +` activa FL=GPIO6, BL=GPIO4, FR=GPIO17 y BR=GPIO15;
+  `PWM lógico -` activa sus pares REV (GPIO7/5/18/16). No cambiar estos GPIO.
 - Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog
   de 2.5 s por lado se arma sólo después de alcanzar el torque calibrado; el
   avance conserva su corte de 450 ms.
@@ -77,11 +78,12 @@ física. Fija entrada, salida, GPIO y color; los nombres lógicos FWD/REV y
   fuentes confiables de cada lado. Un encoder sano por lado permite continuar
   en modo degradado; perder todas las fuentes de cualquier lado detiene el
   movimiento. El control recto usa los deltas filtrados, no el error acumulado.
-- Búsqueda continua de torque como el ensayo aprobado, desde 140 hasta 247/255
-  en pasos de 5 cada 250 ms; confirmación sostenida mediante gyro y ticks por
-  lado. Antes de cambiar polaridad espera 750 ms. El watchdog individual
-  acumulativo de 800 ms durante calibración se arma al alcanzar el PWM máximo;
-  durante la rampa un PWM que aún no vence fricción no se clasifica como stall.
+- La calibración v3.5 no descubre ni invierte polaridades: conserva reposo de
+  5 s, valida primero +yaw (L+/R−), congela la rampa al primer tick bilateral,
+  exige `gyro_z` con signo correcto durante 100 ms y falla a los 300 ms o cuatro
+  ticks por lado si el MPU no confirma rotación. Desbalance persistente, signo
+  contrario o deriva >1 cm producen `cal_pivot_unbalanced`,
+  `cal_yaw_sign_mismatch` o `cal_origin_drift`.
 - El signo del giro sigue continuamente el error real. Al entrar en ±2° se
   apagan motores; un sobrepaso baja PWM a cero, respeta el interlock universal
   y corrige en sentido contrario sin pausa residual ni vuelta inventada.
@@ -89,6 +91,9 @@ física. Fija entrada, salida, GPIO y color; los nombres lógicos FWD/REV y
   contraria independiente. Las rutas aceptan solamente tramos ortogonales con
   tolerancia geométrica de 1 mm y terminan tras su alineación cardinal final.
 - Todos los giros autónomos usan un único pivot dinámico. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo controlador; la aproximación fina (<5°) utiliza micro-pulsos intermitentes de exactitud (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia e integración del IMU y evitar sobrepasos. El movimiento se valida con `fabsf(gyro_z)` y deltas de encoder. Mientras no se confirme movimiento en macro-giros, el torque escala en rampa adaptativa sin exceder 247/255 (~97%). Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica produce parada segura.
+- Los encoders PCNT se montan a 45° respecto al chasis; son sensores de magnitud.
+  El MPU6050 es la autoridad angular: +yaw es horario hacia +X/derecha y -yaw
+  antihorario hacia la izquierda. La calibración sólo pivota sobre su centro.
 - Stacks: Web 8192 y súper-ciclo de control 8192 bytes. El firmware publica el
   mínimo libre medido y el motivo de reinicio; menos de 1024 bytes es fallo de
   aceptación aunque no haya ocurrido un reset.

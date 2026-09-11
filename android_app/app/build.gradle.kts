@@ -30,8 +30,8 @@ android {
         applicationId = "mx.ik.robots3"
         minSdk = 24
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.2.11-milestone-ortho"
+        versionCode = 13
+        versionName = "0.2.12-milestone-ortho"
 
         ndk {
             // La Galaxy Tab moderna es arm64. Un solo ABI reduce mucho el APK.

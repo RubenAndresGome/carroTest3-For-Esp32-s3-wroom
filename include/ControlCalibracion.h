@@ -62,7 +62,7 @@ inline int limitarEntero(int valor, int minimo, int maximo) {
   return valor < minimo ? minimo : (valor > maximo ? maximo : valor);
 }
 
-inline ComandoPivot comandoPivotCentrado(int candidato, int pwmBase,
+inline ComandoPivot comandoPivotCentrado(int signoYaw, int pwmBase,
                                          float ticksIzquierda,
                                          float ticksDerecha,
                                          float kpPwmPorTick,
@@ -76,9 +76,66 @@ inline ComandoPivot comandoPivotCentrado(int candidato, int pwmBase,
       pwmBase - comando.correccion, 0, pwmMaximo);
   const int magnitudDerecha = limitarEntero(
       pwmBase + comando.correccion, 0, pwmMaximo);
-  comando.izquierda = -candidato * magnitudIzquierda;
-  comando.derecha = candidato * magnitudDerecha;
+  // Marco canónico: +yaw horario/derecha = L+ / R-. La corrección de balance
+  // sólo cambia magnitudes; nunca puede cambiar estos signos.
+  const int signo = signoYaw >= 0 ? 1 : -1;
+  comando.izquierda = signo * magnitudIzquierda;
+  comando.derecha = -signo * magnitudDerecha;
   return comando;
+}
+
+enum class ResultadoGuardPivot : uint8_t {
+  ESPERANDO_TICKS,
+  CONFIRMANDO_YAW,
+  CONFIRMADO,
+  SIGNO_INCORRECTO,
+  ROTACION_NO_CONFIRMADA,
+  DESBALANCEADO
+};
+
+inline bool signoGyroCorrecto(int signoYawEsperado, float gyroZRadS,
+                              float gyroMinimoRadS) {
+  const int signo = signoYawEsperado >= 0 ? 1 : -1;
+  return gyroZRadS * signo >= gyroMinimoRadS;
+}
+
+inline bool signoGyroContrario(int signoYawEsperado, float gyroZRadS,
+                               float gyroMinimoRadS) {
+  const int signo = signoYawEsperado >= 0 ? 1 : -1;
+  return gyroZRadS * signo <= -gyroMinimoRadS;
+}
+
+inline bool congelarRampaTrasTicks(const EvidenciaPivot& evidencia) {
+  return evidencia.bilateral;
+}
+
+inline ResultadoGuardPivot evaluarGuardPivot(
+    int signoYawEsperado, float gyroZRadS, float deltaYawDeg,
+    const EvidenciaPivot& evidencia, uint32_t verificacionMs,
+    uint32_t yawCorrectoSostenidoMs, uint32_t desbalanceSostenidoMs,
+    float gyroMinimoRadS, uint32_t yawSostenidoRequeridoMs,
+    uint32_t ventanaMaximaMs, int64_t ticksMaximosPorLado,
+    uint32_t desbalanceMaximoMs) {
+  if (!evidencia.bilateral) return ResultadoGuardPivot::ESPERANDO_TICKS;
+  if (signoGyroContrario(signoYawEsperado, gyroZRadS, gyroMinimoRadS) ||
+      deltaYawDeg * (signoYawEsperado >= 0 ? 1.0f : -1.0f) <= -1.0f) {
+    return ResultadoGuardPivot::SIGNO_INCORRECTO;
+  }
+  if (!evidencia.equilibrado &&
+      desbalanceSostenidoMs >= desbalanceMaximoMs) {
+    return ResultadoGuardPivot::DESBALANCEADO;
+  }
+  if (evidencia.equilibrado &&
+      signoGyroCorrecto(signoYawEsperado, gyroZRadS, gyroMinimoRadS) &&
+      yawCorrectoSostenidoMs >= yawSostenidoRequeridoMs) {
+    return ResultadoGuardPivot::CONFIRMADO;
+  }
+  if (verificacionMs >= ventanaMaximaMs ||
+      (evidencia.izquierda >= static_cast<float>(ticksMaximosPorLado) &&
+       evidencia.derecha >= static_cast<float>(ticksMaximosPorLado))) {
+    return ResultadoGuardPivot::ROTACION_NO_CONFIRMADA;
+  }
+  return ResultadoGuardPivot::CONFIRMANDO_YAW;
 }
 
 inline bool retornoAlOrigenAceptable(float derivaXCm, float derivaYCm,

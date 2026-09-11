@@ -26,9 +26,16 @@ void PoseEstimator::reset() {
 
 void PoseEstimator::fijarOrigenConPulsos(int64_t pulsosFL, int64_t pulsosFR,
                                          int64_t pulsosBL, int64_t pulsosBR) {
-    x_global = 0.0f;
-    y_global = 0.0f;
-    theta_rad = 0.0f;
+    fijarPoseConPulsos(0.0f, 0.0f, 0.0f, pulsosFL, pulsosFR,
+                       pulsosBL, pulsosBR);
+}
+
+void PoseEstimator::fijarPoseConPulsos(float x_cm, float y_cm, float theta,
+                                       int64_t pulsosFL, int64_t pulsosFR,
+                                       int64_t pulsosBL, int64_t pulsosBR) {
+    x_global = x_cm;
+    y_global = y_cm;
+    theta_rad = theta;
     last_pulsos_FL = pulsosFL;
     last_pulsos_FR = pulsosFR;
     last_pulsos_BL = pulsosBL;

@@ -11,6 +11,9 @@ public:
     void reset();
     void fijarOrigenConPulsos(int64_t pulsosFL, int64_t pulsosFR,
                              int64_t pulsosBL, int64_t pulsosBR);
+    void fijarPoseConPulsos(float x_cm, float y_cm, float theta_rad,
+                            int64_t pulsosFL, int64_t pulsosFR,
+                            int64_t pulsosBL, int64_t pulsosBR);
 
     void actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR,
                              int64_t pulsosBL, int64_t pulsosBR,

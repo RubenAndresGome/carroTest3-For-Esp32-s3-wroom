@@ -80,7 +80,7 @@ class DomainTests(unittest.TestCase):
             "fault": {"active": False, "state": "none"},
             "allowed_commands": ["estop", "stop", "step"],
             "capabilities": ["manual_drive_v1"],
-            "firmware": "robot-s3-v2", "reset_reason": "power_on",
+            "firmware": "robot-s3-v3.5", "reset_reason": "power_on",
             "stack_web": 2048, "stack_control": 3072,
         }, 17)
         public = snapshot.public_dict()
@@ -89,6 +89,7 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(snapshot.pulses, (1, 2, 3, 4))
         self.assertEqual(snapshot.active_command_id, "9")
         self.assertTrue(snapshot.calibrated)
+        self.assertEqual(snapshot.firmware_version, "robot-s3-v3.5")
         self.assertTrue(public["target"]["absolute"])
         self.assertEqual(public["target"]["finish_reason"], "endpoint_not_reached")
         self.assertEqual(public["drive_control"]["i"], 3)

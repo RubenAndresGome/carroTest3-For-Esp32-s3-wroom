@@ -40,9 +40,9 @@ $$\text{ctrlRumbo} = \text{constrain}(e_{\text{rumbo}} \cdot K_p - G_z \cdot K_d
 
 Para garantizar que el robot pueda rotar en lazo cerrado de forma simétrica desde el momento del arranque (incluso si no se ha ejecutado la rutina de calibración manual en la sesión actual):
 
-- **Candidatos por Defecto**: `candidatoGiroPos = 1`, `candidatoGiroNeg = -1`.
+- **Mapeo de pivote v3.5**: `+yaw` (derecha) usa `L+ / R-`; `-yaw` usa `L- / R+`. La polaridad por motor es fija y no se auto-invierte durante calibración.
 - **Mínimos de Torque por Defecto**: `pwmMinGiroPos = 148` (~58%), `pwmMinGiroNeg = 148` (~58%).
-- **Efecto**: El robot identifica giros positivos (antihorario) y negativos (horario) de manera simétrica y segura inmediatamente después del encendido.
+- **Efecto**: el MPU6050 valida el signo y los encoders sólo validan movimiento bilateral, con guardas de deriva y desbalance.
 
 ---
 

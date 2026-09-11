@@ -15,9 +15,9 @@ y ejecute `+Y` al frente y `+X` a la derecha mediante pivotes centrados.
   PCNT por promedio de fuentes confiables; una fuente sana por lado es válida.
 - Implementado: odometría durante pivote y diagnóstico de traslación X/Y del
   centro. La calibración sólo acepta `cal_ok` si vuelve al yaw y queda dentro
-  de 3 cm del origen; ya no oculta deriva con un `reset()` ciego.
-- Implementado: sincronización de contadores al fijar origen, eliminación del
-  `delay(50)` dentro del súper-ciclo y firmware `robot-s3-v3.4`.
+  de 1 cm; conserva X/Y y ya no oculta deriva con un `reset()` ciego.
+- Implementado: sincronización de contadores al fijar pose, eliminación del
+  `delay(50)` dentro del súper-ciclo y firmware `robot-s3-v3.5`.
 - Validado en host: 36/36 pruebas nativas, 61/61 pruebas Python, compilación
   ESP32-S3 y validador modular. Pendiente exclusivamente la aceptación física
   controlada y el diagnóstico eléctrico de los encoders frontales.
@@ -30,7 +30,7 @@ suelo.** Este documento no autoriza movimiento, flasheo ni cambios de GPIO.
 1. La [hoja física dogmática](../evidencia/hardware/cableado_dogmatico_milestone_2026-09-08.jpeg)
    fija entradas/salidas, GPIO y colores. No se altera para corregir software.
 2. `+Y` es frente, `+X` es derecha y el yaw positivo es horario.
-3. `PWM_FORWARD_POLARITY` es la única transformación global de sentido.
+3. La dirección lógica es individual por rueda; no existe `PWM_FORWARD_POLARITY`.
 4. Un encoder sano por lado permite estimar distancia en modo degradado; perder
    un lado completo detiene el movimiento.
 5. MPU es autoridad angular. PCNT permanece como fuente de rueda; no se sustituye
@@ -113,9 +113,9 @@ suelo.** Este documento no autoriza movimiento, flasheo ni cambios de GPIO.
 - Mantener separados `pwmLogico` y `pwmElectrico`; telemetría debe publicar ambos.
 - Con ruedas elevadas, probar por separado FL, BL, FR y BR con pulsos breves
   positivos y negativos. Registrar sentido físico, corriente y ticks.
-- Mantener `PWM_FORWARD_POLARITY=-1` mientras las cuatro pruebas coincidan. Una
-  discrepancia individual se corrige físicamente en su terminal, nunca mediante
-  otro cambio global ni permutando GPIO.
+- Verificar el mapa por rueda (FL6/7, BL4/5, FR17/18, BR15/16). Una discrepancia
+  individual se corrige físicamente en su terminal, nunca mediante otra inversión
+  global ni permutando GPIO.
 
 ## P1 — Calibración sin traslación del origen
 

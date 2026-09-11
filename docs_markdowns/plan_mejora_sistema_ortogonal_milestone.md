@@ -20,10 +20,10 @@ y reincorporarlas únicamente después de evidencia repetida.
 2. Decidir el lado que reduce el PID mediante el signo geométrico del error de
    yaw. La polaridad eléctrica aprendida por la calibración no participa en esa
    decisión.
-3. Conservar el mapeo GPIO verificado y aplicar una única compensación global:
-   `PWM_FORWARD_POLARITY = -1` convierte `+PWM` lógico en el sentido eléctrico
-   que impulsa el frente marcado del chasis. No se intercambian además FWD/REV.
-4. Durante calibración exigir MPU válida y al menos una fuente PCNT por lado.
+3. Conservar el mapeo GPIO verificado y resolver la dirección por rueda:
+   `+PWM` lógico activa FL=6, BL=4, FR=17 y BR=15; no existe inversión global.
+4. Durante calibración exigir MPU válida, al menos una fuente PCNT por lado y
+   el guard `calibration_pivot_guard_v1`.
    Una fuente silenciosa no divide por dos la distancia de la fuente restante.
 5. Declarar confiable después de calibración sólo un encoder observado en los
    dos sentidos del pivote. Un canal excluido puede reingresar en marcha tras
@@ -50,7 +50,8 @@ y reincorporarlas únicamente después de evidencia repetida.
    un PWM lógico positivo debe impulsar el frente marcado del chasis.
 3. Girar el chasis manualmente en sentido horario con motores apagados: yaw debe
    aumentar hacia `+90°`. Si disminuye, corregir únicamente la frontera IMU.
-4. Ejecutar calibración y comprobar `phase_a_response`, `phase_b_response` y la
+4. Ejecutar calibración y comprobar `phase_a_response`, `phase_b_response`,
+   `guard_reason` y la
    máscara final. Los sensores colocados a 45° deben aparecer primero como
    `recovering` y después `healthy`, no cambiar por un único pulso.
 5. Probar 30 cm en `+Y`, retorno, 30 cm en `+X` y retorno; comparar regla física,

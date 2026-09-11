@@ -13,10 +13,26 @@ extern "C" void tearDown() {}
 
 namespace {
 
-void test_polaridad_fisica_invierte_avance_y_reversa_sin_alterar_magnitud() {
-  TEST_ASSERT_EQUAL_INT(-320, ControlMotores::pwmElectricoDesdeLogico(320));
-  TEST_ASSERT_EQUAL_INT(320, ControlMotores::pwmElectricoDesdeLogico(-320));
-  TEST_ASSERT_EQUAL_INT(0, ControlMotores::pwmElectricoDesdeLogico(0));
+void test_mapeo_fisico_individual_conserva_gpio_y_signo_logico() {
+  TEST_ASSERT_EQUAL_STRING("robot-s3-v3.5", FIRMWARE_VERSION);
+  TEST_ASSERT_EQUAL_INT(6, PIN_FL_FWD);
+  TEST_ASSERT_EQUAL_INT(7, PIN_FL_REV);
+  TEST_ASSERT_EQUAL_INT(4, PIN_BL_FWD);
+  TEST_ASSERT_EQUAL_INT(5, PIN_BL_REV);
+  TEST_ASSERT_EQUAL_INT(17, PIN_FR_FWD);
+  TEST_ASSERT_EQUAL_INT(18, PIN_FR_REV);
+  TEST_ASSERT_EQUAL_INT(15, PIN_BR_FWD);
+  TEST_ASSERT_EQUAL_INT(16, PIN_BR_REV);
+  const auto avance = ControlMotores::resolverSalida(PIN_FL_FWD, PIN_FL_REV, 320);
+  TEST_ASSERT_EQUAL_INT(6, avance.gpioActivo);
+  TEST_ASSERT_EQUAL_INT(320, avance.duty);
+  TEST_ASSERT_EQUAL_INT(0, avance.dutyReversa);
+  const auto reversa = ControlMotores::resolverSalida(PIN_FL_FWD, PIN_FL_REV, -320);
+  TEST_ASSERT_EQUAL_INT(7, reversa.gpioActivo);
+  TEST_ASSERT_EQUAL_INT(320, reversa.duty);
+  const auto cero = ControlMotores::resolverSalida(PIN_FL_FWD, PIN_FL_REV, 0);
+  TEST_ASSERT_EQUAL_INT(-1, cero.gpioActivo);
+  TEST_ASSERT_EQUAL_INT(0, cero.duty);
 }
 
 void test_lateral_derecha_corrige_hacia_izquierda() {
@@ -323,14 +339,40 @@ void test_pivote_usa_una_fuente_sana_por_lado_y_no_suma_la_pareja() {
 void test_balance_pivote_reduce_lado_adelantado_y_refuerza_rezagado() {
   const auto positivo = ControlCalibracion::comandoPivotCentrado(
       1, 700, 20.0f, 10.0f, 2.0f, 80, 990);
-  TEST_ASSERT_EQUAL_INT(-680, positivo.izquierda);
-  TEST_ASSERT_EQUAL_INT(720, positivo.derecha);
+  TEST_ASSERT_EQUAL_INT(680, positivo.izquierda);
+  TEST_ASSERT_EQUAL_INT(-720, positivo.derecha);
   TEST_ASSERT_EQUAL_INT(20, positivo.correccion);
   const auto negativo = ControlCalibracion::comandoPivotCentrado(
       -1, 700, 10.0f, 20.0f, 2.0f, 80, 990);
-  TEST_ASSERT_EQUAL_INT(720, negativo.izquierda);
-  TEST_ASSERT_EQUAL_INT(-680, negativo.derecha);
+  TEST_ASSERT_EQUAL_INT(-720, negativo.izquierda);
+  TEST_ASSERT_EQUAL_INT(680, negativo.derecha);
   TEST_ASSERT_EQUAL_INT(-20, negativo.correccion);
+}
+
+void test_guard_pivote_exige_signo_mpu_y_frena_fallos() {
+  const int64_t ticks[4] = {4, 4, 4, 4};
+  const bool confiable[4] = {true, true, true, true};
+  const auto evidencia = ControlCalibracion::evaluarPivot(
+      4.0f, ticks, confiable, 2, 0.45f);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMADO),
+      static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
+          1, 0.20f, 2.0f, evidencia, 120, 100, 0, 0.12f, 100, 300, 4, 300)));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::SIGNO_INCORRECTO),
+      static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
+          1, -0.20f, -2.0f, evidencia, 20, 0, 0, 0.12f, 100, 300, 4, 300)));
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::ROTACION_NO_CONFIRMADA),
+      static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
+          1, 0.0f, 0.0f, evidencia, 300, 0, 0, 0.12f, 100, 300, 4, 300)));
+}
+
+void test_guard_pivote_detecta_desbalance_persistente() {
+  const int64_t ticks[4] = {2, 8, 2, 8};
+  const bool confiable[4] = {true, true, true, true};
+  const auto evidencia = ControlCalibracion::evaluarPivot(
+      4.0f, ticks, confiable, 2, 0.20f);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::DESBALANCEADO),
+      static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
+          1, 0.20f, 2.0f, evidencia, 120, 100, 300, 0.12f, 100, 300, 4, 300)));
 }
 
 void test_calibracion_no_acepta_retorno_fuera_del_origen() {
@@ -375,7 +417,7 @@ void test_control_manual_mezcla_satura_y_respeta_lease() {
 
 int main(int, char**) {
   UNITY_BEGIN();
-  RUN_TEST(test_polaridad_fisica_invierte_avance_y_reversa_sin_alterar_magnitud);
+  RUN_TEST(test_mapeo_fisico_individual_conserva_gpio_y_signo_logico);
   RUN_TEST(test_lateral_derecha_corrige_hacia_izquierda);
   RUN_TEST(test_lateral_izquierda_corrige_hacia_derecha);
   RUN_TEST(test_errores_vectoriales_son_consistentes_en_rumbos_diagonales);
@@ -409,6 +451,8 @@ int main(int, char**) {
   RUN_TEST(test_pivote_usa_una_fuente_sana_por_lado_y_no_suma_la_pareja);
   RUN_TEST(test_balance_pivote_reduce_lado_adelantado_y_refuerza_rezagado);
   RUN_TEST(test_calibracion_no_acepta_retorno_fuera_del_origen);
+  RUN_TEST(test_guard_pivote_exige_signo_mpu_y_frena_fallos);
+  RUN_TEST(test_guard_pivote_detecta_desbalance_persistente);
   RUN_TEST(test_supervision_vencida_detiene_cualquier_movimiento);
   RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
   return UNITY_END();

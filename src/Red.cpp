@@ -24,6 +24,7 @@ static char msgBuf[MAX_WS_MSG + 1];
 static unsigned long ultimoIntentoApMs = 0;
 static bool servidorIniciado = false;
 static unsigned long ultimaTelemetriaMs = 0;
+static bool clientePivotGuardCompatible = false;
 
 static bool apDisponible() {
   return (WiFi.getMode() & WIFI_AP) && WiFi.softAPIP() != IPAddress(0,0,0,0);
@@ -63,6 +64,15 @@ static void manejarHello(const JsonObject& o) {
     strncpy(sessionId, nueva, 16); sessionId[16] = '\0';
     ultimoSeqCompletado = 0;
   }
+  clientePivotGuardCompatible = false;
+  JsonArrayConst capacidadesCliente = o["capabilities"].as<JsonArrayConst>();
+  for (JsonVariantConst capacidad : capacidadesCliente) {
+    if (capacidad.is<const char*>() &&
+        strcmp(capacidad.as<const char*>(), CAPABILITY_CALIBRATION_PIVOT_GUARD) == 0) {
+      clientePivotGuardCompatible = true;
+      break;
+    }
+  }
   StaticJsonDocument<256> doc;
   doc["evt"] = "hello_ack";
   doc["session"] = sessionId;
@@ -72,6 +82,7 @@ static void manejarHello(const JsonObject& o) {
   doc["protocol"] = PROTOCOL_NAME;
   doc["manual_drive_v1"] = true;
   doc["motion_supervision_v1"] = true;
+  doc["calibration_pivot_guard_v1"] = true;
   renovarSupervisionControl();
   if (ultimoFalloDetalle[0]) doc["fault"] = ultimoFalloDetalle;
   enviarJSON(doc);
@@ -138,7 +149,13 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   ComandoRed c = {}; c.seq = seq;
   if (strcmp(cmd,"manual_begin")==0) { solicitarManualBegin(seq); encolarEvento(EVT_ACCEPTED, seq, "manual_begin"); return; }
   else if (strcmp(cmd,"manual_end")==0) { solicitarManualEnd(seq); encolarEvento(EVT_ACCEPTED, seq, "manual_end"); return; }
-  else if (strcmp(cmd,"calibrate")==0)      { c.tipo=CMD_CALIBRATE; }
+  else if (strcmp(cmd,"calibrate")==0) {
+    if (!clientePivotGuardCompatible) {
+      responderRechazado(seq, "calibration_pivot_guard_required");
+      return;
+    }
+    c.tipo=CMD_CALIBRATE;
+  }
   else if (strcmp(cmd,"step")==0) {
     c.tipo=CMD_STEP;
     if (!leerFloatFinito(doc["heading"], c.heading) || !leerFloatFinito(doc["cm"], c.distanciaCm)) {
@@ -199,12 +216,14 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
         doc["protocol"] = PROTOCOL_NAME;
         doc["manual_drive_v1"] = true;
         doc["motion_supervision_v1"] = true;
+        doc["calibration_pivot_guard_v1"] = true;
         enviarJSON(doc);
       }
       break;
     case WS_EVT_DISCONNECT:
       if (clienteActivo == c) {
         clienteActivo = nullptr;
+        clientePivotGuardCompatible = false;
         solicitarManualDesconexion();
         solicitarDesconexionControl();
       }
@@ -246,7 +265,8 @@ static const char* textoSaludEncoder(EstadoSaludEncoder estado) {
 static void enviarTelemetria() {
   if (millis() - ultimaTelemetriaMs < 100) return;
   ultimaTelemetriaMs = millis();
-  StaticJsonDocument<4096> doc;
+  static StaticJsonDocument<5632> doc;
+  doc.clear();
   doc["evt"] = "telemetry";
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
   doc["yaw"] = roundf(heading360*10)/10;
@@ -264,6 +284,19 @@ static void enviarTelemetria() {
   pwmFisico["right_8bit"] = lroundf(pwm_aplicado_R / PWM_SCALE_8_TO_10);
   pwmFisico["left_percent"] = roundf(1000.0f * pwm_aplicado_L / PWM_MAX) / 10.0f;
   pwmFisico["right_percent"] = roundf(1000.0f * pwm_aplicado_R / PWM_MAX) / 10.0f;
+  JsonObject pwmAplicado = motores.createNestedObject("applied");
+  pwmAplicado["left"] = pwm_aplicado_L;
+  pwmAplicado["right"] = pwm_aplicado_R;
+  JsonObject electrica = motores.createNestedObject("electrical");
+  const MotorId ids[4] = {MotorId::FL, MotorId::BL, MotorId::FR, MotorId::BR_WHEEL};
+  const char* nombres[4] = {"fl", "bl", "fr", "br"};
+  for (int i = 0; i < 4; ++i) {
+    const DiagnosticoSalidaMotor salida = diagnosticoSalidaMotor(ids[i]);
+    JsonObject rueda = electrica.createNestedObject(nombres[i]);
+    rueda["logical_pwm"] = salida.pwmLogico;
+    rueda["gpio_active"] = salida.gpioActivo;
+    rueda["duty"] = salida.duty;
+  }
   motores["hard_limit"] = PWM_SAFE_HARD_LIMIT;
   motores["limit_reason"] = "drv8833_forward_242_255";
   JsonArray enc = doc.createNestedArray("enc");
@@ -329,6 +362,14 @@ static void enviarTelemetria() {
   calDiag["pwm_10bit"] = diagnosticoCal.pwmObjetivo;
   calDiag["pwm_8bit"] = lroundf(diagnosticoCal.pwmObjetivo / PWM_SCALE_8_TO_10);
   calDiag["direction_candidate"] = diagnosticoCal.candidatoDireccion;
+  calDiag["expected_yaw_sign"] = diagnosticoCal.signoYawEsperado;
+  calDiag["gyro_z_rad_s"] = diagnosticoCal.gyroZRadS;
+  calDiag["delta_yaw_deg"] = diagnosticoCal.deltaYawDeg;
+  calDiag["verification_ms"] = diagnosticoCal.tiempoPruebaMs;
+  calDiag["rotation_confirmed"] = diagnosticoCal.rotacionConfirmada;
+  calDiag["ramp_frozen"] = diagnosticoCal.rampaCongelada;
+  calDiag["guard_reason"] = diagnosticoCal.motivoGuard;
+  calDiag["origin_drift_cm"] = hypotf(diagnosticoCal.derivaXCm, diagnosticoCal.derivaYCm);
   JsonArray calDelta = calDiag.createNestedArray("encoder_delta");
   JsonArray calResponse = calDiag.createNestedArray("encoder_responding");
   JsonArray calIsolated = calDiag.createNestedArray("encoder_isolated");
@@ -369,7 +410,8 @@ static void enviarTelemetria() {
     permitidos.add("set_comp");
   }
   if ((estadoActual == DESARMADO || estadoActual == LISTO) &&
-      s.mpu_present && s.mpu_calibrated && !s.mpu_stale) permitidos.add("calibrate");
+      s.mpu_present && s.mpu_calibrated && !s.mpu_stale &&
+      clientePivotGuardCompatible) permitidos.add("calibrate");
   if (estadoActual == LISTO && robotCalibrado) {
     permitidos.add("step");
     permitidos.add("turn_to");
@@ -444,6 +486,7 @@ static void enviarTelemetria() {
   JsonArray capacidades = doc.createNestedArray("capabilities");
   capacidades.add("manual_drive_v1");
   capacidades.add("motion_supervision_v1");
+  capacidades.add(CAPABILITY_CALIBRATION_PIVOT_GUARD);
   ManualDriveFrame manual = {};
   const bool manualValida = leerManualDrive(manual);
   doc["manual_lease_ms"] = MANUAL_LEASE_MS;
