@@ -750,6 +750,35 @@ void test_endpoint_fino_permite_recuperacion_pulsada_y_evita_zona_muerta() {
       errorResidualAdb35Cm, PULSE_DRIVE_THRESHOLD_CM));
 }
 
+void test_presupuesto_tiempo_recentrado_cubre_21_intentos() {
+  // 21 intentos sostenidos x 3000 ms por intento = 63000 ms
+  TEST_ASSERT_GREATER_OR_EQUAL_UINT32(63000, RECENTER_TIMEOUT_MS);
+  ControlRuta::EpisodioRecuperacion episodio{};
+  ControlRuta::abrirEpisodioRecuperacion(episodio, 1000);
+  // Al cumplirse 21 intentos con 3s cada uno (t = 1000 + 62999 = 63999), debe seguir ACTIVO
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::EstadoEpisodioRecuperacion::ACTIVO),
+      static_cast<uint8_t>(ControlRuta::procesarEpisodioRecuperacion(
+          episodio, 63999, RECENTER_TIMEOUT_MS, false)));
+  // Al expirar los 63000 ms completos, pasa a VENCIDO
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlRuta::EstadoEpisodioRecuperacion::VENCIDO),
+      static_cast<uint8_t>(ControlRuta::procesarEpisodioRecuperacion(
+          episodio, 64000, RECENTER_TIMEOUT_MS, false)));
+}
+
+void test_odometria_calibrada_compensa_subavance_sesion_39() {
+  // Con el factor previo (+0.15), 100 cm nominales producían 168 ticks (~70 cm reales en suelo).
+  // La nueva calibración escala la constante para que 100 cm requieran ~240 ticks.
+  const float cmTickNominal = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_CM, ENCODER_PPR);
+  const float cmTickCalibrado = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.51836f, cmTickNominal);
+  TEST_ASSERT_FLOAT_WITHIN(0.005f, 0.4173f, cmTickCalibrado);
+  // La distancia calculada para 240 ticks debe ser ~100 cm
+  const float distPara240Ticks = 240.0f * cmTickCalibrado;
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.0f, distPara240Ticks);
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -809,5 +838,7 @@ int main(int, char**) {
   RUN_TEST(test_candidato_reingreso_elige_el_menor_coste_y_respeta_reversa);
   RUN_TEST(test_coste_reingreso_usa_rumbo_planificado_para_retorno);
   RUN_TEST(test_endpoint_fino_permite_recuperacion_pulsada_y_evita_zona_muerta);
+  RUN_TEST(test_presupuesto_tiempo_recentrado_cubre_21_intentos);
+  RUN_TEST(test_odometria_calibrada_compensa_subavance_sesion_39);
   return UNITY_END();
 }

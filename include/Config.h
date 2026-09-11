@@ -59,11 +59,14 @@ constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
 constexpr float WHEEL_DIAMETER_CM = 6.6f;
 // Corrección firmada de la distancia por pulso. La fórmula es la solicitada:
 // constante efectiva = constante nominal + porcentaje * constante nominal.
-// Calibración provisional de suelo: los recorridos físicos reportaron un
-// sobreavance de 10 % en 1 m y de 15--20 % en 2 m. Al aumentar la distancia
-// estimada por tick, el restante se reduce antes y el robot ordena el freno
-// antes. Revalidar con tres corridas de 50 y 200 cm tras cada cambio mecánico.
-constexpr float ENCODER_ERROR_PORCENTAJE = 0.15f;
+// Calibración de suelo ajustada tras pruebas físicas (Sesión #39):
+// En recorrido de 100 cm (50 -> 50 cm) con el factor previo (+0.15), el robot
+// recorrió físicamente ~70 cm (error de -30 cm). Para que 100 cm de consigna
+// correspondan exactamente a 100 cm físicos reales, el factor efectivo se escala
+// por la relación real (70 / 100):
+// Factor nuevo = 1.15 * 0.70 = 0.805 (equivalente a ENCODER_ERROR_PORCENTAJE = -0.195f,
+// o diámetro odometría efectivo de 5.313 cm sobre rueda nominal de 6.6 cm).
+constexpr float ENCODER_ERROR_PORCENTAJE = -0.195f;
 constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
@@ -217,7 +220,8 @@ constexpr float RECENTER_GROWTH_TRIGGER_CM = 1.0f;
 constexpr uint32_t RECENTER_GROWTH_MS = 500;
 constexpr float RECENTER_MONITOR_WINDOW_CM = 10.0f;
 constexpr uint32_t RECENTER_SETTLE_MS = 300;
-constexpr uint32_t RECENTER_TIMEOUT_MS = 30000;
+constexpr uint32_t RECENTER_TIMEOUT_PER_ATTEMPT_MS = 3000;
+constexpr uint32_t RECENTER_TIMEOUT_MS = ROUTE_RECOVERY_MAX_ATTEMPTS * RECENTER_TIMEOUT_PER_ATTEMPT_MS; // 63000 ms (21 intentos sostenidos x 3 s)
 constexpr uint8_t RECENTER_MAX_ATTEMPTS = ROUTE_RECOVERY_MAX_ATTEMPTS;
 constexpr float RECENTER_LOOKAHEAD_MIN_CM = 10.0f;
 constexpr float RECENTER_POINT_TOLERANCE_CM = 5.0f;

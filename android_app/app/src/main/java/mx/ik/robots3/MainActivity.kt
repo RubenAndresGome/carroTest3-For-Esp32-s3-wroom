@@ -60,7 +60,9 @@ class MainActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         requestNotificationPermission()
         registerBackNavigation()
-        startRobotBackend()
+        if (savedInstanceState == null) {
+            startRobotBackend()
+        }
         buildLoadingView()
         waitForBackend()
     }

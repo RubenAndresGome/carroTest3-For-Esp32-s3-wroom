@@ -671,14 +671,30 @@ void controlarGiro() {
     if (fabsf(s.gyro_z_filtrado_rad_s) > 0.02f) { estableGiroDesdeMs=0; return; }
     if (!estableGiroDesdeMs) estableGiroDesdeMs = ahora;
     if (ahora - estableGiroDesdeMs >= TURN_SETTLE_MS) {
+      giroEnTol = false;
+      estableGiroDesdeMs = 0;
       completarGiro();
     }
     return;
   }
   if (giroEnTol) {
-    frenarMotores();
-    if (errorAbs > TURN_REACTIVATION_DEG) reintentarGiro("turn_drifted");
-    return;
+    if (errorAbs > TURN_REACTIVATION_DEG) {
+      giroEnTol = false;
+      estableGiroDesdeMs = 0;
+      reintentarGiro("turn_drifted");
+      return;
+    }
+    // Si derivo fuera de tolGiro pero dentro de TURN_REACTIVATION_DEG:
+    // mientras aun se mueva por inercia, mantener freno.
+    if (fabsf(s.gyro_z_filtrado_rad_s) > 0.02f) {
+      frenarMotores();
+      estableGiroDesdeMs = 0;
+      return;
+    }
+    // Si ya se detuvo fisicamente y quedo fuera de tolGiro, liberar el latch
+    // para que la aproximacion hibrida (micro-pulsos) vuelva a converger.
+    giroEnTol = false;
+    estableGiroDesdeMs = 0;
   }
   estableGiroDesdeMs = 0;
 
@@ -780,6 +796,8 @@ void controlarGiro() {
 
 void completarGiro() {
   frenarMotores();
+  giroEnTol = false;
+  estableGiroDesdeMs = 0;
   Fase ret = faseRetornoGiro;
   faseRetornoGiro = Fase::NINGUNA;
   if (ret == Fase::GIRO_INICIAL) { iniciarAvance(false); }

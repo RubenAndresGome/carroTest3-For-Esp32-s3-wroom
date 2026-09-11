@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
@@ -32,10 +33,23 @@ class RobotBackendService : Service() {
         }
     }
 
+    private fun startForegroundServiceInternal() {
+        createNotificationChannel()
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        startForegroundServiceInternal()
         acquireLocks()
         executor = Executors.newSingleThreadExecutor().also { worker ->
             worker.execute {
@@ -52,6 +66,7 @@ class RobotBackendService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForegroundServiceInternal()
         if (intent?.action == ACTION_STOP) {
             Thread({ requestSafeStopFromNotification() }, "robot-safe-stop").start()
             return START_NOT_STICKY
