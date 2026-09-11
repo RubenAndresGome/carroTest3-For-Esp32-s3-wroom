@@ -475,13 +475,39 @@ void controlarGiro() {
   if (!movGiroConfirmado && pwmBusquedaGiro < PWM_TURN_MAX_LIMIT) {
     ultimoPulsoLadoGiroMs[0] = ultimoPulsoLadoGiroMs[1] = ahora;
   }
+  // En aproximación fina (< 5°), el control por micro-pulsos intermitentes es gobernado
+  // por el MPU como autoridad angular principal. Mantener frescos los temporizadores
+  // para evitar falsos stalls de encoder entre ranuras durante los micro-pulsos.
+  if (errorAbs <= TURN_HYBRID_THRESHOLD_DEG) {
+    ultimoPulsoLadoGiroMs[0] = ultimoPulsoLadoGiroMs[1] = ahora;
+  }
 
   int64_t d[4]; deltas(ticksBaseGiroLocal, s, d);
+  const bool* mascaraEncoders = (fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO)
+      ? nullptr
+      : encoderConfiableGlobal;
   const ControlCalibracion::EvaluacionEncoders evaluacionGiro =
       ControlCalibracion::evaluarEncoders(
-          d, CAL_TICKS_MOVIMIENTO, encoderConfiableGlobal);
+          d, CAL_TICKS_MOVIMIENTO, mascaraEncoders);
   bool fuentesGiro[4] = {};
   for (int i = 0; i < 4; ++i) fuentesGiro[i] = evaluacionGiro.responde[i];
+
+  if (fase == Fase::CAL_VALIDAR_25) {
+    for (int i = 0; i < 4; ++i) {
+      if (evaluacionGiro.responde[i]) {
+        encoderObservadoCalA[i] = true;
+        diagnosticoCal.respuestaFaseA[i] = true;
+      }
+    }
+  } else if (fase == Fase::CAL_RETORNO) {
+    for (int i = 0; i < 4; ++i) {
+      if (evaluacionGiro.responde[i]) {
+        encoderObservadoCalB[i] = true;
+        diagnosticoCal.respuestaFaseB[i] = true;
+      }
+    }
+  }
+
   const ControlCalibracion::EvidenciaPivot evidenciaPivot =
       ControlCalibracion::evaluarPivot(
           errorAng360(heading360, yawInicioGiroDeg), d, fuentesGiro,
@@ -636,7 +662,9 @@ void controlarGiro() {
           GYRO_MOVEMENT_RAD_S) &&
       evidenciaPivot.bilateral) {
     movGiroConfirmado = true;
-  } else if (ahora - inicioIntentoGiroMs > 5000) { reintentarGiro("turn_no_progress"); }
+  } else if (!movGiroConfirmado && ahora - inicioIntentoGiroMs > 5000) {
+    reintentarGiro("turn_no_progress");
+  }
 }
 
 void completarGiro() {
@@ -657,7 +685,7 @@ void completarGiro() {
     bool confiables[4] = {};
     const ControlInicializacionPCNT::Canal* pcnt = diagnosticoInicializacionPCNT();
     for (int i = 0; i < 4; ++i)
-      confiables[i] = pcnt[i].inicializado && encoderObservadoCalA[i] && encoderObservadoCalB[i];
+      confiables[i] = pcnt[i].inicializado && (encoderObservadoCalA[i] || encoderObservadoCalB[i]);
     if (!ControlSeguridad::fuentesPorLadoValidas(confiables)) {
       fallo("cal_sensor_unstable_side");
       return;
