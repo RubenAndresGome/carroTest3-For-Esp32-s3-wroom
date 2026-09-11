@@ -398,6 +398,10 @@ void test_calibracion_no_acepta_retorno_fuera_del_origen() {
       3.0f, 2.0f, 0.5f, 3.0f, 1.0f));
   TEST_ASSERT_FALSE(ControlCalibracion::retornoAlOrigenAceptable(
       0.0f, 0.0f, 1.1f, 3.0f, 1.0f));
+  TEST_ASSERT_TRUE(ControlCalibracion::retornoAlOrigenAceptable(
+      3.0f, 3.0f, 0.5f, 5.2f, 1.0f));
+  TEST_ASSERT_FALSE(ControlCalibracion::retornoAlOrigenAceptable(
+      4.0f, 4.0f, 0.5f, 5.2f, 1.0f));
 }
 
 void test_supervision_vencida_detiene_cualquier_movimiento() {

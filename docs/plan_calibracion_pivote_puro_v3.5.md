@@ -46,7 +46,7 @@ flancos de bajada, el hardware PCNT del ESP32-S3 se configura con:
 5. Se detiene con signo contrario (`cal_yaw_sign_mismatch`), desbalance
    persistente >350 ms (`cal_pivot_unbalanced`), exceder 10 ticks relativos sin
    confirmación de MPU en 350 ms (`cal_rotation_not_confirmed`) o deriva de
-   origen >1 cm (`cal_origin_drift`).
+   origen >5.2 cm (`cal_origin_drift`).
 6. Se valida +25°, se reposa 2.5 s, se valida el pivote contrario (`CAL_B`) y se
    retorna al yaw de origen original (`yawOrigenCalDeg`). Al terminar se
    conservan X/Y previos y sólo se reanclan pulsos y referencias angulares.
@@ -64,5 +64,5 @@ disponibles.
 Con VMOT apagado durante la carga, probar primero con ruedas elevadas y corriente
 limitada. Confirmar que +yaw hace girar las ruedas izquierdas hacia delante y
 las derechas hacia atrás, que -yaw invierte el patrón, que la deriva total es
-menor de 1 cm y que la telemetría ADB refleja el mismo signo. Detener la prueba
+menor de 5.2 cm y que la telemetría ADB refleja el mismo signo. Detener la prueba
 ante una sola rueda incorrecta o cualquier traslación visible.

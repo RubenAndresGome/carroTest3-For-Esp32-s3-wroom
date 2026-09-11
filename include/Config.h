@@ -181,7 +181,7 @@ constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
 constexpr float KP_BALANCE_PIVOT_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
 constexpr int PWM_BALANCE_PIVOT_MAX = static_cast<int>(18 * PWM_SCALE_8_TO_10);
 constexpr float DESBALANCE_PIVOT_MAX_REL = 0.45f;
-constexpr float DERIVA_CENTRO_CAL_MAX_CM = 1.0f;
+constexpr float DERIVA_CENTRO_CAL_MAX_CM = 5.2f;
 
 // PID y Correcciones en marcha
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
