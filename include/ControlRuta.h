@@ -19,6 +19,12 @@ struct VectorPlano {
   float y;
 };
 
+struct PuntoReingreso {
+  float xCm;
+  float yCm;
+  float avanceDesdeProyeccionCm;
+};
+
 struct EstadoPI {
   float integralGradoS = 0.0f;
 };
@@ -110,6 +116,70 @@ inline ErroresTrayectoria calcularErroresTrayectoria(
   };
 }
 
+inline PuntoReingreso calcularPuntoReingreso(
+    float posicionXCm, float posicionYCm, float objetivoXCm, float objetivoYCm,
+    float rumboPlanificadoDeg, float distanciaPlanificadaCm,
+    float errorLateralCm, float adelantoMinimoCm) {
+  const VectorPlano eje = vectorUnitarioRumbo(rumboPlanificadoDeg);
+  const float inicioXCm = objetivoXCm - distanciaPlanificadaCm * eje.x;
+  const float inicioYCm = objetivoYCm - distanciaPlanificadaCm * eje.y;
+  const float dx = posicionXCm - inicioXCm;
+  const float dy = posicionYCm - inicioYCm;
+  const float proyeccion = limitar(dx * eje.x + dy * eje.y, 0.0f,
+                                   distanciaPlanificadaCm);
+  const float adelanto = fmaxf(adelantoMinimoCm, 2.0f * fabsf(errorLateralCm));
+  const float recorridoObjetivo = limitar(proyeccion + adelanto, 0.0f,
+                                          distanciaPlanificadaCm);
+  return {
+      inicioXCm + recorridoObjetivo * eje.x,
+      inicioYCm + recorridoObjetivo * eje.y,
+      recorridoObjetivo - proyeccion,
+  };
+}
+
+inline bool desviacionFueraDeRango(float errorLateralCm, float maximoCm) {
+  return fabsf(errorLateralCm) > maximoCm;
+}
+
+inline bool debeRecentrar(float errorLateralCm, uint32_t persistenciaMs,
+                          float umbralCm, uint32_t esperaMs,
+                          float crecimientoCm, uint32_t crecimientoMs,
+                          float umbralCrecimientoCm, uint32_t esperaCrecimientoMs) {
+  return (fabsf(errorLateralCm) >= umbralCm && persistenciaMs >= esperaMs) ||
+         (crecimientoCm >= umbralCrecimientoCm &&
+          crecimientoMs >= esperaCrecimientoMs);
+}
+
+inline bool progresoEnSentidoIncorrecto(float errorLongitudinalCm,
+                                        float mejorErrorLongitudinalCm,
+                                        uint32_t persistenciaMs,
+                                        float crecimientoMaxCm,
+                                        uint32_t esperaMs) {
+  return errorLongitudinalCm >= mejorErrorLongitudinalCm + crecimientoMaxCm &&
+         persistenciaMs >= esperaMs;
+}
+
+inline bool reingresoAceptable(float errorLateralCm, float distanciaReingresoCm,
+                               float toleranciaLateralCm,
+                               float toleranciaPuntoCm) {
+  return fabsf(errorLateralCm) <= toleranciaLateralCm &&
+         distanciaReingresoCm <= toleranciaPuntoCm;
+}
+
+inline bool reingresoDivergente(float errorLateralInicialCm,
+                                float errorLateralActualCm,
+                                float distanciaRecorridaCm,
+                                uint32_t transcurridoMs,
+                                float mejoraMinimaCm,
+                                float distanciaEvaluacionCm,
+                                uint32_t tiempoEvaluacionMs) {
+  const bool evaluar = transcurridoMs >= tiempoEvaluacionMs ||
+                       distanciaRecorridaCm >= distanciaEvaluacionCm;
+  return evaluar &&
+         fabsf(errorLateralActualCm) >
+             fmaxf(0.0f, fabsf(errorLateralInicialCm) - mejoraMinimaCm);
+}
+
 inline float correccionLateralRumboDeg(float errorLateralCm, float gananciaDegPorCm,
                                        float limiteDeg) {
   // Lateral positivo equivale a estar a la derecha de la ruta; el rumbo debe
@@ -161,10 +231,8 @@ inline DecisionEndpoint decidirEndpoint(bool objetivoAbsoluto, bool endpointAcep
       : DecisionEndpoint::RECUPERAR;
 }
 
-// Una corrección menor que la tolerancia más el arrastre máximo no es una
-// maniobra repetible: el robot podría volver a pasarse y acumular giros. Se
-// detiene, conserva la evidencia y solicita calibración en vez de inventar un
-// pivote de 180° para corregir unos pocos centímetros.
+// Los waypoints absolutos son estrictos. Un residual demasiado corto para una
+// maniobra repetible se bloquea; nunca se convierte en una finalización suave.
 inline DecisionEndpoint decidirEndpointSeguro(bool objetivoAbsoluto, bool endpointAceptado,
                                               uint8_t intentosRealizados, uint8_t maximoIntentos,
                                               float distanciaErrorCm,
@@ -173,8 +241,7 @@ inline DecisionEndpoint decidirEndpointSeguro(bool objetivoAbsoluto, bool endpoi
       objetivoAbsoluto, endpointAceptado, intentosRealizados, maximoIntentos);
   return decision == DecisionEndpoint::RECUPERAR &&
              distanciaErrorCm < distanciaMinimaRecuperableCm
-      ? DecisionEndpoint::CALIBRAR
-      : decision;
+      ? DecisionEndpoint::FALLAR : decision;
 }
 
 }  // namespace ControlRuta

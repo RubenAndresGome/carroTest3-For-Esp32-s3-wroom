@@ -81,6 +81,13 @@ extern char pasoMotivoFinalizacion[40];
 extern char pasoDecisionRecuperacion[24];
 extern float pasoDistanciaRecuperacionCm;
 extern bool pasoRecuperacionUsaReversa;
+extern char pasoFaseRecentrado[24];
+extern char pasoDisparadorRecentrado[24];
+extern uint8_t pasoIntentoRecentrado;
+extern float pasoReingresoXCm;
+extern float pasoReingresoYCm;
+extern float pasoErrorLateralInicialRecentradoCm;
+extern float pasoMejoraRecentradoCm;
 
 // Diagnóstico longitudinal publicado por JSON. Permite ajustar escala y
 // frenado desde la telemetría de tablet cuando no hay osciloscopio.

@@ -38,16 +38,40 @@ class EventHub:
     def publish(self, kind: str, payload: dict[str, Any]) -> None:
         encoded = json.dumps({"type": kind, "payload": payload}, ensure_ascii=False, separators=(",", ":"))
         with self._lock:
-            subscribers = tuple(self._subscribers)
-        for subscriber in subscribers:
+            for subscriber in tuple(self._subscribers):
+                self._publish_to_subscriber(subscriber, kind, encoded)
+
+    @staticmethod
+    def _is_telemetry(encoded: str) -> bool:
+        return encoded.startswith('{"type":"telemetry",')
+
+    def _publish_to_subscriber(self, subscriber: queue.Queue[str], kind: str,
+                               encoded: str) -> None:
+        # Una cola lenta conserva como máximo una telemetría pendiente. Los
+        # resultados de misión, seguridad y conexión nunca son desplazados por
+        # una ráfaga de muestras de pose.
+        pending: list[str] = []
+        try:
+            while True:
+                pending.append(subscriber.get_nowait())
+        except queue.Empty:
+            pass
+        if kind == "telemetry":
+            pending = [item for item in pending if not self._is_telemetry(item)]
+        elif len(pending) >= self._subscriber_size:
+            telemetry_index = next(
+                (index for index, item in enumerate(pending) if self._is_telemetry(item)), None
+            )
+            if telemetry_index is not None:
+                pending.pop(telemetry_index)
+            elif pending:
+                pending.pop(0)
+        pending.append(encoded)
+        for item in pending[-self._subscriber_size:]:
             try:
-                subscriber.put_nowait(encoded)
+                subscriber.put_nowait(item)
             except queue.Full:
-                try:
-                    subscriber.get_nowait()
-                    subscriber.put_nowait(encoded)
-                except (queue.Empty, queue.Full):
-                    pass
+                break
 
 
 class TelemetryRecorder:
@@ -481,6 +505,12 @@ class RobotService:
                           kind: str, final_heading: float | None = None,
                           mode: str = "rectangular",
                           logical_steps: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        with self._lock:
+            telemetry = self._last_telemetry
+        if telemetry is None or "route_axis_recenter_v1" not in telemetry.capabilities:
+            raise RuntimeError(
+                "Las rutas estrictas requieren route_axis_recenter_v1; actualiza el firmware"
+            )
         if kind == "outbound":
             previous_route = self.database.get_setting("last_completed_route", None)
             if isinstance(previous_route, dict) and previous_route.get("return_state") == "available":
@@ -976,7 +1006,6 @@ class RobotService:
         command = RobotCommand.create(name, payload, seq=seq, command_id=command_id_override)
         with self._lock:
             session_id = self._session_id
-        now = time.monotonic()
         persist = command.name != "manual_drive"
         if persist and command_id_override is None:
             self.database.insert_command(command.command_id, session_id, command.name, command.payload, CommandStatus.QUEUED.value)
@@ -1132,19 +1161,14 @@ class RobotService:
                 })
         if mission_match and kind in {"completed", "already_done"}:
             detail = str(message.get("detail") or message.get("reason") or "")
-            with self._lock:
-                is_final_segment = (
-                    self._mission_stage == "executing"
-                    and self._mission_index == len(self._mission_points) - 1
-                )
-                if detail == "step_ok_endpoint_soft":
+            if detail == "step_ok_endpoint_soft":
+                with self._lock:
                     self._mission_warnings.append({
                         "segment_index": self._mission_index,
                         "detail": detail,
-                        "final": is_final_segment,
+                        "final": self._mission_index == len(self._mission_points) - 1,
                     })
-            if detail == "step_ok_endpoint_soft" and is_final_segment:
-                self._block_mission("final_endpoint_out_of_tolerance")
+                self._block_mission("waypoint_endpoint_out_of_tolerance")
             else:
                 self._advance_mission()
         elif mission_match and kind in {"rejected", "fault"}:

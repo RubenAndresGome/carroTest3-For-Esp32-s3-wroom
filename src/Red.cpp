@@ -50,7 +50,21 @@ static bool iniciarAP() {
 // ------ envío de JSON por WebSocket ------
 static void enviarJSON(const JsonDocument& doc) {
   size_t len = measureJson(doc);
-  if (len > MAX_WS_MSG) return;
+  if (len > MAX_WS_MSG) {
+    StaticJsonDocument<256> diagnostico;
+    diagnostico["evt"] = "diagnostic";
+    diagnostico["detail"] = "ws_message_too_large";
+    diagnostico["measured_bytes"] = len;
+    diagnostico["max_bytes"] = MAX_WS_MSG;
+    diagnostico["seq"] = seqActivo;
+    const size_t compactLen = measureJson(diagnostico);
+    serializeJson(diagnostico, msgBuf, MAX_WS_MSG + 1);
+    if (clienteActivo && clienteActivo->canSend())
+      ws.textAll(msgBuf, compactLen);
+    Serial.printf("[RED] JSON descartado: %u > %u bytes\n",
+                  static_cast<unsigned>(len), MAX_WS_MSG);
+    return;
+  }
   serializeJson(doc, msgBuf, MAX_WS_MSG + 1);
   if (clienteActivo && clienteActivo->canSend()) ws.textAll(msgBuf, len);
 }
@@ -73,7 +87,7 @@ static void manejarHello(const JsonObject& o) {
       break;
     }
   }
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<384> doc;
   doc["evt"] = "hello_ack";
   doc["session"] = sessionId;
   doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
@@ -83,6 +97,7 @@ static void manejarHello(const JsonObject& o) {
   doc["manual_drive_v1"] = true;
   doc["motion_supervision_v1"] = true;
   doc["calibration_pivot_guard_v1"] = true;
+  doc["route_axis_recenter_v1"] = true;
   renovarSupervisionControl();
   if (ultimoFalloDetalle[0]) doc["fault"] = ultimoFalloDetalle;
   enviarJSON(doc);
@@ -207,7 +222,7 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
       if (clienteActivo && clienteActivo != c) { c->close(4000, "single_client"); return; }
       clienteActivo = c;
       {
-        StaticJsonDocument<256> doc;
+        StaticJsonDocument<384> doc;
         doc["evt"] = "welcome";
         doc["session"] = sessionId;
         doc["state"] = (estadoActual==DESARMADO?"desarmado":estadoActual==LISTO?"listo":estadoActual==EJECUTANDO?"ejecutando":estadoActual==MANUAL?"manual":estadoActual==CALIBRANDO?"calibrando":estadoActual==FALLO?"fallo":"estop");
@@ -217,6 +232,7 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
         doc["manual_drive_v1"] = true;
         doc["motion_supervision_v1"] = true;
         doc["calibration_pivot_guard_v1"] = true;
+        doc["route_axis_recenter_v1"] = true;
         enviarJSON(doc);
       }
       break;
@@ -361,6 +377,8 @@ static void enviarTelemetria() {
   calDiag["ramp_level_count"] = diagnosticoCal.pasosRampaTotal;
   calDiag["pwm_10bit"] = diagnosticoCal.pwmObjetivo;
   calDiag["pwm_8bit"] = lroundf(diagnosticoCal.pwmObjetivo / PWM_SCALE_8_TO_10);
+  calDiag["attempt"] = diagnosticoCal.intentoGuard;
+  calDiag["attempt_max"] = diagnosticoCal.intentosGuardMax;
   calDiag["direction_candidate"] = diagnosticoCal.candidatoDireccion;
   calDiag["expected_yaw_sign"] = diagnosticoCal.signoYawEsperado;
   calDiag["gyro_z_rad_s"] = diagnosticoCal.gyroZRadS;
@@ -457,6 +475,14 @@ static void enviarTelemetria() {
   recuperacion["direction"] = pasoRecuperacionUsaReversa ? "reverse" : "forward";
   recuperacion["pivot_avoided"] = pasoRecuperacionUsaReversa;
   recuperacion["min_distance_cm"] = DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM;
+  recuperacion["phase"] = pasoFaseRecentrado;
+  recuperacion["trigger"] = pasoDisparadorRecentrado;
+  recuperacion["attempt"] = pasoIntentoRecentrado;
+  recuperacion["attempt_max"] = RECENTER_MAX_ATTEMPTS;
+  recuperacion["rejoin_x_cm"] = pasoReingresoXCm;
+  recuperacion["rejoin_y_cm"] = pasoReingresoYCm;
+  recuperacion["initial_lateral_cm"] = pasoErrorLateralInicialRecentradoCm;
+  recuperacion["improvement_cm"] = pasoMejoraRecentradoCm;
   JsonObject antiFriccion = doc.createNestedObject("anti_friction");
   antiFriccion["active"] = antiFriccionActiva;
   antiFriccion["pulse_on"] = antiFriccionPulsoEncendido;
@@ -486,6 +512,7 @@ static void enviarTelemetria() {
   JsonArray capacidades = doc.createNestedArray("capabilities");
   capacidades.add("manual_drive_v1");
   capacidades.add("motion_supervision_v1");
+  capacidades.add("route_axis_recenter_v1");
   capacidades.add(CAPABILITY_CALIBRATION_PIVOT_GUARD);
   ManualDriveFrame manual = {};
   const bool manualValida = leerManualDrive(manual);

@@ -17,6 +17,8 @@ struct DiagnosticoCalibracion {
   float derivaXCm = 0.0f;
   float derivaYCm = 0.0f;
   uint32_t tiempoPruebaMs = 0;
+  uint8_t intentoGuard = 1;
+  uint8_t intentosGuardMax = 1;
   bool rotacionConfirmada = false;
   bool rampaCongelada = false;
   const char* motivoGuard = "idle";

@@ -192,7 +192,23 @@ constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
 constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 35.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
 constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
-constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 8.0f;
+constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 3.0f;
+constexpr float RECENTER_LATERAL_DEADBAND_CM = 2.0f;
+constexpr float RECENTER_TRIGGER_CM = 5.0f;
+constexpr float RECENTER_MAX_LATERAL_CM = 20.0f;
+constexpr uint32_t RECENTER_TRIGGER_MS = 300;
+constexpr float RECENTER_GROWTH_TRIGGER_CM = 1.0f;
+constexpr uint32_t RECENTER_GROWTH_MS = 500;
+constexpr uint32_t RECENTER_SETTLE_MS = 300;
+constexpr uint32_t RECENTER_TIMEOUT_MS = 30000;
+constexpr uint8_t RECENTER_MAX_ATTEMPTS = 2;
+constexpr float RECENTER_LOOKAHEAD_MIN_CM = 10.0f;
+constexpr float RECENTER_POINT_TOLERANCE_CM = 5.0f;
+constexpr float RECENTER_MIN_IMPROVEMENT_CM = 1.0f;
+constexpr float RECENTER_EVALUATION_DISTANCE_CM = 3.0f;
+constexpr uint32_t RECENTER_EVALUATION_MS = 1000;
+constexpr float WRONG_WAY_GROWTH_CM = 2.0f;
+constexpr uint32_t WRONG_WAY_PERSIST_MS = 400;
 constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 135.0f;
 
 // Calibración y rampa incremental por búsqueda continua de torque nativa en 10 bits (560 a 990 / 1023).
@@ -206,8 +222,12 @@ constexpr uint32_t CAL_RAMP_INTERVAL_MS = 150; // 150 ms para rampa progresiva s
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 1;  // Con 20 PPR, 1 tick representa 1 ranura completa
 constexpr uint32_t CAL_PIVOT_GUARD_WINDOW_MS = 350;
-constexpr int64_t  CAL_PIVOT_GUARD_TICKS_MAX = 10; // Ticks relativos tolerados antes de confirmar rotación
 constexpr uint32_t CAL_PIVOT_UNBALANCED_MS = 350;
+constexpr uint32_t CAL_GUARD_RETRY_PAUSE_MS = 750;
+// Cada intento vuelve a tomar baseline y recorre la rampa completa. Once
+// intentos permiten absorber una lectura espuria sin quitar los fallos de
+// signo contrario, pérdida de lado o deriva de origen.
+constexpr uint8_t  CAL_GUARD_MAX_ATTEMPTS = 11;
 constexpr uint32_t CAL_MAX_PWM_STALL_MS = 800;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.40f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 1500;

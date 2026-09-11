@@ -137,13 +137,49 @@ void test_fallo_endpoint_despues_de_dos_intentos() {
                           static_cast<uint8_t>(ControlRuta::decidirEndpoint(true, false, 2, 2)));
 }
 
-void test_endpoint_corto_pide_calibracion_y_el_largo_se_recupera() {
-  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlRuta::DecisionEndpoint::CALIBRAR),
+void test_endpoint_corto_falla_y_el_largo_se_recupera() {
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlRuta::DecisionEndpoint::FALLAR),
                           static_cast<uint8_t>(ControlRuta::decidirEndpointSeguro(
                               true, false, 0, 2, 6.7f, 13.0f)));
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlRuta::DecisionEndpoint::RECUPERAR),
                           static_cast<uint8_t>(ControlRuta::decidirEndpointSeguro(
                               true, false, 0, 2, 24.0f, 13.0f)));
+}
+
+void test_reingreso_se_proyecta_sobre_ejes_ortogonales_y_se_limita_al_endpoint() {
+  const auto vertical = ControlRuta::calcularPuntoReingreso(
+      6.0f, 40.0f, 0.0f, 100.0f, 0.0f, 100.0f, 6.0f, 10.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, vertical.xCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 52.0f, vertical.yCm);
+  const auto horizontal = ControlRuta::calcularPuntoReingreso(
+      92.0f, -7.0f, 100.0f, 0.0f, 90.0f, 100.0f, -7.0f, 10.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, horizontal.xCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, horizontal.yCm);
+}
+
+void test_disparadores_recentrado_y_sentido_incorrecto_exigen_persistencia() {
+  TEST_ASSERT_FALSE(ControlRuta::debeRecentrar(
+      5.0f, 299, 5.0f, 300, 0.0f, 0, 1.0f, 500));
+  TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
+      5.0f, 300, 5.0f, 300, 0.0f, 0, 1.0f, 500));
+  TEST_ASSERT_TRUE(ControlRuta::debeRecentrar(
+      3.0f, 0, 5.0f, 300, 1.0f, 500, 1.0f, 500));
+  TEST_ASSERT_FALSE(ControlRuta::progresoEnSentidoIncorrecto(
+      52.0f, 50.0f, 399, 2.0f, 400));
+  TEST_ASSERT_TRUE(ControlRuta::progresoEnSentidoIncorrecto(
+      52.0f, 50.0f, 400, 2.0f, 400));
+}
+
+void test_reingreso_exige_centro_y_mejora_real() {
+  TEST_ASSERT_TRUE(ControlRuta::reingresoAceptable(2.0f, 5.0f, 2.0f, 5.0f));
+  TEST_ASSERT_FALSE(ControlRuta::reingresoAceptable(2.1f, 4.0f, 2.0f, 5.0f));
+  TEST_ASSERT_FALSE(ControlRuta::reingresoDivergente(
+      6.0f, 5.2f, 2.0f, 900, 1.0f, 3.0f, 1000));
+  TEST_ASSERT_TRUE(ControlRuta::reingresoDivergente(
+      6.0f, 5.2f, 3.0f, 900, 1.0f, 3.0f, 1000));
+  TEST_ASSERT_FALSE(ControlRuta::reingresoDivergente(
+      6.0f, 4.9f, 3.0f, 1000, 1.0f, 3.0f, 1000));
+  TEST_ASSERT_TRUE(ControlRuta::desviacionFueraDeRango(20.1f, 20.0f));
 }
 
 void test_imu_perdida_se_detecta() {
@@ -362,23 +398,23 @@ void test_guard_pivote_exige_signo_mpu_y_frena_fallos() {
   // Confirmación por velocidad gyro sostenida
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMADO),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.20f, 2.0f, evidencia, 120, 100, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+          1, 0.20f, 2.0f, evidencia, 120, 100, 0, 0.08f, 100, 350, 350, 0.5f)));
   // Confirmación por ángulo acumulado del MPU (yaw >= 0.5° aún con gyro bajo)
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMADO),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.04f, 0.6f, evidencia, 120, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+          1, 0.04f, 0.6f, evidencia, 120, 0, 0, 0.08f, 100, 350, 350, 0.5f)));
   // En progreso de validación MPU (ticks ok, pero sin yaw suficiente ni gyro sostenido aún)
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMANDO_YAW),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.04f, 0.3f, evidencia, 120, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+          1, 0.04f, 0.3f, evidencia, 120, 0, 0, 0.08f, 100, 350, 350, 0.5f)));
   // Signo MPU opuesto detectado
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::SIGNO_INCORRECTO),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, -0.20f, -2.0f, evidencia, 20, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+          1, -0.20f, -2.0f, evidencia, 20, 0, 0, 0.08f, 100, 350, 350, 0.5f)));
   // Rotación no confirmada al expirar ventana de tiempo
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::ROTACION_NO_CONFIRMADA),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.0f, 0.0f, evidencia, 350, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+          1, 0.0f, 0.0f, evidencia, 350, 0, 0, 0.08f, 100, 350, 350, 0.5f)));
 }
 
 void test_guard_pivote_detecta_desbalance_persistente() {
@@ -388,7 +424,56 @@ void test_guard_pivote_detecta_desbalance_persistente() {
       4.0f, ticks, confiable, 2, 0.20f);
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::DESBALANCEADO),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.20f, 2.0f, evidencia, 120, 100, 300, 0.12f, 100, 300, 4, 300)));
+          1, 0.20f, 2.0f, evidencia, 120, 100, 300, 0.12f, 100, 300, 300)));
+}
+
+void test_guard_no_frena_por_desbalance_mientras_aun_busca_torque() {
+  const int64_t ticks[4] = {2, 8, 2, 8};
+  const bool confiable[4] = {true, true, true, true};
+  const auto evidencia = ControlCalibracion::evaluarPivot(
+      0.2f, ticks, confiable, 1, 0.20f);
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlCalibracion::AccionGuardPivot::CONTINUAR_RAMPA),
+      static_cast<uint8_t>(ControlCalibracion::decidirAccionGuardPivot(
+          ControlCalibracion::ResultadoGuardPivot::DESBALANCEADO,
+          700, 990, 1, 2)));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlCalibracion::AccionGuardPivot::PAUSAR_REINTENTO),
+      static_cast<uint8_t>(ControlCalibracion::decidirAccionGuardPivot(
+          ControlCalibracion::ResultadoGuardPivot::DESBALANCEADO,
+          990, 990, 1, 2)));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlCalibracion::AccionGuardPivot::FALLAR),
+      static_cast<uint8_t>(ControlCalibracion::decidirAccionGuardPivot(
+          ControlCalibracion::ResultadoGuardPivot::DESBALANCEADO,
+          990, 990, 2, 2)));
+  TEST_ASSERT_TRUE(evidencia.bilateral);
+  TEST_ASSERT_FALSE(evidencia.equilibrado);
+}
+
+void test_guard_relativo_ignora_ticks_anteriores_al_baseline() {
+  const int64_t sin_tick_nuevo[4] = {0, 0, 0, 0};
+  const bool confiable[4] = {true, true, true, true};
+  const auto evidencia = ControlCalibracion::evaluarPivot(
+      -0.6f, sin_tick_nuevo, confiable, 1, 0.45f);
+  TEST_ASSERT_FALSE(evidencia.bilateral);
+  TEST_ASSERT_FALSE(evidencia.equilibrado);
+}
+
+void test_guard_calibracion_permite_once_intentos() {
+  TEST_ASSERT_EQUAL_UINT8(11, CAL_GUARD_MAX_ATTEMPTS);
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlCalibracion::AccionGuardPivot::PAUSAR_REINTENTO),
+      static_cast<uint8_t>(ControlCalibracion::decidirAccionGuardPivot(
+          ControlCalibracion::ResultadoGuardPivot::ROTACION_NO_CONFIRMADA,
+          CALIBRATION_PWM_END, CALIBRATION_PWM_END, 10,
+          CAL_GUARD_MAX_ATTEMPTS)));
+  TEST_ASSERT_EQUAL_UINT8(
+      static_cast<uint8_t>(ControlCalibracion::AccionGuardPivot::FALLAR),
+      static_cast<uint8_t>(ControlCalibracion::decidirAccionGuardPivot(
+          ControlCalibracion::ResultadoGuardPivot::ROTACION_NO_CONFIRMADA,
+          CALIBRATION_PWM_END, CALIBRATION_PWM_END, 11,
+          CAL_GUARD_MAX_ATTEMPTS)));
 }
 
 void test_calibracion_no_acepta_retorno_fuera_del_origen() {
@@ -454,7 +539,10 @@ int main(int, char**) {
   RUN_TEST(test_integral_acumula_y_se_limita_fuera_de_saturacion);
   RUN_TEST(test_distancia_sola_no_acepta_endpoint);
   RUN_TEST(test_fallo_endpoint_despues_de_dos_intentos);
-  RUN_TEST(test_endpoint_corto_pide_calibracion_y_el_largo_se_recupera);
+  RUN_TEST(test_endpoint_corto_falla_y_el_largo_se_recupera);
+  RUN_TEST(test_reingreso_se_proyecta_sobre_ejes_ortogonales_y_se_limita_al_endpoint);
+  RUN_TEST(test_disparadores_recentrado_y_sentido_incorrecto_exigen_persistencia);
+  RUN_TEST(test_reingreso_exige_centro_y_mejora_real);
   RUN_TEST(test_imu_perdida_se_detecta);
   RUN_TEST(test_encoder_incoherente_se_detecta);
   RUN_TEST(test_pico_pcnt_imposible_no_puede_contaminar_odometria);
@@ -477,6 +565,9 @@ int main(int, char**) {
   RUN_TEST(test_calibracion_no_acepta_retorno_fuera_del_origen);
   RUN_TEST(test_guard_pivote_exige_signo_mpu_y_frena_fallos);
   RUN_TEST(test_guard_pivote_detecta_desbalance_persistente);
+  RUN_TEST(test_guard_no_frena_por_desbalance_mientras_aun_busca_torque);
+  RUN_TEST(test_guard_relativo_ignora_ticks_anteriores_al_baseline);
+  RUN_TEST(test_guard_calibracion_permite_once_intentos);
   RUN_TEST(test_supervision_vencida_detiene_cualquier_movimiento);
   RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
   return UNITY_END();

@@ -37,15 +37,18 @@ Para garantizar exactitud métrica sin devorar pulsos con el level shifter TXS01
 1. Reposo y baseline de MPU, pulsos y pose durante 5 s (`CAL_CUENTA`).
 2. Rampa de búsqueda de torque continua en **10 bits nativos**: de 560 (~55 % duty)
    a 990 (~97 % duty) con pasos de 10 unidades (~1 % duty) cada 150 ms.
-3. Al detectarse movimiento bilateral inicial, la rampa se congela y se establece
-   una línea base de ticks relativos (`ticksBasePruebaRotacionCal`).
+3. Al detectarse movimiento bilateral inicial se establece una línea base de
+   ticks relativos (`ticksBasePruebaRotacionCal`); los pulsos anteriores no se
+   reutilizan como evidencia. La rampa continúa hasta confirmar el pivote o
+   alcanzar el PWM máximo.
 4. **MPU como autoridad directora única**: La rotación se confirma si:
    - Velocidad angular filtrada `gyro_z >= 0.08 rad/s` en signo correcto sostenida durante 100 ms, O
    - Desplazamiento angular acumulado $|\Delta\text{yaw}| \ge 0.5^\circ$ en sentido correcto.
-5. Se detiene con signo contrario (`cal_yaw_sign_mismatch`), desbalance
-   persistente >350 ms (`cal_pivot_unbalanced`), exceder 10 ticks relativos sin
-   confirmación de MPU en 350 ms (`cal_rotation_not_confirmed`) o deriva de
-   origen >10 cm (`cal_origin_drift`).
+5. Se detiene con signo contrario (`cal_yaw_sign_mismatch`) o deriva de origen
+   >10 cm (`cal_origin_drift`). Al llegar al PWM máximo, un desbalance o falta
+   de confirmación durante 350 ms (`cal_pivot_unbalanced` /
+   `cal_rotation_not_confirmed`) provoca una pausa de 750 ms y un nuevo
+   barrido; sólo después de agotar los once intentos se emite el fallo.
 6. Se valida +25°, se reposa 2.5 s, se valida el pivote contrario (`CAL_B`) y se
    retorna al yaw de origen original (`yawOrigenCalDeg`). Al terminar se
    conservan X/Y previos y sólo se reanclan pulsos y referencias angulares.

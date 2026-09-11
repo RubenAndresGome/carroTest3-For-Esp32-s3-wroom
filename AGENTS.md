@@ -79,11 +79,13 @@ el cableado.
   en modo degradado; perder todas las fuentes de cualquier lado detiene el
   movimiento. El control recto usa los deltas filtrados, no el error acumulado.
 - La calibración v3.5 no descubre ni invierte polaridades: conserva reposo de
-  5 s, valida primero +yaw (L+/R−), congela la rampa al primer tick bilateral,
-  exige `gyro_z` con signo correcto durante 100 ms y falla a los 300 ms o cuatro
-  ticks por lado si el MPU no confirma rotación. Desbalance persistente, signo
-  contrario o deriva >1 cm producen `cal_pivot_unbalanced`,
-  `cal_yaw_sign_mismatch` o `cal_origin_drift`.
+  5 s y valida primero +yaw (L+/R−). Los ticks previos al baseline se ignoran
+  y la rampa continúa hasta que el MPU o el movimiento relativo confirmen el
+  pivote; no se congela por un tick bilateral aislado. Al alcanzar el PWM
+  máximo se audita durante 350 ms y, si falta confirmación o hay desbalance,
+  permite pausas de 750 ms y hasta once barridos antes de fallar. Signo
+  contrario, pérdida total de un lado o deriva >10 cm producen
+  `cal_yaw_sign_mismatch`, `cal_pivot_unbalanced` o `cal_origin_drift`.
 - El signo del giro sigue continuamente el error real. Al entrar en ±2° se
   apagan motores; un sobrepaso baja PWM a cero, respeta el interlock universal
   y corrige en sentido contrario sin pausa residual ni vuelta inventada.

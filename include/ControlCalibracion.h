@@ -105,17 +105,13 @@ inline bool signoGyroContrario(int signoYawEsperado, float gyroZRadS,
   return gyroZRadS * signo <= -gyroMinimoRadS;
 }
 
-inline bool congelarRampaTrasTicks(const EvidenciaPivot& evidencia) {
-  return evidencia.bilateral;
-}
-
 inline ResultadoGuardPivot evaluarGuardPivot(
     int signoYawEsperado, float gyroZRadS, float deltaYawDeg,
     const EvidenciaPivot& evidencia, uint32_t verificacionMs,
     uint32_t yawCorrectoSostenidoMs, uint32_t desbalanceSostenidoMs,
     float gyroMinimoRadS, uint32_t yawSostenidoRequeridoMs,
-    uint32_t ventanaMaximaMs, int64_t ticksMaximosPorLado,
-    uint32_t desbalanceMaximoMs, float deltaYawMinimoConfirmarDeg = 0.5f) {
+    uint32_t ventanaMaximaMs, uint32_t desbalanceMaximoMs,
+    float deltaYawMinimoConfirmarDeg = 0.5f) {
   if (!evidencia.bilateral) return ResultadoGuardPivot::ESPERANDO_TICKS;
   const int signo = signoYawEsperado >= 0 ? 1 : -1;
   if (signoGyroContrario(signoYawEsperado, gyroZRadS, gyroMinimoRadS) ||
@@ -133,12 +129,33 @@ inline ResultadoGuardPivot evaluarGuardPivot(
   if (evidencia.equilibrado && (rotacionPorGyro || rotacionPorAngulo)) {
     return ResultadoGuardPivot::CONFIRMADO;
   }
-  if (verificacionMs >= ventanaMaximaMs ||
-      (evidencia.izquierda >= static_cast<float>(ticksMaximosPorLado) &&
-       evidencia.derecha >= static_cast<float>(ticksMaximosPorLado))) {
+  if (verificacionMs >= ventanaMaximaMs) {
     return ResultadoGuardPivot::ROTACION_NO_CONFIRMADA;
   }
   return ResultadoGuardPivot::CONFIRMANDO_YAW;
+}
+
+enum class AccionGuardPivot : uint8_t {
+  CONTINUAR_RAMPA,
+  PAUSAR_REINTENTO,
+  FALLAR
+};
+
+inline AccionGuardPivot decidirAccionGuardPivot(
+    ResultadoGuardPivot resultado, int pwmActual, int pwmMaximo,
+    uint8_t intentoActual, uint8_t intentosMaximos) {
+  if (resultado == ResultadoGuardPivot::SIGNO_INCORRECTO) {
+    return AccionGuardPivot::FALLAR;
+  }
+  const bool falloRecuperable =
+      resultado == ResultadoGuardPivot::ROTACION_NO_CONFIRMADA ||
+      resultado == ResultadoGuardPivot::DESBALANCEADO;
+  if (!falloRecuperable || pwmActual < pwmMaximo) {
+    return AccionGuardPivot::CONTINUAR_RAMPA;
+  }
+  return intentoActual < intentosMaximos
+      ? AccionGuardPivot::PAUSAR_REINTENTO
+      : AccionGuardPivot::FALLAR;
 }
 
 inline bool retornoAlOrigenAceptable(float derivaXCm, float derivaYCm,

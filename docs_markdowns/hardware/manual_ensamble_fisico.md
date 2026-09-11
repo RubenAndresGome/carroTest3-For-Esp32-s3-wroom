@@ -59,7 +59,7 @@ física. No se cambia para corregir ejes, sentido, calibración o PID.
 | IN3/OUT3 | GPIO17 | FR FWD | amarillo |
 | IN4/OUT4 | GPIO18 | FR REV | naranja |
 
-El PWM actual es de 5 kHz y 10 bits, con límite de 230/255 (aproximadamente 90 %, 923/1023) en avance y 247/255 en giro y calibración. La dirección lógica es individual por rueda: positivo activa FL6/BL4/FR17/BR15 y negativo FL7/BL5/FR18/BR16. La calibración v3.5 sólo pivota sobre el centro: congela la rampa al primer tick bilateral, exige signo MPU sostenido 100 ms y falla por signo contrario, falta de rotación, desbalance o deriva superior a 1 cm. Toda inversión deja ambos canales del lado apagados durante al menos 250 ms. Si una rueda individual gira contra las demás, detenga el sistema y compruebe su par de cables y GPIO.
+El PWM actual es de 5 kHz y 10 bits, con límite de 230/255 (aproximadamente 90 %, 923/1023) en avance y 247/255 en giro y calibración. La dirección lógica es individual por rueda: positivo activa FL6/BL4/FR17/BR15 y negativo FL7/BL5/FR18/BR16. La calibración v3.5 sólo pivota sobre el centro: toma un baseline de ticks relativos y mantiene la rampa hasta confirmar el giro; al PWM máximo audita 350 ms y permite hasta once barridos, separados por pausas de 750 ms. Toda inversión deja ambos canales del lado apagados durante al menos 250 ms. Si una rueda individual gira contra las demás, detenga el sistema y compruebe su par de cables y GPIO.
 
 El DRV8833 original incorpora resistencias pull-down internas en sus entradas de control (aproximadamente 150 kΩ; `nSLEEP` usa aproximadamente 500 kΩ). Resistencias externas de 10 kΩ son opcionales como defensa adicional para módulos clon, no un requisito del integrado original.
 

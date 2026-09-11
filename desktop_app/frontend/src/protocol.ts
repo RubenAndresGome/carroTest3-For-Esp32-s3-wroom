@@ -58,6 +58,8 @@ export interface Telemetry {
     readonly ramp_level_count?: number;
     readonly pwm_8bit?: number;
     readonly pwm_10bit?: number;
+    readonly attempt?: number;
+    readonly attempt_max?: number;
     readonly direction_candidate?: number;
     readonly encoder_delta?: readonly [number, number, number, number];
     readonly encoder_responding?: readonly [boolean, boolean, boolean, boolean];
@@ -91,6 +93,22 @@ export interface Telemetry {
     readonly encoder_pwm?: number;
     readonly lateral_correction_deg?: number;
     readonly right_compensation?: number;
+  };
+  readonly recovery: {
+    readonly decision?: string;
+    readonly distance_cm?: number;
+    readonly direction?: "forward" | "reverse" | string;
+    readonly pivot_avoided?: boolean;
+    readonly min_distance_cm?: number;
+    readonly phase?: "inactive" | "pause" | "turn_to_axis" | "drive_to_axis" |
+      "verify" | "restore_heading" | "resumed" | string;
+    readonly trigger?: string;
+    readonly attempt?: number;
+    readonly attempt_max?: number;
+    readonly rejoin_x_cm?: number;
+    readonly rejoin_y_cm?: number;
+    readonly initial_lateral_cm?: number;
+    readonly improvement_cm?: number;
   };
   readonly turn_requested_mode: "AUTO" | "PIVOT" | string;
   readonly turn_mode: "PIVOT_CONTINUOUS" | string;

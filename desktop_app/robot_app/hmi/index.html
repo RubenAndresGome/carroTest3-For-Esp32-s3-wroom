@@ -1649,7 +1649,7 @@
             </div>
 
             <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-accent" id="btn-route-start" data-action="programar" title="Ejecutar recorrido ortogonal planificado">▶ Ejecutar ruta ortogonal</button>
+                <button type="button" class="btn btn-accent" id="btn-route-start" data-action="programar" title="Programar recorrido ortogonal planificado">▶ Ejecutar ruta ortogonal</button>
                 <button type="button" class="btn" id="btn-route-preview">👁 Previsualizar</button>
                 <button type="button" class="btn btn-stop" id="btn-route-stop">⏹ Detener</button>
                 <button type="button" class="btn" id="btn-route-discard">🗑 Descartar</button>
@@ -1673,6 +1673,7 @@
                             <tr><td>Rumbo dinámico / eθ</td><td id="route-live-heading">0.0° / 0.0°</td><td>Encoder / comp.</td><td id="route-live-assist">0.0 / 1.00</td></tr>
                             <tr><td>Sentido / rumbo</td><td id="route-live-motion">forward · 0°</td><td>Freno / arrastre</td><td id="route-live-brake">0.0 / 0.0 cm</td></tr>
                             <tr><td>Endpoint / decisión</td><td id="route-live-endpoint">sin corrección</td><td>Corrección / pivote</td><td id="route-live-recovery">—</td></tr>
+                            <tr><td>Render HMI</td><td id="route-live-render">0 recibidas · 0 renderizadas</td><td>Coalescidas</td><td id="route-live-coalesced">0</td></tr>
                             <tr><td>Arco de giro</td><td id="route-live-arc">0.0 cm</td><td>Traslación X / Y</td><td id="route-live-turn-xy">0.0 / 0.0 cm</td></tr>
                             <tr><td>Sup. Izq.</td><td id="route-live-fl">0</td><td>Sup. Der.</td><td id="route-live-fr">0</td></tr>
                             <tr><td>Inf. Izq.</td><td id="route-live-bl">0</td><td>Inf. Der.</td><td id="route-live-br">0</td></tr>
@@ -1885,6 +1886,10 @@
         events: null,
         lastRtosKey: '',
         lastYawRecenterCount: 0,
+        pendingTelemetry: null,
+        telemetryRenderScheduled: false,
+        telemetryCounters: {received:0, rendered:0, coalesced:0},
+        lastRobotChartRenderMs: 0,
         appToken: document.querySelector('meta[name="app-token"]')?.content || '',
         get flaskMode() { return Boolean(this.appToken); },
         init() {
@@ -1940,11 +1945,35 @@
             this.events.addEventListener('snapshot', receive);
             this.events.onmessage = receive;
             this.events.onerror = () => LogSystem.add('WARN', 'Canal SSE local interrumpido; el navegador reintentará.');
-            this.api('/api/v1/status').then(snapshot => this.consumeBackend(snapshot)).catch(error => LogSystem.add('ERROR', error.message));
+            this.events.onopen = () => this.reconcileBackendSnapshot();
+            this.reconcileBackendSnapshot();
+        },
+        reconcileBackendSnapshot() {
+            this.api('/api/v1/status').then(snapshot => this.consumeBackend(snapshot))
+                .catch(error => LogSystem.add('ERROR', error.message));
+        },
+        queueBackendTelemetry(raw) {
+            this.telemetryCounters.received++;
+            if(this.pendingTelemetry)this.telemetryCounters.coalesced++;
+            this.pendingTelemetry=raw;
+            if(this.telemetryRenderScheduled)return;
+            this.telemetryRenderScheduled=true;
+            setTimeout(()=>{
+                this.telemetryRenderScheduled=false;
+                const latest=this.pendingTelemetry;
+                this.pendingTelemetry=null;
+                if(!latest)return;
+                this.telemetryCounters.rendered++;
+                this.applyBackendTelemetry(latest);
+                const render=document.getElementById('route-live-render');
+                const coalesced=document.getElementById('route-live-coalesced');
+                if(render)render.textContent=`${this.telemetryCounters.received} recibidas · ${this.telemetryCounters.rendered} renderizadas`;
+                if(coalesced)coalesced.textContent=String(this.telemetryCounters.coalesced);
+            },100);
         },
         consumeBackend(message) {
             if (message.type) {
-                if (message.type === 'telemetry') this.applyBackendTelemetry(message.payload);
+                if (message.type === 'telemetry') this.queueBackendTelemetry(message.payload);
                 else if (message.type === 'connection') ConnectionPanel.applyConnection(message.payload);
                 else if (message.type === 'session') { ConnectionPanel.applySession(message.payload); ConnectionPanel.loadHistory(); }
                 else if (message.type === 'mission') RouteManager.onMission(message.payload);
@@ -1958,7 +1987,7 @@
                 return;
             }
             if (message.connection) ConnectionPanel.applySnapshot(message);
-            if (message.telemetry) this.applyBackendTelemetry(message.telemetry);
+            if (message.telemetry) this.queueBackendTelemetry(message.telemetry);
             if (message.mission) RouteManager.onMission(message.mission);
         },
         applyBackendTelemetry(raw) {
@@ -1970,7 +1999,12 @@
             if(typeof Touch!=='undefined')Touch.setCapability(manualDrive);
             const telemX = Number(raw.x_mm || 0) / 10;
             const telemY = Number(raw.y_mm || 0) / 10;
-            if (robotChart) { robotChart.data.datasets[1].data[0] = {x:telemX,y:telemY}; robotChart.update('none'); }
+            const nowMs=performance.now();
+            if (robotChart && state.activeTab==='mapa' && nowMs-this.lastRobotChartRenderMs>=200) {
+                robotChart.data.datasets[1].data[0] = {x:telemX,y:telemY};
+                robotChart.update('none');
+                this.lastRobotChartRenderMs=nowMs;
+            }
             const dx = telemX - (this._lastPos ? this._lastPos.x : 0);
             const dy = telemY - (this._lastPos ? this._lastPos.y : 0);
             if (Math.abs(dx) > .05 || Math.abs(dy) > .05) this._orientacionEstimada = Math.atan2(dy,dx);
@@ -2607,7 +2641,8 @@
             if (typeof RouteManager !== 'undefined') {
                 RouteManager.updateTelemetryMap(t.posX, t.posY, t.orientacion);
             }
-            this._uiTelem(); this._uiPos();
+            this._uiTelem();
+            if(state.activeTab==='mapa')this._uiPos();
         },
         _uiTelem() {
             const t = state.telemetria;
@@ -2653,9 +2688,9 @@
             document.getElementById('route-live-brake').textContent=`pred ${Number(motion.brake_prediction_cm||0).toFixed(1)} · arrastre ${Number(motion.coast_cm||0).toFixed(1)} cm · asent. ${Number(motion.settle_elapsed_ms||0)} ms`;
             const recovery=t.recovery||{};
             document.getElementById('route-live-endpoint').textContent=`${recovery.decision||'none'} · error ${Number(recovery.distance_cm||0).toFixed(1)} / mín ${Number(recovery.min_distance_cm||0).toFixed(1)} cm`;
-            document.getElementById('route-live-recovery').textContent=recovery.pivot_avoided
-                ? `${recovery.direction||'reverse'} · sin pivote`
-                : `${recovery.direction||'forward'} · pivote sólo si hace falta`;
+            document.getElementById('route-live-recovery').textContent=recovery.phase&&recovery.phase!=='inactive'
+                ? `${recovery.phase} · ${recovery.trigger||'none'} · intento ${Number(recovery.attempt||0)}/${Number(recovery.attempt_max||2)} · eje (${Number(recovery.rejoin_x_cm||0).toFixed(1)}, ${Number(recovery.rejoin_y_cm||0).toFixed(1)}) · mejora ${Number(recovery.improvement_cm||0).toFixed(1)} cm`
+                : (recovery.pivot_avoided ? `${recovery.direction||'reverse'} · sin pivote` : `${recovery.direction||'forward'} · recentrado listo`);
             document.getElementById('route-live-fl').textContent=t.pfl || 0;
             document.getElementById('route-live-fr').textContent=t.pfr || 0;
             document.getElementById('route-live-bl').textContent=t.pbl || 0;
@@ -3213,10 +3248,13 @@
                 if (this.telemetryTrail.length > CONFIG.TRAIL_MAX) this.telemetryTrail.shift();
             }
             const headingLength = Math.max(8,(this.telemChart.options.scales.x.max-this.telemChart.options.scales.x.min)*.04);
-            this.telemChart.data.datasets[0].data=this.telemetryTrail;
-            this.telemChart.data.datasets[1].data=[{x:rx,y:ry}];
-            this.telemChart.data.datasets[2].data=[{x:rx,y:ry},{x:rx+headingLength*Math.sin(orientacion),y:ry+headingLength*Math.cos(orientacion)}];
-            this.telemChart.update('none');
+            if(state.activeTab==='rutas' && (!this.lastTelemetryChartRenderMs || performance.now()-this.lastTelemetryChartRenderMs>=200)) {
+                this.telemChart.data.datasets[0].data=this.telemetryTrail;
+                this.telemChart.data.datasets[1].data=[{x:rx,y:ry}];
+                this.telemChart.data.datasets[2].data=[{x:rx,y:ry},{x:rx+headingLength*Math.sin(orientacion),y:ry+headingLength*Math.cos(orientacion)}];
+                this.telemChart.update('none');
+                this.lastTelemetryChartRenderMs=performance.now();
+            }
             this.renderMetrics();
         },
         renderMetrics() {

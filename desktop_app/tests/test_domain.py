@@ -66,7 +66,10 @@ class DomainTests(unittest.TestCase):
             "drive_control": {"p": 12, "i": 3, "d": -2, "right_compensation": 1.0},
             "motion": {"effective_mode": "reverse", "coast_cm": 2.4, "settle_elapsed_ms": 320},
             "recovery": {"decision": "reverse_no_pivot", "distance_cm": 24.0,
-                         "pivot_avoided": True},
+                         "pivot_avoided": True, "phase": "drive_to_axis",
+                         "trigger": "lateral_persistent", "attempt": 1,
+                         "rejoin_x_cm": 0.0, "rejoin_y_cm": 52.0,
+                         "initial_lateral_cm": 6.0, "improvement_cm": 2.0},
             "anti_friction": {"active": True, "pulse_index": 4, "pulse_total": 7,
                               "target_pwm": 736, "target_percent": 72.0},
             "encoder_health": {"fl": "excluded", "fr": "healthy",
@@ -79,7 +82,7 @@ class DomainTests(unittest.TestCase):
                                          "ramp_level_count": 23},
             "fault": {"active": False, "state": "none"},
             "allowed_commands": ["estop", "stop", "step"],
-            "capabilities": ["manual_drive_v1"],
+            "capabilities": ["manual_drive_v1", "route_axis_recenter_v1"],
             "firmware": "robot-s3-v3.5", "reset_reason": "power_on",
             "stack_web": 2048, "stack_control": 3072,
         }, 17)
@@ -95,6 +98,8 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(public["drive_control"]["i"], 3)
         self.assertEqual(public["motion"]["effective_mode"], "reverse")
         self.assertTrue(public["recovery"]["pivot_avoided"])
+        self.assertEqual(public["recovery"]["phase"], "drive_to_axis")
+        self.assertEqual(public["recovery"]["rejoin_y_cm"], 52.0)
         self.assertEqual(public["anti_friction"]["pulse_index"], 4)
         self.assertEqual(public["encoder_health"]["fl"], "excluded")
         self.assertEqual(public["encoder_fusion"]["left_sources"], "BL")
@@ -102,7 +107,7 @@ class DomainTests(unittest.TestCase):
         self.assertEqual(public["calibration_diagnostics"]["ramp_level_count"], 23)
         self.assertFalse(public["fault"]["active"])
         self.assertEqual(public["allowed_commands"], ["estop", "stop", "step"])
-        self.assertEqual(public["capabilities"], ["manual_drive_v1"])
+        self.assertEqual(public["capabilities"], ["manual_drive_v1", "route_axis_recenter_v1"])
         self.assertEqual(public["rtos"]["stack_min_free_bytes"]["control"], 3072)
 
     def test_legacy_telemetry_remains_readable_for_exports(self) -> None:

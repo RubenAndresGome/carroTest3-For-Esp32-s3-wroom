@@ -1,3 +1,4 @@
+import json
 import tempfile
 import threading
 import time
@@ -10,6 +11,7 @@ from robot_app.app_factory import create_app
 from robot_app.config import AppConfig
 from robot_app.database import Database
 from robot_app.domain import ConnectionState, TelemetrySnapshot
+from robot_app.services import EventHub
 
 
 class ApiTests(unittest.TestCase):
@@ -31,6 +33,7 @@ class ApiTests(unittest.TestCase):
         self.service._last_telemetry = TelemetrySnapshot.from_message({
             "evt": "telemetry", "state": "listo", "x": x_mm / 10,
             "y": y_mm / 10, "yaw": 0, "cal": True, "enc": [0, 0, 0, 0],
+            "capabilities": ["route_axis_recenter_v1"],
         }, 1)
 
     def _ready_vectorial(self, x_mm: float = 0, y_mm: float = 0,
@@ -40,6 +43,7 @@ class ApiTests(unittest.TestCase):
             "y": y_mm / 10, "yaw": 0, "cal": True, "enc": [1, 1, 1, 1],
             "mpu_present": True, "mpu_stale": False, "mpu_calibrated": True,
             "degraded_mode": degraded,
+            "capabilities": ["route_axis_recenter_v1"],
             "encoder_health": {wheel: health for wheel in ("fl", "fr", "bl", "br")},
         }, 1)
 
@@ -47,7 +51,7 @@ class ApiTests(unittest.TestCase):
         self.service._last_telemetry = TelemetrySnapshot.from_message({
             "evt": "telemetry", "state": "listo", "x_mm": x_mm, "y_mm": y_mm,
             "yaw_deg": 12, "cal": True, "enc": [10, 11, 12, 13],
-            "capabilities": ["manual_drive_v1"],
+            "capabilities": ["manual_drive_v1", "route_axis_recenter_v1"],
             "encoder_health": {wheel: "healthy" for wheel in ("fl", "fr", "bl", "br")},
         }, 1)
 
@@ -115,6 +119,7 @@ class ApiTests(unittest.TestCase):
             "dynamic_heading_deg", "heading_error_deg", "encoder_pwm",
             "right_compensation", "finish_reason", "route-live-heading",
             "route-live-endpoint", "route-live-recovery", "pivot_avoided",
+            "route-live-render", "route-live-coalesced", "queueBackendTelemetry",
             "route-axis-default", "Eje único", "route-program-header",
         ):
             with self.subTest(diagnostic=diagnostic):
@@ -270,7 +275,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn("FL", blocked["error"])
         self.assertIn("FR", blocked["error"])
 
-    def test_soft_endpoint_advances_intermediate_but_blocks_final(self) -> None:
+    def test_soft_endpoint_blocks_every_waypoint(self) -> None:
         self._ready()
         mission = self.service.start_mission([
             {"x_mm": 1000, "y_mm": 0}, {"x_mm": 1000, "y_mm": 1000},
@@ -279,16 +284,47 @@ class ApiTests(unittest.TestCase):
             "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok_endpoint_soft",
         })
         intermediate = self.service.mission_status()
-        self.assertEqual(intermediate["current_index"], 1)
-        self.assertFalse(intermediate["blocked"])
+        self.assertEqual(intermediate["current_index"], 0)
+        self.assertTrue(intermediate["blocked"])
         self.assertEqual(intermediate["warnings"][0]["final"], False)
-        self.service._on_robot_message({
-            "evt": "completed", "seq": intermediate["active_seq"], "detail": "step_ok_endpoint_soft",
-        })
-        final = self.service.mission_status()
-        self.assertTrue(final["blocked"])
-        self.assertEqual(final["error"], "final_endpoint_out_of_tolerance")
+        self.assertEqual(intermediate["error"], "waypoint_endpoint_out_of_tolerance")
         self.assertIsNone(self.service.database.get_setting("last_completed_route", None))
+
+    def test_route_requires_axis_recenter_capability(self) -> None:
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x": 0, "y": 0,
+            "yaw": 0, "cal": True, "enc": [0, 0, 0, 0],
+        }, 1)
+        with self.assertRaisesRegex(RuntimeError, "route_axis_recenter_v1"):
+            self.service.start_mission([{"x_mm": 100, "y_mm": 0}])
+
+    def test_event_hub_coalesces_telemetry_without_losing_critical_events(self) -> None:
+        hub = EventHub(subscriber_size=4)
+        subscriber = hub.subscribe()
+        hub.publish("mission", {"stage": "executing"})
+        for sequence in range(10):
+            hub.publish("telemetry", {"sequence": sequence})
+        hub.publish("robot_event", {"evt": "fault", "detail": "recenter_timeout"})
+        events = []
+        while not subscriber.empty():
+            events.append(json.loads(subscriber.get_nowait()))
+        self.assertEqual([event["type"] for event in events], [
+            "mission", "telemetry", "robot_event",
+        ])
+        self.assertEqual(events[1]["payload"]["sequence"], 9)
+
+    def test_event_hub_evicts_telemetry_before_critical_event(self) -> None:
+        hub = EventHub(subscriber_size=4)
+        subscriber = hub.subscribe()
+        hub.publish("mission", {"stage": "executing"})
+        hub.publish("connection", {"state": "connected"})
+        hub.publish("command", {"status": "sent"})
+        hub.publish("telemetry", {"sequence": 20})
+        hub.publish("robot_event", {"evt": "fault", "detail": "route_progress_wrong_sign"})
+        event_types = []
+        while not subscriber.empty():
+            event_types.append(json.loads(subscriber.get_nowait())["type"])
+        self.assertEqual(event_types, ["mission", "connection", "command", "robot_event"])
 
     def test_vectorial_route_persists_metadata_and_returns_by_diagonal(self) -> None:
         self.service.set_vectorial_routes_enabled(True)
@@ -511,7 +547,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn("events", export.json)
 
     def test_cleanup_sessions_endpoint(self) -> None:
-        session_id = self.service.start_session()
+        self.service.start_session()
         self.service.stop_session("test")
         response = self.client.post(
             "/api/v1/sessions/cleanup", json={"days": 0},
