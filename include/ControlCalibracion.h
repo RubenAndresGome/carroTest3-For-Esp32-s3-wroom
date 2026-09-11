@@ -1,8 +1,93 @@
 #pragma once
 
 #include <cstdint>
+#include <cmath>
 
 namespace ControlCalibracion {
+
+struct EvidenciaPivot {
+  float izquierda = 0.0f;
+  float derecha = 0.0f;
+  float desbalanceRelativo = 0.0f;
+  bool ladoIzquierdoValido = false;
+  bool ladoDerechoValido = false;
+  bool bilateral = false;
+  bool equilibrado = false;
+  bool torque = false;
+};
+
+inline float promedioLadoConfiable(const int64_t deltas[4],
+                                   const bool confiable[4], bool izquierdo) {
+  const int primero = izquierdo ? 0 : 1;
+  const int segundo = izquierdo ? 2 : 3;
+  float suma = 0.0f;
+  uint8_t fuentes = 0;
+  if (confiable == nullptr || confiable[primero]) {
+    suma += static_cast<float>(deltas[primero]);
+    ++fuentes;
+  }
+  if (confiable == nullptr || confiable[segundo]) {
+    suma += static_cast<float>(deltas[segundo]);
+    ++fuentes;
+  }
+  return fuentes ? suma / fuentes : 0.0f;
+}
+
+inline EvidenciaPivot evaluarPivot(float yawDeltaDeg, const int64_t deltas[4],
+                                   const bool confiable[4], int64_t ticksMinimos,
+                                   float desbalanceMaximoRelativo) {
+  EvidenciaPivot e;
+  e.izquierda = promedioLadoConfiable(deltas, confiable, true);
+  e.derecha = promedioLadoConfiable(deltas, confiable, false);
+  e.ladoIzquierdoValido = e.izquierda >= static_cast<float>(ticksMinimos);
+  e.ladoDerechoValido = e.derecha >= static_cast<float>(ticksMinimos);
+  e.bilateral = e.ladoIzquierdoValido && e.ladoDerechoValido;
+  const float mayor = fmaxf(e.izquierda, e.derecha);
+  e.desbalanceRelativo = mayor > 0.0f
+      ? fabsf(e.izquierda - e.derecha) / mayor : 0.0f;
+  e.equilibrado = e.bilateral &&
+      e.desbalanceRelativo <= desbalanceMaximoRelativo;
+  e.torque = fabsf(yawDeltaDeg) >= 1.0f &&
+      (e.ladoIzquierdoValido || e.ladoDerechoValido);
+  return e;
+}
+
+struct ComandoPivot {
+  int izquierda = 0;
+  int derecha = 0;
+  int correccion = 0;
+};
+
+inline int limitarEntero(int valor, int minimo, int maximo) {
+  return valor < minimo ? minimo : (valor > maximo ? maximo : valor);
+}
+
+inline ComandoPivot comandoPivotCentrado(int candidato, int pwmBase,
+                                         float ticksIzquierda,
+                                         float ticksDerecha,
+                                         float kpPwmPorTick,
+                                         int correccionMaxima,
+                                         int pwmMaximo) {
+  ComandoPivot comando;
+  comando.correccion = limitarEntero(
+      static_cast<int>(lroundf((ticksIzquierda - ticksDerecha) * kpPwmPorTick)),
+      -correccionMaxima, correccionMaxima);
+  const int magnitudIzquierda = limitarEntero(
+      pwmBase - comando.correccion, 0, pwmMaximo);
+  const int magnitudDerecha = limitarEntero(
+      pwmBase + comando.correccion, 0, pwmMaximo);
+  comando.izquierda = -candidato * magnitudIzquierda;
+  comando.derecha = candidato * magnitudDerecha;
+  return comando;
+}
+
+inline bool retornoAlOrigenAceptable(float derivaXCm, float derivaYCm,
+                                     float errorYawDeg,
+                                     float derivaCentroMaxCm,
+                                     float errorYawMaxDeg) {
+  return hypotf(derivaXCm, derivaYCm) <= derivaCentroMaxCm &&
+         fabsf(errorYawDeg) <= errorYawMaxDeg;
+}
 
 struct EvaluacionEncoders {
   int64_t promedioIzquierdo = 0;

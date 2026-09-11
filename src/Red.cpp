@@ -71,6 +71,8 @@ static void manejarHello(const JsonObject& o) {
   doc["calibrated"] = robotCalibrado;
   doc["protocol"] = PROTOCOL_NAME;
   doc["manual_drive_v1"] = true;
+  doc["motion_supervision_v1"] = true;
+  renovarSupervisionControl();
   if (ultimoFalloDetalle[0]) doc["fault"] = ultimoFalloDetalle;
   enviarJSON(doc);
 }
@@ -108,6 +110,10 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   if (strcmp(cmd, "hello") == 0) { manejarHello(doc.as<JsonObject>()); return; }
 
   if (!sessionId[0]) { responderRechazado(0, "hello_required"); return; }
+  if (strcmp(cmd, "control_lease") == 0) {
+    renovarSupervisionControl();
+    return;
+  }
   if (strcmp(cmd, "manual_drive") == 0) {
     float throttle = 0.0f, steering = 0.0f;
     if (!leerFloatFinito(doc["throttle"], throttle) || !leerFloatFinito(doc["steering"], steering) ||
@@ -192,11 +198,16 @@ static void onWsEvent(AsyncWebSocket* s, AsyncWebSocketClient* c, AwsEventType t
         doc["calibrated"] = robotCalibrado;
         doc["protocol"] = PROTOCOL_NAME;
         doc["manual_drive_v1"] = true;
+        doc["motion_supervision_v1"] = true;
         enviarJSON(doc);
       }
       break;
     case WS_EVT_DISCONNECT:
-      if (clienteActivo == c) { clienteActivo = nullptr; solicitarManualDesconexion(); }
+      if (clienteActivo == c) {
+        clienteActivo = nullptr;
+        solicitarManualDesconexion();
+        solicitarDesconexionControl();
+      }
       break;
     case WS_EVT_DATA: {
       AwsFrameInfo* info = static_cast<AwsFrameInfo*>(arg);
@@ -379,6 +390,9 @@ static void enviarTelemetria() {
   movimiento["reverse_ramp_active"] = pasoEnReversa &&
       pasoRampaReversaMs < RAMPA_REVERSA_MS;
   movimiento["run_id"] = pasoEjecucionId;
+  doc["turn_arc_path_cm"] = roundf(PoseGlobal.getArcoCentroGiroCm() * 10.0f) / 10.0f;
+  doc["turn_translation_x_cm"] = roundf(PoseGlobal.getTraslacionGiroXCm() * 10.0f) / 10.0f;
+  doc["turn_translation_y_cm"] = roundf(PoseGlobal.getTraslacionGiroYCm() * 10.0f) / 10.0f;
   doc["session"] = sessionId;
   doc["last_seq"] = ultimoSeqCompletado;
   doc["seq"] = seqActivo;
@@ -429,6 +443,7 @@ static void enviarTelemetria() {
   doc["protocol"] = PROTOCOL_NAME;
   JsonArray capacidades = doc.createNestedArray("capabilities");
   capacidades.add("manual_drive_v1");
+  capacidades.add("motion_supervision_v1");
   ManualDriveFrame manual = {};
   const bool manualValida = leerManualDrive(manual);
   doc["manual_lease_ms"] = MANUAL_LEASE_MS;
@@ -436,6 +451,13 @@ static void enviarTelemetria() {
       ? MANUAL_LEASE_MS - (millis() - manual.recibidoMs) : 0;
   doc["manual_stream"] = manual.stream;
   doc["manual_frame"] = manual.frame;
+  const uint32_t ultimaSupervision = ultimaRenovacionSupervisionControl();
+  const uint32_t edadSupervision = ultimaSupervision == 0
+      ? UINT32_MAX : millis() - ultimaSupervision;
+  doc["control_lease_ms"] = CONTROL_SUPERVISION_LEASE_MS;
+  doc["control_lease_age_ms"] = edadSupervision == UINT32_MAX ? -1 : edadSupervision;
+  doc["control_lease_valid"] = ultimaSupervision != 0 &&
+      edadSupervision <= CONTROL_SUPERVISION_LEASE_MS;
   doc["reset_reason"] = motivoResetESP32;
   doc["stack_web"] = stackMinimoWebBytes == UINT32_MAX ? 0 : stackMinimoWebBytes;
   doc["stack_control"] = stackMinimoControlBytes == UINT32_MAX ? 0 : stackMinimoControlBytes;

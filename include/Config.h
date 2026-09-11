@@ -2,11 +2,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.3";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.4";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
 constexpr uint32_t MANUAL_STALL_TIMEOUT_MS = 450;
+// El backend renueva este lease fuera de la cola de misión. Si desaparece el
+// único supervisor durante cualquier movimiento, Core 1 desenergiza el robot.
+constexpr uint32_t CONTROL_SUPERVISION_LEASE_MS = 1500;
+constexpr uint32_t CONTROL_SUPERVISION_RENEW_MS = 300;
 
 // WiFi
 extern const char* ssid_AP;
@@ -157,6 +161,12 @@ constexpr uint32_t TURN_SETTLE_MS = 600;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 60000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
+// El MPU decide el ángulo. PCNT sólo mantiene centrado el pivote y detecta
+// traslación espuria; una fuente sana por lado conserva operación degradada.
+constexpr float KP_BALANCE_PIVOT_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
+constexpr int PWM_BALANCE_PIVOT_MAX = static_cast<int>(18 * PWM_SCALE_8_TO_10);
+constexpr float DESBALANCE_PIVOT_MAX_REL = 0.45f;
+constexpr float DERIVA_CENTRO_CAL_MAX_CM = 3.0f;
 
 // PID y Correcciones en marcha
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);

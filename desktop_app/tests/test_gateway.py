@@ -65,6 +65,17 @@ class GatewayTests(unittest.TestCase):
         self.gateway._drain_one(connection)
         self.assertEqual(json.loads(connection.messages[0]), {"cmd": "stop", "seq": 6})
 
+    def test_control_lease_is_out_of_band_and_rate_limited(self) -> None:
+        connection = _Connection()
+        self.assertFalse(self.gateway._send_control_lease_if_due(connection, now=10.0))
+        self.gateway._protocol_v1 = True
+        self.assertTrue(self.gateway._send_control_lease_if_due(connection, now=10.0))
+        self.assertFalse(self.gateway._send_control_lease_if_due(connection, now=10.1))
+        self.assertTrue(self.gateway._send_control_lease_if_due(connection, now=10.31))
+        self.assertEqual([json.loads(item) for item in connection.messages], [
+            {"cmd": "control_lease"}, {"cmd": "control_lease"},
+        ])
+
     def test_manual_drive_is_latest_wins_and_manual_end_clears_it(self) -> None:
         connection = _Connection()
         self.gateway._protocol_v1 = True

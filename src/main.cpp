@@ -13,6 +13,7 @@
 #include "DiagnosticoRTOS.h"
 #include "ControlSeguridad.h"
 #include "ControlManual.h"
+#include "ControlSupervision.h"
 #include <esp_timer.h>
 
 TaskHandle_t TaskWebHandle;
@@ -23,12 +24,19 @@ volatile int seq_ESTOP_pendiente = 0;
 static portMUX_TYPE manualMux = portMUX_INITIALIZER_UNLOCKED;
 static volatile uint8_t manualSolicitud = 0;
 static volatile int manualSolicitudSeq = 0;
+static portMUX_TYPE supervisionMux = portMUX_INITIALIZER_UNLOCKED;
+static volatile bool supervisionDesconectada = false;
+static volatile uint32_t supervisionUltimaRenovacionMs = 0;
 static ManualDriveFrame manualMailbox = {};
 static int manualPwmActualL = 0;
 static int manualPwmActualR = 0;
 bool solicitarManualBegin(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 1; manualSolicitudSeq = seq; portEXIT_CRITICAL(&manualMux); return true; }
 bool solicitarManualEnd(int seq) { portENTER_CRITICAL(&manualMux); manualSolicitud = 2; manualSolicitudSeq = seq; portEXIT_CRITICAL(&manualMux); return true; }
 bool solicitarManualDesconexion() { portENTER_CRITICAL(&manualMux); manualSolicitud = 3; manualSolicitudSeq = 0; portEXIT_CRITICAL(&manualMux); return true; }
+bool solicitarDesconexionControl() { portENTER_CRITICAL(&supervisionMux); supervisionDesconectada = true; portEXIT_CRITICAL(&supervisionMux); return true; }
+void renovarSupervisionControl() { portENTER_CRITICAL(&supervisionMux); supervisionUltimaRenovacionMs = millis(); supervisionDesconectada = false; portEXIT_CRITICAL(&supervisionMux); }
+bool tomarDesconexionControl() { portENTER_CRITICAL(&supervisionMux); const bool valor = supervisionDesconectada; supervisionDesconectada = false; portEXIT_CRITICAL(&supervisionMux); return valor; }
+uint32_t ultimaRenovacionSupervisionControl() { portENTER_CRITICAL(&supervisionMux); const uint32_t valor = supervisionUltimaRenovacionMs; portEXIT_CRITICAL(&supervisionMux); return valor; }
 bool publicarManualDrive(float throttle, float steering, uint32_t stream, uint32_t frame) {
     portENTER_CRITICAL(&manualMux);
     if (manualMailbox.recibidoMs != 0 && manualMailbox.stream == stream && frame <= manualMailbox.frame) {
@@ -67,8 +75,24 @@ static void controlarManual() {
     aplicarVelocidades(manualPwmActualL, manualPwmActualR);
 }
 
+static bool procesarSupervisionControl() {
+    const bool movimiento = ControlSupervision::movimientoRequiereLease(
+        estadoActual == MANUAL, estadoActual == EJECUTANDO,
+        estadoActual == CALIBRANDO);
+    const bool desconectada = tomarDesconexionControl();
+    const bool vencida = movimiento && ControlSupervision::leaseVencido(
+        millis(), ultimaRenovacionSupervisionControl(),
+        CONTROL_SUPERVISION_LEASE_MS);
+    if (!movimiento || (!desconectada && !vencida)) return false;
+    limpiarManualDrive();
+    manualPwmActualL = manualPwmActualR = 0;
+    frenarMotores();
+    xQueueReset(colaComandos);
+    forzarFalloMovimiento("control_connection_lost");
+    return true;
+}
+
 void procesarComandos() {
-    procesarSolicitudesManual();
     if (ControlSeguridad::estopSolicitado(flag_ESTOP_ISR)) {
         const int seq = seq_ESTOP_pendiente;
         const int seqInterrumpido = seqActivo;
@@ -84,6 +108,8 @@ void procesarComandos() {
         encolarEvento(EVT_COMPLETED, seq, "estop_latched");
         return;
     }
+    if (procesarSupervisionControl()) return;
+    procesarSolicitudesManual();
     ComandoRed cmd;
     while (xQueueReceive(colaComandos, &cmd, 0) == pdTRUE) {
         switch (cmd.tipo) {
@@ -137,7 +163,9 @@ void procesarComandos() {
                 }
             case CMD_RESET_POSE:
                 if (estadoActual == LISTO || estadoActual == DESARMADO) {
-                    PoseGlobal.reset();
+                    const SensorSnapshot s = snapshotSensoresControl();
+                    PoseGlobal.fijarOrigenConPulsos(
+                        s.pulsosFL, s.pulsosFR, s.pulsosBL, s.pulsosBR);
                     resetOrientacionIMU();
                     encolarEvento(EVT_COMPLETED, cmd.seq, "pose_reset");
                 } else encolarEvento(EVT_REJECTED, cmd.seq, "busy");
@@ -186,8 +214,13 @@ static void ejecutarCicloControl() {
         if (estadoActual == LISTO || estadoActual == DESARMADO) {
             recentrarYawIMUEnReposo();
         }
-        PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
-                                       ((estadoActual == EJECUTANDO && enFaseTraslacion()) || estadoActual == MANUAL));
+        const bool movimientoActivo = estadoActual == EJECUTANDO ||
+            estadoActual == CALIBRANDO || estadoActual == MANUAL;
+        const bool pivotando = estadoActual == CALIBRANDO ||
+            (estadoActual == EJECUTANDO && enFaseGiro());
+        PoseGlobal.actualizarOdometria(
+            snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
+            movimientoActivo, pivotando);
         if (!ControlSeguridad::imuApta(snap.mpu_present, snap.mpu_stale)) {
             if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO || estadoActual == MANUAL) {
                 frenarMotores();

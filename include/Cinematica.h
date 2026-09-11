@@ -30,6 +30,7 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX = NAN,
 bool iniciarGiroAbsoluto(float heading, int seq);
 
 void cancelarMovimiento(const char* detalle);
+void forzarFalloMovimiento(const char* detalle);
 void controlarMovimiento();
 void reiniciarControlRumbo();
 void registrarMotivoFinalizacion(const char* detalle);

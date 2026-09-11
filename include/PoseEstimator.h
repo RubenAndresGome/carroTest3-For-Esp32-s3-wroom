@@ -9,8 +9,12 @@ public:
     void inicializar(float rueda_diametro_cm, int encoder_ppr);
 
     void reset();
+    void fijarOrigenConPulsos(int64_t pulsosFL, int64_t pulsosFR,
+                             int64_t pulsosBL, int64_t pulsosBR);
 
-    void actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, bool avanzando);
+    void actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR,
+                             int64_t pulsosBL, int64_t pulsosBR,
+                             bool movimientoActivo, bool pivotando = false);
 
     void actualizarOrientacion(float imu_delta_z);
     void iniciarMedicionTraslacionGiro();

@@ -33,6 +33,7 @@ class RobotGateway:
     """Serializa conexión, recepción y envío en una sola hebra."""
 
     MAX_CONNECT_ATTEMPTS = 5
+    CONTROL_LEASE_INTERVAL_S = 0.3
 
     def __init__(
         self,
@@ -64,6 +65,7 @@ class RobotGateway:
         self._protocol_v1 = False
         self._last_heartbeat_ack: float | None = None
         self._handshake_started: float | None = None
+        self._last_control_lease_sent: float | None = None
         self._connect_attempt = 0
 
     def start(self) -> None:
@@ -149,6 +151,7 @@ class RobotGateway:
                 self._protocol_v1 = False
                 self._last_heartbeat_ack = None
                 self._handshake_started = time.monotonic()
+                self._last_control_lease_sent = None
                 self._reconnect.clear()
                 delay = 0.5
                 attempts = 0
@@ -161,6 +164,7 @@ class RobotGateway:
                 ))
                 while not self._stop.is_set() and not self._reconnect.is_set():
                     self._drain_one(connection)
+                    self._send_control_lease_if_due(connection)
                     try:
                         raw = connection.recv()
                         if raw:
@@ -209,6 +213,19 @@ class RobotGateway:
                 delay = 0.5
             else:
                 delay = min(delay * 2, 10.0)
+
+    def _send_control_lease_if_due(self, connection: Any,
+                                   now: float | None = None) -> bool:
+        """Renueva la supervisión sin competir con STOP/E-STOP ni SQLite."""
+        if not self._protocol_v1:
+            return False
+        current = time.monotonic() if now is None else now
+        if (self._last_control_lease_sent is not None and
+                current - self._last_control_lease_sent < self.CONTROL_LEASE_INTERVAL_S):
+            return False
+        connection.send('{"cmd":"control_lease"}')
+        self._last_control_lease_sent = current
+        return True
 
     def _drain_one(self, connection: Any) -> None:
         if not self._protocol_v1:

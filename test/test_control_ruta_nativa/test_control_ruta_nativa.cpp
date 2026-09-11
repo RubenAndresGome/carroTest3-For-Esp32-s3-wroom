@@ -6,6 +6,7 @@
 #include "ControlCalibracion.h"
 #include "ControlManual.h"
 #include "ControlInicializacionPCNT.h"
+#include "ControlSupervision.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -307,6 +308,51 @@ void test_rampa_calibracion_expone_todos_los_niveles() {
   TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::pasoRampaActual(255, 140, 247, 5));
 }
 
+void test_pivote_usa_una_fuente_sana_por_lado_y_no_suma_la_pareja() {
+  const int64_t deltas[4] = {0, 12, 10, 0};
+  const bool confiable[4] = {false, true, true, false};
+  const auto evidencia = ControlCalibracion::evaluarPivot(
+      4.0f, deltas, confiable, 2, 0.45f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, evidencia.izquierda);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 12.0f, evidencia.derecha);
+  TEST_ASSERT_TRUE(evidencia.bilateral);
+  TEST_ASSERT_TRUE(evidencia.equilibrado);
+  TEST_ASSERT_TRUE(evidencia.torque);
+}
+
+void test_balance_pivote_reduce_lado_adelantado_y_refuerza_rezagado() {
+  const auto positivo = ControlCalibracion::comandoPivotCentrado(
+      1, 700, 20.0f, 10.0f, 2.0f, 80, 990);
+  TEST_ASSERT_EQUAL_INT(-680, positivo.izquierda);
+  TEST_ASSERT_EQUAL_INT(720, positivo.derecha);
+  TEST_ASSERT_EQUAL_INT(20, positivo.correccion);
+  const auto negativo = ControlCalibracion::comandoPivotCentrado(
+      -1, 700, 10.0f, 20.0f, 2.0f, 80, 990);
+  TEST_ASSERT_EQUAL_INT(720, negativo.izquierda);
+  TEST_ASSERT_EQUAL_INT(-680, negativo.derecha);
+  TEST_ASSERT_EQUAL_INT(-20, negativo.correccion);
+}
+
+void test_calibracion_no_acepta_retorno_fuera_del_origen() {
+  TEST_ASSERT_TRUE(ControlCalibracion::retornoAlOrigenAceptable(
+      1.0f, 1.0f, 0.5f, 3.0f, 1.0f));
+  TEST_ASSERT_FALSE(ControlCalibracion::retornoAlOrigenAceptable(
+      3.0f, 2.0f, 0.5f, 3.0f, 1.0f));
+  TEST_ASSERT_FALSE(ControlCalibracion::retornoAlOrigenAceptable(
+      0.0f, 0.0f, 1.1f, 3.0f, 1.0f));
+}
+
+void test_supervision_vencida_detiene_cualquier_movimiento() {
+  TEST_ASSERT_TRUE(ControlSupervision::movimientoRequiereLease(true, false, false));
+  TEST_ASSERT_TRUE(ControlSupervision::movimientoRequiereLease(false, true, false));
+  TEST_ASSERT_TRUE(ControlSupervision::movimientoRequiereLease(false, false, true));
+  TEST_ASSERT_FALSE(ControlSupervision::movimientoRequiereLease(false, false, false));
+  TEST_ASSERT_FALSE(ControlSupervision::leaseVencido(1499, 1000, 500));
+  TEST_ASSERT_TRUE(ControlSupervision::leaseVencido(1501, 1000, 500));
+  TEST_ASSERT_TRUE(ControlSupervision::leaseVencido(100, 0, 500));
+  TEST_ASSERT_FALSE(ControlSupervision::leaseVencido(20, 0xFFFFFFF0u, 500));
+}
+
 void test_control_manual_mezcla_satura_y_respeta_lease() {
   const auto avance = ControlManual::mezclar(1.0f, 0.0f, 230);
   TEST_ASSERT_EQUAL_INT(230, avance.izquierdo);
@@ -360,6 +406,10 @@ int main(int, char**) {
   RUN_TEST(test_calibracion_rechaza_un_lado_completo_sin_pulsos);
   RUN_TEST(test_calibracion_identifica_cualquier_encoder_aislado);
   RUN_TEST(test_rampa_calibracion_expone_todos_los_niveles);
+  RUN_TEST(test_pivote_usa_una_fuente_sana_por_lado_y_no_suma_la_pareja);
+  RUN_TEST(test_balance_pivote_reduce_lado_adelantado_y_refuerza_rezagado);
+  RUN_TEST(test_calibracion_no_acepta_retorno_fuera_del_origen);
+  RUN_TEST(test_supervision_vencida_detiene_cualquier_movimiento);
   RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
   return UNITY_END();
 }

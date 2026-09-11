@@ -6,8 +6,24 @@ Recuperar un Milestone que detenga siempre el movimiento ante E-STOP, STOP o
 pérdida de supervisión; calibre sin trasladar físicamente el centro del chasis;
 y ejecute `+Y` al frente y `+X` a la derecha mediante pivotes centrados.
 
-**Estado actual: no aceptado para pruebas en suelo.** Este documento es un plan;
-no autoriza movimiento, flasheo ni cambios de GPIO.
+### Estado de implementación (2026-09-10)
+
+- Implementado: lease global de supervisión de 300 ms/1.5 s para manual,
+  calibración y rutas; desconexión o vencimiento produce
+  `control_connection_lost`, PWM cero, cola cancelada y fallo enclavado.
+- Implementado: pivote bilateral con MPU como autoridad angular y corrección
+  PCNT por promedio de fuentes confiables; una fuente sana por lado es válida.
+- Implementado: odometría durante pivote y diagnóstico de traslación X/Y del
+  centro. La calibración sólo acepta `cal_ok` si vuelve al yaw y queda dentro
+  de 3 cm del origen; ya no oculta deriva con un `reset()` ciego.
+- Implementado: sincronización de contadores al fijar origen, eliminación del
+  `delay(50)` dentro del súper-ciclo y firmware `robot-s3-v3.4`.
+- Validado en host: 36/36 pruebas nativas, 61/61 pruebas Python, compilación
+  ESP32-S3 y validador modular. Pendiente exclusivamente la aceptación física
+  controlada y el diagnóstico eléctrico de los encoders frontales.
+
+**Estado actual: implementación validada en host, todavía no aceptada en
+suelo.** Este documento no autoriza movimiento, flasheo ni cambios de GPIO.
 
 ## No negociables
 

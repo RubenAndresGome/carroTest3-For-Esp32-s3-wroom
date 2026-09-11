@@ -11,6 +11,10 @@ struct ManualDriveFrame {
 bool solicitarManualBegin(int seq);
 bool solicitarManualEnd(int seq);
 bool solicitarManualDesconexion();
+bool solicitarDesconexionControl();
+void renovarSupervisionControl();
+bool tomarDesconexionControl();
+uint32_t ultimaRenovacionSupervisionControl();
 bool publicarManualDrive(float throttle, float steering, uint32_t stream, uint32_t frame);
 bool tomarSolicitudManual(bool& comenzar, bool& terminar, bool& desconexion, int& seq);
 bool leerManualDrive(ManualDriveFrame& trama);

@@ -24,7 +24,22 @@ void PoseEstimator::reset() {
     iniciarMedicionTraslacionGiro();
 }
 
-void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, bool avanzando) {
+void PoseEstimator::fijarOrigenConPulsos(int64_t pulsosFL, int64_t pulsosFR,
+                                         int64_t pulsosBL, int64_t pulsosBR) {
+    x_global = 0.0f;
+    y_global = 0.0f;
+    theta_rad = 0.0f;
+    last_pulsos_FL = pulsosFL;
+    last_pulsos_FR = pulsosFR;
+    last_pulsos_BL = pulsosBL;
+    last_pulsos_BR = pulsosBR;
+    ultimo_signo_l = ultimo_signo_r = 0;
+    iniciarMedicionTraslacionGiro();
+}
+
+void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR,
+                                        int64_t pulsosBL, int64_t pulsosBR,
+                                        bool movimientoActivo, bool pivotando) {
     const int64_t deltas[4] = {
         pulsosFL - last_pulsos_FL, pulsosFR - last_pulsos_FR,
         pulsosBL - last_pulsos_BL, pulsosBR - last_pulsos_BR
@@ -52,13 +67,17 @@ void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int6
     distR *= ultimo_signo_r;
 
     // La IMU es la única fuente de rumbo para no integrar dos veces el mismo giro.
-    const bool navegando = avanzando;
-    if (navegando) {
+    if (movimientoActivo) {
         const float distCentro = (distL + distR) / 2.0f;
         const float dx = distCentro * sin(theta_rad);
         const float dy = distCentro * cos(theta_rad);
         x_global += dx;
         y_global += dy;
+        if (pivotando) {
+            arco_centro_giro_cm += fabsf(distCentro);
+            traslacion_giro_x_cm += dx;
+            traslacion_giro_y_cm += dy;
+        }
     }
 }
 
