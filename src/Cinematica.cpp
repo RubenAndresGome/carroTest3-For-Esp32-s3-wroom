@@ -111,7 +111,8 @@ uint32_t stallMaxCalAcumMs[2] = {};
 uint32_t inicioFaseMs = 0;
 int64_t ticksBaseCal[4] = {};
 int64_t ticksBasePruebaRotacionCal[4] = {};
-float yawInicioCalDeg = 0.0f;
+float yawOrigenCalDeg = 0.0f;
+float yawInicioFaseCalDeg = 0.0f;
 float xInicioCalCm = 0.0f;
 float yInicioCalCm = 0.0f;
 int  pwmMinGiroPos = static_cast<int>(148 * PWM_SCALE_8_TO_10), pwmMinGiroNeg = static_cast<int>(148 * PWM_SCALE_8_TO_10);
@@ -165,7 +166,8 @@ void calCuenta() {
   if (millis() - inicioFaseMs < CUENTA_CALIBRACION_MS) { progresoComando = min(0.10f, (millis()-inicioFaseMs)/float(CUENTA_CALIBRACION_MS)*0.10f); return; }
   const SensorSnapshot s = sensar();
   if (!s.mpu_present || s.mpu_stale || !s.mpu_calibrated) { fallo("mpu_unavailable_cal"); return; }
-  yawInicioCalDeg = normalizar360(anguloZ);
+  yawOrigenCalDeg = normalizar360(anguloZ);
+  yawInicioFaseCalDeg = yawOrigenCalDeg;
   pwmMinGiroPos=0; pwmMinGiroNeg=0;
   signoYawCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis();
   inicioMovCalMs=0; inicioPruebaRotacionCalMs=0; inicioDesbalanceCalMs=0;
@@ -204,7 +206,7 @@ void calTorque(bool primera) {
   bool fuentesCal[4] = {};
   for (int i = 0; i < 4; ++i) fuentesCal[i] = evaluacion.responde[i];
 
-  const float deltaYaw = errorAng360(heading360, yawInicioCalDeg);
+  const float deltaYaw = errorAng360(heading360, yawInicioFaseCalDeg);
   const ControlCalibracion::EvidenciaPivot evidenciaRel =
       ControlCalibracion::evaluarPivot(
           deltaYaw, dRel, fuentesCal, 0, DESBALANCE_PIVOT_MAX_REL);
@@ -292,7 +294,7 @@ void calTorque(bool primera) {
     else pwmMinGiroNeg = guardado;
     frenarMotores();
     if (primera) {
-      iniciarBaseGiro(normalizar360(yawInicioCalDeg + 25.0f), Fase::CAL_VALIDAR_25);
+      iniciarBaseGiro(normalizar360(yawOrigenCalDeg + 25.0f), Fase::CAL_VALIDAR_25);
       progresoComando=0.35f;
       strncpy(faseComando,"cal_mas_25",sizeof(faseComando));
     } else {
@@ -348,7 +350,7 @@ void controlarCalibracion() {
         ultimaAuditoriaMaxCalMs=0;
         stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
         copiarBase(ticksBaseCal,s);
-        yawInicioCalDeg = heading360;
+        yawInicioFaseCalDeg = heading360;
         ultimoRampaCalMs=millis();
         iniciarFaseCal(Fase::CAL_B);
         strncpy(faseComando,"cal_b",sizeof(faseComando));
@@ -359,7 +361,7 @@ void controlarCalibracion() {
     case Fase::CAL_PAUSA_RETORNO:
       frenarMotores();
       if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) {
-        float retorno = normalizar360(yawInicioCalDeg);
+        float retorno = normalizar360(yawOrigenCalDeg);
         iniciarBaseGiro(retorno, Fase::CAL_RETORNO);
       }
       break;
@@ -662,7 +664,7 @@ void completarGiro() {
     }
     const float derivaX = PoseGlobal.getX() - xInicioCalCm;
     const float derivaY = PoseGlobal.getY() - yInicioCalCm;
-    const float errorYaw = errorAng360(yawInicioCalDeg, heading360);
+    const float errorYaw = errorAng360(yawOrigenCalDeg, heading360);
     if (!ControlCalibracion::retornoAlOrigenAceptable(
             derivaX, derivaY, errorYaw, DERIVA_CENTRO_CAL_MAX_CM,
             TOLERANCIA_CALIBRACION_DEG)) {

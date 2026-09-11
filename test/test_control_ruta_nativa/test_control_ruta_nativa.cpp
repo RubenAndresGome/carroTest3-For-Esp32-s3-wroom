@@ -322,6 +322,11 @@ void test_rampa_calibracion_expone_todos_los_niveles() {
   TEST_ASSERT_EQUAL_UINT8(2, ControlCalibracion::pasoRampaActual(145, 140, 247, 5));
   TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::pasoRampaActual(247, 140, 247, 5));
   TEST_ASSERT_EQUAL_UINT8(23, ControlCalibracion::pasoRampaActual(255, 140, 247, 5));
+  TEST_ASSERT_EQUAL_UINT8(44, ControlCalibracion::totalPasosRampa(560, 990, 10));
+  TEST_ASSERT_EQUAL_UINT8(1, ControlCalibracion::pasoRampaActual(560, 560, 990, 10));
+  TEST_ASSERT_EQUAL_UINT8(2, ControlCalibracion::pasoRampaActual(570, 560, 990, 10));
+  TEST_ASSERT_EQUAL_UINT8(44, ControlCalibracion::pasoRampaActual(990, 560, 990, 10));
+  TEST_ASSERT_EQUAL_UINT8(44, ControlCalibracion::pasoRampaActual(1023, 560, 990, 10));
 }
 
 void test_pivote_usa_una_fuente_sana_por_lado_y_no_suma_la_pareja() {
@@ -354,15 +359,26 @@ void test_guard_pivote_exige_signo_mpu_y_frena_fallos() {
   const bool confiable[4] = {true, true, true, true};
   const auto evidencia = ControlCalibracion::evaluarPivot(
       4.0f, ticks, confiable, 2, 0.45f);
+  // Confirmación por velocidad gyro sostenida
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMADO),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.20f, 2.0f, evidencia, 120, 100, 0, 0.12f, 100, 300, 4, 300)));
+          1, 0.20f, 2.0f, evidencia, 120, 100, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+  // Confirmación por ángulo acumulado del MPU (yaw >= 0.5° aún con gyro bajo)
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMADO),
+      static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
+          1, 0.04f, 0.6f, evidencia, 120, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+  // En progreso de validación MPU (ticks ok, pero sin yaw suficiente ni gyro sostenido aún)
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::CONFIRMANDO_YAW),
+      static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
+          1, 0.04f, 0.3f, evidencia, 120, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+  // Signo MPU opuesto detectado
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::SIGNO_INCORRECTO),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, -0.20f, -2.0f, evidencia, 20, 0, 0, 0.12f, 100, 300, 4, 300)));
+          1, -0.20f, -2.0f, evidencia, 20, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
+  // Rotación no confirmada al expirar ventana de tiempo
   TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ControlCalibracion::ResultadoGuardPivot::ROTACION_NO_CONFIRMADA),
       static_cast<uint8_t>(ControlCalibracion::evaluarGuardPivot(
-          1, 0.0f, 0.0f, evidencia, 300, 0, 0, 0.12f, 100, 300, 4, 300)));
+          1, 0.0f, 0.0f, evidencia, 350, 0, 0, 0.08f, 100, 350, 10, 350, 0.5f)));
 }
 
 void test_guard_pivote_detecta_desbalance_persistente() {
