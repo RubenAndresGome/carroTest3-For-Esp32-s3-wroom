@@ -2136,13 +2136,9 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
           sizeof(pasoModoEfectivo));
   pasoEnReversa = direccionTraslacion < 0;
   pasoRumboCuerpoDeg = ControlRuta::rumboCuerpoParaTrayecto(heading, direccionTraslacion);
-  // El modo automático conserva la orientación de entrada si decide reversa;
-  // el planificador puede terminar toda la misión con turn_to si necesita un
-  // cardinal explícito. Los comandos antiguos siguen terminando en heading.
-  pasoRumboFinalDeg = (modoPaso == PASO_AUTO && direccionTraslacion < 0)
-      ? normalizar360(heading360)
-      : (direccionTraslacion < 0 && modoPaso == PASO_REVERSA
-          ? normalizar360(heading360) : heading);
+  // En reversa el chasis conserva el rumbo de su cuerpo al finalizar la traslación,
+  // evitando pivotes parásitos (giro_fin) que degraden la posición por arrastre lateral.
+  pasoRumboFinalDeg = ControlRuta::rumboFinalParaPaso(heading, direccionTraslacion, pasoRumboCuerpoDeg);
   pasoDistanciaCm = distanciaCm;
   pasoHeadingObjetivo = pasoRumboFinalDeg;
   pasoDistanciaObjetivoCm = distanciaCm;

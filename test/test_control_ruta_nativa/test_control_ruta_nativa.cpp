@@ -74,6 +74,22 @@ void test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo() {
   TEST_ASSERT_FALSE(ControlRuta::frenarLadoIzquierdoParaRumbo(-1.0f, -1));
 }
 
+void test_rumbo_final_en_reversa_conserva_el_cuerpo_sin_pivote_parasito() {
+  // En avance (+1), el rumbo final es el rumbo de trayecto ordenado
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 180.0f,
+                           ControlRuta::rumboFinalParaPaso(180.0f, 1, 180.0f));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 90.0f,
+                           ControlRuta::rumboFinalParaPaso(90.0f, 1, 90.0f));
+  // En reversa (-1), para viajar al Sur (180°), el cuerpo está alineado a 0°.
+  // El rumbo final DEBE ser 0° (el cuerpo) para no ejecutar giro_fin parásito de 180°.
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f,
+                           ControlRuta::rumboFinalParaPaso(180.0f, -1, 0.0f));
+  // En reversa (-1), para viajar al Este (90°), el cuerpo está alineado a 270°.
+  // El rumbo final DEBE ser 270° (el cuerpo), no 90°.
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 270.0f,
+                           ControlRuta::rumboFinalParaPaso(90.0f, -1, 270.0f));
+}
+
 void test_marco_cardinal_es_x_derecha_y_frente_y_yaw_horario() {
   const auto norte = ControlRuta::vectorUnitarioRumbo(0.0f);
   const auto este = ControlRuta::vectorUnitarioRumbo(90.0f);
@@ -827,6 +843,7 @@ int main(int, char**) {
   RUN_TEST(test_reversa_automatica_conserva_el_chasis_ante_objetivo_detras);
   RUN_TEST(test_reversa_invierte_solo_la_correccion_lateral_del_chasis);
   RUN_TEST(test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo);
+  RUN_TEST(test_rumbo_final_en_reversa_conserva_el_cuerpo_sin_pivote_parasito);
   RUN_TEST(test_marco_cardinal_es_x_derecha_y_frente_y_yaw_horario);
   RUN_TEST(test_escala_y_freno_se_calculan_en_la_misma_unidad);
   RUN_TEST(test_integral_se_acota_y_no_crece_en_saturacion);

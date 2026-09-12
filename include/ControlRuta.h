@@ -102,6 +102,12 @@ inline float rumboCuerpoParaTrayecto(float rumboTrayectoDeg, int direccion) {
   return normalizar360(rumboTrayectoDeg + (direccion < 0 ? 180.0f : 0.0f));
 }
 
+// En reversa el chasis debe conservar el rumbo de su cuerpo al finalizar la traslación,
+// evitando pivotes parásitos (giro_fin) que degraden la posición por arrastre lateral (skid-steer scrubbing).
+inline float rumboFinalParaPaso(float rumboTrayectoDeg, int direccion, float rumboCuerpoDeg) {
+  return direccion < 0 ? normalizar360(rumboCuerpoDeg) : normalizar360(rumboTrayectoDeg);
+}
+
 inline float correccionLateralParaDireccion(float correccionRumboDeg, int direccion) {
   return direccion < 0 ? -correccionRumboDeg : correccionRumboDeg;
 }

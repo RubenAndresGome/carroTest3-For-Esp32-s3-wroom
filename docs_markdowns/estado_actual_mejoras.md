@@ -18,7 +18,8 @@ pequeño, pero no oculta una desviación que requiere calibración física.
 - **Precisión de Alineación**: Los giros emplean ahora micropulsos para aproximación fina y logran tolerancia estricta (< 1.0°) en calibración.
 - **Corrección de Polaridad MPU**: Se estandarizó la polaridad del Yaw del sensor (antihorario positivo) coordinado con el sistema de coordenadas.
 - **Validación Exitosa de Rutas Ortogonales (Sesión #41 / Commit 92ab106)**: Se resolvió el deadlock en `giro_fin` liberando el latch de tolerancia al asentar estacionario. El robot completó 8 comandos consecutivos con `step_ok` gobernando rumbos cardinales con desviación < 1.0°.
-- **Calibración Empírica de Marcas y Asimetría Dinámica**: Se identificó sobreavance residual sobre marcas de cinta y una tracción superior en el tren izquierdo que el lazo actual compensa suavemente. Se formalizó la estrategia de balance dinámico de PWM hasta un 30% proporcional para evitar oscilaciones bang-bang.
+- **Calibración de Marcas y Compensación Dinámica de Asimetría (Commit 63b99c8)**: Recorte proporcional de hasta 30% en PWM para el tren con exceso de tracción, autoridad lateral ampliada a 8.0° y escala de odometría calibrada a 0.920 para alinear las marcas físicas en suelo.
+- **Geometría de Chasis y Supresión de Giro Parásito en Reversa (Sesión #42)**: Se analizó el desfase de 15 cm correspondiente a la semilongitud del chasis (30x20 cm) respecto al centro de giro entre ruedas (0,0). Se verificó que el hardware PCNT no pierde pulsos a alta velocidad (100 Hz con 0 plazos perdidos). Se suprimió el `giro_fin` parásito en reversa mediante `ControlRuta::rumboFinalParaPaso`, impidiendo que el chasis pivotee en destino y eliminando el arrastre lateral sobre concreto.
 
 ## Publicación en GitHub Pages
 
