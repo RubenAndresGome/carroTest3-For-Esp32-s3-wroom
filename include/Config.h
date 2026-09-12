@@ -59,14 +59,11 @@ constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
 constexpr float WHEEL_DIAMETER_CM = 6.6f;
 // Corrección firmada de la distancia por pulso. La fórmula es la solicitada:
 // constante efectiva = constante nominal + porcentaje * constante nominal.
-// Calibración de suelo ajustada tras pruebas físicas (Sesión #39):
-// En recorrido de 100 cm (50 -> 50 cm) con el factor previo (+0.15), el robot
-// recorrió físicamente ~70 cm (error de -30 cm). Para que 100 cm de consigna
-// correspondan exactamente a 100 cm físicos reales, el factor efectivo se escala
-// por la relación real (70 / 100):
-// Factor nuevo = 1.15 * 0.70 = 0.805 (equivalente a ENCODER_ERROR_PORCENTAJE = -0.195f,
-// o diámetro odometría efectivo de 5.313 cm sobre rueda nominal de 6.6 cm).
-constexpr float ENCODER_ERROR_PORCENTAJE = -0.195f;
+// Calibración de suelo ajustada tras validación en video y marcas físicas (Sesión #41):
+// Con factor previo (0.805, -0.195), el avance de 50 cm en consigna sobrepasaba
+// la marca física de cinta en ~7 cm. Ajustado a -0.080f (factor de escala 0.920,
+// diámetro efectivo 6.072 cm sobre rueda nominal de 6.6 cm) para centrar el avance sobre las marcas.
+constexpr float ENCODER_ERROR_PORCENTAJE = -0.080f;
 constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
@@ -116,6 +113,9 @@ constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(180 * PWM_SCALE_8_TO_10)
 constexpr uint32_t RAMPA_REVERSA_MS = 900;
 // Piso de potencia elevado para no caer en la zona muerta de fricción estática
 constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(175 * PWM_SCALE_8_TO_10);
+// Piso de torque mínimo garantizado para el lado frenado durante corrección de rumbo/asimetría
+// (~55% duty, 140/255 = 560 en 10-bit), coincidente con el inicio de giro de calibración verificado.
+constexpr int VELOCIDAD_MINIMA_CORRECCION_RECTO = static_cast<int>(140 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 3.0f;
 constexpr float DISTANCIA_APROXIMACION_CM = 40.0f;
 
@@ -205,8 +205,11 @@ constexpr float KD_RUMBO_PWM_POR_RAD_S = 12.0f * PWM_SCALE_8_TO_10;
 constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
 constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 35.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
-constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 0.8f;
-constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 3.0f;
+constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 1.2f;
+constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 8.0f;
+// Reducción dinámica de PWM por asimetría de tracción (hasta 30% del PWM base)
+constexpr float ASYMMETRY_PWM_REDUCTION_MAX_RATIO = 0.30f;
+constexpr float KP_ASYMMETRY_PWM_PER_DEG = 0.15f; // Escala proporcionalmente hasta alcanzar 30% a 2.0° de error
 // Control por rangos relativo al segmento. El piso de 2 cm evita que el
 // porcentaje active recuperaciones por ruido en tramos cortos.
 constexpr float RECENTER_LATERAL_RATIO = 0.10f;

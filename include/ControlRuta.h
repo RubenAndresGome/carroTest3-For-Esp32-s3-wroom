@@ -393,6 +393,18 @@ inline float correccionLateralRumboDeg(float errorLateralCm, float gananciaDegPo
   return limitar(-errorLateralCm * gananciaDegPorCm, -limiteDeg, limiteDeg);
 }
 
+// Calcula la reducción dinámica de PWM sobre el lado más veloz/empujador en avance recto.
+// Proporcional al error angular y acotada estrictamente a un ratio máximo (ej. 30%) del PWM base.
+inline int calcularReduccionAsimetriaPwm(int pwmBase, float errorRumboDeg,
+                                         float kpAsimetriaPorGrado,
+                                         float maximoRatioReduccion) {
+  if (pwmBase <= 0 || kpAsimetriaPorGrado <= 0.0f || maximoRatioReduccion <= 0.0f) {
+    return 0;
+  }
+  const float ratio = fminf(maximoRatioReduccion, fabsf(errorRumboDeg) * kpAsimetriaPorGrado);
+  return static_cast<int>(lroundf(static_cast<float>(pwmBase) * ratio));
+}
+
 inline SalidaPI actualizarPI(EstadoPI& estado, float errorDeg, float gyroRadS,
                              float dtS, float kp, float ki, float kd,
                              float limitePwm, float limiteIntegralGradoS) {

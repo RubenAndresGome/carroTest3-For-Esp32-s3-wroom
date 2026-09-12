@@ -767,16 +767,53 @@ void test_presupuesto_tiempo_recentrado_cubre_21_intentos() {
           episodio, 64000, RECENTER_TIMEOUT_MS, false)));
 }
 
-void test_odometria_calibrada_compensa_subavance_sesion_39() {
-  // Con el factor previo (+0.15), 100 cm nominales producían 168 ticks (~70 cm reales en suelo).
-  // La nueva calibración escala la constante para que 100 cm requieran ~240 ticks.
+void test_odometria_calibrada_marcas_suelo_sesion_41() {
+  // Con el factor previo de 0.805 (-0.195), 50 cm requerían 120 ticks y sobrepasaban la marca física.
+  // Con el factor afinado de 0.920 (-0.080), 50 cm corresponden a ~105 ticks y 100 cm a ~210 ticks.
   const float cmTickNominal = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_CM, ENCODER_PPR);
   const float cmTickCalibrado = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.51836f, cmTickNominal);
-  TEST_ASSERT_FLOAT_WITHIN(0.005f, 0.4173f, cmTickCalibrado);
-  // La distancia calculada para 240 ticks debe ser ~100 cm
-  const float distPara240Ticks = 240.0f * cmTickCalibrado;
-  TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.0f, distPara240Ticks);
+  TEST_ASSERT_FLOAT_WITHIN(0.005f, 0.4769f, cmTickCalibrado);
+  // La distancia calculada para 210 ticks debe ser ~100.1 cm
+  const float distPara210Ticks = 210.0f * cmTickCalibrado;
+  TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.15f, distPara210Ticks);
+}
+
+void test_reduccion_dinamica_asimetria_proporcional_y_acotada_30_pct() {
+  // Error 0 deg -> 0 PWM de reducción
+  TEST_ASSERT_EQUAL_INT(0, ControlRuta::calcularReduccionAsimetriaPwm(
+      970, 0.0f, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO));
+  // Error 0.5 deg -> 7.5% de 970 = 72.75 -> 73 PWM
+  TEST_ASSERT_EQUAL_INT(73, ControlRuta::calcularReduccionAsimetriaPwm(
+      970, 0.5f, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO));
+  // Error 1.0 deg -> 15.0% de 970 = 145.5 -> 146 PWM
+  TEST_ASSERT_EQUAL_INT(146, ControlRuta::calcularReduccionAsimetriaPwm(
+      970, 1.0f, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO));
+  // Error 2.0 deg -> 30.0% de 970 = 291 PWM (alcanza el tope)
+  TEST_ASSERT_EQUAL_INT(291, ControlRuta::calcularReduccionAsimetriaPwm(
+      970, 2.0f, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO));
+  // Error 5.0 deg -> saturado al 30.0% de 970 = 291 PWM (nunca supera el 30%)
+  TEST_ASSERT_EQUAL_INT(291, ControlRuta::calcularReduccionAsimetriaPwm(
+      970, 5.0f, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO));
+  // Error negativo (-1.0 deg) -> magnitud proporcional idéntica
+  TEST_ASSERT_EQUAL_INT(146, ControlRuta::calcularReduccionAsimetriaPwm(
+      970, -1.0f, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO));
+}
+
+void test_autoridad_correccion_lateral_ampliada_a_8_grados() {
+  // Con KP_LATERAL_RUMBO_DEG_POR_CM = 1.2 y límite 8.0:
+  // Error 3.0 cm -> -3.6 deg
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -3.6f,
+                           ControlRuta::correccionLateralRumboDeg(3.0f, KP_LATERAL_RUMBO_DEG_POR_CM, CORRECCION_LATERAL_RUMBO_MAX_DEG));
+  // Error 6.0 cm -> -7.2 deg
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -7.2f,
+                           ControlRuta::correccionLateralRumboDeg(6.0f, KP_LATERAL_RUMBO_DEG_POR_CM, CORRECCION_LATERAL_RUMBO_MAX_DEG));
+  // Error 10.0 cm -> saturado a -8.0 deg
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -8.0f,
+                           ControlRuta::correccionLateralRumboDeg(10.0f, KP_LATERAL_RUMBO_DEG_POR_CM, CORRECCION_LATERAL_RUMBO_MAX_DEG));
+  // Error -10.0 cm -> saturado a +8.0 deg
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 8.0f,
+                           ControlRuta::correccionLateralRumboDeg(-10.0f, KP_LATERAL_RUMBO_DEG_POR_CM, CORRECCION_LATERAL_RUMBO_MAX_DEG));
 }
 
 }  // namespace
@@ -839,6 +876,8 @@ int main(int, char**) {
   RUN_TEST(test_coste_reingreso_usa_rumbo_planificado_para_retorno);
   RUN_TEST(test_endpoint_fino_permite_recuperacion_pulsada_y_evita_zona_muerta);
   RUN_TEST(test_presupuesto_tiempo_recentrado_cubre_21_intentos);
-  RUN_TEST(test_odometria_calibrada_compensa_subavance_sesion_39);
+  RUN_TEST(test_odometria_calibrada_marcas_suelo_sesion_41);
+  RUN_TEST(test_reduccion_dinamica_asimetria_proporcional_y_acotada_30_pct);
+  RUN_TEST(test_autoridad_correccion_lateral_ampliada_a_8_grados);
   return UNITY_END();
 }

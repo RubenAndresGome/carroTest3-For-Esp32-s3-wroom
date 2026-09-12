@@ -1589,17 +1589,22 @@ bool controlarAvance() {
   }
   base = constrain(base, 0, PWM_MAX);
 
-  // Compensacion derecha + reduccion dinamica del lado contrario al angulo desviado (extraida del test aprobado)
+  // Compensacion derecha + reduccion dinamica del lado contrario al angulo desviado
   int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_PRECISION_RECTO, PWM_MAX);
+  const int redAsimetriaPwm = ControlRuta::calcularReduccionAsimetriaPwm(
+      base, err, KP_ASYMMETRY_PWM_PER_DEG, ASYMMETRY_PWM_REDUCTION_MAX_RATIO);
   int redL = 0, redR = 0;
-  if (ctrlRumbo != 0.0f) {
+  if (ctrlRumbo != 0.0f || redAsimetriaPwm > 0) {
     // El lado frenado depende de la geometría (+yaw horario), no de la
     // polaridad eléctrica aprendida durante el pivote de calibración.
-    if (ControlRuta::frenarLadoIzquierdoParaRumbo(ctrlRumbo, direccionTraslacion)) {
-      redL += aproximar(fabsf(ctrlRumbo));
+    const float accionRumbo = ctrlRumbo != 0.0f ? ctrlRumbo : -err;
+    const int maxRedPermitida = aproximar(base * ASYMMETRY_PWM_REDUCTION_MAX_RATIO);
+    const int redTotalRumbo = min(maxRedPermitida, aproximar(fabsf(ctrlRumbo)) + redAsimetriaPwm);
+    if (ControlRuta::frenarLadoIzquierdoParaRumbo(accionRumbo, direccionTraslacion)) {
+      redL += redTotalRumbo;
       strncpy(pasoLadoFrenoRumbo, "left", sizeof(pasoLadoFrenoRumbo));
     } else {
-      redR += aproximar(fabsf(ctrlRumbo));
+      redR += redTotalRumbo;
       strncpy(pasoLadoFrenoRumbo, "right", sizeof(pasoLadoFrenoRumbo));
     }
   } else {
@@ -1607,8 +1612,8 @@ bool controlarAvance() {
   }
   if (ctrlEnc > 0) redL += aproximar(ctrlEnc); else redR += aproximar(-ctrlEnc);
 
-  int magL = constrain(base - redL, VELOCIDAD_PRECISION_RECTO, PWM_MAX);
-  int magR = constrain(baseDer - redR, VELOCIDAD_PRECISION_RECTO, PWM_MAX);
+  int magL = constrain(base - redL, VELOCIDAD_MINIMA_CORRECCION_RECTO, PWM_MAX);
+  int magR = constrain(baseDer - redR, VELOCIDAD_MINIMA_CORRECCION_RECTO, PWM_MAX);
 
   if (!aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR)) {
     fallo("motor_output_error");
