@@ -831,8 +831,8 @@ bool controlarAvance() {
     const float correccionTrayectoDeg = ControlRuta::correccionLateralRumboDeg(
         pasoErrorLateralCm, KP_LATERAL_RUMBO_DEG_POR_CM,
         CORRECCION_LATERAL_RUMBO_MAX_DEG);
-    // En reversa la geometría de trayecto se conserva, pero el chasis mira al
-    // lado opuesto. Por eso la corrección lateral de yaw cambia de signo.
+    // La corrección lateral orienta el chasis para cerrar el desvío hacia la
+    // línea planificada. Conserva el mismo sentido angular relativo a pasoRumboCuerpoDeg.
     pasoControlLateralDeg = ControlRuta::correccionLateralParaDireccion(
         correccionTrayectoDeg, direccionTraslacion);
     rumboObjetivoDeg = normalizar360(pasoRumboCuerpoDeg + pasoControlLateralDeg);

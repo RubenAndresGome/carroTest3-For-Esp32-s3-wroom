@@ -209,7 +209,9 @@ def clear_robot_mission_memory() -> Response:
 @_require_token
 def return_home() -> tuple[Response, int]:
     try:
-        return jsonify(_service().start_return_home()), 202
+        body = request.get_json(silent=True) or {}
+        preview = bool(body.get("preview", False))
+        return jsonify(_service().start_return_home(preview=preview)), 202
     except RuntimeError as exc:
         return jsonify({"error": str(exc)}), 409
 

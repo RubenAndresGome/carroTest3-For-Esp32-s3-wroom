@@ -1662,6 +1662,19 @@
                 Protección de pasos: lista. Cada segmento usa un ID único y no se repite automáticamente tras un reinicio.
             </div>
 
+            <div id="route-ockham-confirm-box" class="info-panel" style="display:none; background: rgba(245, 158, 11, 0.12); border: 1px solid var(--accent, #f59e0b); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent, #f59e0b);">
+                    🏠 Simulación de Regreso Ockham
+                </div>
+                <div id="route-ockham-sim-info" style="font-size: 0.9em; margin-bottom: 10px;">
+                    Simulación calculada. Revisa los pasos enlazados en el mapa antes de confirmar.
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-accent" id="btn-confirm-ockham">✅ Confirmar Regreso</button>
+                    <button type="button" class="btn btn-stop" id="btn-cancel-ockham">❌ Cancelar</button>
+                </div>
+            </div>
+
             <div class="route-tables-grid">
                 <section class="data-table-wrap" tabindex="0" aria-label="Telemetría de ruta en vivo">
                     <div class="data-table-title">Telemetría de Ruta (Live)</div>
@@ -1676,15 +1689,13 @@
                             <tr><td>Sentido / rumbo</td><td id="route-live-motion">forward · 0°</td><td>Freno / arrastre</td><td id="route-live-brake">0.0 / 0.0 cm</td></tr>
                             <tr><td>Endpoint / decisión</td><td id="route-live-endpoint">sin corrección</td><td>Corrección / pivote</td><td id="route-live-recovery">—</td></tr>
                             <tr><td>Arco de giro</td><td id="route-live-arc">0.0 cm</td><td>Traslación X / Y</td><td id="route-live-turn-xy">0.0 / 0.0 cm</td></tr>
+                            <tr><td>Exactitud (Long / Lat)</td><td id="route-live-acc-pos">—</td><td>Exactitud (Yaw / Acum)</td><td id="route-live-acc-ang">—</td></tr>
                             <tr><td>Sup. Izq.</td><td id="route-live-fl">0</td><td>Sup. Der.</td><td id="route-live-fr">0</td></tr>
                             <tr><td>Inf. Izq.</td><td id="route-live-bl">0</td><td>Inf. Der.</td><td id="route-live-br">0</td></tr>
                         </tbody>
                     </table>
                 </section>
                 <section class="data-table-wrap" tabindex="0" aria-label="Cola de waypoints absolutos">
-                    <div class="data-table-title">Cola de Comandos · Waypoints Absolutos</div>
-                    <table class="data-table">
-                        <thead><tr><th>#</th><th>Descripción</th><th>X</th><th>Y</th><th>Estado</th></tr></thead>
                         <tbody id="route-list">
                             <tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>
                         </tbody>
@@ -2969,6 +2980,8 @@
             document.getElementById('btn-route-stop').addEventListener('click', () => this.stopAndReset());
             document.getElementById('btn-route-discard').addEventListener('click', () => this.stopAndReset());
             document.getElementById('btn-route-ockham').addEventListener('click', () => this.ockhamReturn());
+            document.getElementById('btn-confirm-ockham').addEventListener('click', () => this.confirmOckhamReturn());
+            document.getElementById('btn-cancel-ockham').addEventListener('click', () => this.cancelOckhamReturn());
             document.getElementById('btn-route-clear-memory').addEventListener('click', () => this.clearRobotMemory());
             this.updateLabels();
         },
@@ -3340,8 +3353,23 @@
                 safety.style.color='var(--danger)';
                 return this.failRoute(interrupted?'robot_restarted_mid_mission: repetición automática bloqueada':mission.error);
             }
-            safety.textContent=`Protección de pasos: ${String(mission.stage||'idle').toUpperCase()} · checkpoint ${this.currentStepIndex}/${mission.total_segments||0}.`;
-            safety.style.color='';
+            if(mission.accuracy){
+                const acc=mission.accuracy;
+                const elPos=document.getElementById('route-live-acc-pos');
+                const elAng=document.getElementById('route-live-acc-ang');
+                if(elPos) elPos.textContent=`${Number(acc.error_long_cm||0).toFixed(1)} / ${Number(acc.error_lat_cm||0).toFixed(1)} cm`;
+                if(elAng) elAng.textContent=`${Number(acc.error_angular_deg||0).toFixed(1)}° / ${Number(acc.accumulated_lateral_cm||0).toFixed(1)} cm`;
+            }
+            if(mission.stage==='settling'){
+                safety.textContent=`Punto de exactitud: evaluando asentamiento y errores (${this.currentStepIndex}/${mission.total_segments||0})...`;
+                safety.style.color='var(--accent, #f59e0b)';
+            } else if(mission.stage==='realigning'){
+                safety.textContent=`Reposicionamiento ortogonal: desvío angular > 1.5° o lateral > 2.5 cm. Re-alineando a eje cardinal...`;
+                safety.style.color='var(--accent, #f59e0b)';
+            } else {
+                safety.textContent=`Protección de pasos: ${String(mission.stage||'idle').toUpperCase()} · checkpoint ${this.currentStepIndex}/${mission.total_segments||0}.`;
+                safety.style.color='';
+            }
             if(this.isRunning&&!mission.running) {
                 this.isRunning=false; this.unlockTabs(); clearTimeout(this.moveTimeout);
                 LogSystem.add('INFO','Ruta completada por el carrito.');
@@ -3382,7 +3410,13 @@
                 LogSystem.add('ERROR',`No se pudo borrar la ruta: ${error.message}`);
             }
         },
+            } catch(error) {
+                LogSystem.add('ERROR',`No se pudo borrar la ruta: ${error.message}`);
+            }
+        },
         async clearRobotMemory() {
+            const box=document.getElementById('route-ockham-confirm-box');
+            if(box) box.style.display='none';
             if (!confirm('¿Detener el robot y borrar la misión y su checkpoint de Python?')) return;
             try {
                 const result=await WSControl.api('/api/v1/missions/robot-memory',{method:'DELETE'});
@@ -3393,15 +3427,14 @@
             } catch(error) { LogSystem.add('ERROR',`No se pudo liberar la memoria: ${error.message}`); }
         },
         async ockhamReturn() {
-            if (!confirm("Confirma que el área está despejada y que puedes supervisar el robot. ¿Regresar al origen 0,0?")) return;
             try {
-                const mission=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:'{}'});
+                const preview=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:JSON.stringify({preview:true})});
                 this.currentOrigin={x:state.telemetria.posX,y:state.telemetria.posY};
                 this.logicalSteps=[]; this.nextLogicalStepId=1;
-                const vectorialReturn=mission.mode==='angular_vectorial';
+                const vectorialReturn=preview.mode==='angular_vectorial';
                 this.modeSelect.value=vectorialReturn?'vectorial':'rect';
                 let logicalStart=this.currentOrigin;
-                this.queue=(mission.planned_points||[]).map((point,index)=>{
+                this.queue=(preview.planned_points||[]).map((point,index)=>{
                     const end={x:Number(point.x_mm)/10,y:Number(point.y_mm)/10};
                     const id=this.nextLogicalStepId++;
                     const dx=end.x-logicalStart.x,dy=end.y-logicalStart.y;
@@ -3415,13 +3448,37 @@
                     return {x:end.x,y:end.y,logicalStepId:id,component:vectorialReturn?'vector':'ockham',desc:vectorialReturn?'Vector inverso Ockham':'Paso inverso Ockham'};
                 });
                 this.updateModeLock();
+                this.currentStepIndex=0;
+                this.updateListUI(); this.drawPlan(); this.autoScale();
+
+                const box=document.getElementById('route-ockham-confirm-box');
+                const info=document.getElementById('route-ockham-sim-info');
+                if(box&&info){
+                    box.style.display='block';
+                    info.textContent=`Simulación calculada: ${preview.total_steps} pasos enlazados hacia (0, 0) con avance frontal y supervisión de exactitud. Confirma para arrancar.`;
+                }
+                LogSystem.add('INFO',`Simulación de regreso Ockham lista: ${preview.total_steps} pasos enlazados calculados hacia el origen.`);
+            } catch(error) { LogSystem.add('ERROR',`No se pudo simular Ockham: ${error.message}`); }
+        },
+        async confirmOckhamReturn() {
+            const box=document.getElementById('route-ockham-confirm-box');
+            if(box) box.style.display='none';
+            try {
+                const mission=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:JSON.stringify({preview:false})});
                 this.currentStepIndex=mission.current_index||0;
                 this.activeCommandId=mission.active_command_id||null;
                 this.isRunning=true; this.waitingForMovement=true;
                 this.clearTelemetryTrail(); this.lockTabs();
-                LogSystem.add('CMD','Ruta Ockham inversa iniciada; Python conserva la pila y alineará yaw a 0°.');
-                this.updateListUI(); this.drawPlan(); this.autoScale();
-            } catch(error) { LogSystem.add('ERROR',`No se pudo iniciar Ockham: ${error.message}`); }
+                LogSystem.add('CMD','Ruta Ockham inversa confirmada e iniciada en avance frontal; supervisión de exactitud activa.');
+                this.updateListUI(); this.drawPlan();
+            } catch(error) { LogSystem.add('ERROR',`No se pudo iniciar regreso Ockham: ${error.message}`); }
+        },
+        cancelOckhamReturn() {
+            const box=document.getElementById('route-ockham-confirm-box');
+            if(box) box.style.display='none';
+            this.queue=[]; this.logicalSteps=[]; this.currentStepIndex=0;
+            this.updateListUI(); this.drawPlan();
+            LogSystem.add('INFO','Simulación de regreso Ockham cancelada por el operador.');
         }
     };
 

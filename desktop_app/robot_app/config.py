@@ -35,6 +35,7 @@ class AppConfig:
     telemetry_queue_size: int = 256
     event_queue_size: int = 64
     max_message_bytes: int = MAX_ROBOT_MESSAGE_BYTES
+    settling_delay_s: float = 0.0
 
     @classmethod
     def from_environment(cls) -> "AppConfig":
@@ -50,4 +51,5 @@ class AppConfig:
             # La red del robot se elige primero en Windows. El WebSocket solo
             # arranca cuando el operador pulsa Conectar en la HMI.
             start_gateway=os.environ.get("ROBOT_AUTO_CONNECT", "0") == "1",
+            settling_delay_s=float(os.environ.get("ROBOT_SETTLING_DELAY_S", "0.5")),
         )

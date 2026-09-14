@@ -26,7 +26,12 @@ def create_app(config: AppConfig | None = None) -> Flask:
     database.initialize()
     if database.get_setting("robot_host") is None:
         database.set_setting("robot_host", settings.robot_host)
-    service = RobotService(database, start_gateway=settings.start_gateway, max_message_bytes=settings.max_message_bytes)
+    service = RobotService(
+        database,
+        start_gateway=settings.start_gateway,
+        max_message_bytes=settings.max_message_bytes,
+        settling_delay_s=settings.settling_delay_s,
+    )
     app.extensions["robot_service"] = service
     app.extensions["app_token"] = secrets.token_urlsafe(24)
     app.extensions["host_shutdown"] = None

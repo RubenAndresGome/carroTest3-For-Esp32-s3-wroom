@@ -56,7 +56,7 @@ constexpr float WHEEL_DIAMETER_CM = 6.6f;
 // sobreavance de 10 % en 1 m y de 15--20 % en 2 m. Al aumentar la distancia
 // estimada por tick, el restante se reduce antes y el robot ordena el freno
 // antes. Revalidar con tres corridas de 50 y 200 cm tras cada cambio mecánico.
-constexpr float ENCODER_ERROR_PORCENTAJE = 0.15f;
+constexpr float ENCODER_ERROR_PORCENTAJE = 0.18f;
 constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
@@ -97,20 +97,20 @@ constexpr uint32_t RAMPA_REVERSA_MS = 900;
 constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(150 * PWM_SCALE_8_TO_10);
 // Piso inferior para reducción diferencial en avance recto (permite girar aún en precisión/desaceleración)
 constexpr int VELOCIDAD_MINIMA_DIFERENCIAL = static_cast<int>(100 * PWM_SCALE_8_TO_10);
-constexpr float TOLERANCIA_DISTANCIA_CM = 1.2f;
+constexpr float TOLERANCIA_DISTANCIA_CM = 1.0f;
 constexpr float DISTANCIA_APROXIMACION_CM = 30.0f;
 // Modelo de avance por inercia ajustado con telemetría real (arrastre real medio ~1.2 cm por reducción TT).
-constexpr float FRENO_RESIDUAL_BASE_CM = 0.5f;
+constexpr float FRENO_RESIDUAL_BASE_CM = 0.3f;
 constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.001f;
-constexpr float FRENO_RESIDUAL_MAX_CM = 1.5f;
+constexpr float FRENO_RESIDUAL_MAX_CM = 1.0f;
 constexpr uint32_t ASENTAMIENTO_MIN_MS = 250;
 constexpr uint32_t ASENTAMIENTO_SIN_PULSOS_MS = 300;
 constexpr uint32_t ASENTAMIENTO_MAX_MS = 1500;
 // Una misión con objetivo absoluto no puede terminar únicamente por el
 // contador longitudinal: debe converger al punto planificado.
-constexpr float TOLERANCIA_ENDPOINT_CM = 2.5f;
+constexpr float TOLERANCIA_ENDPOINT_CM = 2.0f;
 // Por debajo de este umbral el residual es considerado aceptable o recuperable mediante micro-pulso.
-constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM = 2.5f;
+constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM = 2.0f;
 constexpr uint8_t INTENTOS_RECUPERACION_ENDPOINT_MAX = 2;
 constexpr float GYRO_MOVEMENT_RAD_S = 0.12f;
 constexpr uint32_t DRIVE_STALL_MS = 6000;

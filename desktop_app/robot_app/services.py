@@ -189,11 +189,17 @@ class RobotService:
     ACTIVE_TELEMETRY_PERIOD_S = 0.2
     IDLE_TELEMETRY_PERIOD_S = 10.0
 
-    def __init__(self, database: Database, start_gateway: bool = True, max_message_bytes: int = 4096) -> None:
+    def __init__(self, database: Database, host: str | None = None, start_gateway: bool = True,
+                 max_message_bytes: int = 4096, settling_delay_s: float = 0.0) -> None:
         self.database = database
         self.events = EventHub()
         self._lock = threading.RLock()
-        self._robot_host = normalize_robot_host(database.get_setting("robot_host", DEFAULT_ROBOT_HOST))
+        self._robot_host = normalize_robot_host(host or database.get_setting("robot_host", DEFAULT_ROBOT_HOST))
+        self._settling_delay_s = max(0.0, float(settling_delay_s))
+        self._settling_timer: threading.Timer | None = None
+        self._mission_accumulated_lateral_cm: float = 0.0
+        self._mission_accumulated_angular_deg: float = 0.0
+        self._mission_accuracy: dict[str, Any] = {}
         self._session_id: int | None = None
         self._last_telemetry: TelemetrySnapshot | None = None
         self._telemetry_sequence = 0
@@ -272,6 +278,8 @@ class RobotService:
                 self._mission_logical_steps = list(logical_steps) if isinstance(logical_steps, list) else []
                 warnings = saved_mission.get("warnings")
                 self._mission_warnings = list(warnings) if isinstance(warnings, list) else []
+                accuracy = saved_mission.get("accuracy")
+                self._mission_accuracy = dict(accuracy) if isinstance(accuracy, dict) else {}
                 final_heading = saved_mission.get("final_heading")
                 self._mission_final_heading = float(final_heading) if final_heading is not None else None
                 origin = saved_mission.get("origin", {})
@@ -413,7 +421,7 @@ class RobotService:
             return {
                 "id": self._mission_id,
                 "running": self._mission_id is not None and not self._mission_blocked
-                and self._mission_stage in {"executing", "aligning_final"},
+                and self._mission_stage in {"executing", "aligning_final", "settling", "realigning"},
                 "blocked": self._mission_blocked,
                 "current_index": self._mission_index,
                 "total_segments": len(self._mission_points),
@@ -432,6 +440,7 @@ class RobotService:
                 "planned_points": [dict(point) for point in self._mission_points],
                 "logical_steps": list(self._mission_logical_steps),
                 "warnings": list(self._mission_warnings),
+                "accuracy": dict(self._mission_accuracy),
                 "created_at": self._mission_created_at,
             }
 
@@ -447,6 +456,7 @@ class RobotService:
                 "kind": self._mission_kind, "final_heading": self._mission_final_heading,
                 "mode": self._mission_mode, "logical_steps": self._mission_logical_steps,
                 "warnings": self._mission_warnings,
+                "accuracy": self._mission_accuracy,
                 "created_at": self._mission_created_at,
             }
         self.database.set_setting("active_mission", value)
@@ -518,9 +528,12 @@ class RobotService:
                 self.database.set_setting("last_completed_route", previous_route)
         with self._lock:
             if self._mission_id is not None and not self._mission_blocked and self._mission_stage in {
-                "executing", "aligning_final"
+                "executing", "aligning_final", "settling", "realigning"
             }:
                 raise RuntimeError("Ya existe una misión activa")
+            if self._settling_timer is not None:
+                self._settling_timer.cancel()
+                self._settling_timer = None
             self._mission_id = uuid.uuid4().hex
             self._mission_points = segments
             self._mission_index = 0
@@ -537,6 +550,9 @@ class RobotService:
             self._mission_mode = mode
             self._mission_logical_steps = list(logical_steps or [])
             self._mission_warnings = []
+            self._mission_accumulated_lateral_cm = 0.0
+            self._mission_accumulated_angular_deg = 0.0
+            self._mission_accuracy = {}
             self._mission_created_at = time.time()
             self._next_seq = 1
             self.database.set_setting("next_command_seq", 1)
@@ -671,7 +687,7 @@ class RobotService:
         return self._activate_mission(segments, origin, "ockham_return", final_heading=float(item["yaw_initial"] or 0),
                                       mode="touch_reverse", logical_steps=[])
 
-    def start_return_home(self) -> dict[str, Any]:
+    def start_return_home(self, preview: bool = False) -> dict[str, Any]:
         telemetry = self._require_ready_robot()
         route = self.database.get_setting("last_completed_route", None)
         if not isinstance(route, dict) or route.get("return_state") != "available":
@@ -684,28 +700,62 @@ class RobotService:
         if route_mode == "angular_vectorial":
             self._require_vectorial_ready(telemetry)
         try:
-            previous = {"x_mm": float(source_origin["x_mm"]), "y_mm": float(source_origin["y_mm"])}
-            vectors: list[tuple[float, float]] = []
+            waypoints: list[dict[str, float]] = [
+                {"x_mm": float(source_origin["x_mm"]), "y_mm": float(source_origin["y_mm"])}
+            ]
             for point in source_points:
-                current = {"x_mm": float(point["x_mm"]), "y_mm": float(point["y_mm"])}
-                vectors.append((current["x_mm"] - previous["x_mm"], current["y_mm"] - previous["y_mm"]))
-                previous = current
+                waypoints.append({"x_mm": float(point["x_mm"]), "y_mm": float(point["y_mm"])})
         except (KeyError, TypeError, ValueError) as exc:
             raise RuntimeError("El registro de la ruta completada no es válido") from exc
-        return_origin = {"x_mm": telemetry.x_mm, "y_mm": telemetry.y_mm}
-        x_mm, y_mm = telemetry.x_mm, telemetry.y_mm
+
+        home_x = float(source_origin.get("x_mm", 0.0))
+        home_y = float(source_origin.get("y_mm", 0.0))
+
         return_points: list[dict[str, Any]] = []
-        for logical_id, (dx, dy) in enumerate(reversed(vectors), start=1):
-            x_mm -= dx
-            y_mm -= dy
+        curr_x = waypoints[-1]["x_mm"]
+        curr_y = waypoints[-1]["y_mm"]
+
+        for logical_id, target in enumerate(reversed(waypoints[:-1]), start=1):
+            dx = target["x_mm"] - curr_x
+            dy = target["y_mm"] - curr_y
+            length = math.hypot(dx, dy)
+            if length < 1.0:
+                continue
+            heading = math.degrees(math.atan2(dx, dy)) % 360.0
             return_points.append({
-                "x_mm": x_mm, "y_mm": y_mm, "logical_step_id": logical_id,
+                "x_mm": target["x_mm"],
+                "y_mm": target["y_mm"],
+                "logical_step_id": logical_id,
                 "component": "vector" if route_mode == "angular_vectorial" else "return",
-                "heading_deg": math.degrees(math.atan2(-dx, -dy)) % 360.0,
-                "length_mm": math.hypot(dx, dy), "drive_mode": "reverse",
+                "heading_deg": heading,
+                "length_mm": length,
+                "drive_mode": "forward",
             })
+            curr_x = target["x_mm"]
+            curr_y = target["y_mm"]
+            if math.hypot(curr_x - home_x, curr_y - home_y) <= 10.0:
+                break
+
+        if not return_points:
+            raise RuntimeError("El robot ya se encuentra en el origen de la ruta")
         if len(return_points) > 256:
             raise RuntimeError("La ruta inversa excede los 256 pasos atómicos")
+
+        return_origin = {"x_mm": waypoints[-1]["x_mm"], "y_mm": waypoints[-1]["y_mm"]}
+
+        if preview:
+            return {
+                "preview": True,
+                "origin": return_origin,
+                "points": return_points,
+                "planned_points": [
+                    {"x_mm": point["x_mm"], "y_mm": point["y_mm"]}
+                    for point in return_points
+                ],
+                "total_steps": len(return_points),
+                "mode": route_mode,
+            }
+
         route["return_state"] = "in_progress"
         route["return_error"] = None
         self.database.set_setting("last_completed_route", route)
@@ -726,6 +776,9 @@ class RobotService:
 
     def stop_mission(self, reason: str = "operator_stop") -> dict[str, Any]:
         with self._lock:
+            if self._settling_timer is not None:
+                self._settling_timer.cancel()
+                self._settling_timer = None
             was_running = (
                 self._mission_id is not None
                 and not self._mission_blocked
@@ -896,7 +949,7 @@ class RobotService:
             running = self._mission_command_id is not None
             # Es un límite de coordinación; los watchdogs eléctricos siguen
             # siendo responsabilidad del ESP32.
-            if (self._mission_stage in {"executing", "aligning_final"} and running and started is not None
+            if (self._mission_stage in {"executing", "aligning_final", "realigning"} and running and started is not None
                     and time.monotonic() - started >= self.MISSION_SEGMENT_TIMEOUT_S):
                 kill_by_segment = True
         if kill_by_age:
@@ -906,7 +959,7 @@ class RobotService:
 
     def _block_mission(self, reason: str) -> None:
         with self._lock:
-            if self._mission_id is None or self._mission_stage not in {"executing", "aligning_final"}:
+            if self._mission_id is None or self._mission_stage not in {"executing", "aligning_final", "settling", "realigning"}:
                 return
             active_command_id = self._mission_command_id
             active_seq = self._mission_seq
@@ -1208,8 +1261,9 @@ class RobotService:
         if mission_match and kind in {"completed", "already_done"}:
             detail = str(message.get("detail") or message.get("reason") or "")
             with self._lock:
+                stage = self._mission_stage
                 is_final_segment = (
-                    self._mission_stage == "executing"
+                    stage == "executing"
                     and self._mission_index == len(self._mission_points) - 1
                 )
                 if detail == "step_ok_endpoint_soft":
@@ -1218,12 +1272,99 @@ class RobotService:
                         "detail": detail,
                         "final": is_final_segment,
                     })
-            if detail == "step_ok_endpoint_soft" and is_final_segment:
-                self._block_mission("final_endpoint_out_of_tolerance")
-            else:
+            if stage == "realigning":
+                with self._lock:
+                    self._mission_stage = "executing"
                 self._advance_mission()
+            elif detail == "step_ok_endpoint_soft" and is_final_segment:
+                self._block_mission("final_endpoint_out_of_tolerance")
+            elif self._settling_delay_s > 0.0 and stage == "executing":
+                with self._lock:
+                    self._mission_stage = "settling"
+                    if self._settling_timer is not None:
+                        self._settling_timer.cancel()
+                    self._settling_timer = threading.Timer(self._settling_delay_s, self._on_step_settled)
+                    self._settling_timer.daemon = True
+                    self._settling_timer.start()
+                self._persist_mission()
+                self.events.publish("mission", self.mission_status())
+            else:
+                self._on_step_settled()
         elif mission_match and kind in {"rejected", "fault"}:
             self._block_mission(str(message.get("detail") or message.get("reason") or kind))
+
+    def _on_step_settled(self) -> None:
+        realign_needed = False
+        cardinal_target: float | None = None
+        with self._lock:
+            if not self._mission_id or self._mission_blocked:
+                return
+            if self._mission_stage not in {"settling", "executing"}:
+                if self._mission_stage == "aligning_final":
+                    self._advance_mission()
+                return
+            telemetry = self._last_telemetry
+            curr_idx = self._mission_index
+            if curr_idx < len(self._mission_points) and telemetry is not None:
+                step = self._mission_points[curr_idx]
+                target_x_mm = float(step.get("x_mm", 0.0))
+                target_y_mm = float(step.get("y_mm", 0.0))
+                target_heading = float(step.get("heading_deg", 0.0))
+                actual_x_mm = float(telemetry.x_mm)
+                actual_y_mm = float(telemetry.y_mm)
+                actual_yaw = float(telemetry.yaw_deg)
+
+                dx_mm = actual_x_mm - target_x_mm
+                dy_mm = actual_y_mm - target_y_mm
+                error_pos_cm = math.hypot(dx_mm, dy_mm) / 10.0
+
+                rad = math.radians(target_heading)
+                ux, uy = math.sin(rad), math.cos(rad)
+                error_long_cm = (dx_mm * ux + dy_mm * uy) / 10.0
+                error_lat_cm = (dx_mm * uy - dy_mm * ux) / 10.0
+                error_angular_deg = (actual_yaw - target_heading + 180.0) % 360.0 - 180.0
+
+                self._mission_accumulated_lateral_cm += abs(error_lat_cm)
+                self._mission_accumulated_angular_deg += abs(error_angular_deg)
+
+                # Umbral de Reposicionamiento Ortogonal:
+                # Desvío angular > 1.5° o lateral acumulado > 2.5 cm
+                is_last_step = (curr_idx >= len(self._mission_points) - 1)
+                if self._settling_delay_s > 0.0 and not is_last_step:
+                    if abs(error_angular_deg) > 1.5 or self._mission_accumulated_lateral_cm > 2.5:
+                        realign_needed = True
+                        cardinal_target = round(target_heading / 90.0) * 90.0 % 360.0
+
+                self._mission_accuracy = {
+                    "step_index": curr_idx + 1,
+                    "target_x_mm": target_x_mm,
+                    "target_y_mm": target_y_mm,
+                    "actual_x_mm": actual_x_mm,
+                    "actual_y_mm": actual_y_mm,
+                    "error_pos_cm": round(error_pos_cm, 2),
+                    "error_long_cm": round(error_long_cm, 2),
+                    "error_lat_cm": round(error_lat_cm, 2),
+                    "error_angular_deg": round(error_angular_deg, 2),
+                    "accumulated_lateral_cm": round(self._mission_accumulated_lateral_cm, 2),
+                    "accumulated_angular_deg": round(self._mission_accumulated_angular_deg, 2),
+                    "reposition_applied": realign_needed,
+                }
+                self.database.insert_event(self._session_id, "accuracy_point", Severity.INFO.value, self._mission_accuracy)
+
+        if realign_needed and cardinal_target is not None:
+            with self._lock:
+                self._mission_stage = "realigning"
+                self._mission_accumulated_lateral_cm = 0.0
+                self._mission_accumulated_angular_deg = 0.0
+            command = self.send_command("turn_to", {"heading": cardinal_target})
+            with self._lock:
+                self._mission_command_id = command.command_id
+                self._mission_seq = command.seq
+                self._mission_command_started_at = None
+            self._persist_mission()
+            self.events.publish("mission", self.mission_status())
+        else:
+            self._advance_mission()
 
     def _reconcile_short_memory_hello(self, message: dict[str, Any]) -> None:
         with self._lock:

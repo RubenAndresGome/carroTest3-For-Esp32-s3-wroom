@@ -461,6 +461,82 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.service.mission_status()["stage"], "completed")
         self.assertEqual(self.service.database.get_setting("last_completed_route")["return_state"], "completed")
 
+    def test_return_home_preview_returns_plan_without_starting(self) -> None:
+        self._ready()
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 1000}, {"x_mm": 1000, "y_mm": 1000}])
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        self.service._on_robot_message({"evt": "completed", "seq": self.service.mission_status()["active_seq"],
+                                        "detail": "step_ok"})
+        self._ready(1000, 1000)
+        response = self.client.post("/api/v1/missions/return-home", json={"preview": True},
+                                    headers={"X-App-Token": self.token})
+        self.assertEqual(response.status_code, 202)
+        data = response.json
+        self.assertTrue(data["preview"])
+        self.assertEqual(data["total_steps"], 2)
+        self.assertEqual(data["planned_points"], [{"x_mm": 0.0, "y_mm": 1000.0}, {"x_mm": 0.0, "y_mm": 0.0}])
+        self.assertEqual(self.service.database.get_setting("last_completed_route")["return_state"], "available")
+        self.assertFalse(self.service.mission_status()["running"])
+
+    def test_return_home_truncates_intermediate_loops_to_origin(self) -> None:
+        self._ready()
+        route = {
+            "route_id": "test_loop",
+            "origin": {"x_mm": 0.0, "y_mm": 0.0},
+            "points": [
+                {"x_mm": 0.0, "y_mm": 500.0},
+                {"x_mm": 0.0, "y_mm": 0.0},
+                {"x_mm": 0.0, "y_mm": -500.0},
+            ],
+            "mode": "rectangular",
+            "logical_steps": [],
+            "return_state": "available",
+            "return_error": None,
+        }
+        self.service.database.set_setting("last_completed_route", route)
+        self._ready(0, -500)
+        plan = self.service.start_return_home(preview=True)
+        self.assertEqual(plan["total_steps"], 1)
+        self.assertEqual(plan["planned_points"], [{"x_mm": 0.0, "y_mm": 0.0}])
+
+    def test_step_settled_records_accuracy_point_event(self) -> None:
+        self._ready()
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 500}])
+        self._ready(10, 490)
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        status = self.service.mission_status()
+        accuracy = status.get("accuracy", {})
+        self.assertEqual(accuracy.get("step_index"), 1)
+        self.assertIn("error_pos_cm", accuracy)
+        self.assertIn("error_angular_deg", accuracy)
+
+    def test_settling_delay_and_cardinal_realignment(self) -> None:
+        self.service._settling_delay_s = 0.02
+        self._ready()
+        # 2-step mission: intermediate step can trigger realignment
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 500}, {"x_mm": 500, "y_mm": 500}])
+        # Simulate drift: heading was 0° (+Y), actual yaw drifted by 2.2° (> 1.5° threshold)
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x": 0.0,
+            "y": 50.0, "yaw": 2.2, "cal": True, "enc": [10, 10, 10, 10],
+        }, 2)
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        # Immediately after step completion, stage is settling
+        self.assertEqual(self.service.mission_status()["stage"], "settling")
+        # Wait for settling timer to fire
+        time.sleep(0.05)
+        # Threshold exceeded: should be in realigning stage with turn_to queued
+        status = self.service.mission_status()
+        self.assertEqual(status["stage"], "realigning")
+        turn_cmd = next(item.command for item in self.service.gateway._outgoing.queue
+                        if item.command.seq == status["active_seq"])
+        self.assertEqual(turn_cmd.name, "turn_to")
+        self.assertEqual(turn_cmd.payload["heading"], 0.0) # cardinal 0°
+        # Once turn_to finishes, advance to step 2
+        self.service._on_robot_message({"evt": "completed", "seq": turn_cmd.seq, "detail": "turn_ok"})
+        self.assertEqual(self.service.mission_status()["stage"], "executing")
+        self.assertEqual(self.service.mission_status()["current_index"], 1)
+
     def test_corrupt_completed_route_is_rejected_without_consuming_it(self) -> None:
         self._ready()
         route = {"origin": {"x_mm": 0, "y_mm": 0}, "points": [{}], "return_state": "available"}

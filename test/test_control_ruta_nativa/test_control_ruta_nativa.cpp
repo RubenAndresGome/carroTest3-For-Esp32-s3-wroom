@@ -45,10 +45,10 @@ void test_reversa_automatica_conserva_el_chasis_ante_objetivo_detras() {
                            ControlRuta::rumboCuerpoParaTrayecto(180.0f, 1));
 }
 
-void test_reversa_invierte_solo_la_correccion_lateral_del_chasis() {
+void test_reversa_conserva_correccion_lateral_convergente() {
   const float correccionTrayecto = ControlRuta::correccionLateralRumboDeg(5.0f, 0.8f, 8.0f);
   TEST_ASSERT_FLOAT_WITHIN(0.001f, -4.0f, correccionTrayecto);
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.0f,
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -4.0f,
                            ControlRuta::correccionLateralParaDireccion(correccionTrayecto, -1));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, -4.0f,
                            ControlRuta::correccionLateralParaDireccion(correccionTrayecto, 1));
@@ -62,8 +62,8 @@ void test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo() {
 }
 
 void test_escala_y_freno_se_calculan_en_la_misma_unidad() {
-  const float cmPorTick = ControlRuta::distanciaPorTick(6.6f * 1.15f, 20);
-  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.192f, cmPorTick);
+  const float cmPorTick = ControlRuta::distanciaPorTick(6.6f * 1.18f, 20);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.2233f, cmPorTick);
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 7.02f,
                            ControlRuta::distanciaFrenoPrevista(920.0f, 1.5f, 0.006f, 8.0f));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 8.0f,
@@ -507,7 +507,7 @@ int main(int, char**) {
   RUN_TEST(test_freno_residual_calibrado_inercia_real);
   RUN_TEST(test_errores_vectoriales_son_consistentes_en_rumbos_diagonales);
   RUN_TEST(test_reversa_automatica_conserva_el_chasis_ante_objetivo_detras);
-  RUN_TEST(test_reversa_invierte_solo_la_correccion_lateral_del_chasis);
+  RUN_TEST(test_reversa_conserva_correccion_lateral_convergente);
   RUN_TEST(test_reversa_invierte_el_lado_frenado_por_el_pid_de_rumbo);
   RUN_TEST(test_escala_y_freno_se_calculan_en_la_misma_unidad);
   RUN_TEST(test_integral_se_acota_y_no_crece_en_saturacion);

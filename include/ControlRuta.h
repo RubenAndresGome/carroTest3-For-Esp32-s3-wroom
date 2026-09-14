@@ -58,8 +58,11 @@ inline float rumboCuerpoParaTrayecto(float rumboTrayectoDeg, int direccion) {
   return normalizar360(rumboTrayectoDeg + (direccion < 0 ? 180.0f : 0.0f));
 }
 
-inline float correccionLateralParaDireccion(float correccionRumboDeg, int direccion) {
-  return direccion < 0 ? -correccionRumboDeg : correccionRumboDeg;
+inline float correccionLateralParaDireccion(float correccionRumboDeg, int /*direccion*/) {
+  // El ángulo de corrección del cuerpo respecto a la línea de trayecto conserva
+  // el mismo sentido físico en avance y reversa. La inversión motriz correspondiente
+  // al frenado diferencial se aplica en frenarLadoIzquierdoParaRumbo.
+  return correccionRumboDeg;
 }
 
 // Invertir ambas ruedas también invierte el giro físico al frenar sólo un
