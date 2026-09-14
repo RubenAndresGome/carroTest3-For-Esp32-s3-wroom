@@ -470,6 +470,29 @@ void test_historial_torque_por_lado() {
   TEST_ASSERT_EQUAL_INT(205,ControlTorque::baseParaPolaridad(h,-1,false));
 }
 
+void test_convergencia_lateral_reforzada() {
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -6.0f,
+                           ControlRuta::correccionLateralRumboDeg(3.0f, 2.0f, 18.0f));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f,
+                           ControlRuta::correccionLateralRumboDeg(-5.0f, 2.0f, 18.0f));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -18.0f,
+                           ControlRuta::correccionLateralRumboDeg(12.0f, 2.0f, 18.0f));
+}
+
+void test_pi_rumbo_reforzado_mpu() {
+  ControlRuta::EstadoPI estado = {};
+  const auto salida = ControlRuta::actualizarPI(estado, 1.0f, 0.0f, 0.01f,
+                                                 40.0f, 7.2f, 72.0f, 440.0f, 40.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 40.07f, salida.total);
+}
+
+void test_freno_residual_calibrado_inercia_real() {
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.30f,
+                           ControlRuta::distanciaFrenoPrevista(800.0f, 0.5f, 0.001f, 1.5f));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.50f,
+                           ControlRuta::distanciaFrenoPrevista(1200.0f, 0.5f, 0.001f, 1.5f));
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -479,6 +502,9 @@ int main(int, char**) {
   RUN_TEST(test_historial_torque_por_lado);
   RUN_TEST(test_lateral_derecha_corrige_hacia_izquierda);
   RUN_TEST(test_lateral_izquierda_corrige_hacia_derecha);
+  RUN_TEST(test_convergencia_lateral_reforzada);
+  RUN_TEST(test_pi_rumbo_reforzado_mpu);
+  RUN_TEST(test_freno_residual_calibrado_inercia_real);
   RUN_TEST(test_errores_vectoriales_son_consistentes_en_rumbos_diagonales);
   RUN_TEST(test_reversa_automatica_conserva_el_chasis_ante_objetivo_detras);
   RUN_TEST(test_reversa_invierte_solo_la_correccion_lateral_del_chasis);

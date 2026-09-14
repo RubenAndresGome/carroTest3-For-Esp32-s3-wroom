@@ -293,6 +293,8 @@ uint32_t ultimoCtrlGiroMs = 0;
 uint32_t ultimoAumentoTorqueGiroMs = 0;
 int pwmBusquedaGiro = 0;
 int pwmBoostFrenado = 0;
+uint32_t inicioPulsoFinoGiroMs = 0;
+bool pulsoFinoGiroEncendido = false;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   reiniciarControlRumbo();
@@ -302,6 +304,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   giroEnTol = false; pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false;
   intentoGiro=1; inicioIntentoGiroMs=millis(); inicioGiroTotalMs=millis();
   estableGiroDesdeMs=0; pausaReintentoGiroCal=false;
+  inicioPulsoFinoGiroMs=millis(); pulsoFinoGiroEncendido=false;
   ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
   ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=millis();
   ultimoCtrlGiroMs=0;
@@ -418,7 +421,9 @@ void controlarGiro() {
     pwmObj = pwmCerca + aproximar((pwmLejos - pwmCerca) * errorAbs / TURN_BRAKING_ZONE_DEG);
 
     if (errorAbs > TURN_HYBRID_THRESHOLD_DEG) {
-      // --- MODO 1: Rampa Adaptativa Rápida (5.0° a 25.0°) ---
+      // --- MODO 1: Rampa Adaptativa Rápida (4.0° a 25.0°) ---
+      pulsoFinoGiroEncendido = false;
+      inicioPulsoFinoGiroMs = ahora;
       if (detectadoSinMovimiento) {
         if (ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS) {
           ultimoAumentoTorqueGiroMs = ahora;
@@ -432,17 +437,31 @@ void controlarGiro() {
       }
       pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     } else {
-      // --- MODO 2: aproximación fina continua (0.0° a 5.0°) ---
-      pwmObj = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
-      if (detectadoSinMovimiento && ahora - ultimoAumentoTorqueGiroMs >= TURN_RAMP_ADAPTIVE_INTERVAL_MS) {
-        ultimoAumentoTorqueGiroMs = ahora;
-        pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - pwmObj,
-                              pwmBoostFrenado + static_cast<int>(3 * PWM_SCALE_8_TO_10));
+      // --- MODO 2: aproximación fina por micro-pulsos intermitentes (<4.0°) ---
+      const uint32_t deltaPulso = ahora - inicioPulsoFinoGiroMs;
+      if (pulsoFinoGiroEncendido) {
+        if (deltaPulso >= TURN_PULSE_ON_MS) {
+          pulsoFinoGiroEncendido = false;
+          inicioPulsoFinoGiroMs = ahora;
+          frenarMotores();
+          pwmGiroAct = 0;
+          return;
+        }
+        pwmObj = max(minimo + static_cast<int>(4 * PWM_SCALE_8_TO_10), PWM_TURN_START);
+      } else {
+        frenarMotores();
+        pwmGiroAct = 0;
+        if (deltaPulso >= TURN_PULSE_OFF_MS) {
+          pulsoFinoGiroEncendido = true;
+          inicioPulsoFinoGiroMs = ahora;
+        }
+        return;
       }
-      pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     }
   } else {
     pwmBoostFrenado = 0;
+    pulsoFinoGiroEncendido = false;
+    inicioPulsoFinoGiroMs = ahora;
   }
 
   if (!movGiroConfirmado) {
@@ -460,7 +479,9 @@ void controlarGiro() {
   } else {
     if (signoGiroApl==0) signoGiroApl=signoDeseado;
     int paso = movGiroConfirmado ? PWM_TURN_SLEW_STEP : PWM_TURN_START_SLEW_STEP;
-    if (pwmGiroAct<pwmObj) pwmGiroAct=min(pwmObj, pwmGiroAct+paso);
+    if (errorAbs <= TURN_HYBRID_THRESHOLD_DEG) {
+      pwmGiroAct = pwmObj;
+    } else if (pwmGiroAct<pwmObj) pwmGiroAct=min(pwmObj, pwmGiroAct+paso);
     else pwmGiroAct=max(pwmObj, pwmGiroAct-PWM_TURN_SLEW_STEP);
   }
   if (signoGiroApl != 0 && pwmGiroAct > 0) {
@@ -879,17 +900,21 @@ bool controlarAvance() {
   base = constrain(base, 0, PWM_MAX);
 
   // Compensacion derecha + reduccion dinamica del lado contrario al angulo desviado (extraida del test aprobado)
-  int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_PRECISION_RECTO, PWM_MAX);
+  int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int redL = 0, redR = 0;
+  int boostL = 0, boostR = 0;
   if (ctrlRumbo != 0.0f) {
     const int cand = ctrlRumbo > 0.0f ? candidatoGiroPos : candidatoGiroNeg;
     // La calibración decide el lado en avance; en reversa se intercambia para
     // conservar el mismo signo físico de corrección del yaw.
+    const int diffPwm = aproximar(fabsf(ctrlRumbo));
     if (ControlRuta::frenarLadoIzquierdoParaRumbo(cand, direccionTraslacion)) {
-      redL += aproximar(fabsf(ctrlRumbo));
+      redL += diffPwm;
+      boostR += diffPwm / 4; // Empuje complementario si hay margen
       strncpy(pasoLadoFrenoRumbo, "left", sizeof(pasoLadoFrenoRumbo));
     } else {
-      redR += aproximar(fabsf(ctrlRumbo));
+      redR += diffPwm;
+      boostL += diffPwm / 4;
       strncpy(pasoLadoFrenoRumbo, "right", sizeof(pasoLadoFrenoRumbo));
     }
   } else {
@@ -897,8 +922,8 @@ bool controlarAvance() {
   }
   if (ctrlEnc > 0) redL += aproximar(ctrlEnc); else redR += aproximar(-ctrlEnc);
 
-  int magL = constrain(base - redL, VELOCIDAD_PRECISION_RECTO, PWM_MAX);
-  int magR = constrain(baseDer - redR, VELOCIDAD_PRECISION_RECTO, PWM_MAX);
+  int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
 
   if (!aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR)) {
     fallo("motor_output_error");
