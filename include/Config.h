@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.4";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.6";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -99,6 +99,10 @@ constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(150 * PWM_SCALE_8_TO_
 constexpr int VELOCIDAD_MINIMA_DIFERENCIAL = static_cast<int>(100 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 1.0f;
 constexpr float DISTANCIA_APROXIMACION_CM = 30.0f;
+constexpr float DISTANCIA_MICRO_PULSOS_CM = 8.0f;
+constexpr uint32_t APPROACH_PULSE_ON_MS = 45;
+constexpr uint32_t APPROACH_PULSE_OFF_MS = 75;
+constexpr int APPROACH_PULSE_PWM = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 // Modelo de avance por inercia ajustado con telemetría real (arrastre real medio ~1.2 cm por reducción TT).
 constexpr float FRENO_RESIDUAL_BASE_CM = 0.3f;
 constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.001f;
@@ -143,26 +147,25 @@ constexpr float CALIBRACION_GIRO_TEST_DEG = 25.0f;
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 4.0f;
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
-constexpr uint32_t TURN_PULSE_ON_MS = 60;
-constexpr uint32_t TURN_PULSE_OFF_MS = 100;
-constexpr float TURN_REACTIVATION_DEG = 3.0f;
-constexpr uint8_t TURN_MAX_ATTEMPTS = 15;
-constexpr uint32_t TURN_RETRY_PAUSE_MS = 1500;
-// Exigir medio segundo largo de yaw estable antes de abandonar el giro y
-// volver al avance; evita reanudar cuando el chasis aún está asentándose.
-constexpr uint32_t TURN_SETTLE_MS = 600;
+constexpr uint32_t TURN_PULSE_ON_MS = 50;
+constexpr uint32_t TURN_PULSE_OFF_MS = 80;
+constexpr float TURN_REACTIVATION_DEG = 1.0f;
+constexpr uint8_t TURN_MAX_ATTEMPTS = 33;
+constexpr uint32_t TURN_RETRY_PAUSE_MS = 1000;
+// Exigir 250 ms de yaw estable en reposo absoluto antes de completar el giro
+constexpr uint32_t TURN_SETTLE_MS = 250;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 60000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
 
-// PID y Correcciones en marcha (con peso MPU reforzado para vencer tire scrub 4WD)
+// PID y Correcciones en marcha (MPU como autoridad angular única; encoders no interfieren en rumbo)
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_CORRECCION_RUMBO_MAX = static_cast<int>(110 * PWM_SCALE_8_TO_10);
-constexpr int PWM_CORRECCION_ENCODER_MAX = static_cast<int>(15 * PWM_SCALE_8_TO_10);
+constexpr int PWM_CORRECCION_ENCODER_MAX = 0;
 constexpr float KP_RUMBO_PWM_POR_GRADO = 10.0f * PWM_SCALE_8_TO_10;
 constexpr float KI_RUMBO_PWM_POR_GRADO_S = 1.8f * PWM_SCALE_8_TO_10;
 constexpr float KD_RUMBO_PWM_POR_RAD_S = 18.0f * PWM_SCALE_8_TO_10;
-constexpr float KP_ENCODER_PWM_POR_TICK = 1.5f * PWM_SCALE_8_TO_10;
+constexpr float KP_ENCODER_PWM_POR_TICK = 0.0f;
 constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 40.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
 constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 2.0f;

@@ -58,6 +58,8 @@ float distanciaInicioAsentamientoCm = 0.0f;
 float ticksAsentamientoAnterior = 0.0f;
 uint32_t inicioAsentamientoMs = 0;
 uint32_t ultimoMovimientoAsentamientoMs = 0;
+uint32_t inicioPulsoAproximacionMs = 0;
+bool pulsoAproximacionEncendido = false;
 
 
 // ===== helpers de angulo (yaw normalizado 0..360, error -180..180) =====
@@ -89,6 +91,8 @@ void fin(TipoEvento t, const char* d) {
   antiFriccionActiva = false;
   antiFriccionPulsoEncendido = false;
   antiFriccionPwmObjetivo = 0;
+  pulsoAproximacionEncendido = false;
+  inicioPulsoAproximacionMs = 0;
   reiniciarControlRumbo();
   registrarMotivoFinalizacion(d);
   if (t == EVT_COMPLETED) { estadoActual = LISTO; progresoComando = 1.0f; }
@@ -383,7 +387,7 @@ void controlarGiro() {
   if (ahora - inicioGiroTotalMs > timeoutGiro) { fallo(fase == Fase::CAL_RETORNO ? "cal_return_timeout" : "turn_timeout_total"); return; }
   if (ahora - inicioIntentoGiroMs > TURN_ATTEMPT_TIMEOUT_MS) { reintentarGiro("turn_timeout_attempt"); return; }
 
-  // --- latch de tolerancia ---
+  // --- latch de tolerancia y verificación estricta de reposo ---
   const float tolGiro = (fase == Fase::CAL_RETORNO) ? TOLERANCIA_CALIBRACION_DEG : TOLERANCIA_GIRO_DEG;
   if (errorAbs <= tolGiro) {
     frenarMotores(); pwmGiroAct=0; signoGiroApl=0; giroEnTol=true;
@@ -394,10 +398,11 @@ void controlarGiro() {
     }
     return;
   }
+  // Si el chasis salió de la tolerancia tras frenar (inercia o rebote),
+  // desenganchar inmediatamente para que el lazo fino vuelva a pulsar
   if (giroEnTol) {
-    frenarMotores();
-    if (errorAbs > TURN_REACTIVATION_DEG) reintentarGiro("turn_drifted");
-    return;
+    giroEnTol = false;
+    estableGiroDesdeMs = 0;
   }
   estableGiroDesdeMs = 0;
 
@@ -447,13 +452,18 @@ void controlarGiro() {
           pwmGiroAct = 0;
           return;
         }
-        pwmObj = max(minimo + static_cast<int>(4 * PWM_SCALE_8_TO_10), PWM_TURN_START);
+        int pwmKick = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
+        pwmObj = min(PWM_TURN_MAX_LIMIT, pwmKick + pwmBoostFrenado);
       } else {
         frenarMotores();
         pwmGiroAct = 0;
         if (deltaPulso >= TURN_PULSE_OFF_MS) {
           pulsoFinoGiroEncendido = true;
           inicioPulsoFinoGiroMs = ahora;
+          if (detectadoSinMovimiento) {
+            pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - minimo,
+                                  pwmBoostFrenado + static_cast<int>(4 * PWM_SCALE_8_TO_10));
+          }
         }
         return;
       }
@@ -613,6 +623,8 @@ void iniciarAvance(bool conservar) {
     actualizarErroresTrayectoria();
   }
   fase = Fase::AVANCE;
+  pulsoAproximacionEncendido = false;
+  inicioPulsoAproximacionMs = millis();
   strncpy(faseComando, "avance", sizeof(faseComando));
 }
 
@@ -759,7 +771,7 @@ bool controlarAvance() {
 
   uint32_t timeout = DRIVE_BASE_TIMEOUT_MS + (uint32_t)(distObjetivoCm * DRIVE_TIMEOUT_PER_CM_MS);
   if (millis()-inicioAvanceMs > timeout) { fallo("drive_timeout"); return false; }
-  if (restante <= TOLERANCIA_DISTANCIA_CM + pasoFrenoPrevistoCm) {
+  if (restante <= TOLERANCIA_DISTANCIA_CM) {
     iniciarAsentamientoFinal(distMedida);
     return false;
   }
@@ -871,7 +883,7 @@ bool controlarAvance() {
   pasoControlRumboD = salidaPI.d;
   pasoControlRumboPwm = salidaPI.total;
   float ctrlEnc = 0.0f;
-  if (fabsf(err) <= ERROR_ENCODER_AUX_MAX_DEG) {
+  if (fabsf(err) <= ERROR_ENCODER_AUX_MAX_DEG && KP_ENCODER_PWM_POR_TICK > 0.0f) {
     const int64_t deltaFiltrado[4] = {
       lroundf(s.delta_pulsos_filtrado_FL), lroundf(s.delta_pulsos_filtrado_FR),
       lroundf(s.delta_pulsos_filtrado_BL), lroundf(s.delta_pulsos_filtrado_BR)
@@ -899,6 +911,31 @@ bool controlarAvance() {
   }
   base = constrain(base, 0, PWM_MAX);
 
+  // --- MODO DE MICRO-PULSOS DE APROXIMACIÓN FINAL (<= DISTANCIA_MICRO_PULSOS_CM) ---
+  if (restante <= DISTANCIA_MICRO_PULSOS_CM) {
+    strncpy(faseComando, "avance_pulso", sizeof(faseComando));
+    const uint32_t deltaPulso = millis() - inicioPulsoAproximacionMs;
+    if (pulsoAproximacionEncendido) {
+      if (deltaPulso >= APPROACH_PULSE_ON_MS) {
+        pulsoAproximacionEncendido = false;
+        inicioPulsoAproximacionMs = millis();
+        frenarMotores();
+        return false;
+      }
+      base = APPROACH_PULSE_PWM;
+    } else {
+      frenarMotores();
+      if (deltaPulso >= APPROACH_PULSE_OFF_MS) {
+        pulsoAproximacionEncendido = true;
+        inicioPulsoAproximacionMs = millis();
+      }
+      return false;
+    }
+  } else {
+    pulsoAproximacionEncendido = false;
+    inicioPulsoAproximacionMs = millis();
+  }
+
   // Compensacion derecha + reduccion dinamica del lado contrario al angulo desviado (extraida del test aprobado)
   int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int redL = 0, redR = 0;
@@ -920,7 +957,8 @@ bool controlarAvance() {
   } else {
     strncpy(pasoLadoFrenoRumbo, "none", sizeof(pasoLadoFrenoRumbo));
   }
-  if (ctrlEnc > 0) redL += aproximar(ctrlEnc); else redR += aproximar(-ctrlEnc);
+  // MPU tiene autoridad exclusiva: encoders no interfieren en corrección de rumbo
+  if (ctrlEnc > 0.0f) redL += aproximar(ctrlEnc); else if (ctrlEnc < 0.0f) redR += aproximar(-ctrlEnc);
 
   int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
