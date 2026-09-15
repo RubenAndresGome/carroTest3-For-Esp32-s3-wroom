@@ -721,18 +721,33 @@ class RobotService:
             length = math.hypot(dx, dy)
             if length < 1.0:
                 continue
-            heading = math.degrees(math.atan2(dx, dy)) % 360.0
+            if route_mode != "angular_vectorial":
+                # Forzar ortogonalidad cardinal pura en pasos rectangulares
+                if abs(dx) >= abs(dy):
+                    dy = 0.0
+                    target_pt = {"x_mm": float(target["x_mm"]), "y_mm": float(curr_y)}
+                    heading = 90.0 if dx > 0 else 270.0
+                    length = abs(dx)
+                else:
+                    dx = 0.0
+                    target_pt = {"x_mm": float(curr_x), "y_mm": float(target["y_mm"])}
+                    heading = 0.0 if dy > 0 else 180.0
+                    length = abs(dy)
+            else:
+                target_pt = {"x_mm": float(target["x_mm"]), "y_mm": float(target["y_mm"])}
+                heading = math.degrees(math.atan2(dx, dy)) % 360.0
+
             return_points.append({
-                "x_mm": target["x_mm"],
-                "y_mm": target["y_mm"],
+                "x_mm": target_pt["x_mm"],
+                "y_mm": target_pt["y_mm"],
                 "logical_step_id": logical_id,
                 "component": "vector" if route_mode == "angular_vectorial" else "return",
                 "heading_deg": heading,
                 "length_mm": length,
                 "drive_mode": "forward",
             })
-            curr_x = target["x_mm"]
-            curr_y = target["y_mm"]
+            curr_x = target_pt["x_mm"]
+            curr_y = target_pt["y_mm"]
             if math.hypot(curr_x - home_x, curr_y - home_y) <= 10.0:
                 break
 

@@ -18,7 +18,8 @@ enum class Fase : uint8_t {
   NINGUNA,
   CAL_CUENTA, CAL_A, CAL_VALIDAR_25, CAL_PAUSA, CAL_B, CAL_PAUSA_RETORNO, CAL_RETORNO,
   GIRO_INICIAL, AVANCE, GIRO_RECUPERACION, GIRO_FINAL, GIRO_SOLO,
-  PAUSA_REEVALUACION, ASENTAMIENTO_FINAL, VERIFICAR_FINAL
+  PAUSA_REEVALUACION, ASENTAMIENTO_FINAL, VERIFICAR_FINAL,
+  PAUSA_PRE_GIRO, PAUSA_PRE_AVANCE
 };
 
 Fase fase = Fase::NINGUNA;
@@ -27,6 +28,10 @@ Fase fase = Fase::NINGUNA;
 void iniciarBaseGiro(float objetivoDeg, Fase retorno);
 void controlarGiro();
 void completarGiro();
+void iniciarPausaPreGiro();
+void controlarPausaPreGiro();
+void iniciarPausaPreAvance(bool conservar);
+void controlarPausaPreAvance();
 void iniciarAvance(bool conservar);
 bool controlarAvance();
 void iniciarAsentamientoFinal(float distanciaAntesDeFrenarCm);
@@ -542,8 +547,8 @@ void completarGiro() {
   frenarMotores();
   Fase ret = faseRetornoGiro;
   faseRetornoGiro = Fase::NINGUNA;
-  if (ret == Fase::GIRO_INICIAL) { iniciarAvance(false); }
-  else if (ret == Fase::GIRO_RECUPERACION) { iniciarAvance(true); }
+  if (ret == Fase::GIRO_INICIAL) { iniciarPausaPreAvance(false); }
+  else if (ret == Fase::GIRO_RECUPERACION) { iniciarPausaPreAvance(true); }
   else if (ret == Fase::GIRO_FINAL) { iniciarVerificacionFinal(); }
   else if (ret == Fase::GIRO_SOLO) { fin(EVT_COMPLETED, "turn_ok"); }
   else if (ret == Fase::CAL_VALIDAR_25) {
@@ -1106,18 +1111,23 @@ void iniciarRecuperacionEndpoint() {
 
 void verificarObjetivoFinal() {
   frenarMotores();
-  if (fabsf(errorAng360(pasoRumboFinalDeg, heading360)) > TOLERANCIA_GIRO_DEG) {
+  if (fabsf(errorAng360(pasoRumboFinalDeg, heading360)) > TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
     iniciarBaseGiro(pasoRumboFinalDeg, Fase::GIRO_FINAL);
     return;
   }
   // La ventana de asentamiento exige que tanto la orientación como el punto
-  // absoluto permanezcan válidos durante los 300 ms completos; no basta con
+  // absoluto permanezcan válidos durante la pausa completa; no basta con
   // que vuelvan a coincidir justo al instante de confirmar el paso.
   if (pasoObjetivoAbsoluto && !objetivoAbsolutoAlcanzado()) {
     iniciarRecuperacionEndpoint();
     return;
   }
-  if (millis() - inicioVerificacionFinalMs >= TURN_SETTLE_MS) {
+  const SensorSnapshot s = sensar();
+  if (fabsf(s.gyro_z_filtrado_rad_s) > 0.02f) {
+    inicioVerificacionFinalMs = millis();
+    return;
+  }
+  if (millis() - inicioVerificacionFinalMs >= PAUSA_ESTABILIZACION_POST_PASO_MS) {
     completarPaso();
   }
 }
@@ -1156,12 +1166,63 @@ void completarPasoConCorreccionPendiente() {
   fin(EVT_COMPLETED, "step_ok_endpoint_soft");
 }
 
-void iniciarPasoInterno() {
-  float errInicial = errorAng360(pasoRumboCuerpoDeg, heading360);
-  if (fabsf(errInicial) <= TOLERANCIA_GIRO_DEG) {
-    iniciarAvance(false);
+uint32_t inicioPausaPreGiroMs = 0;
+uint32_t inicioPausaPreAvanceMs = 0;
+bool pausaPreAvanceConservar = false;
+
+void iniciarPausaPreGiro() {
+  frenarMotores();
+  inicioPausaPreGiroMs = millis();
+  fase = Fase::PAUSA_PRE_GIRO;
+  strncpy(faseComando, "pausa_pre_giro", sizeof(faseComando));
+}
+
+void controlarPausaPreGiro() {
+  frenarMotores();
+  const SensorSnapshot s = sensar();
+  if (millis() - inicioPausaPreGiroMs < PAUSA_ESTABILIZACION_POST_PASO_MS ||
+      fabsf(s.gyro_z_filtrado_rad_s) >= 0.02f) {
+    return;
+  }
+  float err = errorAng360(pasoRumboCuerpoDeg, heading360);
+  if (fabsf(err) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
+    iniciarPausaPreAvance(false);
   } else {
     iniciarBaseGiro(pasoRumboCuerpoDeg, Fase::GIRO_INICIAL);
+  }
+}
+
+void iniciarPausaPreAvance(bool conservar) {
+  frenarMotores();
+  inicioPausaPreAvanceMs = millis();
+  pausaPreAvanceConservar = conservar;
+  fase = Fase::PAUSA_PRE_AVANCE;
+  strncpy(faseComando, "pausa_pre_avance", sizeof(faseComando));
+}
+
+void controlarPausaPreAvance() {
+  frenarMotores();
+  const SensorSnapshot s = sensar();
+  if (millis() - inicioPausaPreAvanceMs < PAUSA_ESTABILIZACION_POST_GIRO_MS ||
+      fabsf(s.gyro_z_filtrado_rad_s) >= 0.02f) {
+    return;
+  }
+  float err = errorAng360(pasoRumboCuerpoDeg, heading360);
+  if (fabsf(err) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
+    iniciarAvance(pausaPreAvanceConservar);
+  } else if (fabsf(err) > UMBRAL_RECORRECCION_POST_FRENO_DEG) {
+    iniciarBaseGiro(pasoRumboCuerpoDeg, Fase::GIRO_INICIAL);
+  } else {
+    iniciarAvance(pausaPreAvanceConservar);
+  }
+}
+
+void iniciarPasoInterno() {
+  float errInicial = errorAng360(pasoRumboCuerpoDeg, heading360);
+  if (fabsf(errInicial) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
+    iniciarPausaPreAvance(false);
+  } else {
+    iniciarPausaPreGiro();
   }
 }
 
@@ -1366,12 +1427,18 @@ void controlarMovimiento() {
   if (estadoActual != EJECUTANDO) return;
 
   switch (fase) {
+    case Fase::PAUSA_PRE_GIRO:
+      controlarPausaPreGiro();
+      break;
     case Fase::GIRO_INICIAL:
     case Fase::GIRO_RECUPERACION:
     case Fase::GIRO_FINAL:
     case Fase::GIRO_SOLO:
     case Fase::CAL_RETORNO:
       controlarGiro();
+      break;
+    case Fase::PAUSA_PRE_AVANCE:
+      controlarPausaPreAvance();
       break;
     case Fase::AVANCE:
     case Fase::PAUSA_REEVALUACION:
@@ -1392,7 +1459,9 @@ void controlarMovimiento() {
 
   // progreso general
   if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO) {
-    if (fase == Fase::GIRO_INICIAL) progresoComando = min(0.30f, progresoComando);
+    if (fase == Fase::PAUSA_PRE_GIRO) progresoComando = 0.05f;
+    else if (fase == Fase::GIRO_INICIAL) progresoComando = min(0.30f, progresoComando);
+    else if (fase == Fase::PAUSA_PRE_AVANCE) progresoComando = 0.30f;
     else if (fase == Fase::AVANCE || fase == Fase::ASENTAMIENTO_FINAL)
       progresoComando = 0.30f + 0.60f * fminf(1.0f, pasoDistanciaActualCm/max(pasoDistanciaObjetivoCm,0.1f));
     else if (fase == Fase::GIRO_FINAL) progresoComando = 0.90f + 0.10f * min(1.0f, (millis()-estableGiroDesdeMs)/float(TURN_SETTLE_MS));

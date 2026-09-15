@@ -157,6 +157,10 @@ constexpr uint8_t TURN_MAX_ATTEMPTS = 33;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 1000;
 // Exigir 250 ms de yaw estable en reposo absoluto antes de completar el giro
 constexpr uint32_t TURN_SETTLE_MS = 250;
+constexpr uint32_t PAUSA_ESTABILIZACION_POST_PASO_MS = 600; // Reposo total del MPU tras frenar avance
+constexpr uint32_t PAUSA_ESTABILIZACION_POST_GIRO_MS = 400; // Reposo y verificación tras completar giro
+constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.0f;
+constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 1.2f;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 60000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
