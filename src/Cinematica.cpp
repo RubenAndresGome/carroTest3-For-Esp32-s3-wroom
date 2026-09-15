@@ -302,6 +302,7 @@ bool pulsoFinoGiroEncendido = false;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   reiniciarControlRumbo();
+  PoseGlobal.iniciarMedicionTraslacionGiro();
   const SensorSnapshot s = sensar();
   copiarBase(ticksBaseGiroLocal, s);
   giroObjetivo = objetivoDeg;
@@ -313,7 +314,14 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=millis();
   ultimoCtrlGiroMs=0;
   ultimoAumentoTorqueGiroMs=millis();
-  pwmBusquedaGiro=PWM_TURN_START;
+  float errorIni = errorAng360(objetivoDeg, heading360);
+  int signoIni = errorIni > 0 ? 1 : -1;
+  int minIni = signoIni > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
+  if (minIni > 0) {
+    pwmBusquedaGiro = max(PWM_TURN_START, minIni - PWM_TURN_START_FLOOR_OFFSET);
+  } else {
+    pwmBusquedaGiro = PWM_TURN_START;
+  }
   pwmBoostFrenado=0;
   faseRetornoGiro = retorno;
   fase = retorno;  // fase global sigue al giro
@@ -350,7 +358,14 @@ void controlarGiro() {
     watchdogGiroArmado=false;
     inicioIntentoGiroMs = ahora;
     ultimoAumentoTorqueGiroMs=ahora;
-    pwmBusquedaGiro=PWM_TURN_START;
+    float errorReint = errorAng360(giroObjetivo, heading360);
+    int signoReint = errorReint > 0 ? 1 : -1;
+    int minReint = signoReint > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
+    if (minReint > 0) {
+      pwmBusquedaGiro = max(PWM_TURN_START, minReint - PWM_TURN_START_FLOOR_OFFSET);
+    } else {
+      pwmBusquedaGiro = PWM_TURN_START;
+    }
     pwmBoostFrenado=0;
   }
 
@@ -367,8 +382,16 @@ void controlarGiro() {
     ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=ahora;
   }
 
-  if (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S || (llabs(s.pulsosFL-ticksBaseGiroLocal[0])>=4 && llabs(s.pulsosFR-ticksBaseGiroLocal[1])>=4))
-    movGiroConfirmado = true;
+  int64_t d[4]; deltas(ticksBaseGiroLocal, s, d);
+  int64_t ladoTicks[2] = {d[0]+d[2], d[1]+d[3]};
+  const bool ambosLadosMoviendo = (ladoTicks[0] >= 2 && ladoTicks[1] >= 2);
+  if (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S && ambosLadosMoviendo) {
+    if (!movGiroConfirmado) {
+      movGiroConfirmado = true;
+      if (signoEsperado > 0) pwmMinGiroPos = max(pwmMinGiroPos, pwmGiroAct);
+      else pwmMinGiroNeg = max(pwmMinGiroNeg, pwmGiroAct);
+    }
+  }
 
   // Mientras el torque siga incrementándose en rampa para vencer fricción y no haya movimiento confirmado,
   // mantener fresco el temporizador de pulso para evitar falsos stalls durante la búsqueda de torque.
@@ -376,8 +399,6 @@ void controlarGiro() {
     ultimoPulsoLadoGiroMs[0] = ultimoPulsoLadoGiroMs[1] = ahora;
   }
 
-  int64_t d[4]; deltas(ticksBaseGiroLocal, s, d);
-  int64_t ladoTicks[2] = {d[0]+d[2], d[1]+d[3]};
   for (int i=0; i<2; ++i) {
     if (ladoTicks[i] != ticksLadoGiroAnt[i]) { ticksLadoGiroAnt[i]=ladoTicks[i]; ultimoPulsoLadoGiroMs[i]=ahora; }
     else if (watchdogGiroArmado && ahora-ultimoPulsoLadoGiroMs[i] > TURN_STALL_MS) { reintentarGiro(i==0?"turn_stall_left":"turn_stall_right"); return; }
@@ -418,11 +439,17 @@ void controlarGiro() {
   }
   int pwmLejos = max(PWM_TURN_START, min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_FAR_MARGIN));
   int pwmCerca = min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_NEAR_MARGIN);
-  int pwmObj = pwmLejos;
 
   const bool detectadoSinMovimiento = (fabsf(s.gyro_z_filtrado_rad_s) < GYRO_MOVEMENT_RAD_S);
 
-  if (errorAbs < TURN_BRAKING_ZONE_DEG) {
+  int pwmObj = pwmLejos;
+  if (!movGiroConfirmado) {
+    if (ahora - ultimoAumentoTorqueGiroMs >= CAL_RAMP_INTERVAL_MS) {
+      ultimoAumentoTorqueGiroMs = ahora;
+      pwmBusquedaGiro = min(pwmLejos, pwmBusquedaGiro + CALIBRATION_PWM_STEP);
+    }
+    pwmObj = pwmBusquedaGiro;
+  } else if (errorAbs < TURN_BRAKING_ZONE_DEG) {
     pwmObj = pwmCerca + aproximar((pwmLejos - pwmCerca) * errorAbs / TURN_BRAKING_ZONE_DEG);
 
     if (errorAbs > TURN_HYBRID_THRESHOLD_DEG) {
@@ -474,14 +501,6 @@ void controlarGiro() {
     inicioPulsoFinoGiroMs = ahora;
   }
 
-  if (!movGiroConfirmado) {
-    if (ahora - ultimoAumentoTorqueGiroMs >= CAL_RAMP_INTERVAL_MS) {
-      ultimoAumentoTorqueGiroMs = ahora;
-      pwmBusquedaGiro = min(PWM_TURN_MAX_LIMIT, pwmBusquedaGiro + CALIBRATION_PWM_STEP);
-    }
-    pwmObj = max(pwmObj, pwmBusquedaGiro);
-  }
-
   // --- slew con protección de inversión (Motores.cpp añade 250 ms) ---
   if (signoGiroApl!=0 && signoDeseado!=signoGiroApl && pwmGiroAct>0) {
     pwmGiroAct = max(0, pwmGiroAct - PWM_TURN_SLEW_STEP);
@@ -501,15 +520,22 @@ void controlarGiro() {
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? 1 : -1;
     }
-    if (!aplicarVelocidades(cand * pwmGiroAct, -cand * pwmGiroAct)) {
+    const float cmPorTick = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
+    const float ticksL = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, true);
+    const float ticksR = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, false);
+    const auto balance = ControlRuta::balancearGiroDiferencial(
+        pwmGiroAct, cand, ticksL, ticksR, cmPorTick,
+        KP_GIRO_BALANCE_PWM_POR_CM, PWM_GIRO_BALANCE_MAX, PWM_TURN_MAX_LIMIT);
+
+    if (!aplicarVelocidades(balance.pwmL, balance.pwmR)) {
       fallo("motor_output_error");
       return;
     }
   } else frenarMotores();
 
-  if (fabsf(s.gyro_z_filtrado_rad_s)>=GYRO_MOVEMENT_RAD_S || (ladoTicks[0]>=4&&ladoTicks[1]>=4)) {
-    movGiroConfirmado = true;
-  } else if (ahora - inicioIntentoGiroMs > 5000) { reintentarGiro("turn_no_progress"); }
+  if (ahora - inicioIntentoGiroMs > 5000 && !movGiroConfirmado) {
+    reintentarGiro("turn_no_progress");
+  }
 }
 
 void completarGiro() {

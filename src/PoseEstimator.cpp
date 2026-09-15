@@ -59,6 +59,9 @@ void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int6
         const float dy = distCentro * cos(theta_rad);
         x_global += dx;
         y_global += dy;
+        arco_centro_giro_cm += distCentro;
+        traslacion_giro_x_cm += dx;
+        traslacion_giro_y_cm += dy;
     }
 }
 

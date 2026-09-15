@@ -493,6 +493,40 @@ void test_freno_residual_calibrado_inercia_real() {
                            ControlRuta::distanciaFrenoPrevista(1200.0f, 0.5f, 0.001f, 1.5f));
 }
 
+void test_balance_giro_diferencial_simetrico_sin_traslacion() {
+  const auto salidaPos = ControlRuta::balancearGiroDiferencial(
+      700, 1, 10.0f, 10.0f, 1.22f, 60.0f, 180.0f, 988);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, salidaPos.desplazamientoCentroCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, salidaPos.compensacionPwm);
+  TEST_ASSERT_EQUAL_INT(700, salidaPos.pwmL);
+  TEST_ASSERT_EQUAL_INT(-700, salidaPos.pwmR);
+
+  const auto salidaNeg = ControlRuta::balancearGiroDiferencial(
+      700, -1, 10.0f, 10.0f, 1.22f, 60.0f, 180.0f, 988);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, salidaNeg.desplazamientoCentroCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, salidaNeg.compensacionPwm);
+  TEST_ASSERT_EQUAL_INT(-700, salidaNeg.pwmL);
+  TEST_ASSERT_EQUAL_INT(700, salidaNeg.pwmR);
+}
+
+void test_balance_giro_corrige_desplazamiento_tangencial_antihorario() {
+  const auto salida = ControlRuta::balancearGiroDiferencial(
+      700, -1, 2.0f, 15.0f, 1.22f, 60.0f, 180.0f, 988);
+  TEST_ASSERT_TRUE(salida.desplazamientoCentroCm > 5.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 180.0f, salida.compensacionPwm);
+  TEST_ASSERT_EQUAL_INT(-880, salida.pwmL);
+  TEST_ASSERT_EQUAL_INT(520, salida.pwmR);
+}
+
+void test_balance_giro_corrige_desplazamiento_tangencial_horario() {
+  const auto salida = ControlRuta::balancearGiroDiferencial(
+      700, 1, 15.0f, 2.0f, 1.22f, 60.0f, 180.0f, 988);
+  TEST_ASSERT_TRUE(salida.desplazamientoCentroCm > 5.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 180.0f, salida.compensacionPwm);
+  TEST_ASSERT_EQUAL_INT(520, salida.pwmL);
+  TEST_ASSERT_EQUAL_INT(-880, salida.pwmR);
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -542,5 +576,8 @@ int main(int, char**) {
   RUN_TEST(test_retorno_renueva_vigilancia_con_progreso_angular);
   RUN_TEST(test_retorno_vigilancia_tolera_rollover_de_millis);
   RUN_TEST(test_historial_torque_conserva_diez_y_calcula_base_por_polaridad);
+  RUN_TEST(test_balance_giro_diferencial_simetrico_sin_traslacion);
+  RUN_TEST(test_balance_giro_corrige_desplazamiento_tangencial_antihorario);
+  RUN_TEST(test_balance_giro_corrige_desplazamiento_tangencial_horario);
   return UNITY_END();
 }

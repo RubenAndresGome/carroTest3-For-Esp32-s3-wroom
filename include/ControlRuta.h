@@ -168,4 +168,42 @@ inline DecisionEndpoint decidirEndpointSeguro(bool objetivoAbsoluto, bool endpoi
       : decision;
 }
 
+struct SalidaGiroBilateral {
+  int pwmL;
+  int pwmR;
+  float compensacionPwm;
+  float desplazamientoCentroCm;
+};
+
+// Control cinemático diferencial en giro sobre el propio eje (P_C).
+// Garantiza v_C = (v_R + v_L)/2 = 0 regulando en lazo cerrado el error
+// traslacional del centro del chasis para evitar giros tangenciales.
+inline SalidaGiroBilateral balancearGiroDiferencial(
+    int pwmBase, int cand, float ticksIzq, float ticksDer,
+    float cmPorTick, float kp, float limitePwm, int maxPwm) {
+  if (cand == 0 || pwmBase <= 0) {
+    return {0, 0, 0.0f, 0.0f};
+  }
+  const float signoL = cand > 0 ? 1.0f : -1.0f;
+  const float signoR = cand > 0 ? -1.0f : 1.0f;
+  const float dispL = signoL * ticksIzq * cmPorTick;
+  const float dispR = signoR * ticksDer * cmPorTick;
+  const float despCentroCm = (dispL + dispR) * 0.5f;
+  const float compensacionPwm = limitar(despCentroCm * kp, -limitePwm, limitePwm);
+  const int comp = static_cast<int>(roundf(compensacionPwm));
+
+  SalidaGiroBilateral salida;
+  salida.desplazamientoCentroCm = despCentroCm;
+  salida.compensacionPwm = compensacionPwm;
+  if (cand > 0) {
+    salida.pwmL = static_cast<int>(limitar(static_cast<float>(pwmBase - comp), 0.0f, static_cast<float>(maxPwm)));
+    salida.pwmR = static_cast<int>(limitar(static_cast<float>(-pwmBase - comp), static_cast<float>(-maxPwm), 0.0f));
+  } else {
+    salida.pwmL = static_cast<int>(limitar(static_cast<float>(-pwmBase - comp), static_cast<float>(-maxPwm), 0.0f));
+    salida.pwmR = static_cast<int>(limitar(static_cast<float>(pwmBase - comp), 0.0f, static_cast<float>(maxPwm)));
+  }
+  return salida;
+}
+
 }  // namespace ControlRuta
+

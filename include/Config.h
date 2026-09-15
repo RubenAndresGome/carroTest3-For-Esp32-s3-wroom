@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.6";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -139,6 +139,9 @@ constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(247 * PWM_SCALE_8_TO_10); //
 constexpr int PWM_TURN_START = static_cast<int>(165 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(10 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(4 * PWM_SCALE_8_TO_10);
+constexpr int PWM_TURN_START_FLOOR_OFFSET = static_cast<int>(15 * PWM_SCALE_8_TO_10);
+constexpr float KP_GIRO_BALANCE_PWM_POR_CM = 15.0f * PWM_SCALE_8_TO_10;
+constexpr int PWM_GIRO_BALANCE_MAX = static_cast<int>(45 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_GIRO_DEG = 1.0f;

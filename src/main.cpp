@@ -259,7 +259,7 @@ static void ejecutarCicloControl() {
             recentrarYawIMUEnReposo();
         }
         PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
-                                       ((estadoActual == EJECUTANDO && enFaseTraslacion()) || estadoActual == MANUAL));
+                                       ((estadoActual == EJECUTANDO && (enFaseTraslacion() || enFaseGiro())) || estadoActual == MANUAL));
         if (!ControlSeguridad::imuApta(snap.mpu_present, snap.mpu_stale)) {
             if (estadoActual == EJECUTANDO || estadoActual == CALIBRANDO || estadoActual == MANUAL) {
                 frenarMotores();
