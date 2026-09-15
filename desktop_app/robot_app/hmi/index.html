@@ -1696,6 +1696,9 @@
                     </table>
                 </section>
                 <section class="data-table-wrap" tabindex="0" aria-label="Cola de waypoints absolutos">
+                    <div class="data-table-title">Cola de Waypoints y Pasos</div>
+                    <table class="data-table">
+                        <thead><tr><th>#</th><th>Paso</th><th>X (cm)</th><th>Y (cm)</th><th>Estado</th></tr></thead>
                         <tbody id="route-list">
                             <tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>
                         </tbody>
@@ -1759,6 +1762,15 @@
 
     <!-- JAVASCRIPT -->
     <script>
+    /* ==============================================
+       CONFIGURACIÓN CANÓNICA Y PROTOCOLO
+       ============================================== */
+    const CANONICAL_CONFIG = {
+        PROTOCOL_NAME: 'robot-s3-steps-v3',
+        EXPECTED_FIRMWARE: 'robot-s3-v3.7',
+        SUPPORTED_COMMANDS: new Set(['calibrate','step','turn_to','stop','estop','clear_fault','set_comp','reset_pose']),
+    };
+
     /* ==============================================
        CHART.JS LOGIC & VARIABLES GLOBALES
        ============================================== */
@@ -2057,9 +2069,8 @@
         async send(obj) {
             if (!this.flaskMode) throw new Error('desktop_app no está disponible');
             const cmd = String(obj.cmd || '').toLowerCase();
-            const supported = new Set(['calibrate','step','turn_to','stop','estop','clear_fault','set_comp','reset_pose']);
-            if (!supported.has(cmd)) {
-                LogSystem.add('WARN',`El protocolo robot-s3-steps-v3 no admite ${cmd}; usa pasos o rutas atómicas.`);
+            if (!CANONICAL_CONFIG.SUPPORTED_COMMANDS.has(cmd)) {
+                LogSystem.add('WARN',`El protocolo canónico ${CANONICAL_CONFIG.PROTOCOL_NAME} no admite '${cmd}'; usa pasos o rutas atómicas.`);
                 return null;
             }
             const payload = {...obj}; delete payload.cmd;
@@ -3749,18 +3760,11 @@
         });
         document.getElementById('btn-close-app').addEventListener('click',()=>WSControl.closeApplication(false));
 
-        // Testing: Aplicar PWM
+        // Testing: Aplicar PWM (Bloqueado por protocolo canónico de pasos)
         document.getElementById('btn-apply-pwm').disabled = true;
-        document.getElementById('btn-apply-pwm').title = 'No disponible en robot-s3-steps-v3';
+        document.getElementById('btn-apply-pwm').title = `No disponible en ${CANONICAL_CONFIG.PROTOCOL_NAME}. El hardware DRV8833 exige control cerrado por MPU.`;
         document.getElementById('btn-apply-pwm').addEventListener('click', function() {
-            const l = parseInt(document.getElementById('pwm-left').value);
-            const r = parseInt(document.getElementById('pwm-right').value);
-            const dur = parseInt(document.getElementById('test-duration').value) || 500;
-            const safeL = Math.max(-230, Math.min(230, l * (state.motorDir.left === 'rev' ? -1 : 1)));
-            const safeR = Math.max(-230, Math.min(230, r * (state.motorDir.right === 'rev' ? -1 : 1)));
-            const safeDur = Math.min(Math.max(dur, 100), 1500);
-            WSControl.send({cmd:"test_pwm", l:safeL, r:safeR, dur_ms:safeDur});
-            LogSystem.add('CMD', `Test PWM: L=${safeL} R=${safeR} dur=${safeDur}ms`);
+            LogSystem.add('WARN', `Control PWM directo bloqueado: el protocolo ${CANONICAL_CONFIG.PROTOCOL_NAME} protege los DRV8833 exigiendo control en lazo cerrado.`);
             this.classList.add('btn-flash'); setTimeout(()=>this.classList.remove('btn-flash'),250);
         });
 
@@ -3775,15 +3779,12 @@
             const c=this.dataset.cmd;
             const dist=parseFloat(document.getElementById('cmd-dist').value)||50;
             const angle=parseFloat(document.getElementById('cmd-angle').value)||90;
-            const turnMode=document.getElementById('turn-mode').value||'auto';
-            const orient=state.telemetria.orientacion||0;
-            const posX=state.telemetria.posX||0, posY=state.telemetria.posY||0;
             this.classList.add('btn-flash'); setTimeout(()=>this.classList.remove('btn-flash'),250);
 
             if(c==='avance'){
-                WSControl.send({cmd:'step',heading:0,cm:dist});
+                WSControl.send({cmd:'step',heading:0,cm:dist,drive_mode:'forward'});
             } else if(c==='retroceso'){
-                WSControl.send({cmd:'step',heading:180,cm:dist});
+                WSControl.send({cmd:'step',heading:180,cm:dist,drive_mode:'reverse'});
             } else if(c==='giro-izq'){
                 WSControl.send({cmd:'turn_to',heading:(Number(state.telemetria.angulo||0)-angle+360)%360});
             } else if(c==='giro-der'){
