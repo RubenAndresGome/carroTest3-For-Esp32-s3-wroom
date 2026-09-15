@@ -23,73 +23,13 @@ enum class EstadoMotores : uint8_t {
 static EstadoMotores estadoSalidaMotores = EstadoMotores::NO_CONFIGURADOS;
 static uint8_t mascaraCanalesPWM = 0;
 
-enum class EstadoInterlock : uint8_t { APAGADO, ACTIVO, ESPERANDO_INVERSION };
-
-struct InterlockLado {
-  EstadoInterlock estado = EstadoInterlock::APAGADO;
-  int signoActivo = 0;
-  int ultimoSignoEnergizado = 0;
-  int signoPendiente = 0;
-  uint32_t apagadoDesdeMs = 0;
-  bool apagadoRegistrado = false;
-
-  int actualizar(int velocidadSolicitada, uint32_t ahora) {
-    velocidadSolicitada = constrain(velocidadSolicitada, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-    const int signoDeseado = velocidadSolicitada > 0 ? 1 : (velocidadSolicitada < 0 ? -1 : 0);
-    const int magnitudDeseada = abs(velocidadSolicitada);
-
-    if (signoDeseado == 0) {
-      detener(ahora);
-      return 0;
-    }
-
-    if (estado == EstadoInterlock::ACTIVO) {
-      if (signoDeseado == signoActivo) return signoActivo * magnitudDeseada;
-      ultimoSignoEnergizado = signoActivo;
-      apagadoDesdeMs = ahora;
-      apagadoRegistrado = true;
-      signoActivo = 0;
-      signoPendiente = signoDeseado;
-      estado = EstadoInterlock::ESPERANDO_INVERSION;
-      return 0;
-    }
-
-    if (estado == EstadoInterlock::ESPERANDO_INVERSION) {
-      signoPendiente = signoDeseado;
-      if (static_cast<uint32_t>(ahora - apagadoDesdeMs) < PWM_DIRECTION_PAUSE_MS) return 0;
-      signoActivo = signoPendiente;
-      signoPendiente = 0;
-      estado = EstadoInterlock::ACTIVO;
-      return signoActivo * magnitudDeseada;
-    }
-
-    if (apagadoRegistrado && ultimoSignoEnergizado != 0 && signoDeseado != ultimoSignoEnergizado &&
-        static_cast<uint32_t>(ahora - apagadoDesdeMs) < PWM_DIRECTION_PAUSE_MS) {
-      signoPendiente = signoDeseado;
-      estado = EstadoInterlock::ESPERANDO_INVERSION;
-      return 0;
-    }
-
-    signoActivo = signoDeseado;
-    signoPendiente = 0;
-    estado = EstadoInterlock::ACTIVO;
-    return signoActivo * magnitudDeseada;
+const char* sentidoToString(SentidoGiro sentido) {
+  switch (sentido) {
+    case SentidoGiro::ADELANTE: return "ADELANTE";
+    case SentidoGiro::ATRAS:    return "ATRAS";
+    default:                    return "DETENIDO";
   }
-
-  void detener(uint32_t ahora) {
-    if (estado == EstadoInterlock::ACTIVO && signoActivo != 0) {
-      ultimoSignoEnergizado = signoActivo;
-      apagadoDesdeMs = ahora;
-      apagadoRegistrado = true;
-    }
-    signoActivo = 0;
-    signoPendiente = 0;
-    estado = EstadoInterlock::APAGADO;
-  }
-};
-
-static InterlockLado interlockL;
-static InterlockLado interlockR;
+}
 
 static int canalParaPin(int pin) {
   for (int i = 0; i < 8; ++i) if (MOTOR_PINS[i] == pin) return i;
@@ -102,29 +42,6 @@ static bool parMotorValido(int pinFwd, int pinRev) {
   const int canalRev = canalParaPin(pinRev);
   return pinFwd >= 0 && pinRev >= 0 && canalFwd >= 0 && canalRev >= 0 &&
          canalFwd != canalRev;
-}
-
-bool validarMapaMotores() {
-  for (int i = 0; i < 8; ++i) {
-    if (MOTOR_PINS[i] < 0 || MOTOR_PINS[i] > 48) return false;
-    for (int j = i + 1; j < 8; ++j) {
-      if (MOTOR_PINS[i] == MOTOR_PINS[j]) return false;
-    }
-  }
-  return parMotorValido(PIN_FL_FWD, PIN_FL_REV) &&
-         parMotorValido(PIN_BL_FWD, PIN_BL_REV) &&
-         parMotorValido(PIN_FR_FWD, PIN_FR_REV) &&
-         parMotorValido(PIN_BR_FWD, PIN_BR_REV);
-}
-
-static void apagarCanalesPWM() {
-  // Apagado directo e idempotente: no depende del mapa ni llama a
-  // frenarMotores(), evitando recursión durante una ruta de error. Antes de
-  // ledcSetup los GPIO ya están en LOW por setup_MotorPinsLow(); no se escribe
-  // sobre canales que aún no existen.
-  for (int canal = 0; canal < 8; ++canal) {
-    if ((mascaraCanalesPWM & (1U << canal)) != 0U) ledcWrite(canal, 0);
-  }
 }
 
 static bool setMotorPWM(int pinFwd, int pinRev, int vel) {
@@ -144,16 +61,185 @@ static bool setMotorPWM(int pinFwd, int pinRev, int vel) {
   return true;
 }
 
-static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
-  vel = constrain(vel, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  const int polaridad = pinFwd == PIN_FL_FWD ? PWM_POLARITY_FL :
-      pinFwd == PIN_FR_FWD ? PWM_POLARITY_FR : pinFwd == PIN_BL_FWD ? PWM_POLARITY_BL : PWM_POLARITY_BR;
-  return setMotorPWM(pinFwd, pinRev, vel * polaridad);
+ControladorLado::ControladorLado(const char* nombre,
+                                 int pinFwdF, int pinRevF, int polF,
+                                 int pinFwdB, int pinRevB, int polB)
+  : _nombre(nombre),
+    _pinFwdF(pinFwdF), _pinRevF(pinRevF), _polF(polF),
+    _pinFwdB(pinFwdB), _pinRevB(pinRevB), _polB(polB) {}
+
+void ControladorLado::configurarPines(const char* nombre,
+                                      int pinFwdF, int pinRevF, int polF,
+                                      int pinFwdB, int pinRevB, int polB) {
+  _nombre = nombre;
+  _pinFwdF = pinFwdF; _pinRevF = pinRevF; _polF = polF;
+  _pinFwdB = pinFwdB; _pinRevB = pinRevB; _polB = polB;
+}
+
+void ControladorLado::setComando(SentidoGiro sentido, int pwm) {
+  _sentidoSolicitado = sentido;
+  _pwmSolicitado = constrain(pwm, 0, PWM_TURN_MAX_LIMIT);
+}
+
+void ControladorLado::setVelocidadFirmada(int velFirmada) {
+  velFirmada = constrain(velFirmada, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
+  if (velFirmada > 0) {
+    setComando(SentidoGiro::ADELANTE, velFirmada);
+  } else if (velFirmada < 0) {
+    setComando(SentidoGiro::ATRAS, -velFirmada);
+  } else {
+    setComando(SentidoGiro::DETENIDO, 0);
+  }
+}
+
+void ControladorLado::detener(uint32_t ahoraMs) {
+  if (_estadoInterlock == EstadoInterlock::ACTIVO && _sentidoActivo != SentidoGiro::DETENIDO) {
+    _ultimoSentidoEnergizado = _sentidoActivo;
+    _apagadoDesdeMs = ahoraMs;
+    _apagadoRegistrado = true;
+  }
+  _sentidoActivo = SentidoGiro::DETENIDO;
+  _sentidoPendiente = SentidoGiro::DETENIDO;
+  _estadoInterlock = EstadoInterlock::APAGADO;
+  _sentidoSolicitado = SentidoGiro::DETENIDO;
+  _pwmSolicitado = 0;
+  _sentidoAplicado = SentidoGiro::DETENIDO;
+  _pwmAplicado = 0;
+}
+
+void ControladorLado::detener() {
+  detener(millis());
+}
+
+const char* ControladorLado::getEstadoInterlockStr() const {
+  switch (_estadoInterlock) {
+    case EstadoInterlock::ACTIVO: return "ACTIVE";
+    case EstadoInterlock::ESPERANDO_INVERSION: return "WAITING_REVERSAL";
+    default: return "OFF";
+  }
+}
+
+int ControladorLado::actualizarInterlock(uint32_t ahoraMs) {
+  _pwmSolicitado = constrain(_pwmSolicitado, 0, PWM_TURN_MAX_LIMIT);
+  if (_sentidoSolicitado == SentidoGiro::DETENIDO || _pwmSolicitado == 0) {
+    detener(ahoraMs);
+    return 0;
+  }
+
+  if (_estadoInterlock == EstadoInterlock::ACTIVO) {
+    if (_sentidoSolicitado == _sentidoActivo) {
+      _sentidoAplicado = _sentidoActivo;
+      _pwmAplicado = _pwmSolicitado;
+      return _pwmAplicado;
+    }
+    _ultimoSentidoEnergizado = _sentidoActivo;
+    _apagadoDesdeMs = ahoraMs;
+    _apagadoRegistrado = true;
+    _sentidoActivo = SentidoGiro::DETENIDO;
+    _sentidoPendiente = _sentidoSolicitado;
+    _estadoInterlock = EstadoInterlock::ESPERANDO_INVERSION;
+    _sentidoAplicado = SentidoGiro::DETENIDO;
+    _pwmAplicado = 0;
+    return 0;
+  }
+
+  if (_estadoInterlock == EstadoInterlock::ESPERANDO_INVERSION) {
+    _sentidoPendiente = _sentidoSolicitado;
+    if (static_cast<uint32_t>(ahoraMs - _apagadoDesdeMs) < PWM_DIRECTION_PAUSE_MS) {
+      _sentidoAplicado = SentidoGiro::DETENIDO;
+      _pwmAplicado = 0;
+      return 0;
+    }
+    _sentidoActivo = _sentidoPendiente;
+    _sentidoPendiente = SentidoGiro::DETENIDO;
+    _estadoInterlock = EstadoInterlock::ACTIVO;
+    _sentidoAplicado = _sentidoActivo;
+    _pwmAplicado = _pwmSolicitado;
+    return _pwmAplicado;
+  }
+
+  if (_apagadoRegistrado && _ultimoSentidoEnergizado != SentidoGiro::DETENIDO &&
+      _sentidoSolicitado != _ultimoSentidoEnergizado &&
+      static_cast<uint32_t>(ahoraMs - _apagadoDesdeMs) < PWM_DIRECTION_PAUSE_MS) {
+    _sentidoPendiente = _sentidoSolicitado;
+    _estadoInterlock = EstadoInterlock::ESPERANDO_INVERSION;
+    _sentidoAplicado = SentidoGiro::DETENIDO;
+    _pwmAplicado = 0;
+    return 0;
+  }
+
+  _sentidoActivo = _sentidoSolicitado;
+  _sentidoPendiente = SentidoGiro::DETENIDO;
+  _estadoInterlock = EstadoInterlock::ACTIVO;
+  _sentidoAplicado = _sentidoActivo;
+  _pwmAplicado = _pwmSolicitado;
+  return _pwmAplicado;
+}
+
+bool ControladorLado::escribirHardware() {
+  int velF = 0;
+  int velB = 0;
+  if (_sentidoAplicado == SentidoGiro::ADELANTE) {
+    velF = _pwmAplicado * _polF;
+    velB = _pwmAplicado * _polB;
+  } else if (_sentidoAplicado == SentidoGiro::ATRAS) {
+    velF = -_pwmAplicado * _polF;
+    velB = -_pwmAplicado * _polB;
+  }
+  const bool okF = setMotorPWM(_pinFwdF, _pinRevF, velF);
+  const bool okB = setMotorPWM(_pinFwdB, _pinRevB, velB);
+  return okF && okB;
+}
+
+void ControladorLado::apagarHardware() {
+  setMotorPWM(_pinFwdF, _pinRevF, 0);
+  setMotorPWM(_pinFwdB, _pinRevB, 0);
+}
+
+ControladorLado ladoIzquierdo("IZQUIERDO",
+                              PIN_FL_FWD, PIN_FL_REV, PWM_POLARITY_FL,
+                              PIN_BL_FWD, PIN_BL_REV, PWM_POLARITY_BL);
+
+ControladorLado ladoDerecho("DERECHO",
+                            PIN_FR_FWD, PIN_FR_REV, PWM_POLARITY_FR,
+                            PIN_BR_FWD, PIN_BR_REV, PWM_POLARITY_BR);
+
+void ordenarAvance(int pwm) {
+  aplicarVelocidades(pwm, pwm);
+}
+
+void ordenarRetroceso(int pwm) {
+  aplicarVelocidades(-pwm, -pwm);
+}
+
+void ordenarGiroPivote(bool sentidoHorario, int pwm) {
+  if (sentidoHorario) {
+    aplicarVelocidades(pwm, -pwm);
+  } else {
+    aplicarVelocidades(-pwm, pwm);
+  }
+}
+
+bool validarMapaMotores() {
+  for (int i = 0; i < 8; ++i) {
+    if (MOTOR_PINS[i] < 0 || MOTOR_PINS[i] > 48) return false;
+    for (int j = i + 1; j < 8; ++j) {
+      if (MOTOR_PINS[i] == MOTOR_PINS[j]) return false;
+    }
+  }
+  return parMotorValido(PIN_FL_FWD, PIN_FL_REV) &&
+         parMotorValido(PIN_BL_FWD, PIN_BL_REV) &&
+         parMotorValido(PIN_FR_FWD, PIN_FR_REV) &&
+         parMotorValido(PIN_BR_FWD, PIN_BR_REV);
+}
+
+static void apagarCanalesPWM() {
+  for (int canal = 0; canal < 8; ++canal) {
+    if ((mascaraCanalesPWM & (1U << canal)) != 0U) ledcWrite(canal, 0);
+  }
 }
 
 bool aplicarVelocidades(int velIzq, int velDer) {
-  // Preflight completo: si el mapa o la inicialización son inválidos, no se
-  // permite ninguna escritura parcial ni se elige un canal por defecto.
   const bool mapaValido = validarMapaMotores();
   const bool paresValidos = mapaValido &&
       parMotorValido(PIN_FL_FWD, PIN_FL_REV) &&
@@ -164,33 +250,27 @@ bool aplicarVelocidades(int velIzq, int velDer) {
     if (!mapaValido || !paresValidos) {
       estadoSalidaMotores = EstadoMotores::MAPA_INVALIDO;
     } else if (estadoSalidaMotores != EstadoMotores::ERROR_SALIDA) {
-      // ERROR_SALIDA queda enclavado hasta una nueva inicialización explícita.
       estadoSalidaMotores = EstadoMotores::NO_CONFIGURADOS;
     }
-    pwm_solicitado_L = 0;
-    pwm_solicitado_R = 0;
-    pwm_aplicado_L = 0;
-    pwm_aplicado_R = 0;
-    apagarCanalesPWM();
+    frenarMotores();
     return false;
   }
   const uint32_t ahora = millis();
-  pwm_solicitado_L = constrain(velIzq, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  pwm_solicitado_R = constrain(velDer, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
-  pwm_aplicado_L = interlockL.actualizar(pwm_solicitado_L, ahora);
-  pwm_aplicado_R = interlockR.actualizar(pwm_solicitado_R, ahora);
+  ladoIzquierdo.setVelocidadFirmada(velIzq);
+  ladoDerecho.setVelocidadFirmada(velDer);
 
-  const bool escrito = aplicarLadoUnico(PIN_FL_FWD, PIN_FL_REV, pwm_aplicado_L) &&
-                       aplicarLadoUnico(PIN_BL_FWD, PIN_BL_REV, pwm_aplicado_L) &&
-                       aplicarLadoUnico(PIN_FR_FWD, PIN_FR_REV, pwm_aplicado_R) &&
-                       aplicarLadoUnico(PIN_BR_FWD, PIN_BR_REV, pwm_aplicado_R);
+  ladoIzquierdo.actualizarInterlock(ahora);
+  ladoDerecho.actualizarInterlock(ahora);
+
+  pwm_solicitado_L = ladoIzquierdo.getVelocidadFirmadaSolicitada();
+  pwm_solicitado_R = ladoDerecho.getVelocidadFirmadaSolicitada();
+  pwm_aplicado_L = ladoIzquierdo.getVelocidadFirmada();
+  pwm_aplicado_R = ladoDerecho.getVelocidadFirmada();
+
+  const bool escrito = ladoIzquierdo.escribirHardware() && ladoDerecho.escribirHardware();
   if (!escrito) {
     estadoSalidaMotores = EstadoMotores::ERROR_SALIDA;
-    pwm_solicitado_L = 0;
-    pwm_solicitado_R = 0;
-    pwm_aplicado_L = 0;
-    pwm_aplicado_R = 0;
-    apagarCanalesPWM();
+    frenarMotores();
     return false;
   }
   return true;
@@ -198,8 +278,10 @@ bool aplicarVelocidades(int velIzq, int velDer) {
 
 void frenarMotores() {
   const uint32_t ahora = millis();
-  interlockL.detener(ahora);
-  interlockR.detener(ahora);
+  ladoIzquierdo.detener(ahora);
+  ladoDerecho.detener(ahora);
+  ladoIzquierdo.apagarHardware();
+  ladoDerecho.apagarHardware();
   apagarCanalesPWM();
   pwm_aplicado_L = 0;
   pwm_aplicado_R = 0;
@@ -208,57 +290,66 @@ void frenarMotores() {
 }
 
 bool validarInterlockMotores() {
-  InterlockLado prueba;
-  if (prueba.actualizar(100, 1000) != 100) return false;
-  if (prueba.actualizar(-100, 1010) != 0) return false;
-  if (prueba.actualizar(-100, 1259) != 0) return false;
-  if (prueba.actualizar(-100, 1260) != -100) return false;
+  ControladorLado prueba("TEST", -1, -1, 1, -1, -1, 1);
+  prueba.setVelocidadFirmada(100);
+  if (prueba.actualizarInterlock(1000) != 100) return false;
+  prueba.setVelocidadFirmada(-100);
+  if (prueba.actualizarInterlock(1010) != 0) return false;
+  if (prueba.actualizarInterlock(1259) != 0) return false;
+  if (prueba.actualizarInterlock(1260) != 100) return false;
+  if (prueba.getVelocidadFirmada() != -100) return false;
+  if (prueba.getSentido() != SentidoGiro::ATRAS) return false;
 
-  prueba = InterlockLado{};
-  if (prueba.actualizar(90, 2000) != 90) return false;
+  prueba = ControladorLado("TEST", -1, -1, 1, -1, -1, 1);
+  prueba.setVelocidadFirmada(90);
+  if (prueba.actualizarInterlock(2000) != 90) return false;
   prueba.detener(2020);
-  if (prueba.actualizar(-90, 2050) != 0) return false;
-  if (prueba.actualizar(-90, 2269) != 0) return false;
-  if (prueba.actualizar(-90, 2270) != -90) return false;
+  prueba.setVelocidadFirmada(-90);
+  if (prueba.actualizarInterlock(2050) != 0) return false;
+  if (prueba.actualizarInterlock(2269) != 0) return false;
+  if (prueba.actualizarInterlock(2270) != 90) return false;
+  if (prueba.getVelocidadFirmada() != -90) return false;
 
-  prueba = InterlockLado{};
-  if (prueba.actualizar(80, 3000) != 80) return false;
-  if (prueba.actualizar(-80, 3010) != 0) return false;
-  if (prueba.actualizar(70, 3050) != 0) return false;
-  if (prueba.actualizar(70, 3259) != 0) return false;
-  if (prueba.actualizar(70, 3260) != 70) return false;
+  prueba = ControladorLado("TEST", -1, -1, 1, -1, -1, 1);
+  prueba.setVelocidadFirmada(80);
+  if (prueba.actualizarInterlock(3000) != 80) return false;
+  prueba.setVelocidadFirmada(-80);
+  if (prueba.actualizarInterlock(3010) != 0) return false;
+  prueba.setVelocidadFirmada(70);
+  if (prueba.actualizarInterlock(3050) != 0) return false;
+  if (prueba.actualizarInterlock(3259) != 0) return false;
+  if (prueba.actualizarInterlock(3260) != 70) return false;
+  if (prueba.getVelocidadFirmada() != 70) return false;
 
-  prueba = InterlockLado{};
-  if (prueba.actualizar(80, 4000) != 80) return false;
-  if (prueba.actualizar(-80, 4010) != 0) return false;
+  prueba = ControladorLado("TEST", -1, -1, 1, -1, -1, 1);
+  prueba.setVelocidadFirmada(80);
+  if (prueba.actualizarInterlock(4000) != 80) return false;
+  prueba.setVelocidadFirmada(-80);
+  if (prueba.actualizarInterlock(4010) != 0) return false;
   prueba.detener(4020);
-  if (prueba.estado != EstadoInterlock::APAGADO || prueba.signoPendiente != 0 || prueba.signoActivo != 0) return false;
+  if (prueba.getEstadoInterlock() != EstadoInterlock::APAGADO || prueba.getSignoPendiente() != 0 || prueba.getSignoEnergizado() != 0) return false;
 
-  prueba = InterlockLado{};
-  if (prueba.actualizar(PWM_TURN_MAX_LIMIT + 100, 5000) != PWM_TURN_MAX_LIMIT) return false;
+  prueba = ControladorLado("TEST", -1, -1, 1, -1, -1, 1);
+  prueba.setVelocidadFirmada(PWM_TURN_MAX_LIMIT + 100);
+  if (prueba.actualizarInterlock(5000) != PWM_TURN_MAX_LIMIT) return false;
 
-  prueba = InterlockLado{};
-  if (prueba.actualizar(60, UINT32_MAX - 50U) != 60) return false;
-  if (prueba.actualizar(-60, UINT32_MAX - 40U) != 0) return false;
-  if (prueba.actualizar(-60, 208U) != 0) return false;
-  if (prueba.actualizar(-60, 209U) != -60) return false;
+  prueba = ControladorLado("TEST", -1, -1, 1, -1, -1, 1);
+  prueba.setVelocidadFirmada(60);
+  if (prueba.actualizarInterlock(UINT32_MAX - 50U) != 60) return false;
+  prueba.setVelocidadFirmada(-60);
+  if (prueba.actualizarInterlock(UINT32_MAX - 40U) != 0) return false;
+  if (prueba.actualizarInterlock(208U) != 0) return false;
+  if (prueba.actualizarInterlock(209U) != 60) return false;
+  if (prueba.getVelocidadFirmada() != -60) return false;
   return true;
 }
 
-static const char* textoEstado(EstadoInterlock estado) {
-  switch (estado) {
-    case EstadoInterlock::ACTIVO: return "ACTIVE";
-    case EstadoInterlock::ESPERANDO_INVERSION: return "WAITING_REVERSAL";
-    default: return "OFF";
-  }
-}
-
-const char* estadoInterlockL() { return textoEstado(interlockL.estado); }
-const char* estadoInterlockR() { return textoEstado(interlockR.estado); }
-int signoEnergizadoL() { return interlockL.signoActivo; }
-int signoEnergizadoR() { return interlockR.signoActivo; }
-int signoPendienteL() { return interlockL.signoPendiente; }
-int signoPendienteR() { return interlockR.signoPendiente; }
+const char* estadoInterlockL() { return ladoIzquierdo.getEstadoInterlockStr(); }
+const char* estadoInterlockR() { return ladoDerecho.getEstadoInterlockStr(); }
+int signoEnergizadoL() { return ladoIzquierdo.getSignoEnergizado(); }
+int signoEnergizadoR() { return ladoDerecho.getSignoEnergizado(); }
+int signoPendienteL() { return ladoIzquierdo.getSignoPendiente(); }
+int signoPendienteR() { return ladoDerecho.getSignoPendiente(); }
 
 bool motoresListos() { return estadoSalidaMotores == EstadoMotores::LISTOS; }
 
@@ -290,7 +381,7 @@ bool setup_Motores() {
   // parcial sin escribir sobre canales que nunca se configuraron.
   apagarCanalesPWM();
   mascaraCanalesPWM = 0;
-  if (!validarMapaMotores()) {
+  if (!validarMapaMotores() || !validarInterlockMotores()) {
     estadoSalidaMotores = EstadoMotores::MAPA_INVALIDO;
     return false;
   }
