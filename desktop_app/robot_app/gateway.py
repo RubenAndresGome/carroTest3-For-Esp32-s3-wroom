@@ -268,17 +268,28 @@ class RobotGateway:
                 "Mensaje del robot demasiado grande: "
                 f"{len(encoded)} bytes > limite {self._max_message_bytes} bytes"
             )
-        message = json.loads(encoded.decode("utf-8"))
-        if not isinstance(message, dict):
-            raise ValueError("Mensaje del robot no es un objeto JSON")
-        kind = message.get("evt")
-        if kind == "hello_ack":
-            if message.get("protocol") != "robot-s3-steps-v3":
-                raise ValueError("Protocolo del robot incompatible")
-            if message.get("session") != self._session_getter():
-                raise ValueError("El robot confirmó una sesión distinta")
-            self._protocol_v1 = True
-        if kind in {"rejected", "error", "fault"}:
-            logger.error("Evento del robot %s: %s", kind, message)
-        self._on_message(message)
-        return str(kind or "")
+        text = encoded.decode("utf-8").strip()
+        decoder = json.JSONDecoder()
+        idx = 0
+        last_kind = ""
+        while idx < len(text):
+            while idx < len(text) and text[idx].isspace():
+                idx += 1
+            if idx >= len(text):
+                break
+            message, end_idx = decoder.raw_decode(text, idx)
+            idx = end_idx
+            if not isinstance(message, dict):
+                raise ValueError("Mensaje del robot no es un objeto JSON")
+            kind = message.get("evt")
+            if kind == "hello_ack":
+                if message.get("protocol") != "robot-s3-steps-v3":
+                    raise ValueError("Protocolo del robot incompatible")
+                if message.get("session") != self._session_getter():
+                    raise ValueError("El robot confirmó una sesión distinta")
+                self._protocol_v1 = True
+            if kind in {"rejected", "error", "fault"}:
+                logger.error("Evento del robot %s: %s", kind, message)
+            self._on_message(message)
+            last_kind = str(kind or "")
+        return last_kind

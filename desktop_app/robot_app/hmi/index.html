@@ -3410,10 +3410,6 @@
                 LogSystem.add('ERROR',`No se pudo borrar la ruta: ${error.message}`);
             }
         },
-            } catch(error) {
-                LogSystem.add('ERROR',`No se pudo borrar la ruta: ${error.message}`);
-            }
-        },
         async clearRobotMemory() {
             const box=document.getElementById('route-ockham-confirm-box');
             if(box) box.style.display='none';
