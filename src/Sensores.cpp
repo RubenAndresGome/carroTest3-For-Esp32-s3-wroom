@@ -214,6 +214,35 @@ void resetOrientacionIMU() {
     portEXIT_CRITICAL(&muxOrientacionIMU);
 }
 
+bool recalibrarOffsetIMU(uint16_t muestras) {
+    if (!mpu_inicializado) return false;
+    float suma_z = 0.0f;
+    uint16_t validas = 0;
+    for (uint16_t i = 0; i < muestras; ++i) {
+        sensors_event_t a, g, temp;
+        if (mpu.getEvent(&a, &g, &temp)) {
+            suma_z += g.gyro.z;
+            ++validas;
+        }
+        delay(2);
+    }
+    if (validas >= muestras * 3 / 4) {
+        portENTER_CRITICAL(&muxOrientacionIMU);
+        gyro_z_offset_rad_s = suma_z / static_cast<float>(validas);
+        anguloZ_acum = 0.0f;
+        anguloZ = 0.0f;
+        filtroGyroZ.limpiar();
+        tiempoAnteriorIMU = millis();
+        ultimaLecturaIMU = tiempoAnteriorIMU;
+        portEXIT_CRITICAL(&muxOrientacionIMU);
+        mpu_calibrado = true;
+        Serial.printf("Offset GZ recalibrado en reposo: %.6f rad/s (%u muestras)\n",
+                      gyro_z_offset_rad_s, validas);
+        return true;
+    }
+    return false;
+}
+
 float obtenerYawIMUDeg() {
     portENTER_CRITICAL(&muxOrientacionIMU);
     const float copia = anguloZ;

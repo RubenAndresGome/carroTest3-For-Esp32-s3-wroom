@@ -171,13 +171,15 @@ void calCuenta() {
   if (millis() - inicioFaseMs < CUENTA_CALIBRACION_MS) { progresoComando = min(0.10f, (millis()-inicioFaseMs)/float(CUENTA_CALIBRACION_MS)*0.10f); return; }
   const SensorSnapshot s = sensar();
   if (!s.mpu_present || s.mpu_stale || !s.mpu_calibrated) { fallo("mpu_unavailable_cal"); return; }
+  recalibrarOffsetIMU(150);
   yawInicioCalDeg = normalizar360(anguloZ);
   pwmMinGiroPos=0; pwmMinGiroNeg=0; candidatoGiroPos=0; candidatoGiroNeg=0;
   candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
   ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
   intentoInvertidoCalA = false;
   reiniciarDiagnosticoCalibracion();
-  copiarBase(ticksBaseCal, s);
+  const SensorSnapshot fresca = sensar();
+  copiarBase(ticksBaseCal, fresca);
   iniciarFaseCal(Fase::CAL_A);
   strncpy(faseComando, "cal_a", sizeof(faseComando));
 }
@@ -224,6 +226,11 @@ void calTorque(bool primera) {
       frenarMotores();
       if (primera) {
         if (s.gyro_z_filtrado_rad_s < 0) {
+          if (intentoInvertidoCalA) {
+            fallo("cal_yaw_sign_mismatch");
+            return;
+          }
+          intentoInvertidoCalA = true;
           candidatoCal = -candidatoCal;
           inicioPausaReintentoCalMs = ahora;
           inicioMovCalMs = 0;

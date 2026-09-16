@@ -32,6 +32,7 @@ SensorSnapshot leerSensoresSincrono();
 const SensorSnapshot& snapshotSensoresControl();
 bool obtenerUltimoSnapshotSensores(SensorSnapshot &destino);
 void resetOrientacionIMU();
+bool recalibrarOffsetIMU(uint16_t muestras = 150);
 float obtenerYawIMUDeg();
 bool recentrarYawIMUEnReposo();
 uint32_t cantidadRecentradosYawIMU();
