@@ -206,7 +206,7 @@ flowchart TB
 ```
 
 - **Polaridad Harcodeada de Ejes y Mapeo Físico de Pines**:
-  - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido por el operador), garantizando que el avance positivo traslade el chasis hacia el frente (eje +Y físico y cardinal concordante con la IU, 0° mirando a +Y) y el giro horario traslade hacia +X (90° a la derecha).
+  - `PWM_FORWARD_POLARITY = -1`: Compensación global de avance físico para que el PWM positivo lógico impulse las ruedas hacia el frente (+Y físico del chasis) y las traslaciones concuerden exactamente con el plano coordenado de la interfaz de usuario.
   - **Pines Motores (DRV8833)**:
     - FL: FWD=GPIO7 (IN3), REV=GPIO6 (IN4)
     - BL: FWD=GPIO4 (IN2), REV=GPIO5 (IN1)

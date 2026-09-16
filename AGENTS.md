@@ -71,7 +71,7 @@ IZQUIERDA │        (ESP32-S3 / Baterías)      │ DERECHA (+X, Yaw = 90°)
 ```
 
 - **Polaridad Harcodeada de Ejes y Motores**:
-  - `PWM_FORWARD_POLARITY = 1`: Correspondiente al cableado físico actual en las borneras del DRV8833 (invertido físicamente por el operador), de modo que el avance y traslación concuerdan exactamente hacia +Y (frente) y los desplazamientos en +X concuerdan hacia la derecha de la interfaz de usuario.
+  - `PWM_FORWARD_POLARITY = -1`: Compensación global de avance físico para que el PWM positivo lógico impulse las ruedas hacia el frente (+Y físico del chasis) y las traslaciones concuerden exactamente con el plano coordenado de la interfaz de usuario.
   - El sentido de giro positivo del yaw (horario / dextrógiro) corresponde a la orientación
     cardinal canónica donde el ángulo avanza de +Y (0°) hacia +X (+90°).
   - **Mapeo Físico de Pines (Verificado por Hardware en Taller)**:

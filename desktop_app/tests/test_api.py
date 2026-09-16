@@ -511,7 +511,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn("error_angular_deg", accuracy)
 
     def test_settling_delay_and_cardinal_realignment(self) -> None:
-        self.service._settling_delay_s = 0.02
+        self.service._settling_delay_s = 0.10
         self._ready()
         # 2-step mission: intermediate step can trigger realignment
         mission = self.service.start_mission([{"x_mm": 0, "y_mm": 500}, {"x_mm": 500, "y_mm": 500}])
@@ -524,7 +524,7 @@ class ApiTests(unittest.TestCase):
         # Immediately after step completion, stage is settling
         self.assertEqual(self.service.mission_status()["stage"], "settling")
         # Wait for settling timer to fire
-        time.sleep(0.05)
+        time.sleep(0.15)
         # Threshold exceeded: should be in realigning stage with turn_to queued
         status = self.service.mission_status()
         self.assertEqual(status["stage"], "realigning")
