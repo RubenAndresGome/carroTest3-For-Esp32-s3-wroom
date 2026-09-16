@@ -119,9 +119,15 @@ void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, i
     inicio_ventana_encoder_ms = ahora;
     const float referencia = ControlSeguridad::medianaCuatro(delta);
 
+    const bool enGiro = (strncmp(faseComando, "giro", 4) == 0) ||
+                        (strncmp(faseComando, "cal", 3) == 0) ||
+                        (strncmp(faseComando, "recup", 5) == 0) ||
+                        ((pwm_L > 0 && pwm_R < 0) || (pwm_L < 0 && pwm_R > 0));
+
     for (int i = 0; i < 4; ++i) {
         const bool pwmExigido = ladoExigido[(i == 0 || i == 2) ? 0 : 1];
         const int pareja = i < 2 ? i + 2 : i - 2;
+        const bool parejaConfiable = encoderConfiableGlobal[pareja];
         const float desviacion = fabsf(static_cast<float>(delta[i]) - referencia) /
             fmaxf(1.0f, fabsf(referencia));
         const float desacuerdoPareja = fabsf(static_cast<float>(delta[i] - delta[pareja])) /
@@ -134,7 +140,9 @@ void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, i
         // magnitudes difieren. En la sesión ADB 137 eso marcó simultáneamente
         // FL/FR/BL/BR como EXCLUDED en 500 ms y provocó enc_no_estimation pese
         // a que tres canales avanzaban. Sólo el cero aislado es concluyente.
-        const bool incoherente = ControlSeguridad::encoderSinRespuestaAislada(
+        // Durante maniobras de giro skid-steer o cuando la pareja ya está excluida,
+        // no se marca incoherente para impedir dejar un lado sin fuentes (sesión ADB 10518).
+        const bool incoherente = !enGiro && parejaConfiable && ControlSeguridad::encoderSinRespuestaAislada(
             delta[i], delta[pareja], pwmExigido);
 
         if (encoderConfiableGlobal[i]) {

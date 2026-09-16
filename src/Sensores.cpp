@@ -69,8 +69,10 @@ static ControlInicializacionPCNT::Canal setup_PCNT(int pin, pcnt_unit_t unit) {
     pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
     pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
     pcnt_config.pos_mode = PCNT_COUNT_INC;
-    // Un pulso por ranura: contar un solo flanco evita convertir 20 PPR en 40.
-    pcnt_config.neg_mode = PCNT_COUNT_DIS;
+    // Detección de ambos flancos: convierte 20 ranuras en 40 ticks/vuelta (ENCODER_PPR = 40).
+    // Con el comparador LM393 y level shifter TXS0108E, el flanco de bajada es rápido y limpio.
+    // El filtro de 100 ciclos APB (1.25 us) rechaza transitorios sin perder pulsos legítimos.
+    pcnt_config.neg_mode = PCNT_COUNT_INC;
     pcnt_config.counter_h_lim = 32767;
     pcnt_config.counter_l_lim = -32768;
     pcnt_config.unit = unit;

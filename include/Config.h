@@ -61,7 +61,9 @@ constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
 constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER;
-constexpr int ENCODER_PPR = 20;
+// Conteo de ambos flancos: 20 ranuras x 2 transiciones = 40 ticks/vuelta (ENCODER_PPR = 40).
+// Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
+constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
@@ -112,9 +114,9 @@ constexpr uint32_t ASENTAMIENTO_SIN_PULSOS_MS = 300;
 constexpr uint32_t ASENTAMIENTO_MAX_MS = 1500;
 // Una misión con objetivo absoluto no puede terminar únicamente por el
 // contador longitudinal: debe converger al punto planificado.
-constexpr float TOLERANCIA_ENDPOINT_CM = 2.0f;
+constexpr float TOLERANCIA_ENDPOINT_CM = 3.5f;
 // Por debajo de este umbral el residual es considerado aceptable o recuperable mediante micro-pulso.
-constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM = 2.0f;
+constexpr float DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM = 3.5f;
 constexpr uint8_t INTENTOS_RECUPERACION_ENDPOINT_MAX = 2;
 constexpr float GYRO_MOVEMENT_RAD_S = 0.12f;
 constexpr uint32_t DRIVE_STALL_MS = 6000;
@@ -180,7 +182,7 @@ constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 40.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
 constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 2.0f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 18.0f;
-constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 135.0f;
+constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 90.0f;
 
 // Calibración por búsqueda de torque en dos polaridades y retorno por MPU.
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
