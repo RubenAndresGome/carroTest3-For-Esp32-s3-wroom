@@ -527,6 +527,76 @@ void test_balance_giro_corrige_desplazamiento_tangencial_horario() {
   TEST_ASSERT_EQUAL_INT(-880, salida.pwmR);
 }
 
+void test_divergencia_giro_detecta_alejamiento_sostenido() {
+  using namespace ControlSeguridad;
+  EstadoVigilanciaDivergenciaGiro estado;
+  estado.reiniciar(25.0f);
+
+  // Al inicio (t=1000), error se desvía a 31° (> 25 + 5)
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 31.0f, 1000, 5.0f, 300, true));
+  TEST_ASSERT_EQUAL_UINT32(1000, estado.inicioDivergenciaMs);
+
+  // A los 200 ms (t=1200), aún no transcurren los 300 ms requeridos
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 32.0f, 1200, 5.0f, 300, true));
+
+  // A los 300 ms exactos (t=1300), se confirma divergencia sostenida -> DEBE ABORTAR
+  TEST_ASSERT_TRUE(evaluarDivergenciaGiro(estado, 33.0f, 1300, 5.0f, 300, true));
+}
+
+void test_divergencia_giro_tolera_ruido_menor_al_umbral_y_picos_breves() {
+  using namespace ControlSeguridad;
+  EstadoVigilanciaDivergenciaGiro estado;
+  estado.reiniciar(25.0f);
+
+  // Ruido de 3° (error = 28°) durante 500 ms: no supera el umbral de 5° -> NO ABORTA
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 28.0f, 1000, 5.0f, 300, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 28.0f, 1500, 5.0f, 300, true));
+  TEST_ASSERT_EQUAL_UINT32(0, estado.inicioDivergenciaMs);
+
+  // Pico breve que supera umbral a t=2000 pero se recupera a t=2150 (< 300 ms)
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 32.0f, 2000, 5.0f, 300, true));
+  TEST_ASSERT_EQUAL_UINT32(2000, estado.inicioDivergenciaMs);
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 24.0f, 2150, 5.0f, 300, true));
+  TEST_ASSERT_EQUAL_UINT32(0, estado.inicioDivergenciaMs);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 24.0f, estado.menorErrorAbs);
+}
+
+void test_divergencia_giro_actualiza_con_progreso_positivo_y_tolera_overshoot_normal() {
+  using namespace ControlSeguridad;
+  EstadoVigilanciaDivergenciaGiro estado;
+  estado.reiniciar(90.0f);
+
+  // El giro progresa normalmente hacia el objetivo
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 50.0f, 1000, 5.0f, 300, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 10.0f, 1500, 5.0f, 300, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 0.5f, 2000, 5.0f, 300, true));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, estado.menorErrorAbs);
+
+  // Rebote u overshoot inercial suave de 1.5° (< 0.5 + 5.0 = 5.5°)
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 2.0f, 2300, 5.0f, 300, true));
+  TEST_ASSERT_EQUAL_UINT32(0, estado.inicioDivergenciaMs);
+}
+
+void test_polaridad_giro_negativa_mantiene_salidas_consistentes_con_candidato() {
+  // Con cand = +1 (positivo / dextrógiro estándar): L empuja adelante (+), R atrás (-)
+  const auto salidaPos = ControlRuta::balancearGiroDiferencial(
+      700, 1, 0.0f, 0.0f, 1.22f, 0.0f, 180.0f, 988);
+  TEST_ASSERT_EQUAL_INT(700, salidaPos.pwmL);
+  TEST_ASSERT_EQUAL_INT(-700, salidaPos.pwmR);
+
+  // Con cand = -1 (polaridad invertida aprendida en cal): L empuja atrás (-), R adelante (+)
+  const auto salidaNeg = ControlRuta::balancearGiroDiferencial(
+      700, -1, 0.0f, 0.0f, 1.22f, 0.0f, 180.0f, 988);
+  TEST_ASSERT_EQUAL_INT(-700, salidaNeg.pwmL);
+  TEST_ASSERT_EQUAL_INT(700, salidaNeg.pwmR);
+
+  // Cand = 0 frena
+  const auto salidaCero = ControlRuta::balancearGiroDiferencial(
+      700, 0, 0.0f, 0.0f, 1.22f, 0.0f, 180.0f, 988);
+  TEST_ASSERT_EQUAL_INT(0, salidaCero.pwmL);
+  TEST_ASSERT_EQUAL_INT(0, salidaCero.pwmR);
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -579,5 +649,9 @@ int main(int, char**) {
   RUN_TEST(test_balance_giro_diferencial_simetrico_sin_traslacion);
   RUN_TEST(test_balance_giro_corrige_desplazamiento_tangencial_antihorario);
   RUN_TEST(test_balance_giro_corrige_desplazamiento_tangencial_horario);
+  RUN_TEST(test_divergencia_giro_detecta_alejamiento_sostenido);
+  RUN_TEST(test_divergencia_giro_tolera_ruido_menor_al_umbral_y_picos_breves);
+  RUN_TEST(test_divergencia_giro_actualiza_con_progreso_positivo_y_tolera_overshoot_normal);
+  RUN_TEST(test_polaridad_giro_negativa_mantiene_salidas_consistentes_con_candidato);
   return UNITY_END();
 }

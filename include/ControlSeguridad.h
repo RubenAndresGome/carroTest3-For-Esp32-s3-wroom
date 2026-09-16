@@ -141,4 +141,39 @@ inline bool stopDebePreservarFallo(bool fallo, bool estop) {
   return fallo || estop;
 }
 
+struct EstadoVigilanciaDivergenciaGiro {
+  float menorErrorAbs = 999.0f;
+  uint32_t inicioDivergenciaMs = 0;
+
+  void reiniciar(float errorAbsInicial) {
+    menorErrorAbs = errorAbsInicial;
+    inicioDivergenciaMs = 0;
+  }
+};
+
+inline bool evaluarDivergenciaGiro(
+    EstadoVigilanciaDivergenciaGiro& estado,
+    float errorAbsActual,
+    uint32_t ahoraMs,
+    float umbralDivergenciaDeg,
+    uint32_t tiempoLimiteMs,
+    bool movimientoPresente) {
+  if (errorAbsActual < estado.menorErrorAbs) {
+    estado.menorErrorAbs = errorAbsActual;
+    estado.inicioDivergenciaMs = 0;
+    return false;
+  }
+
+  if (movimientoPresente && errorAbsActual > (estado.menorErrorAbs + umbralDivergenciaDeg)) {
+    if (estado.inicioDivergenciaMs == 0) {
+      estado.inicioDivergenciaMs = ahoraMs;
+    } else if (ahoraMs - estado.inicioDivergenciaMs >= tiempoLimiteMs) {
+      return true;
+    }
+  } else {
+    estado.inicioDivergenciaMs = 0;
+  }
+  return false;
+}
+
 }  // namespace ControlSeguridad

@@ -164,6 +164,9 @@ constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 1.2f;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 60000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
+// Guarda activa de divergencia angular: aborta de inmediato ante giro inverso o trompo descontrolado
+constexpr float TURN_DIVERGENCE_THRESHOLD_DEG = 5.0f;
+constexpr uint32_t TURN_DIVERGENCE_TIMEOUT_MS = 300;
 
 // PID y Correcciones en marcha (MPU como autoridad angular única; encoders no interfieren en rumbo)
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);

@@ -304,6 +304,7 @@ int pwmBusquedaGiro = 0;
 int pwmBoostFrenado = 0;
 uint32_t inicioPulsoFinoGiroMs = 0;
 bool pulsoFinoGiroEncendido = false;
+ControlSeguridad::EstadoVigilanciaDivergenciaGiro vigilanciaDivergenciaGiro;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   reiniciarControlRumbo();
@@ -320,6 +321,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   ultimoCtrlGiroMs=0;
   ultimoAumentoTorqueGiroMs=millis();
   float errorIni = errorAng360(objetivoDeg, heading360);
+  vigilanciaDivergenciaGiro.reiniciar(fabsf(errorIni));
   int signoIni = errorIni > 0 ? 1 : -1;
   int minIni = signoIni > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
   if (minIni > 0) {
@@ -364,6 +366,7 @@ void controlarGiro() {
     inicioIntentoGiroMs = ahora;
     ultimoAumentoTorqueGiroMs=ahora;
     float errorReint = errorAng360(giroObjetivo, heading360);
+    vigilanciaDivergenciaGiro.reiniciar(fabsf(errorReint));
     int signoReint = errorReint > 0 ? 1 : -1;
     int minReint = signoReint > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
     if (minReint > 0) {
@@ -412,6 +415,14 @@ void controlarGiro() {
   const uint32_t timeoutGiro = (fase == Fase::CAL_RETORNO) ? CAL_RETURN_TIMEOUT_MS : TURN_TIMEOUT_MS;
   if (ahora - inicioGiroTotalMs > timeoutGiro) { fallo(fase == Fase::CAL_RETORNO ? "cal_return_timeout" : "turn_timeout_total"); return; }
   if (ahora - inicioIntentoGiroMs > TURN_ATTEMPT_TIMEOUT_MS) { reintentarGiro("turn_timeout_attempt"); return; }
+
+  // Guarda activa de divergencia angular (corte inmediato ante giro inverso o trompo descontrolado)
+  const bool movimientoPresenteGiro = movGiroConfirmado || (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S) || ambosLadosMoviendo;
+  if (ControlSeguridad::evaluarDivergenciaGiro(vigilanciaDivergenciaGiro, errorAbs, ahora, TURN_DIVERGENCE_THRESHOLD_DEG, TURN_DIVERGENCE_TIMEOUT_MS, movimientoPresenteGiro)) {
+    frenarMotores();
+    fallo((fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO) ? "cal_yaw_divergence" : "turn_angular_divergence");
+    return;
+  }
 
   // --- latch de tolerancia y verificación estricta de reposo ---
   const float tolGiro = (fase == Fase::CAL_RETORNO) ? TOLERANCIA_CALIBRACION_DEG : TOLERANCIA_GIRO_DEG;
