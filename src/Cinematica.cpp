@@ -536,14 +536,7 @@ void controlarGiro() {
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? 1 : -1;
     }
-    const float cmPorTick = ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR);
-    const float ticksL = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, true);
-    const float ticksR = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, false);
-    const auto balance = ControlRuta::balancearGiroDiferencial(
-        pwmGiroAct, cand, ticksL, ticksR, cmPorTick,
-        KP_GIRO_BALANCE_PWM_POR_CM, PWM_GIRO_BALANCE_MAX, PWM_TURN_MAX_LIMIT);
-
-    if (!aplicarVelocidades(balance.pwmL, balance.pwmR)) {
+    if (!aplicarVelocidades(cand * pwmGiroAct, -cand * pwmGiroAct)) {
       fallo("motor_output_error");
       return;
     }
