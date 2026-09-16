@@ -165,6 +165,8 @@ void conservarEncodersAisladosDelDiagnostico() {
 
 void iniciarFaseCal(Fase f) { fase = f; inicioFaseMs = millis(); }
 
+static bool intentoInvertidoCalA = false;
+
 void calCuenta() {
   if (millis() - inicioFaseMs < CUENTA_CALIBRACION_MS) { progresoComando = min(0.10f, (millis()-inicioFaseMs)/float(CUENTA_CALIBRACION_MS)*0.10f); return; }
   const SensorSnapshot s = sensar();
@@ -173,6 +175,7 @@ void calCuenta() {
   pwmMinGiroPos=0; pwmMinGiroNeg=0; candidatoGiroPos=0; candidatoGiroNeg=0;
   candidatoCal=1; pwmCal=CALIBRATION_PWM_START; ultimoRampaCalMs=millis(); inicioMovCalMs=0; inicioPausaReintentoCalMs=0;
   ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0;
+  intentoInvertidoCalA = false;
   reiniciarDiagnosticoCalibracion();
   copiarBase(ticksBaseCal, s);
   iniciarFaseCal(Fase::CAL_A);
@@ -258,8 +261,22 @@ void calTorque(bool primera) {
     ultimaAuditoriaMaxCalMs = ahora;
     if (!ladoIzqOk) stallMaxCalAcumMs[0] += lapso;
     if (!ladoDerOk) stallMaxCalAcumMs[1] += lapso;
-    if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_left"); return; }
-    if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
+    if (stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS || stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) {
+      if (primera && !intentoInvertidoCalA) {
+        // El candidato inicial no logro mover el chasis (stall en polaridad inicial).
+        // Invertir a candidato opuesto y reintentar busqueda en CAL_A.
+        intentoInvertidoCalA = true;
+        candidatoCal = -candidatoCal;
+        inicioPausaReintentoCalMs = ahora;
+        inicioMovCalMs = 0;
+        ultimaAuditoriaMaxCalMs = 0;
+        stallMaxCalAcumMs[0] = stallMaxCalAcumMs[1] = 0;
+        frenarMotores();
+        return;
+      }
+      fallo(stallMaxCalAcumMs[0] >= CAL_MAX_PWM_STALL_MS ? "cal_stall_left" : "cal_stall_right");
+      return;
+    }
   } else {
     ultimaAuditoriaMaxCalMs = 0;
     if (evidencia.gyroConfirmado) {
