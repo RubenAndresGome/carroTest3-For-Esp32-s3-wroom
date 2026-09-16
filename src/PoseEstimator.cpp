@@ -1,4 +1,5 @@
 #include "PoseEstimator.h"
+#include "ControlSeguridad.h"
 #include "Motores.h"
 #include <math.h>
 
@@ -35,14 +36,8 @@ void PoseEstimator::actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int6
     last_pulsos_BL = pulsosBL;
     last_pulsos_BR = pulsosBR;
 
-    float sumaL = 0.0f, sumaR = 0.0f;
-    int cantidadL = 0, cantidadR = 0;
-    if (encoderConfiableGlobal[0]) { sumaL += deltas[0]; ++cantidadL; }
-    if (encoderConfiableGlobal[2]) { sumaL += deltas[2]; ++cantidadL; }
-    if (encoderConfiableGlobal[1]) { sumaR += deltas[1]; ++cantidadR; }
-    if (encoderConfiableGlobal[3]) { sumaR += deltas[3]; ++cantidadR; }
-    float distL = cantidadL ? (sumaL / cantidadL) * cm_por_pulso : 0.0f;
-    float distR = cantidadR ? (sumaR / cantidadR) * cm_por_pulso : 0.0f;
+    float distL = ControlSeguridad::promedioConfiableLado(deltas, encoderConfiableGlobal, true) * cm_por_pulso;
+    float distR = ControlSeguridad::promedioConfiableLado(deltas, encoderConfiableGlobal, false) * cm_por_pulso;
 
     if (pwm_aplicado_L > 0) ultimo_signo_l = 1;
     else if (pwm_aplicado_L < 0) ultimo_signo_l = -1;

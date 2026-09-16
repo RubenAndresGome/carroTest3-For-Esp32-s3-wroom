@@ -100,11 +100,19 @@ inline float promedioConfiableLado(const int64_t valores[4],
                                    const bool confiable[4], bool izquierdo) {
   const int primero = izquierdo ? 0 : 1;
   const int segundo = izquierdo ? 2 : 3;
-  float suma = 0.0f;
-  int cantidad = 0;
-  if (confiable[primero]) { suma += valores[primero]; ++cantidad; }
-  if (confiable[segundo]) { suma += valores[segundo]; ++cantidad; }
-  return cantidad ? suma / cantidad : 0.0f;
+  if (confiable[primero] && confiable[segundo]) {
+    const float v1 = static_cast<float>(valores[primero]);
+    const float v2 = static_cast<float>(valores[segundo]);
+    // Si ambos avanzan pero difieren significativamente (>50%) con magnitudes apreciables (>10 ticks),
+    // el valor menor representa el rodamiento real sobre el suelo sin patinaje ni ruido electrico.
+    if (v1 > 10.0f && v2 > 10.0f && fabsf(v1 - v2) / fminf(v1, v2) > 0.50f) {
+      return fminf(v1, v2);
+    }
+    return (v1 + v2) * 0.5f;
+  }
+  if (confiable[primero]) return static_cast<float>(valores[primero]);
+  if (confiable[segundo]) return static_cast<float>(valores[segundo]);
+  return 0.0f;
 }
 
 inline bool ladoEnStall(bool ladoExigido, bool pulsoFrontalCero,

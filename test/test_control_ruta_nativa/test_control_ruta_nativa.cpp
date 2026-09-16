@@ -152,6 +152,18 @@ void test_fusion_descarta_cero_aislado_sin_sesgar_distancia() {
                            ControlSeguridad::promedioConfiableLado(ticks, fusion.confiable, false));
 }
 
+void test_fusion_desacuerdo_severo_selecciona_menor_sin_inflar_distancia() {
+  const int64_t ticks[4] = {116, 0, 48, 62};
+  const bool confiable[4] = {true, false, true, true};
+  // En el lado izquierdo FL tiene ruido (116) y BL es limpio (48). Desacuerdo > 50%.
+  // Debe seleccionar el mínimo (48) para no inflar la distancia ni detener el avance al 50%.
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 48.0f,
+                           ControlSeguridad::promedioConfiableLado(ticks, confiable, true));
+  // En el lado derecho solo BR (62) es confiable (FR=0 descartado).
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 62.0f,
+                           ControlSeguridad::promedioConfiableLado(ticks, confiable, false));
+}
+
 void test_fusion_falla_si_un_lado_completo_no_es_confiable() {
   const int64_t ticks[4] = {0, 70, 0, 71};
   const auto fusion = ControlSeguridad::clasificarEncoders(ticks, 0.40f);
@@ -644,6 +656,7 @@ int main(int, char**) {
   RUN_TEST(test_encoder_incoherente_se_detecta);
   RUN_TEST(test_pico_pcnt_imposible_no_puede_contaminar_odometria);
   RUN_TEST(test_fusion_descarta_cero_aislado_sin_sesgar_distancia);
+  RUN_TEST(test_fusion_desacuerdo_severo_selecciona_menor_sin_inflar_distancia);
   RUN_TEST(test_fusion_falla_si_un_lado_completo_no_es_confiable);
   RUN_TEST(test_stall_por_lado_exige_dos_encoders_sin_pulsos);
   RUN_TEST(test_cualquier_encoder_individual_puede_fallar_sin_perder_un_lado);
