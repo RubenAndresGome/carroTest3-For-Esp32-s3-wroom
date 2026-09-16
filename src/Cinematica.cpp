@@ -196,18 +196,24 @@ void calTorque(bool primera) {
   const SensorSnapshot s = sensar();
   int64_t d[4]; deltas(ticksBaseCal, s, d);
   const ControlCalibracion::EvaluacionEncoders evaluacion =
-      ControlCalibracion::evaluarEncoders(d, CAL_TICKS_MOVIMIENTO);
+      ControlCalibracion::evaluarEncoders(d, CAL_TICKS_MOVIMIENTO, encoderConfiableGlobal);
+  const ControlCalibracion::EvidenciaMovimiento evidencia =
+      ControlCalibracion::evaluarMovimiento(fabsf(s.gyro_z_filtrado_rad_s),
+                                            GYRO_MOVEMENT_RAD_S, d, CAL_TICKS_MOVIMIENTO);
   const bool ladoIzqOk = evaluacion.ladoIzquierdoValido;
   const bool ladoDerOk = evaluacion.ladoDerechoValido;
-  bool ticksOk = ladoIzqOk && ladoDerOk;
-  bool gyroOk = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
+  // MPU como autoridad angular central: el movimiento de calibracion se confirma si el MPU detecta
+  // velocidad angular corroborada por PCNT (al menos un encoder responde o algun lado valido),
+  // o si ambos lados reportan ticks suficientes.
+  const bool movimientoDetectado = (evidencia.gyroConfirmado && (evidencia.pcntCorroborado || ladoIzqOk || ladoDerOk)) ||
+                                   (ladoIzqOk && ladoDerOk);
   actualizarDiagnosticoCalibracion(d, evaluacion);
   if (!aplicarVelocidades(candidatoCal * pwmCal, -candidatoCal * pwmCal)) {
     fallo("motor_output_error");
     return;
   }
 
-  if (ticksOk && gyroOk) {
+  if (movimientoDetectado) {
     if (!inicioMovCalMs) inicioMovCalMs = ahora;
     if (ahora - inicioMovCalMs >= CAL_MOVE_SUSTAINED_MS) {
       conservarEncodersAisladosDelDiagnostico();
@@ -227,6 +233,12 @@ void calTorque(bool primera) {
         strncpy(faseComando,"cal_mas_25",sizeof(faseComando));
       }
       else {
+        if (s.gyro_z_filtrado_rad_s > 0) {
+          candidatoCal = -candidatoCal;
+          inicioPausaReintentoCalMs = ahora;
+          inicioMovCalMs = 0;
+          return;
+        }
         candidatoGiroNeg = candidatoCal;
         pwmMinGiroNeg = guardado;
         if (candidatoGiroPos == candidatoGiroNeg) { fallo("cal_dir_failed"); return; }
@@ -240,7 +252,7 @@ void calTorque(bool primera) {
     pwmCal = min(CALIBRATION_PWM_END, pwmCal + CALIBRATION_PWM_STEP);
   }
 
-  if (pwmCal >= CALIBRATION_PWM_END) {
+  if (pwmCal >= CALIBRATION_PWM_END && !evidencia.gyroConfirmado) {
     if (!ultimaAuditoriaMaxCalMs) ultimaAuditoriaMaxCalMs = ahora;
     const uint32_t lapso = ahora - ultimaAuditoriaMaxCalMs;
     ultimaAuditoriaMaxCalMs = ahora;
@@ -250,6 +262,9 @@ void calTorque(bool primera) {
     if (stallMaxCalAcumMs[1] >= CAL_MAX_PWM_STALL_MS) { fallo("cal_stall_right"); return; }
   } else {
     ultimaAuditoriaMaxCalMs = 0;
+    if (evidencia.gyroConfirmado) {
+      stallMaxCalAcumMs[0] = stallMaxCalAcumMs[1] = 0;
+    }
   }
 }
 
@@ -393,7 +408,8 @@ void controlarGiro() {
   int64_t d[4]; deltas(ticksBaseGiroLocal, s, d);
   int64_t ladoTicks[2] = {d[0]+d[2], d[1]+d[3]};
   const bool ambosLadosMoviendo = (ladoTicks[0] >= 2 && ladoTicks[1] >= 2);
-  if (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S && ambosLadosMoviendo) {
+  const bool gyroGirando = (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S);
+  if (gyroGirando || ambosLadosMoviendo) {
     if (!movGiroConfirmado) {
       movGiroConfirmado = true;
       if (signoEsperado > 0) pwmMinGiroPos = max(pwmMinGiroPos, pwmGiroAct);
@@ -408,8 +424,15 @@ void controlarGiro() {
   }
 
   for (int i=0; i<2; ++i) {
-    if (ladoTicks[i] != ticksLadoGiroAnt[i]) { ticksLadoGiroAnt[i]=ladoTicks[i]; ultimoPulsoLadoGiroMs[i]=ahora; }
-    else if (watchdogGiroArmado && ahora-ultimoPulsoLadoGiroMs[i] > TURN_STALL_MS) { reintentarGiro(i==0?"turn_stall_left":"turn_stall_right"); return; }
+    if (ladoTicks[i] != ticksLadoGiroAnt[i]) {
+      ticksLadoGiroAnt[i]=ladoTicks[i];
+      ultimoPulsoLadoGiroMs[i]=ahora;
+    } else if (gyroGirando) {
+      ultimoPulsoLadoGiroMs[i] = ahora;
+    } else if (watchdogGiroArmado && ahora-ultimoPulsoLadoGiroMs[i] > TURN_STALL_MS) {
+      reintentarGiro(i==0?"turn_stall_left":"turn_stall_right");
+      return;
+    }
   }
 
   const uint32_t timeoutGiro = (fase == Fase::CAL_RETORNO) ? CAL_RETURN_TIMEOUT_MS : TURN_TIMEOUT_MS;

@@ -321,6 +321,27 @@ void test_calibracion_rechaza_cero_un_tick_y_pcnt_sin_giro() {
   TEST_ASSERT_FALSE(ControlCalibracion::evaluarMovimiento(0.11f, 0.12f, pcnt, 2).confirmada());
 }
 
+void test_calibracion_mpu_confirma_movimiento_con_solo_br_como_sesion_3135() {
+  // Caso exacto sesión 3135 en CAL_B: FL=0, FR=0 (muerto/aislado), BL=1, BR=44, gyro=-1.2 rad/s
+  const int64_t deltas[4] = {0, 0, 1, 44};
+  const bool confiable[4] = {true, false, true, true}; // FR excluido en CAL_A
+  const auto evaluacion = ControlCalibracion::evaluarEncoders(deltas, 2, confiable);
+  TEST_ASSERT_EQUAL_INT64(44, evaluacion.promedioDerecho);
+  TEST_ASSERT_TRUE(evaluacion.ladoDerechoValido);
+  TEST_ASSERT_FALSE(evaluacion.ladoIzquierdoValido); // 1 tick en BL < 2
+
+  const auto evidencia = ControlCalibracion::evaluarMovimiento(1.20f, 0.12f, deltas, 2);
+  TEST_ASSERT_TRUE(evidencia.gyroConfirmado);
+  TEST_ASSERT_TRUE(evidencia.pcntCorroborado);
+  TEST_ASSERT_EQUAL_UINT8(1, evidencia.encodersQueResponden);
+  TEST_ASSERT_TRUE(evidencia.confirmada());
+
+  // MPU como autoridad central confirma movimiento
+  const bool movimientoDetectado = (evidencia.gyroConfirmado && (evidencia.pcntCorroborado || evaluacion.ladoIzquierdoValido || evaluacion.ladoDerechoValido)) ||
+                                   (evaluacion.ladoIzquierdoValido && evaluacion.ladoDerechoValido);
+  TEST_ASSERT_TRUE(movimientoDetectado);
+}
+
 void test_calibracion_ordena_pivote_logico_sin_traslacion() {
   const auto positivo = ControlCalibracion::comandoPivot(1, 560);
   const auto negativo = ControlCalibracion::comandoPivot(-1, 560);
@@ -637,6 +658,7 @@ int main(int, char**) {
   RUN_TEST(test_rampa_calibracion_expone_todos_los_niveles);
   RUN_TEST(test_control_manual_mezcla_satura_y_respeta_lease);
   RUN_TEST(test_calibracion_mpu_confirma_con_solo_bl_como_sesion_185);
+  RUN_TEST(test_calibracion_mpu_confirma_movimiento_con_solo_br_como_sesion_3135);
   RUN_TEST(test_calibracion_rechaza_cero_un_tick_y_pcnt_sin_giro);
   RUN_TEST(test_calibracion_ordena_pivote_logico_sin_traslacion);
   RUN_TEST(test_pcnt_registra_la_primera_etapa_fallida_y_bloquea_el_conjunto);
