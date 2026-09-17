@@ -408,11 +408,17 @@ void controlarGiro() {
     vigilanciaDivergenciaGiro.reiniciar(fabsf(errorReint));
     int signoReint = errorReint > 0 ? 1 : -1;
     int minReint = signoReint > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
+    int pwmArranque;
     if (minReint > 0) {
-      pwmBusquedaGiro = max(PWM_TURN_START, minReint - PWM_TURN_START_FLOOR_OFFSET);
+      pwmArranque = max(PWM_TURN_START, minReint - PWM_TURN_START_FLOOR_OFFSET);
     } else {
-      pwmBusquedaGiro = PWM_TURN_START;
+      pwmArranque = PWM_TURN_START;
     }
+    // Si el intento anterior no confirmó movimiento, conservar el PWM máximo
+    // alcanzado en lugar de reiniciar desde cero. Esto evita que reintentos
+    // sucesivos gasten todo TURN_ATTEMPT_TIMEOUT subiendo la rampa desde el
+    // mismo punto sin nunca llegar al torque de arranque.
+    pwmBusquedaGiro = max(pwmArranque, pwmBusquedaGiro);
     pwmBoostFrenado=0;
   }
 
