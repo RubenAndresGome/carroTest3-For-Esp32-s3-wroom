@@ -9,6 +9,8 @@
 #include "Motores.h"
 #include "PoseEstimator.h"
 #include "Sensores.h"
+#include "MemoriaTorque.h"
+#include "ControlTorque.h"
 #include <Arduino.h>
 #include <cmath>
 
@@ -53,6 +55,10 @@ float pasoTargetY = NAN;
 bool tieneTargetEspacial = false;
 float distTargetMinimaCm = 1e9f;
 float distanciaPlanificadaCm = 0.0f;
+// Origen real de la recta directriz del tramo. Se fija en la pose del robot al
+// iniciar cada avance para que el desvio lateral inicial sea exactamente cero.
+float pasoOrigenTramoXCm = 0.0f;
+float pasoOrigenTramoYCm = 0.0f;
 ControlRuta::EstadoPI estadoPIRumbo = {};
 uint32_t inicioVerificacionFinalMs = 0;
 uint8_t intentosEndpoint = 0;
@@ -192,7 +198,7 @@ void calTorque(bool primera) {
     inicioPausaReintentoCalMs = 0;
     const SensorSnapshot reinicio = sensar();
     copiarBase(ticksBaseCal, reinicio);
-    pwmCal = CALIBRATION_PWM_START;
+    pwmCal = (primera && intentoInvertidoCalA) ? CALIBRATION_PWM_RETRY_START : CALIBRATION_PWM_START;
     ultimoRampaCalMs = ahora;
     inicioMovCalMs = 0;
     ultimaAuditoriaMaxCalMs = 0;
@@ -207,11 +213,10 @@ void calTorque(bool primera) {
                                             GYRO_MOVEMENT_RAD_S, d, CAL_TICKS_MOVIMIENTO);
   const bool ladoIzqOk = evaluacion.ladoIzquierdoValido;
   const bool ladoDerOk = evaluacion.ladoDerechoValido;
-  // MPU como autoridad angular central: el movimiento de calibracion se confirma si el MPU detecta
-  // velocidad angular corroborada por PCNT (al menos un encoder responde o algun lado valido),
-  // o si ambos lados reportan ticks suficientes.
-  const bool movimientoDetectado = (evidencia.gyroConfirmado && (evidencia.pcntCorroborado || ladoIzqOk || ladoDerOk)) ||
-                                   (ladoIzqOk && ladoDerOk);
+  // MPU como autoridad angular central: el movimiento de calibracion exige confirmacion del MPU
+  // (gyroConfirmado) corroborada por PCNT (al menos un encoder responde o algun lado valido con ticks).
+  const bool movimientoDetectado = evidencia.gyroConfirmado &&
+                                   (evidencia.pcntCorroborado || ladoIzqOk || ladoDerOk);
   actualizarDiagnosticoCalibracion(d, evaluacion);
   if (!aplicarVelocidades(candidatoCal * pwmCal, -candidatoCal * pwmCal)) {
     fallo("motor_output_error");
@@ -303,7 +308,22 @@ void controlarCalibracion() {
     case Fase::CAL_VALIDAR_25: controlarGiro(); break;
     case Fase::CAL_PAUSA:
       frenarMotores();
-      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) { candidatoCal=-candidatoGiroPos; pwmCal=CALIBRATION_PWM_START; inicioPausaReintentoCalMs=0; inicioMovCalMs=0; ultimaAuditoriaMaxCalMs=0; stallMaxCalAcumMs[0]=stallMaxCalAcumMs[1]=0; copiarBase(ticksBaseCal,s); ultimoRampaCalMs=millis(); iniciarFaseCal(Fase::CAL_B); strncpy(faseComando,"cal_b",sizeof(faseComando)); progresoComando=0.60f; }
+      if (millis()-inicioFaseMs >= PAUSA_RETORNO_CAL_MS) {
+        candidatoCal = -candidatoGiroPos;
+        int minPwmB = (pwmMinGiroPos > 0)
+            ? max(CALIBRATION_PWM_START, pwmMinGiroPos - static_cast<int>(25 * PWM_SCALE_8_TO_10))
+            : CALIBRATION_PWM_START;
+        pwmCal = minPwmB;
+        inicioPausaReintentoCalMs = 0;
+        inicioMovCalMs = 0;
+        ultimaAuditoriaMaxCalMs = 0;
+        stallMaxCalAcumMs[0] = stallMaxCalAcumMs[1] = 0;
+        copiarBase(ticksBaseCal, s);
+        ultimoRampaCalMs = millis();
+        iniciarFaseCal(Fase::CAL_B);
+        strncpy(faseComando, "cal_b", sizeof(faseComando));
+        progresoComando = 0.60f;
+      }
       break;
     case Fase::CAL_B: calTorque(false); break;
     case Fase::CAL_PAUSA_RETORNO:
@@ -515,9 +535,9 @@ void controlarGiro() {
   if (!movGiroConfirmado) {
     if (ahora - ultimoAumentoTorqueGiroMs >= CAL_RAMP_INTERVAL_MS) {
       ultimoAumentoTorqueGiroMs = ahora;
-      pwmBusquedaGiro = min(pwmLejos, pwmBusquedaGiro + CALIBRATION_PWM_STEP);
+      pwmBusquedaGiro = min(PWM_TURN_MAX_LIMIT, pwmBusquedaGiro + CALIBRATION_PWM_STEP);
     }
-    pwmObj = pwmBusquedaGiro;
+    pwmObj = max(pwmLejos, pwmBusquedaGiro);
   } else if (errorAbs < TURN_BRAKING_ZONE_DEG) {
     pwmObj = pwmCerca + aproximar((pwmLejos - pwmCerca) * errorAbs / TURN_BRAKING_ZONE_DEG);
 
@@ -595,7 +615,14 @@ void controlarGiro() {
     }
   } else frenarMotores();
 
-  if (ahora - inicioIntentoGiroMs > 5000 && !movGiroConfirmado) {
+  if (estadoActual == CALIBRANDO) {
+    diagnosticoCal.pwmObjetivo = pwmGiroAct;
+    diagnosticoCal.pasoRampa = ControlCalibracion::pasoRampaActual(
+        pwmGiroAct, CALIBRATION_PWM_START, CALIBRATION_PWM_END, CALIBRATION_PWM_STEP);
+  }
+
+  const uint32_t limiteSinProgresoMs = (!movGiroConfirmado && pwmBusquedaGiro < PWM_TURN_MAX_LIMIT) ? 10000 : 5000;
+  if (ahora - inicioIntentoGiroMs > limiteSinProgresoMs && !movGiroConfirmado) {
     reintentarGiro("turn_no_progress");
   }
 }
@@ -616,6 +643,12 @@ void completarGiro() {
   else if (ret == Fase::CAL_RETORNO) {
     frenarMotores();
     delay(50);
+    solicitarGuardarTorque(
+        pwmMinGiroPos / PWM_SCALE_8_TO_10,
+        pwmMinGiroNeg / PWM_SCALE_8_TO_10,
+        candidatoGiroPos,
+        candidatoGiroNeg
+    );
     robotCalibrado = true; PoseGlobal.reset(); resetOrientacionIMU();
     fin(EVT_COMPLETED, "cal_ok");
   }
@@ -642,9 +675,14 @@ int64_t ticksBaseAntiFriccion[4] = {};
 
 void actualizarErroresTrayectoria() {
   if (!tieneTargetEspacial) return;
-  const ControlRuta::ErroresTrayectoria errores = ControlRuta::calcularErroresTrayectoria(
-      PoseGlobal.getX(), PoseGlobal.getY(), pasoTargetX, pasoTargetY,
-      pasoHeading, distanciaPlanificadaCm);
+  // El rumbo de la recta es el del trayecto activo: en recuperacion se
+  // recalcula hacia el waypoint, de modo que el desvio lateral siempre se mide
+  // respecto a la direccion que el chasis realmente debe seguir.
+  const ControlRuta::ErroresTrayectoria errores =
+      ControlRuta::calcularErroresTrayectoriaAnclado(
+          PoseGlobal.getX(), PoseGlobal.getY(), pasoOrigenTramoXCm,
+          pasoOrigenTramoYCm, pasoTargetX, pasoTargetY, pasoRumboTrayectoDeg,
+          distanciaPlanificadaCm);
   pasoErrorLongitudinalCm = errores.longitudinalCm;
   pasoErrorLateralCm = errores.lateralCm;
   pasoErrorEuclidianoCm = errores.euclidianoCm;
@@ -667,8 +705,13 @@ float promedioLado(const int64_t v[4], bool izq) {
 float estimarTicksAvance(const int64_t v[4]) {
   if (!hayPorLado()) return -1.0f;
   // La mediana decide que canales son coherentes; la distancia siempre se
-  // calcula como promedio de las fuentes confiables de cada lado.
-  return 0.5f*(promedioLado(v,true)+promedioLado(v,false));
+  // calcula como promedio de las fuentes confiables de cada lado. Si un lado
+  // quedo con una unica fuente (modo degradado), se acota contra el lado sano
+  // para que el ruido o el patinaje no inflen la distancia estimada.
+  const ControlSeguridad::PromediosLado promedios =
+      ControlSeguridad::promediosConfiableAcotados(v, encoderConfiableGlobal,
+                                                   DESACUERDO_MAXIMO_PAR);
+  return 0.5f*(promedios.izquierdo + promedios.derecho);
 }
 void resetConfEncoders() {
   for (int i = 0; i < 4; ++i) {
@@ -681,6 +724,11 @@ void resetConfEncoders() {
 void iniciarAvance(bool conservar) {
   const SensorSnapshot s = sensar();
   if (!conservar) { distAcumuladaCm = 0.0f; intentosRecup = 0; }
+  // Anclaje del marco local: la recta directriz parte de la pose real del
+  // robot en este instante, tras estabilizar el giro y cualquier pausa previa.
+  // Garantiza error lateral nulo en t=0 para cualquier rumbo theta.
+  pasoOrigenTramoXCm = PoseGlobal.getX();
+  pasoOrigenTramoYCm = PoseGlobal.getY();
   reiniciarControlRumbo();
   pasoEnReversa = direccionTraslacion < 0;
   // Una recuperación o reevaluación debe preservar los canales que ya fueron
@@ -849,7 +897,8 @@ bool controlarAvance() {
   pasoDistanciaActualCm = distMedida;
   float restante = distObjetivoCm - distMedida;
   pasoDistanciaRestanteCm = restante;
-  const float pwmReferenciaFreno = restante < DISTANCIA_APROXIMACION_CM
+  const float distAproxCalculo = direccionTraslacion < 0 ? DISTANCIA_APROXIMACION_REVERSA_CM : DISTANCIA_APROXIMACION_CM;
+  const float pwmReferenciaFreno = restante < distAproxCalculo
       ? static_cast<float>(VELOCIDAD_APROXIMACION)
       : static_cast<float>(VELOCIDAD_BASE_RECTO);
   pasoFrenoPrevistoCm = ControlRuta::distanciaFrenoPrevista(
@@ -983,16 +1032,43 @@ bool controlarAvance() {
   }
   pasoControlEncoderPwm = ctrlEnc;
 
+  // --- SELECCIÓN ADAPTATIVA DE VELOCIDAD DE CRUCERO (70% - 80% - 90% - 100%) ---
+  // Se evalúa la velocidad filtrada de encoders en ticks/s para mantener un régimen de traslación estable
+  static int nivelCruceroActual = PWM_CRUCERO_70;
+  static uint32_t ultimoCambioCruceroMs = 0;
+  if (!conservarAcumulado && (millis() - inicioAvanceMs < 40)) {
+    nivelCruceroActual = PWM_CRUCERO_70;
+    ultimoCambioCruceroMs = millis();
+  }
+  const float ticksSegL = fabsf(s.delta_pulsos_filtrado_FL + s.delta_pulsos_filtrado_BL) * 0.5f * (1000.0f / float(SENSOR_PERIOD_MS));
+  const float ticksSegR = fabsf(s.delta_pulsos_filtrado_FR + s.delta_pulsos_filtrado_BR) * 0.5f * (1000.0f / float(SENSOR_PERIOD_MS));
+  const float ticksSegPromedio = (ticksSegL + ticksSegR) * 0.5f;
+
+  if (millis() - ultimoCambioCruceroMs >= 200) {
+    if (ticksSegPromedio < 25.0f && millis() - inicioAvanceMs >= 300) {
+      if (nivelCruceroActual == PWM_CRUCERO_70) nivelCruceroActual = PWM_CRUCERO_80;
+      else if (nivelCruceroActual == PWM_CRUCERO_80) nivelCruceroActual = PWM_CRUCERO_90;
+      else if (nivelCruceroActual == PWM_CRUCERO_90) nivelCruceroActual = PWM_CRUCERO_100;
+      ultimoCambioCruceroMs = millis();
+    } else if (ticksSegPromedio > 65.0f) {
+      if (nivelCruceroActual == PWM_CRUCERO_100) nivelCruceroActual = PWM_CRUCERO_90;
+      else if (nivelCruceroActual == PWM_CRUCERO_90) nivelCruceroActual = PWM_CRUCERO_80;
+      else if (nivelCruceroActual == PWM_CRUCERO_80) nivelCruceroActual = PWM_CRUCERO_70;
+      ultimoCambioCruceroMs = millis();
+    }
+  }
+
+  const float distAprox = direccionTraslacion < 0 ? DISTANCIA_APROXIMACION_REVERSA_CM : DISTANCIA_APROXIMACION_CM;
   const float restantePerfil = max(0.0f, restante - pasoFrenoPrevistoCm);
-  int base = restantePerfil < DISTANCIA_APROXIMACION_CM
-      ? map(long(restantePerfil * 10), 0, long(DISTANCIA_APROXIMACION_CM * 10),
+  int base = restantePerfil < distAprox
+      ? map(long(restantePerfil * 10), 0, long(distAprox * 10),
             VELOCIDAD_PRECISION_RECTO, VELOCIDAD_APROXIMACION)
-      : VELOCIDAD_BASE_RECTO;
-  base = constrain(base, VELOCIDAD_PRECISION_RECTO, VELOCIDAD_BASE_RECTO);
+      : nivelCruceroActual;
+  base = constrain(base, VELOCIDAD_PRECISION_RECTO, nivelCruceroActual);
   if (direccionTraslacion < 0) {
     pasoRampaReversaMs = min<uint32_t>(millis() - inicioAvanceMs, RAMPA_REVERSA_MS);
     const int limiteRampa = map(long(pasoRampaReversaMs), 0, long(RAMPA_REVERSA_MS),
-                                VELOCIDAD_PRECISION_RECTO, VELOCIDAD_BASE_RECTO);
+                                VELOCIDAD_PRECISION_RECTO, nivelCruceroActual);
     base = min(base, limiteRampa);
   } else {
     pasoRampaReversaMs = 0;
@@ -1007,12 +1083,12 @@ bool controlarAvance() {
       if (deltaPulso >= APPROACH_PULSE_ON_MS) {
         pulsoAproximacionEncendido = false;
         inicioPulsoAproximacionMs = millis();
-        frenarMotores();
+        frenarMotoresActivo();
         return false;
       }
       base = APPROACH_PULSE_PWM;
     } else {
-      frenarMotores();
+      frenarMotoresActivo();
       if (deltaPulso >= APPROACH_PULSE_OFF_MS) {
         pulsoAproximacionEncendido = true;
         inicioPulsoAproximacionMs = millis();
@@ -1062,7 +1138,7 @@ bool controlarAvance() {
 
 // ============== PASO (orquestacion: giro_inicial -> avance -> giro_final -> completado) ==============
 void iniciarAsentamientoFinal(float distanciaAntesDeFrenarCm) {
-  frenarMotores();
+  frenarMotoresActivo();
   const SensorSnapshot s = sensar();
   copiarBase(ticksBaseAsentamiento, s);
   distanciaInicioAsentamientoCm = distanciaAntesDeFrenarCm;
@@ -1341,6 +1417,62 @@ bool iniciarCalibracion(int seq) {
   return true;
 }
 
+bool aplicarCalibracionInyectada(int pwmPos8, int pwmNeg8, int candPos, int candNeg, int seq) {
+  if (estadoActual != DESARMADO && estadoActual != LISTO) return false;
+  const SensorSnapshot s = sensar();
+  if (!s.mpu_present || !s.mpu_calibrated || s.mpu_stale) return false;
+
+  int finalPos = pwmPos8;
+  int finalNeg = pwmNeg8;
+  int finalCandPos = candPos;
+  int finalCandNeg = candNeg;
+
+  // Si no se especificaron valores o vienen en cero, intentar recuperar de MemoriaTorque (SPIFFS)
+  if (finalPos == 0 || finalNeg == 0) {
+    if (!obtenerCalibracionVigente(finalPos, finalNeg, finalCandPos, finalCandNeg)) {
+      return false;
+    }
+  }
+
+  // Validar límites de seguridad
+  if (finalPos < ControlTorque::PWM_MIN_8BIT || finalPos > ControlTorque::PWM_MAX_8BIT ||
+      finalNeg < ControlTorque::PWM_MIN_8BIT || finalNeg > ControlTorque::PWM_MAX_8BIT ||
+      (finalCandPos != 1 && finalCandPos != -1) ||
+      (finalCandNeg != 1 && finalCandNeg != -1) ||
+      finalCandPos == finalCandNeg) {
+    return false;
+  }
+
+  frenarMotores();
+  pwmMinGiroPos = static_cast<int>(finalPos * PWM_SCALE_8_TO_10);
+  pwmMinGiroNeg = static_cast<int>(finalNeg * PWM_SCALE_8_TO_10);
+  candidatoGiroPos = finalCandPos;
+  candidatoGiroNeg = finalCandNeg;
+
+  solicitarGuardarTorque(finalPos, finalNeg, finalCandPos, finalCandNeg);
+
+  PoseGlobal.reset();
+  resetOrientacionIMU();
+  robotCalibrado = true;
+  estadoActual = LISTO;
+  progresoComando = 1.0f;
+  strncpy(faseComando, "injected_ok", sizeof(faseComando));
+  if (seq > 0) {
+    encolarEvento(EVT_COMPLETED, seq, "cal_ok");
+  }
+  return true;
+}
+
+bool intentarAutoRestaurarCalibracion() {
+  if (robotCalibrado || estadoActual != DESARMADO) return false;
+  const SensorSnapshot s = sensar();
+  if (!s.mpu_present || !s.mpu_calibrated || s.mpu_stale) return false;
+  int pos8 = 0, neg8 = 0, cpos = 0, cneg = 0;
+  if (!obtenerCalibracionVigente(pos8, neg8, cpos, cneg)) return false;
+  return aplicarCalibracionInyectada(pos8, neg8, cpos, cneg, 0);
+}
+
+
 bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float targetY,
                  bool objetivoAbsoluto, ModoPaso modoPaso) {
   if (estadoActual != LISTO) return false;
@@ -1417,6 +1549,10 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   }
   pasoTargetXObjetivoCm = pasoTargetX;
   pasoTargetYObjetivoCm = pasoTargetY;
+  // Semilla del anclaje para la telemetria inicial del paso; iniciarAvance lo
+  // reafirma en la pose real tras estabilizar el giro.
+  pasoOrigenTramoXCm = PoseGlobal.getX();
+  pasoOrigenTramoYCm = PoseGlobal.getY();
   actualizarErroresTrayectoria();
 
   distTargetMinimaCm = 1e9f;

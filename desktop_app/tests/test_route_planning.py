@@ -92,5 +92,27 @@ class RoutePlanningTests(unittest.TestCase):
         self.assertGreaterEqual(tolerance, 20.0)
 
 
+    def test_orthogonal_points_subdivides_into_500mm_default(self) -> None:
+        points = [{"x_mm": 0.0, "y_mm": 0.0}, {"x_mm": 0.0, "y_mm": 1000.0}]
+        segments = compile_orthogonal_points(points)
+        self.assertEqual(len(segments), 2)
+        self.assertEqual(segments[0]["length_mm"], 500.0)
+        self.assertEqual(segments[1]["length_mm"], 500.0)
+        self.assertEqual(segments[1]["y_mm"], 1000.0)
+
+    def test_orthogonal_points_supports_custom_subsegments(self) -> None:
+        points = [{"x_mm": 0.0, "y_mm": 0.0}, {"x_mm": 0.0, "y_mm": 1000.0}]
+        segments = compile_orthogonal_points(points, max_segment_mm=200.0)
+        self.assertEqual(len(segments), 5)
+        for segment in segments:
+            self.assertEqual(segment["length_mm"], 200.0)
+
+    def test_orthogonal_points_deducts_chassis_offset(self) -> None:
+        points = [{"x_mm": 0.0, "y_mm": 0.0}, {"x_mm": 0.0, "y_mm": 1000.0}]
+        segments = compile_orthogonal_points(points, deduct_chassis_offset=True)
+        self.assertEqual(len(segments), 2)
+        self.assertEqual(segments[-1]["y_mm"], 860.0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,14 +26,15 @@ uint32_t inicioManualMs();
 // con ese mismo seq para que el backend marque el paso en SQLite.
 enum TipoComando : uint8_t {
     CMD_NINGUNO,
-    CMD_CALIBRATE,    // calibración de torque + retorno a yaw inicial
-    CMD_STEP,         // paso atómico: girar a heading y avanzar cm
-    CMD_TURN_TO,      // giro atómico a un heading absoluto, sin traslación
-    CMD_STOP,         // cancela el paso actual y queda LISTO
-    CMD_ESTOP,        // parada de emergencia enclavada
-    CMD_CLEAR_FAULT,  // rearma desde ESTOP o FALLO
-    CMD_SET_COMP,     // factor de compensación del lado derecho (0.80..1.00)
-    CMD_RESET_POSE    // pone x, y y yaw en cero
+    CMD_CALIBRATE,        // calibración de torque + retorno a yaw inicial
+    CMD_SET_CALIBRATION,  // inyección o restauración directa de perfil de calibración
+    CMD_STEP,             // paso atómico: girar a heading y avanzar cm
+    CMD_TURN_TO,          // giro atómico a un heading absoluto, sin traslación
+    CMD_STOP,             // cancela el paso actual y queda LISTO
+    CMD_ESTOP,            // parada de emergencia enclavada
+    CMD_CLEAR_FAULT,      // rearma desde ESTOP o FALLO
+    CMD_SET_COMP,         // factor de compensación del lado derecho (0.80..1.00)
+    CMD_RESET_POSE        // pone x, y y yaw en cero
 };
 
 // El rumbo de trayecto y el sentido del chasis son conceptos distintos. Un
@@ -56,6 +57,11 @@ struct ComandoRed {
     float targetYCm;
     bool tieneObjetivoAbsoluto;
     ModoPaso modoPaso;
+    // Campos de SET_CALIBRATION (8-bit)
+    int pwmPositivo8;
+    int pwmNegativo8;
+    int polaridadPositiva;
+    int polaridadNegativa;
 };
 
 extern QueueHandle_t colaComandos;

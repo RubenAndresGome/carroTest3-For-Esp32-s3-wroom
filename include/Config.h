@@ -59,7 +59,15 @@ constexpr float ENCODER_ERROR_PORCENTAJE = 0.0f;
 constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
-constexpr float WHEEL_DIAMETER_ODOMETRY_CM = WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER;
+// Calibracion de rodadura real en suelo. Con ruedas de 6.6 cm de diametro y
+// ENCODER_PPR = 40 (deteccion de subida y bajada de 20 ranuras), la escala
+// nominal pura es 1.0f (cmPorTick = pi * 6.6 / 40 = 0.5184 cm/tick).
+// 100 cm corresponden a 192.9 ticks (4.82 vueltas de rueda).
+constexpr float FACTOR_ESCALA_ODOMETRIA_SUELO = 1.0f;
+static_assert(FACTOR_ESCALA_ODOMETRIA_SUELO > 0.0f && FACTOR_ESCALA_ODOMETRIA_SUELO <= 1.0f,
+              "La escala de suelo debe ser positiva y no amplificar la odometria teorica.");
+constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
+    WHEEL_DIAMETER_CM * FACTOR_ESCALA_ENCODER * FACTOR_ESCALA_ODOMETRIA_SUELO;
 // Conteo de ambos flancos: 20 ranuras x 2 transiciones = 40 ticks/vuelta (ENCODER_PPR = 40).
 // Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
 constexpr int ENCODER_PPR = 40;
@@ -83,27 +91,38 @@ constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
 
+// --- NIVELES DISCRETOS DE CRUCERO ADAPTATIVO (70% - 80% - 90% - 100%) ---
+constexpr int PWM_CRUCERO_70 = static_cast<int>(179 * PWM_SCALE_8_TO_10);  // 70.2% de 255 (~35-50 ticks/s objetivo)
+constexpr int PWM_CRUCERO_80 = static_cast<int>(204 * PWM_SCALE_8_TO_10);  // 80.0% de 255
+constexpr int PWM_CRUCERO_90 = static_cast<int>(230 * PWM_SCALE_8_TO_10);  // 90.2% de 255
+constexpr int PWM_CRUCERO_100 = PWM_SAFE_HARD_LIMIT;                        // 94.9% de 255 (242)
+
 // --- PARÁMETROS DE AVANCE RECTO (DRIVE) ---
-constexpr int VELOCIDAD_BASE_RECTO = PWM_SAFE_HARD_LIMIT;
-// En pruebas de suelo, un torque inicial cercano a 65 % evita que el avance
-// fino quede zumbando por debajo de la fricción estática. Sigue por debajo del
-// tope de avance solicitado (242/255, ~95 %).
-constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(200 * PWM_SCALE_8_TO_10);
-constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(165 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_BASE_RECTO = PWM_CRUCERO_70; // Crucero nominal 70% PWM para reducir inercia y sobrepaso
+constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(160 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(145 * PWM_SCALE_8_TO_10);
 // La reversa no entra directamente a crucero: después del interlock se rampa
 // desde el torque mínimo para que el PID confirme yaw antes de potencia plena.
 constexpr uint32_t RAMPA_REVERSA_MS = 900;
 // Dentro del cierre se reduce el torque sin debilitar el arranque de crucero.
-// Esto evita que un paso corto llegue al umbral con 65 % de PWM todavía activo.
-constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(150 * PWM_SCALE_8_TO_10);
+// Esto evita que un paso corto llegue al umbral con PWM excesivo todavía activo.
+constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(135 * PWM_SCALE_8_TO_10);
 // Piso inferior para reducción diferencial en avance recto (permite girar aún en precisión/desaceleración)
 constexpr int VELOCIDAD_MINIMA_DIFERENCIAL = static_cast<int>(100 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 1.0f;
-constexpr float DISTANCIA_APROXIMACION_CM = 30.0f;
-constexpr float DISTANCIA_MICRO_PULSOS_CM = 8.0f;
-constexpr uint32_t APPROACH_PULSE_ON_MS = 45;
-constexpr uint32_t APPROACH_PULSE_OFF_MS = 75;
-constexpr int APPROACH_PULSE_PWM = static_cast<int>(180 * PWM_SCALE_8_TO_10);
+constexpr float DISTANCIA_APROXIMACION_CM = 45.0f;          // Zona de desaceleración extendida de frente
+constexpr float DISTANCIA_APROXIMACION_REVERSA_CM = 50.0f;  // Zona de desaceleración extendida en reversa
+constexpr float DISTANCIA_MICRO_PULSOS_CM = 5.0f;
+constexpr uint32_t APPROACH_PULSE_ON_MS = 40;
+constexpr uint32_t APPROACH_PULSE_OFF_MS = 60;
+constexpr int APPROACH_PULSE_PWM = static_cast<int>(145 * PWM_SCALE_8_TO_10);
+constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 150; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
+
+// --- DIMENSIONES FÍSICAS DEL CHASIS 4WD ---
+constexpr float CHASSIS_LENGTH_CM = 28.0f;
+constexpr float CHASSIS_WIDTH_CM = 17.0f;
+constexpr float CHASSIS_HALF_LENGTH_CM = 14.0f;
+
 // Modelo de avance por inercia ajustado con telemetría real (arrastre real medio ~1.2 cm por reducción TT).
 constexpr float FRENO_RESIDUAL_BASE_CM = 0.3f;
 constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.001f;
@@ -181,21 +200,26 @@ constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 40.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
 constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 2.0f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 18.0f;
-constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 90.0f;
+// Regla de minima rotacion del marco unificado: ante un cambio de rumbo
+// |delta theta| >= 105 grados el chasis conmuta a reversa y solo necesita un
+// micro-giro de <= 75 grados en vez de un pivote destructivo cercano a 180
+// grados (arrastre transversal enorme en chasis 4WD de goma).
+constexpr float UMBRAL_REVERSA_AUTOMATICA_DEG = 105.0f;
 
 // Calibración por búsqueda de torque en dos polaridades y retorno por MPU.
 constexpr uint32_t CUENTA_CALIBRACION_MS = 5000;
 constexpr uint32_t PAUSA_RETORNO_CAL_MS = 2500;
 constexpr int      CALIBRATION_PWM_START = static_cast<int>(140 * PWM_SCALE_8_TO_10);
+constexpr int      CALIBRATION_PWM_RETRY_START = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 constexpr int      CALIBRATION_PWM_END   = PWM_TURN_MAX_LIMIT;
 constexpr int      CALIBRATION_PWM_STEP  = static_cast<int>(5 * PWM_SCALE_8_TO_10);
-constexpr uint32_t CAL_RAMP_INTERVAL_MS = 250;
+constexpr uint32_t CAL_RAMP_INTERVAL_MS = 350;
 constexpr uint32_t CAL_BASE_SLEW_INTERVAL_MS = 20;
 constexpr uint32_t CAL_MOVE_SUSTAINED_MS = 100;
 constexpr int64_t  CAL_TICKS_MOVIMIENTO = 2;
 constexpr uint32_t CAL_GIRO_SIN_ENCODERS_MS = 500;
 constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
-constexpr uint32_t CAL_MAX_PWM_STALL_MS = 1500;
+constexpr uint32_t CAL_MAX_PWM_STALL_MS = 3000;
 constexpr float    CAL_RETURN_PROGRESS_DEG = 0.5f;
 constexpr uint32_t CAL_RETURN_NO_PROGRESS_MS = 15000;
 constexpr uint32_t CAL_RETURN_TIMEOUT_MS = 25000;

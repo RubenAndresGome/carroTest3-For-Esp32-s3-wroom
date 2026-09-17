@@ -25,4 +25,5 @@ void solicitarGuardarTorque(int pwmPositivo8, int pwmNegativo8,
                             int pwmPositivoDerecho8 = 0, int pwmNegativoDerecho8 = 0);
 void procesarPersistenciaTorque();
 bool persistenciaTorquePendiente();
+bool obtenerCalibracionVigente(int& pwmPos8, int& pwmNeg8, int& candPos, int& candNeg);
 DiagnosticoMemoriaTorque obtenerDiagnosticoMemoriaTorque();

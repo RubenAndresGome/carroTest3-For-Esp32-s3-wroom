@@ -34,11 +34,15 @@ class Severity(StrEnum):
 
 
 ALLOWED_COMMANDS = frozenset(
-    {"calibrate", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "turn_to", "move",
+    {"calibrate", "set_calibration", "estop", "stop", "reset_pose", "clear_fault", "set_comp", "step", "turn_to", "move",
      "manual_begin", "manual_drive", "manual_end"}
 )
 
 MAX_SEGMENT_MM = 2_000.0
+DEFAULT_SUBSEGMENT_MM = 500.0
+CHASSIS_LENGTH_CM = 28.0
+CHASSIS_WIDTH_CM = 17.0
+CHASSIS_HALF_LENGTH_CM = 14.0
 PWM_SAFE_LIMIT = 230
 TURN_MODES = frozenset({"auto", "pivot", "arc_left_active", "arc_right_active"})
 
@@ -102,6 +106,25 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
         return {"heading": _heading_degrees(source.get("heading"))}
     if name == "set_comp":
         return {"factor": _finite_number(source.get("factor"), "factor", 0.8, 1.0)}
+    if name == "set_calibration":
+        res: dict[str, Any] = {}
+        if "pwm_pos" in source and source["pwm_pos"] is not None:
+            res["pwm_pos"] = int(_finite_number(source["pwm_pos"], "pwm_pos", 140, 247))
+        if "pwm_neg" in source and source["pwm_neg"] is not None:
+            res["pwm_neg"] = int(_finite_number(source["pwm_neg"], "pwm_neg", 140, 247))
+        if "cand_pos" in source and source["cand_pos"] is not None:
+            cpos = int(source["cand_pos"])
+            if cpos not in {-1, 1}:
+                raise ValueError("cand_pos debe ser 1 o -1")
+            res["cand_pos"] = cpos
+        if "cand_neg" in source and source["cand_neg"] is not None:
+            cneg = int(source["cand_neg"])
+            if cneg not in {-1, 1}:
+                raise ValueError("cand_neg debe ser 1 o -1")
+            res["cand_neg"] = cneg
+        if "cand_pos" in res and "cand_neg" in res and res["cand_pos"] == res["cand_neg"]:
+            raise ValueError("cand_pos y cand_neg deben ser de signos opuestos")
+        return res
     return {}
 
 

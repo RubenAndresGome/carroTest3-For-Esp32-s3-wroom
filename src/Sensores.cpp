@@ -174,9 +174,11 @@ static void leerEncoders(SensorSnapshot &snap) {
         pcnt_counter_resume(units[i]);
         if (!ControlSeguridad::deltaEncoderPlausible(
                 *values[i], ENCODER_MAX_PULSES_PER_SAMPLE)) {
-            Serial.printf("WARN: pico PCNT imposible descartado en encoder %d: %d pulsos.\n",
-                          i, static_cast<int>(*values[i]));
-            *values[i] = 0;
+            const int16_t saturado = static_cast<int16_t>(
+                ControlSeguridad::saturarDeltaEncoder(*values[i], ENCODER_MAX_PULSES_PER_SAMPLE));
+            Serial.printf("WARN: pico PCNT saturado en encoder %d: %d pulsos -> clamped a %d.\n",
+                          i, static_cast<int>(*values[i]), static_cast<int>(saturado));
+            *values[i] = saturado;
         }
     }
     snap.pulsosFL += current_FL;

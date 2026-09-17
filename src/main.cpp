@@ -156,6 +156,10 @@ void procesarComandos() {
                     encolarEvento(EVT_REJECTED, cmd.seq,
                         !pcntInicializados() ? "pcnt_init_failed" : "cal_unavailable");
                 break;
+            case CMD_SET_CALIBRATION:
+                if (!aplicarCalibracionInyectada(cmd.pwmPositivo8, cmd.pwmNegativo8, cmd.polaridadPositiva, cmd.polaridadNegativa, cmd.seq))
+                    encolarEvento(EVT_REJECTED, cmd.seq, "cal_injection_failed");
+                break;
             case CMD_STEP:
                 if (!iniciarPaso(cmd.heading, cmd.distanciaCm, cmd.seq, cmd.targetXCm, cmd.targetYCm,
                                  cmd.tieneObjetivoAbsoluto, cmd.modoPaso))
@@ -258,6 +262,14 @@ static void ejecutarCicloControl() {
         if (estadoActual == LISTO || estadoActual == DESARMADO) {
             recentrarYawIMUEnReposo();
         }
+        static bool intentoAutoRestaurar = false;
+        if (!intentoAutoRestaurar && estadoActual == DESARMADO && !robotCalibrado &&
+            snap.mpu_present && snap.mpu_calibrated && !snap.mpu_stale) {
+            intentoAutoRestaurar = true;
+            if (intentarAutoRestaurarCalibracion()) {
+                LOG_CORE("AUTO_ARM: Perfil de calibracion persistido restaurado con exito.");
+            }
+        }
         PoseGlobal.actualizarOdometria(snap.pulsosFL, snap.pulsosFR, snap.pulsosBL, snap.pulsosBR,
                                        ((estadoActual == EJECUTANDO && enFaseTraslacion()) || estadoActual == MANUAL));
         if (!ControlSeguridad::imuApta(snap.mpu_present, snap.mpu_stale)) {
@@ -274,6 +286,7 @@ static void ejecutarCicloControl() {
     }
     controlarMovimiento();
     controlarManual();
+    actualizarFrenoActivo();
     if (seqActivo && (estadoActual==EJECUTANDO||estadoActual==CALIBRANDO) && millis()-ultimoProgresoMs>=500) {
         ultimoProgresoMs=millis();
         encolarEvento(EVT_PROGRESS, seqActivo, faseComando, progresoComando);
