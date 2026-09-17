@@ -854,11 +854,15 @@
         @media (max-width:1050px) { .route-form { grid-template-columns:minmax(145px,1fr) auto minmax(145px,1fr) minmax(145px,1fr); } .route-form .btn { width:100%; } }
         @media (max-width:600px) { .route-program-header { align-items:flex-start; } .route-mode-chip { font-size:8px; } .route-form { grid-template-columns:1fr 1fr; gap:8px; padding:9px; } .route-axis-toggle { align-self:end; } .route-form .btn { grid-column:span 1; font-size:10px; } }
         .route-map-card { position: relative; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border); padding: 10px; display: flex; flex-direction: column; transition: all 0.3s; }
-        .route-map-card.cinema-mode { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-primary); margin: 0; border: none; border-radius: 0; padding: 20px; }
+        .route-map-card.cinema-mode { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-primary); margin: 0; border: none; border-radius: 0; padding: 16px 20px 20px 20px; display: flex; flex-direction: column; }
+        .route-map-card.cinema-mode .route-map-header { padding-right: 150px; margin-bottom: 12px; }
+        .route-cinema-floating-close { display: none; }
+        .route-map-card.cinema-mode .route-cinema-floating-close { display: inline-flex; align-items: center; justify-content: center; gap: 6px; position: fixed; top: 14px; right: 18px; z-index: 10005; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: var(--radius-sm); box-shadow: 0 4px 16px rgba(0,0,0,0.6); cursor: pointer; background: var(--stop, #ef4444); color: #fff; border: 1px solid rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.5px; }
+        .route-map-card.cinema-mode .route-cinema-floating-close:hover { filter: brightness(1.15); transform: scale(1.02); }
         .route-map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .route-map-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
         .route-map-container { position: relative; flex-grow: 1; min-height: 360px; height: min(52vh,520px); display: flex; justify-content: center; align-items: center; overflow: hidden; background: linear-gradient(180deg,rgba(17,24,32,.96),rgba(10,14,20,.98)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
-        .route-map-card.cinema-mode .route-map-container { min-height: auto; height: auto; }
+        .route-map-card.cinema-mode .route-map-container { min-height: 0; height: calc(100vh - 90px); flex: 1 1 auto; width: 100%; }
         .route-chart-canvas { width: 100% !important; height: 100% !important; }
         .route-angular-meta { display:grid; gap:8px; margin:0 0 10px; }
         .route-angular-meta[hidden] { display:none; }
@@ -896,8 +900,9 @@
         .route-running-badge { font-size: 10px; padding: 2px 8px; background: var(--accent); color: var(--bg-primary); border-radius: 12px; font-weight: bold; animation: pulse-dot 1.5s infinite; display: none; margin-right: 5px; }
         .route-running-badge.show { display: inline-block; }
         /* Conexión HMI -> ESP32 y sesiones SQLite */
-        .connection-layout { max-width: 1180px; margin: 0 auto; padding: 14px; display: grid; grid-template-columns: 360px 1fr; gap: 12px; }
-        .connection-stack { display: grid; gap: 12px; align-content: start; }
+        .connection-layout { max-width: 1180px; margin: 0 auto; padding: 14px; display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 14px; align-items: start; }
+        .connection-stack { min-width: 0; display: grid; gap: 12px; align-content: start; }
+        .connection-layout > section.card { min-width: 0; overflow: hidden; }
         .connection-identity { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .identity-value { background: var(--bg-input); border: 1px solid var(--border); border-radius: 5px; padding: 9px; min-width: 0; }
         .identity-value small { display:block; color:var(--text-secondary); font-size:8px; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
@@ -1212,32 +1217,123 @@
         <div class="connection-layout">
             <aside class="connection-stack">
                 <section class="card calibration-card">
-                    <div class="card-title">Control simple de ruta</div>
-                    <div class="calibration-note">Autoevaluación lógica: <strong id="self-test-state">NO EJECUTADA</strong></div>
-                    <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg>Ejecutar autoevaluación segura</button>
-                    <div class="calibration-state" id="calibration-state" role="status" aria-live="polite">ESPERANDO CONEXIÓN</div>
-                    <div class="calibration-cause" id="calibration-cause" role="alert"></div>
-                    <div class="calibration-note" id="calibration-detail">La calibración mantiene el MPU como autoridad para detectar el giro y exige evidencia PCNT bilateral equilibrada antes de validar el pivote. Frena temprano ante movimiento unilateral o asimétrico, reposa 2.5 s y vuelve al yaw inicial. La calibración moverá el robot.</div>
-                    <div class="calibration-diagnostics" id="calibration-diagnostics" aria-label="Diagnóstico de calibración en vivo">
-                        <div class="cal-diag-summary">
-                            <span>Fase <strong id="cal-diag-phase">—</strong></span>
-                            <span>Rampa <strong id="cal-diag-ramp">—</strong></span>
-                            <span>PWM <strong id="cal-diag-pwm">—</strong></span>
-                            <span>Intento <strong id="cal-diag-attempt">—</strong></span>
-                            <span>Memoria torque <strong id="cal-diag-history">—</strong></span>
-                            <span>PCNT <strong id="cal-diag-pcnt">—</strong></span>
-                        </div>
-                        <div class="cal-diag-wheels">
-                            <div class="cal-diag-wheel" id="cal-diag-fl" data-status="unknown"><strong>FL</strong><span id="cal-diag-delta-fl">Δ —</span><span id="cal-diag-status-fl">sin datos</span></div>
-                            <div class="cal-diag-wheel" id="cal-diag-fr" data-status="unknown"><strong>FR</strong><span id="cal-diag-delta-fr">Δ —</span><span id="cal-diag-status-fr">sin datos</span></div>
-                            <div class="cal-diag-wheel" id="cal-diag-bl" data-status="unknown"><strong>BL</strong><span id="cal-diag-delta-bl">Δ —</span><span id="cal-diag-status-bl">sin datos</span></div>
-                            <div class="cal-diag-wheel" id="cal-diag-br" data-status="unknown"><strong>BR</strong><span id="cal-diag-delta-br">Δ —</span><span id="cal-diag-status-br">sin datos</span></div>
-                        </div>
-                        <div class="cal-diag-sides" id="cal-diag-sides">MPU principal · pivote bilateral pendiente</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="card-title" style="margin-bottom: 0;">Gestión de Superficies y Calibración</div>
+                        <span class="badge" style="background: rgba(0, 176, 255, 0.12); color: var(--info); border: 1px solid rgba(0, 176, 255, 0.35); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">📶 Wi-Fi 8s Grace</span>
                     </div>
-                    <div class="calibration-actions">
-                        <button type="button" class="btn btn-accent" id="btn-calibrate"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>Calibrar torque y giro</button>
-                        <button type="button" class="btn btn-rearm" id="btn-clear-fault" hidden disabled><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 8v5M12 17h.01"/></svg><span id="btn-clear-fault-label">Rearmar sistema</span></button>
+
+                    <!-- ESTADO RESUMEN / COMPACTO -->
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                        <div class="calibration-state" id="calibration-state" role="status" aria-live="polite" style="margin: 0; font-size: 11px;">ESPERANDO CONEXIÓN</div>
+                        <span id="surface-active-info" style="font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">· Perfil: —</span>
+                    </div>
+                    <div class="calibration-cause" id="calibration-cause" role="alert"></div>
+
+                    <!-- 1. SELECCIÓN DE SUPERFICIE GUARDADA (USO INMEDIATO <50ms) -->
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px;">
+                        <select id="select-surface" style="flex: 1 1 180px; padding: 7px 10px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-mono); font-size: 11px;">
+                            <option value="">Cargando superficies...</option>
+                        </select>
+                        <button type="button" class="btn btn-accent" id="btn-apply-surface" style="flex: 0 0 auto; min-height: var(--touch-target-min); padding: 7px 12px; font-weight: 700; font-size: 11px;">
+                            ⚡ Aplicar
+                        </button>
+                    </div>
+
+                    <!-- 2. REGISTRO AUTOMÁTICO DE NUEVA SUPERFICIE (SOLO NOMBRE + CALIBRAR) -->
+                    <div style="background: rgba(0, 230, 118, 0.04); border: 1px solid rgba(0, 230, 118, 0.2); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+                        <div style="font-size: 9px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                            Nueva Superficie / Medición Física
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px;">
+                            <input type="text" id="surface-auto-name" placeholder="Nombre del piso (ej. Terraza, Sala...)" style="flex: 1 1 160px; padding: 6px 10px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 11px;">
+                            <button type="button" class="btn" id="btn-save-current-as-surface" title="Guardar calibración actual sin volver a mover el robot" style="flex: 0 0 auto; font-size: 10px; padding: 6px 10px;">
+                                💾 Guardar Actual
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-accent" id="btn-calibrate" style="width: 100%; min-height: var(--touch-target-min); font-size: 11px; font-weight: 700; justify-content: center;">
+                            <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>
+                            <span id="btn-calibrate-label">🎯 Calibrar físicamente (Giro ±25°)</span>
+                        </button>
+                    </div>
+
+                    <!-- BOTONES DE COMPRESIÓN / HERRAMIENTAS AVANZADAS -->
+                    <div style="display: flex; gap: 6px; margin-bottom: 4px;">
+                        <button type="button" class="btn btn-sm" id="btn-toggle-surface-manager" style="flex: 1; padding: 4px 6px; font-size: 9px; border-color: var(--border);">
+                            🛠 Modo Experto (PWM)
+                        </button>
+                        <button type="button" class="btn btn-sm" id="btn-toggle-cal-diagnostics" style="flex: 1; padding: 4px 6px; font-size: 9px; border-color: var(--border);">
+                            📐 Diagnóstico MPU/PCNT
+                        </button>
+                    </div>
+
+                    <!-- SUBPANEL COLAPSABLE 1: EDICIÓN MANUAL AVANZADA DE PWM / BORRAR -->
+                    <div id="surface-manager-form" style="display: none; margin-top: 8px; margin-bottom: 8px; padding: 10px; background: rgba(0, 176, 255, 0.04); border: 1px solid var(--border); border-radius: 8px;">
+                        <div style="font-weight: 700; font-size: 9px; color: var(--info); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Ajuste Manual Forzado (Modo Experto)</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label for="surface-name" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Nombre</label>
+                                <input type="text" id="surface-name" placeholder="Nombre en SQLite" style="width: 100%; padding: 4px 6px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 10px;">
+                            </div>
+                            <div>
+                                <label for="surface-desc" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Descripción</label>
+                                <input type="text" id="surface-desc" placeholder="Opcional" style="width: 100%; padding: 4px 6px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 10px;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px;">
+                            <div>
+                                <label for="surface-pwm-pos" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">PWM +</label>
+                                <input type="number" id="surface-pwm-pos" min="140" max="247" value="155" style="width: 100%; padding: 4px 2px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 10px; text-align: center;">
+                            </div>
+                            <div>
+                                <label for="surface-pwm-neg" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">PWM −</label>
+                                <input type="number" id="surface-pwm-neg" min="140" max="247" value="155" style="width: 100%; padding: 4px 2px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 10px; text-align: center;">
+                            </div>
+                            <div>
+                                <label for="surface-cand-pos" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Pol +</label>
+                                <select id="surface-cand-pos" style="width: 100%; padding: 4px 1px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 9px; text-align: center;">
+                                    <option value="1">+1</option>
+                                    <option value="-1">-1</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="surface-cand-neg" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Pol −</label>
+                                <select id="surface-cand-neg" style="width: 100%; padding: 4px 1px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 9px; text-align: center;">
+                                    <option value="-1">-1</option>
+                                    <option value="1">+1</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="btn" id="btn-capture-surface" style="flex: 1 1 90px; font-size: 9px; padding: 5px;">📥 Capturar</button>
+                            <button type="button" class="btn btn-accent" id="btn-save-surface" style="flex: 1 1 100px; font-size: 9px; padding: 5px;">💾 Guardar Forzado</button>
+                            <button type="button" class="btn btn-stop" id="btn-delete-surface" style="flex: 0 0 auto; font-size: 9px; padding: 5px 8px;">🗑 Borrar</button>
+                        </div>
+                    </div>
+
+                    <!-- SUBPANEL COLAPSABLE 2: CALIBRACIÓN FÍSICA Y DIAGNÓSTICOS EN VIVO -->
+                    <div id="cal-physical-panel" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);">
+                        <div class="calibration-note" id="calibration-detail">La calibración mantiene el MPU como autoridad para detectar el giro y exige evidencia PCNT bilateral equilibrada antes de validar el pivote. Frena temprano ante movimiento unilateral o asimétrico, reposa 2.5 s y vuelve al yaw inicial. La calibración moverá el robot.</div>
+                        <div class="calibration-diagnostics" id="calibration-diagnostics" aria-label="Diagnóstico de calibración en vivo">
+                            <div class="cal-diag-summary">
+                                <span>Fase <strong id="cal-diag-phase">—</strong></span>
+                                <span>Rampa <strong id="cal-diag-ramp">—</strong></span>
+                                <span>PWM <strong id="cal-diag-pwm">—</strong></span>
+                                <span>Intento <strong id="cal-diag-attempt">—</strong></span>
+                                <span>Memoria torque <strong id="cal-diag-history">—</strong></span>
+                                <span>PCNT <strong id="cal-diag-pcnt">—</strong></span>
+                            </div>
+                            <div class="cal-diag-wheels">
+                                <div class="cal-diag-wheel" id="cal-diag-fl" data-status="unknown"><strong>FL</strong><span id="cal-diag-delta-fl">Δ —</span><span id="cal-diag-status-fl">sin datos</span></div>
+                                <div class="cal-diag-wheel" id="cal-diag-fr" data-status="unknown"><strong>FR</strong><span id="cal-diag-delta-fr">Δ —</span><span id="cal-diag-status-fr">sin datos</span></div>
+                                <div class="cal-diag-wheel" id="cal-diag-bl" data-status="unknown"><strong>BL</strong><span id="cal-diag-delta-bl">Δ —</span><span id="cal-diag-status-bl">sin datos</span></div>
+                                <div class="cal-diag-wheel" id="cal-diag-br" data-status="unknown"><strong>BR</strong><span id="cal-diag-delta-br">Δ —</span><span id="cal-diag-status-br">sin datos</span></div>
+                            </div>
+                            <div class="cal-diag-sides" id="cal-diag-sides">MPU principal · pivote bilateral pendiente</div>
+                        </div>
+                        <div class="calibration-actions" style="margin-top: 8px;">
+                            <button type="button" class="btn btn-rearm" id="btn-clear-fault" hidden disabled><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 8v5M12 17h.01"/></svg><span id="btn-clear-fault-label">Rearmar sistema</span></button>
+                            <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg><span id="self-test-state">Autoevaluación lógica</span></button>
+                        </div>
                     </div>
                 </section>
                 <section class="card">
@@ -1621,9 +1717,10 @@
 
             <div class="route-maps-grid">
                 <div class="route-map-card" id="card-plan-map">
+                    <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-plan-map" title="Salir de Modo Cine (Esc)">🗗 Reducir</button>
                     <div class="route-map-header">
                         <span class="route-map-title">Plan Teórico</span>
-                        <button class="btn btn-sm route-cinema" data-card="card-plan-map">⛶ Cine</button>
+                        <button class="btn btn-sm route-cinema" data-card="card-plan-map" title="Pantalla completa / Modo cine">⛶ Cine</button>
                     </div>
                     <div class="route-angular-meta" id="route-angular-meta" hidden>
                         <div class="route-angular-legend" role="list" aria-label="Leyenda del modo angular">
@@ -1640,9 +1737,10 @@
                 </div>
                 
                 <div class="route-map-card" id="card-telem-map">
+                    <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-telem-map" title="Salir de Modo Cine (Esc)">🗗 Reducir</button>
                     <div class="route-map-header">
                         <span class="route-map-title">Telemetría Real</span>
-                        <button class="btn btn-sm route-cinema" data-card="card-telem-map">⛶ Cine</button>
+                        <button class="btn btn-sm route-cinema" data-card="card-telem-map" title="Pantalla completa / Modo cine">⛶ Cine</button>
                     </div>
                     <div class="route-map-container">
                         <canvas class="route-chart-canvas" id="route-telem-chart" aria-label="Gráfica de telemetría real"></canvas>
@@ -1922,14 +2020,26 @@
         async api(path, options={}) {
             const headers = { 'Content-Type':'application/json', ...(options.headers||{}) };
             if (this.appToken) headers['X-App-Token'] = this.appToken;
-            const response = await fetch(path, { ...options, headers });
-            const data = await response.json().catch(()=>({}));
-            if (!response.ok) {
-                const error = new Error(data.error || `HTTP ${response.status}`);
-                error.status = response.status; error.data = data;
-                throw error;
+            let controller = null;
+            let timeoutId = null;
+            const fetchOptions = { ...options, headers };
+            if (options.timeoutMs && !options.signal) {
+                controller = new AbortController();
+                fetchOptions.signal = controller.signal;
+                timeoutId = setTimeout(() => controller.abort(), options.timeoutMs);
             }
-            return data;
+            try {
+                const response = await fetch(path, fetchOptions);
+                const data = await response.json().catch(()=>({}));
+                if (!response.ok) {
+                    const error = new Error(data.error || `HTTP ${response.status}`);
+                    error.status = response.status; error.data = data;
+                    throw error;
+                }
+                return data;
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
+            }
         },
         async closeApplication(force=false) {
             const button=document.getElementById('btn-close-app');
@@ -2076,7 +2186,9 @@
             const payload = {...obj}; delete payload.cmd;
             const endpoint = cmd === 'estop' ? '/api/v1/estop' : '/api/v1/commands';
             const body = cmd === 'estop' ? {} : {name:cmd,payload};
-            try { return await this.api(endpoint,{method:'POST',body:JSON.stringify(body)}); }
+            const apiOptions = {method:'POST',body:JSON.stringify(body)};
+            if (cmd === 'estop') apiOptions.timeoutMs = 2000;
+            try { return await this.api(endpoint, apiOptions); }
             catch(error) { LogSystem.add('ERROR',error.message); return null; }
         },
         manual(path, payload={}) {
@@ -2094,6 +2206,7 @@
     const Calibration = {
         calibrated:false, commandId:null, commandPending:false, rearmCommandId:null, rearmPending:false,
         selfTestCommandId:null, selfTestPassed:true, robotState:'', mpuReady:false, allowedCommands:null,
+        applyingSurface:false, applySurfaceTimeout:null,
         lastRaw:{}, lastTurnMode:'PIVOT_CONTINUOUS', lastRequestedTurnMode:'AUTO', lastPowerKey:'',
         lastRobotState:'', lastTerminalKey:'', lastBrakingPhase:'OFF', lastAlignmentStage:'OFF',
         lastDegradedMode:null, lastEncoderHealthKey:'', lastAntiFrictionKey:'',
@@ -2105,8 +2218,19 @@
             document.getElementById('btn-calibrate').addEventListener('click',async()=>{
                 if(!state.connected) return LogSystem.add('WARN','Conecta primero con el carrito.');
                 if(!this.canCalibrate()) return LogSystem.add('WARN',this.calibrationBlockReason());
+                
+                const autoNameInput = document.getElementById('surface-auto-name');
+                const desiredName = autoNameInput?.value?.trim() || null;
+                if (typeof SurfaceManager !== 'undefined') {
+                    SurfaceManager.pendingAutoSaveName = desiredName;
+                }
+
                 this.commandPending=true;
                 this.updateAvailability();
+                const calPanel = document.getElementById('cal-physical-panel');
+                if (calPanel) calPanel.style.display = 'block';
+                const toggleCalBtn = document.getElementById('btn-toggle-cal-diagnostics');
+                if (toggleCalBtn) toggleCalBtn.textContent = '✕ Ocultar Diagnósticos';
                 if(typeof RouteManager !== 'undefined') {
                     if(RouteManager.isRunning) {
                         RouteManager.failRoute('Calibración solicitada: ruta activa descartada.');
@@ -2119,13 +2243,21 @@
                 }
                 try {
                     await WSControl.api('/api/v1/missions',{method:'DELETE'}).catch(()=>{});
-                    LogSystem.add('INFO','Enviando comando de calibración al robot...');
+                    LogSystem.add('INFO', desiredName 
+                        ? `Iniciando calibración física para registrar "${desiredName}"...`
+                        : 'Enviando comando de calibración al robot...');
                     const result=await WSControl.send({cmd:'calibrate'});
-                    if(!result){ this.commandPending=false; this.updateAvailability(); return; }
+                    if(!result){ 
+                        this.commandPending=false; 
+                        if (typeof SurfaceManager !== 'undefined') SurfaceManager.pendingAutoSaveName = null;
+                        this.updateAvailability(); 
+                        return; 
+                    }
                     this.commandId=result.id;
                     this.setState('CALIBRACIÓN SOLICITADA',false);
                 } catch(err) {
                     this.commandPending=false;
+                    if (typeof SurfaceManager !== 'undefined') SurfaceManager.pendingAutoSaveName = null;
                     this.updateAvailability();
                     LogSystem.add('ERROR','Error enviando calibracion: ' + err.message);
                 }
@@ -2364,8 +2496,23 @@
                 this.rearmPending=false;
                 this.rearmCommandId=null;
                 this.showCause('',false);
-                if(raw.calibrated)this.setState('LISTO — RUTAS HABILITADAS',true);
-                else if(robotState==='CALIBRANDO')this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
+                const isCalibrated = Boolean(raw.calibrated ?? raw.cal);
+                if(isCalibrated){
+                    this.applyingSurface=false;
+                    this.setState('LISTO — RUTAS HABILITADAS',true);
+                }
+                else if(this.applyingSurface) {
+                    // Esperando que la telemetría del ESP32 confirme el estado LISTO tras set_calibration
+                }
+                else if(robotState==='CALIBRANDO') {
+                    this.setState(`${raw.state} — ${Math.round((raw.command_progress||0)*100)}%${intentoTexto}`,false);
+                    const calPanel = document.getElementById('cal-physical-panel');
+                    if (calPanel && calPanel.style.display === 'none') {
+                        calPanel.style.display = 'block';
+                        const toggleCalBtn = document.getElementById('btn-toggle-cal-diagnostics');
+                        if (toggleCalBtn) toggleCalBtn.textContent = '✕ Ocultar Calibración';
+                    }
+                }
                 else if(['DESARMADO','LISTO'].includes(robotState) && this.mpuReady)this.setState('LISTO PARA CALIBRAR',false);
                 else this.setState(this.mpuStatus(raw).reason.toUpperCase(),false);
             }
@@ -2404,14 +2551,352 @@
             if(event.type==='completed'){
                 this.setState('LISTO — CONTROLES HABILITADOS',true);
                 LogSystem.add('INFO','Calibración física completada; rutas habilitadas.');
+                if (typeof SurfaceManager !== 'undefined') {
+                    SurfaceManager.handleCalibrationCompleted();
+                }
             }
             if(event.type==='fault'||event.type==='rejected'){
+                if (typeof SurfaceManager !== 'undefined') {
+                    SurfaceManager.pendingAutoSaveName = null;
+                }
                 const reason=event.detail||event.reason||'calibración rechazada';
                 this.setState(this.calibrated?'LISTO — CALIBRACIÓN RECHAZADA':`CALIBRACIÓN FALLIDA — ${reason}`,this.calibrated,'fault');
                 this.showCause(reason,true);
                 LogSystem.add('ERROR',`No se pudo calibrar: ${reason}.`);
             }
             this.updateAvailability();
+        }
+    };
+
+    const SurfaceManager = {
+        surfaces: [],
+        activeSurfaceId: null,
+        pendingAutoSaveName: null,
+
+        init() {
+            const toggleBtn = document.getElementById('btn-toggle-surface-manager');
+            const form = document.getElementById('surface-manager-form');
+            if (toggleBtn && form) {
+                toggleBtn.addEventListener('click', () => {
+                    const isHidden = form.style.display === 'none' || !form.style.display;
+                    form.style.display = isHidden ? 'block' : 'none';
+                    toggleBtn.textContent = isHidden ? '✕ Cerrar Editor' : '🛠 Modo Experto (PWM)';
+                });
+            }
+
+            const toggleCalBtn = document.getElementById('btn-toggle-cal-diagnostics');
+            const calPanel = document.getElementById('cal-physical-panel');
+            if (toggleCalBtn && calPanel) {
+                toggleCalBtn.addEventListener('click', () => {
+                    const isHidden = calPanel.style.display === 'none' || !calPanel.style.display;
+                    calPanel.style.display = isHidden ? 'block' : 'none';
+                    toggleCalBtn.textContent = isHidden ? '✕ Ocultar Diagnósticos' : '📐 Diagnóstico MPU/PCNT';
+                });
+            }
+
+            const autoNameInput = document.getElementById('surface-auto-name');
+            const calibrateLabel = document.getElementById('btn-calibrate-label');
+            if (autoNameInput && calibrateLabel) {
+                autoNameInput.addEventListener('input', () => {
+                    const val = autoNameInput.value.trim();
+                    calibrateLabel.textContent = val 
+                        ? `🎯 Calibrar y Registrar "${val}"`
+                        : '🎯 Calibrar físicamente (Giro ±25°)';
+                });
+            }
+
+            const saveCurrentAsBtn = document.getElementById('btn-save-current-as-surface');
+            if (saveCurrentAsBtn) {
+                saveCurrentAsBtn.addEventListener('click', () => this.saveCurrentLiveSurface());
+            }
+
+            const select = document.getElementById('select-surface');
+            if (select) {
+                select.addEventListener('change', () => {
+                    this.onSurfaceSelect(select.value);
+                });
+            }
+
+            const applyBtn = document.getElementById('btn-apply-surface');
+            if (applyBtn) {
+                applyBtn.addEventListener('click', () => this.applySelected());
+            }
+
+            const saveBtn = document.getElementById('btn-save-surface');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => this.saveCurrent());
+            }
+
+            const captureBtn = document.getElementById('btn-capture-surface');
+            if (captureBtn) {
+                captureBtn.addEventListener('click', () => this.captureFromTelemetry());
+            }
+
+            const deleteBtn = document.getElementById('btn-delete-surface');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => this.deleteSelected());
+            }
+
+            this.loadSurfaces();
+        },
+
+        async loadSurfaces(selectId = null) {
+            if (!WSControl.flaskMode) return;
+            try {
+                const surfaces = await WSControl.api('/api/v1/calibration/surfaces');
+                this.surfaces = Array.isArray(surfaces) ? surfaces : [];
+                const select = document.getElementById('select-surface');
+                if (!select) return;
+                
+                select.innerHTML = '';
+                if (this.surfaces.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Sin superficies guardadas';
+                    select.appendChild(opt);
+                    return;
+                }
+
+                this.surfaces.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    const pwmP = s.pwm_pos ?? s.pwm_positive_8bit ?? 155;
+                    const pwmN = s.pwm_neg ?? s.pwm_negative_8bit ?? 155;
+                    opt.textContent = `${s.name} (PWM: ${pwmP}/${pwmN})`;
+                    select.appendChild(opt);
+                });
+
+                const targetId = selectId || this.activeSurfaceId || this.surfaces[0].id;
+                select.value = targetId;
+                this.onSurfaceSelect(select.value);
+            } catch (err) {
+                LogSystem.add('ERROR', `Error cargando superficies: ${err.message}`);
+            }
+        },
+
+        onSurfaceSelect(id) {
+            const surface = this.surfaces.find(s => s.id === id);
+            if (!surface) return;
+            
+            const nameInput = document.getElementById('surface-name');
+            const descInput = document.getElementById('surface-desc');
+            const pwmPosInput = document.getElementById('surface-pwm-pos');
+            const pwmNegInput = document.getElementById('surface-pwm-neg');
+            const candPosSelect = document.getElementById('surface-cand-pos');
+            const candNegSelect = document.getElementById('surface-cand-neg');
+
+            if (nameInput) nameInput.value = surface.name || '';
+            if (descInput) descInput.value = surface.description || '';
+            const pwmP = surface.pwm_pos ?? surface.pwm_positive_8bit ?? 155;
+            const pwmN = surface.pwm_neg ?? surface.pwm_negative_8bit ?? 155;
+            const candP = surface.cand_pos ?? surface.positive_polarity ?? 1;
+            const candN = surface.cand_neg ?? surface.negative_polarity ?? -1;
+
+            if (pwmPosInput) pwmPosInput.value = pwmP;
+            if (pwmNegInput) pwmNegInput.value = pwmN;
+            if (candPosSelect) candPosSelect.value = String(candP);
+            if (candNegSelect) candNegSelect.value = String(candN);
+        },
+
+        async applySelected() {
+            const select = document.getElementById('select-surface');
+            const id = select ? select.value : null;
+            if (!id) {
+                LogSystem.add('WARN', 'Selecciona una superficie primero.');
+                return;
+            }
+            const applyBtn = document.getElementById('btn-apply-surface');
+            if (applyBtn) applyBtn.disabled = true;
+
+            try {
+                LogSystem.add('INFO', `Inyectando superficie ${id} al robot...`);
+                const result = await WSControl.api(`/api/v1/calibration/surfaces/${encodeURIComponent(id)}/apply`, {
+                    method: 'POST',
+                    body: '{}'
+                });
+                this.activeSurfaceId = id;
+                const info = document.getElementById('surface-active-info');
+                if (info && result.surface) {
+                    const pP = result.surface.pwm_pos ?? result.surface.pwm_positive_8bit ?? 155;
+                    const pN = result.surface.pwm_neg ?? result.surface.pwm_negative_8bit ?? 155;
+                    info.textContent = `· Perfil: ${result.surface.name} (PWM ${pP}/${pN})`;
+                }
+                Calibration.commandId = result.command_id;
+                Calibration.applyingSurface = true;
+                clearTimeout(Calibration.applySurfaceTimeout);
+                Calibration.applySurfaceTimeout = setTimeout(() => {
+                    Calibration.applyingSurface = false;
+                    Calibration.updateAvailability();
+                }, 3500);
+                Calibration.setState('LISTO — SUPERFICIE APLICADA', true);
+                LogSystem.add('INFO', `Superficie "${result.surface?.name || id}" aplicada y calibrada en ESP32.`);
+            } catch (err) {
+                LogSystem.add('ERROR', `Fallo al aplicar superficie: ${err.message}`);
+            } finally {
+                if (applyBtn) applyBtn.disabled = false;
+            }
+        },
+
+        async saveCurrentLiveSurface() {
+            const autoNameInput = document.getElementById('surface-auto-name');
+            const name = autoNameInput?.value?.trim();
+            if (!name) {
+                LogSystem.add('WARN', 'Escribe el nombre del piso antes de guardar.');
+                if (autoNameInput) autoNameInput.focus();
+                return;
+            }
+
+            const raw = Calibration.lastRaw || {};
+            const history = raw.torque_history || {};
+            const diag = raw.calibration_diagnostics || {};
+            const pwmPos = Math.max(140, Math.min(247, Number(history.base_positive_left_8bit ?? history.base_positive_8bit ?? diag.pwm_8bit ?? 155)));
+            const pwmNeg = Math.max(140, Math.min(247, Number(history.base_negative_left_8bit ?? history.base_negative_8bit ?? 155)));
+
+            try {
+                const payload = {
+                    name,
+                    description: 'Guardado desde calibración activa',
+                    pwm_pos: pwmPos,
+                    pwm_neg: pwmNeg,
+                    cand_pos: 1,
+                    cand_neg: -1
+                };
+                const saved = await WSControl.api('/api/v1/calibration/surfaces', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                LogSystem.add('INFO', `Superficie "${saved.name}" registrada en SQLite (PWM: ${pwmPos}/${pwmNeg}).`);
+                if (autoNameInput) autoNameInput.value = '';
+                const calibrateLabel = document.getElementById('btn-calibrate-label');
+                if (calibrateLabel) calibrateLabel.textContent = '🎯 Calibrar físicamente (Giro ±25°)';
+                await this.loadSurfaces(saved.id);
+            } catch (err) {
+                LogSystem.add('ERROR', `Error guardando superficie: ${err.message}`);
+            }
+        },
+
+        async handleCalibrationCompleted() {
+            const name = this.pendingAutoSaveName;
+            this.pendingAutoSaveName = null;
+            if (!name) return;
+
+            const raw = Calibration.lastRaw || {};
+            const history = raw.torque_history || {};
+            const diag = raw.calibration_diagnostics || {};
+            const pwmPos = Math.max(140, Math.min(247, Number(history.base_positive_left_8bit ?? history.base_positive_8bit ?? diag.pwm_8bit ?? 155)));
+            const pwmNeg = Math.max(140, Math.min(247, Number(history.base_negative_left_8bit ?? history.base_negative_8bit ?? 155)));
+
+            try {
+                const payload = {
+                    name,
+                    description: 'Calibrado físicamente por el robot',
+                    pwm_pos: pwmPos,
+                    pwm_neg: pwmNeg,
+                    cand_pos: 1,
+                    cand_neg: -1
+                };
+                const saved = await WSControl.api('/api/v1/calibration/surfaces', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                LogSystem.add('INFO', `Calibración finalizada: Superficie "${saved.name}" registrada en SQLite (PWM: ${pwmPos}/${pwmNeg}).`);
+                const autoNameInput = document.getElementById('surface-auto-name');
+                if (autoNameInput) autoNameInput.value = '';
+                const calibrateLabel = document.getElementById('btn-calibrate-label');
+                if (calibrateLabel) calibrateLabel.textContent = '🎯 Calibrar físicamente (Giro ±25°)';
+                await this.loadSurfaces(saved.id);
+            } catch (err) {
+                LogSystem.add('ERROR', `Error registrando calibración automática en SQLite: ${err.message}`);
+            }
+        },
+
+        async saveCurrent() {
+            const name = document.getElementById('surface-name')?.value?.trim();
+            const desc = document.getElementById('surface-desc')?.value?.trim() || '';
+            const pwmPos = Number(document.getElementById('surface-pwm-pos')?.value);
+            const pwmNeg = Number(document.getElementById('surface-pwm-neg')?.value);
+            const candPos = Number(document.getElementById('surface-cand-pos')?.value);
+            const candNeg = Number(document.getElementById('surface-cand-neg')?.value);
+
+            if (!name) {
+                LogSystem.add('WARN', 'El nombre de la superficie es obligatorio.');
+                return;
+            }
+            if (!Number.isFinite(pwmPos) || pwmPos < 140 || pwmPos > 247 ||
+                !Number.isFinite(pwmNeg) || pwmNeg < 140 || pwmNeg > 247) {
+                LogSystem.add('WARN', 'PWM debe estar entre 140 y 247.');
+                return;
+            }
+            if (candPos === candNeg || ![-1, 1].includes(candPos) || ![-1, 1].includes(candNeg)) {
+                LogSystem.add('WARN', 'Las polaridades deben ser opuestas (+1 y -1).');
+                return;
+            }
+
+            try {
+                const payload = {
+                    name,
+                    description: desc,
+                    pwm_pos: pwmPos,
+                    pwm_neg: pwmNeg,
+                    cand_pos: candPos,
+                    cand_neg: candNeg
+                };
+                const saved = await WSControl.api('/api/v1/calibration/surfaces', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                LogSystem.add('INFO', `Superficie guardada en SQLite: ${saved.name} (ID: ${saved.id})`);
+                await this.loadSurfaces(saved.id);
+            } catch (err) {
+                LogSystem.add('ERROR', `Error guardando superficie: ${err.message}`);
+            }
+        },
+
+        captureFromTelemetry() {
+            const raw = Calibration.lastRaw || {};
+            const history = raw.torque_history || {};
+            const diag = raw.calibration_diagnostics || {};
+            
+            const pwmPos = Number(history.base_positive_left_8bit ?? history.base_positive_8bit ?? diag.pwm_8bit ?? 155);
+            const pwmNeg = Number(history.base_negative_left_8bit ?? history.base_negative_8bit ?? 155);
+
+            const pwmPosInput = document.getElementById('surface-pwm-pos');
+            const pwmNegInput = document.getElementById('surface-pwm-neg');
+            if (pwmPosInput) pwmPosInput.value = Math.max(140, Math.min(247, pwmPos));
+            if (pwmNegInput) pwmNegInput.value = Math.max(140, Math.min(247, pwmNeg));
+
+            const nameInput = document.getElementById('surface-name');
+            if (nameInput && !nameInput.value) {
+                nameInput.value = `Captura ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            }
+            LogSystem.add('INFO', `Valores capturados de telemetría: PWM+ ${pwmPos}, PWM− ${pwmNeg}`);
+        },
+
+        async deleteSelected() {
+            const select = document.getElementById('select-surface');
+            const id = select ? select.value : null;
+            if (!id) {
+                LogSystem.add('WARN', 'Selecciona una superficie para borrar.');
+                return;
+            }
+            const surface = this.surfaces.find(s => s.id === id);
+            const name = surface ? surface.name : id;
+            if (!confirm(`¿Eliminar la superficie "${name}" de SQLite?`)) return;
+
+            try {
+                await WSControl.api(`/api/v1/calibration/surfaces/${encodeURIComponent(id)}`, {
+                    method: 'DELETE'
+                });
+                LogSystem.add('INFO', `Superficie "${name}" eliminada de SQLite.`);
+                if (this.activeSurfaceId === id) {
+                    this.activeSurfaceId = null;
+                    const info = document.getElementById('surface-active-info');
+                    if (info) info.textContent = '· Perfil: —';
+                }
+                await this.loadSurfaces();
+            } catch (err) {
+                LogSystem.add('ERROR', `Error eliminando superficie: ${err.message}`);
+            }
         }
     };
 
@@ -2449,22 +2934,25 @@
             const detail=connection.detail||(state.connected?'WebSocket y protocolo robot-s3-steps-v3 activos.':'Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.');
             document.getElementById('connection-panel-detail').textContent=detail;
             document.getElementById('connection-panel-dot').classList.toggle('ok',state.connected);
-            if(!state.connected && typeof RouteManager !== 'undefined') {
+            if((this.state === 'stopped' || this.state === 'backoff') && typeof RouteManager !== 'undefined') {
                 if(RouteManager.isRunning) {
-                    RouteManager.failRoute('Conexión interrumpida con el robot; ruta cancelada.');
+                    RouteManager.failRoute(`Conexión con el robot interrumpida (${label}); ruta cancelada por seguridad.`);
                 }
-                RouteManager.queue = [];
-                RouteManager.logicalSteps = [];
-                RouteManager.currentStepIndex = 0;
-                RouteManager.updateListUI();
-                RouteManager.drawPlan();
+                RouteManager.unlockTabs();
+                if(this.state === 'stopped') {
+                    RouteManager.queue = [];
+                    RouteManager.logicalSteps = [];
+                    RouteManager.currentStepIndex = 0;
+                    RouteManager.updateListUI();
+                    RouteManager.drawPlan();
+                }
             }
             Calibration.updateAvailability();
             Telemetry._ui();
         },
         applySession(session) {
             document.getElementById('active-session').textContent=session.recording ? `#${session.session_id}` : '—';
-            if(!session.recording && typeof RouteManager !== 'undefined') {
+            if(!session.recording && this.state === 'stopped' && typeof RouteManager !== 'undefined') {
                 if(RouteManager.isRunning) {
                     RouteManager.failRoute('Sesión detenida; ruta cancelada.');
                 }
@@ -3310,14 +3798,47 @@
             document.getElementById('route-metric-deviation').textContent=`${deviation.toFixed(1)} cm`;
         },
         preview() {
-            const card=document.getElementById('card-plan-map'), button=document.getElementById('btn-route-preview');
-            card.classList.toggle('cinema-mode'); button.setAttribute('aria-pressed',card.classList.contains('cinema-mode'));
-            button.textContent=card.classList.contains('cinema-mode')?'✕ Cerrar previsualización':'👁 Previsualizar'; this.resizeCharts();
+            this.toggleCinema('card-plan-map');
         },
         toggleCinema(cardId) {
             const card = document.getElementById(cardId);
-            card.classList.toggle('cinema-mode');
-            setTimeout(()=>this.resizeCharts(),0);
+            if (!card) return;
+            const isCinema = card.classList.toggle('cinema-mode');
+
+            // Si se activa modo cine en una tarjeta, desactivar la otra
+            const otherCardId = (cardId === 'card-plan-map') ? 'card-telem-map' : 'card-plan-map';
+            const otherCard = document.getElementById(otherCardId);
+            if (isCinema && otherCard && otherCard.classList.contains('cinema-mode')) {
+                otherCard.classList.remove('cinema-mode');
+                this._syncCinemaButton(otherCardId, false);
+            }
+
+            this._syncCinemaButton(cardId, isCinema);
+            setTimeout(() => this.resizeCharts(), 50);
+        },
+        _syncCinemaButton(cardId, isCinema) {
+            const btn = document.querySelector(`.route-cinema[data-card="${cardId}"]`);
+            if (btn) {
+                btn.setAttribute('aria-pressed', isCinema);
+                if (isCinema) {
+                    btn.classList.add('btn-stop');
+                    btn.innerHTML = '🗗 Reducir';
+                    btn.title = 'Salir de modo cine (Esc)';
+                } else {
+                    btn.classList.remove('btn-stop');
+                    btn.innerHTML = '⛶ Cine';
+                    btn.title = 'Pantalla completa / Modo cine';
+                }
+            }
+            if (cardId === 'card-plan-map') {
+                const previewBtn = document.getElementById('btn-route-preview');
+                if (previewBtn) {
+                    previewBtn.setAttribute('aria-pressed', isCinema);
+                    previewBtn.textContent = isCinema ? '✕ Cerrar previsualización' : '👁 Previsualizar';
+                    if (isCinema) previewBtn.classList.add('btn-stop');
+                    else previewBtn.classList.remove('btn-stop');
+                }
+            }
         },
         lockTabs() {
             document.querySelectorAll('.tab-btn').forEach(b => {
@@ -3348,7 +3869,11 @@
                 this.activeCommandId=mission.active_command_id; this.waitingForMovement=true;
                 this.lockTabs(); LogSystem.add('INFO',`Misión ${mission.id} iniciada con ${mission.total_segments} segmentos.`);
                 this.updateListUI(); this.drawPlan();
-            } catch(error) { LogSystem.add('ERROR',error.message); }
+            } catch(error) {
+                this.isRunning = false;
+                this.unlockTabs();
+                LogSystem.add('ERROR', error.message);
+            }
         },
         onRobotEvent(event) {},
         onMission(mission) {
@@ -3735,9 +4260,17 @@
        ============================================== */
     function init() {
         LogSystem.init(); MotorViz.init(); EncoderSpeed.init(); FSMDisplay.update('INIT');
-        Calibration.init(); TabManager.init(); ConnectionPanel.init(); initChart(); Touch.init();
+        Calibration.init(); SurfaceManager.init(); TabManager.init(); ConnectionPanel.init(); initChart(); Touch.init();
         if (typeof RouteManager !== 'undefined') RouteManager.init();
-        document.querySelectorAll('.route-cinema').forEach(button=>button.addEventListener('click',()=>RouteManager.toggleCinema(button.dataset.card)));
+        document.querySelectorAll('.route-cinema, .route-cinema-floating-close').forEach(button=>button.addEventListener('click',()=>RouteManager.toggleCinema(button.dataset.card)));
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                const activeCinema = document.querySelector('.route-map-card.cinema-mode');
+                if (activeCinema) {
+                    RouteManager.toggleCinema(activeCinema.id);
+                }
+            }
+        });
         document.addEventListener('visibilitychange',()=>{if(document.hidden)Touch.end();});
         window.addEventListener('blur',()=>Touch.end());
         window.addEventListener('pagehide',()=>Touch.end());
@@ -3754,7 +4287,15 @@
         }));
 
         // E‑STOP
-        document.getElementById('btn-estop').addEventListener('click', () => {
+        document.getElementById('btn-estop').addEventListener('click', function() {
+            this.classList.add('btn-flash');
+            setTimeout(() => this.classList.remove('btn-flash'), 300);
+            if (typeof RouteManager !== 'undefined') {
+                if (RouteManager.isRunning) {
+                    RouteManager.failRoute('Parada de emergencia (E-STOP) activada por el operador: ruta cancelada.');
+                }
+                RouteManager.unlockTabs();
+            }
             WSControl.send({cmd:"estop"});
             LogSystem.add('ERROR', 'E-STOP enviado al robot');
         });

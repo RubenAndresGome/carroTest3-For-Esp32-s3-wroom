@@ -7,7 +7,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from .domain import MAX_SEGMENT_MM, RobotCommand, split_segment_mm
+from .domain import (
+    CHASSIS_HALF_LENGTH_CM,
+    DEFAULT_SUBSEGMENT_MM,
+    MAX_SEGMENT_MM,
+    RobotCommand,
+    split_segment_mm,
+)
 
 
 MAX_COMPILED_SEGMENTS = 256
@@ -244,19 +250,26 @@ def simplify_rdp(points: list[dict[str, float]], tolerance_mm: float = 20.0) -> 
     return [points[index] for index in sorted(keep)]
 
 
-def compile_orthogonal_points(points: list[dict[str, float]], max_segment_mm: float = MAX_SEGMENT_MM,
-                              drive_mode: str = "auto") -> list[dict[str, Any]]:
+def compile_orthogonal_points(points: list[dict[str, float]], max_segment_mm: float = DEFAULT_SUBSEGMENT_MM,
+                              drive_mode: str = "auto", deduct_chassis_offset: bool = False) -> list[dict[str, Any]]:
     """Convierte puntos absolutos a tramos ortogonales X y luego Y."""
     if len(points) < 2:
         raise ValueError("La ruta requiere al menos dos muestras")
     result: list[dict[str, Any]] = []
     x, y = float(points[0]["x_mm"]), float(points[0]["y_mm"])
+    total_steps = len(points) - 1
     for logical_step_id, point in enumerate(points[1:], start=1):
         target_x, target_y = float(point["x_mm"]), float(point["y_mm"])
         for next_x, next_y, component in ((target_x, y, "x"), (target_x, target_y, "y")):
             if math.hypot(next_x - x, next_y - y) <= 1.0:
                 x, y = next_x, next_y
                 continue
+            if deduct_chassis_offset and logical_step_id == total_steps and component == "y":
+                offset_mm = CHASSIS_HALF_LENGTH_CM * 10.0
+                if next_y > y:
+                    next_y = max(y, next_y - offset_mm)
+                elif next_y < y:
+                    next_y = min(y, next_y + offset_mm)
             for target in split_segment_mm(x, y, next_x, next_y, max_segment_mm):
                 result.append({"start_x_mm": x, "start_y_mm": y,
                                "x_mm": target["x_mm"], "y_mm": target["y_mm"], "component": component,

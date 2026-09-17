@@ -82,6 +82,33 @@ inline float distanciaFrenoPrevista(float pwm, float baseCm, float cmPorPwm,
   return limitar(baseCm + fabsf(pwm) * cmPorPwm, baseCm, maximoCm);
 }
 
+// Invarianza de marco local: la recta directriz del tramo se ancla en la pose
+// real del robot al iniciar el avance, no en un origen deducido del waypoint.
+// Asi el desvio lateral al instante t=0 es exactamente cero para cualquier
+// rumbo theta y el tramo no hereda el error residual de pasos anteriores
+// (elimina el "efecto cangrejo"). El objetivo euclidiano se conserva respecto
+// al waypoint real para no relajar la aceptacion del endpoint.
+inline ErroresTrayectoria calcularErroresTrayectoriaAnclado(
+    float posicionXCm, float posicionYCm, float origenXCm, float origenYCm,
+    float objetivoXCm, float objetivoYCm, float rumboPlanificadoDeg,
+    float distanciaPlanificadaCm) {
+  constexpr float kPi = 3.14159265358979323846f;
+  const float rumboRad = rumboPlanificadoDeg * kPi / 180.0f;
+  const float ux = sinf(rumboRad);
+  const float uy = cosf(rumboRad);
+  const float dx = posicionXCm - origenXCm;
+  const float dy = posicionYCm - origenYCm;
+  const float recorridoLongitudinal = dx * ux + dy * uy;
+  return {
+      distanciaPlanificadaCm - recorridoLongitudinal,
+      dx * uy - dy * ux,
+      hypotf(objetivoXCm - posicionXCm, objetivoYCm - posicionYCm),
+  };
+}
+
+// Variante historica: deduce el origen de la recta a partir del waypoint y la
+// distancia planificada. Conserva el comportamiento previo para las pruebas y
+// los llamadores que no anclan el tramo.
 inline ErroresTrayectoria calcularErroresTrayectoria(
     float posicionXCm, float posicionYCm, float objetivoXCm, float objetivoYCm,
     float rumboPlanificadoDeg, float distanciaPlanificadaCm) {
@@ -89,16 +116,10 @@ inline ErroresTrayectoria calcularErroresTrayectoria(
   const float rumboRad = rumboPlanificadoDeg * kPi / 180.0f;
   const float ux = sinf(rumboRad);
   const float uy = cosf(rumboRad);
-  const float inicioXCm = objetivoXCm - distanciaPlanificadaCm * ux;
-  const float inicioYCm = objetivoYCm - distanciaPlanificadaCm * uy;
-  const float dx = posicionXCm - inicioXCm;
-  const float dy = posicionYCm - inicioYCm;
-  const float recorridoLongitudinal = dx * ux + dy * uy;
-  return {
-      distanciaPlanificadaCm - recorridoLongitudinal,
-      dx * uy - dy * ux,
-      hypotf(objetivoXCm - posicionXCm, objetivoYCm - posicionYCm),
-  };
+  return calcularErroresTrayectoriaAnclado(
+      posicionXCm, posicionYCm, objetivoXCm - distanciaPlanificadaCm * ux,
+      objetivoYCm - distanciaPlanificadaCm * uy, objetivoXCm, objetivoYCm,
+      rumboPlanificadoDeg, distanciaPlanificadaCm);
 }
 
 inline float correccionLateralRumboDeg(float errorLateralCm, float gananciaDegPorCm,

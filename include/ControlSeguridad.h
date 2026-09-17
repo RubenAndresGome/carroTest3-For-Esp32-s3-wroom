@@ -25,6 +25,13 @@ inline bool deltaEncoderPlausible(int64_t delta, int64_t maximoAbsoluto) {
   return maximoAbsoluto > 0 && delta >= -maximoAbsoluto && delta <= maximoAbsoluto;
 }
 
+inline int64_t saturarDeltaEncoder(int64_t delta, int64_t maximoAbsoluto) {
+  if (maximoAbsoluto <= 0) return 0;
+  if (delta > maximoAbsoluto) return maximoAbsoluto;
+  if (delta < -maximoAbsoluto) return -maximoAbsoluto;
+  return delta;
+}
+
 struct ClasificacionEncoders {
   bool confiable[4] = {true, true, true, true};
   float mediana = 0.0f;
@@ -113,6 +120,43 @@ inline float promedioConfiableLado(const int64_t valores[4],
   if (confiable[primero]) return static_cast<float>(valores[primero]);
   if (confiable[segundo]) return static_cast<float>(valores[segundo]);
   return 0.0f;
+}
+
+// Proteccion de modo degradado: cuando un lado depende de un unico encoder
+// (su pareja fue excluida) su lectura no tiene contrapeso y el ruido o el
+// patinaje durante los micro-pulsos pueden inflar la distancia. Se acota a la
+// referencia del lado opuesto corroborado solo si esa referencia es positiva:
+// nunca se oculta un lado realmente detenido.
+inline float acotarLadoFuenteUnica(float valorLado, float referenciaLadoOpuesto,
+                                    float desacuerdoMaximo) {
+  if (referenciaLadoOpuesto <= 0.0f || valorLado <= 0.0f) return valorLado;
+  const float limite = referenciaLadoOpuesto * (1.0f + desacuerdoMaximo);
+  return valorLado > limite ? referenciaLadoOpuesto : valorLado;
+}
+
+struct PromediosLado {
+  float izquierdo = 0.0f;
+  float derecho = 0.0f;
+};
+
+// Promedio confiable por lado con la proteccion de fuente unica aplicada de
+// forma simetrica. Es el estimador canonico para distancia y odometria.
+inline PromediosLado promediosConfiableAcotados(const int64_t valores[4],
+                                                const bool confiable[4],
+                                                float desacuerdoMaximo) {
+  PromediosLado resultado;
+  resultado.izquierdo = promedioConfiableLado(valores, confiable, true);
+  resultado.derecho = promedioConfiableLado(valores, confiable, false);
+  const bool izquierdoFuenteUnica = confiable[0] != confiable[2];
+  const bool derechoFuenteUnica = confiable[1] != confiable[3];
+  if (izquierdoFuenteUnica && !derechoFuenteUnica) {
+    resultado.izquierdo = acotarLadoFuenteUnica(resultado.izquierdo,
+                                                 resultado.derecho, desacuerdoMaximo);
+  } else if (derechoFuenteUnica && !izquierdoFuenteUnica) {
+    resultado.derecho = acotarLadoFuenteUnica(resultado.derecho,
+                                               resultado.izquierdo, desacuerdoMaximo);
+  }
+  return resultado;
 }
 
 inline bool ladoEnStall(bool ladoExigido, bool pulsoFrontalCero,

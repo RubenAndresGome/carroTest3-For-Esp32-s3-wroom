@@ -102,6 +102,30 @@ class Database:
             ):
                 if column not in touch_columns:
                     connection.execute(f"ALTER TABLE touch_recordings ADD COLUMN {column} {declaration}")
+            connection.execute("""CREATE TABLE IF NOT EXISTS calibration_surfaces (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                pwm_positive_8bit INTEGER NOT NULL,
+                pwm_negative_8bit INTEGER NOT NULL,
+                positive_polarity INTEGER NOT NULL,
+                negative_polarity INTEGER NOT NULL,
+                description TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )""")
+            existing_surfaces = connection.execute("SELECT COUNT(*) as count FROM calibration_surfaces").fetchone()["count"]
+            if existing_surfaces == 0:
+                defaults = [
+                    ("piso_loseta", "Piso Loseta / Taller", 155, 155, 1, -1, "Superficie lisa estándar (cerámica/loseta)"),
+                    ("madera_lisa", "Madera Lisa", 165, 165, 1, -1, "Superficie de madera con fricción media"),
+                    ("tapete_alta_friccion", "Tapete / Fricción Alta", 185, 185, 1, -1, "Superficie rugosa o alfombra delgada"),
+                ]
+                for sid, sname, pos, neg, cpos, cneg, sdesc in defaults:
+                    connection.execute(
+                        "INSERT INTO calibration_surfaces (id, name, pwm_positive_8bit, pwm_negative_8bit, positive_polarity, negative_polarity, description, created_at, updated_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        (sid, sname, pos, neg, cpos, cneg, sdesc),
+                    )
         finally:
             connection.close()
 
@@ -145,6 +169,14 @@ class Database:
                 "WHERE id=? AND ended_at IS NULL",
                 (utc_text, local_day, offset_minutes, timezone_name, reason, session_id),
             )
+
+    def update_session_disconnect_reason(self, session_id: int, reason: str | None) -> None:
+        with self.transaction() as connection:
+            connection.execute(
+                "UPDATE sessions SET disconnect_reason=COALESCE(?, disconnect_reason) WHERE id=?",
+                (reason, session_id),
+            )
+
 
     def insert_command(self, command_id: str, session_id: int | None, name: str, payload: dict[str, Any], status: str) -> None:
         with self.transaction() as connection:
@@ -461,3 +493,39 @@ class Database:
             "after_bytes": after,
             "reclaimed_bytes": max(0, before - after),
         }
+
+    def list_calibration_surfaces(self) -> list[sqlite3.Row]:
+        with contextlib.closing(self.connect()) as connection:
+            return list(connection.execute("SELECT * FROM calibration_surfaces ORDER BY name ASC"))
+
+    def get_calibration_surface(self, surface_id: str) -> sqlite3.Row | None:
+        with contextlib.closing(self.connect()) as connection:
+            return connection.execute("SELECT * FROM calibration_surfaces WHERE id=?", (surface_id,)).fetchone()
+
+    def save_calibration_surface(
+        self, surface_id: str, name: str, pwm_positive_8bit: int, pwm_negative_8bit: int,
+        positive_polarity: int, negative_polarity: int, description: str | None = None,
+    ) -> None:
+        with self.transaction() as connection:
+            connection.execute(
+                """INSERT INTO calibration_surfaces(id, name, pwm_positive_8bit, pwm_negative_8bit,
+                                                  positive_polarity, negative_polarity, description,
+                                                  created_at, updated_at)
+                   VALUES(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                   ON CONFLICT(id) DO UPDATE SET
+                       name=excluded.name,
+                       pwm_positive_8bit=excluded.pwm_positive_8bit,
+                       pwm_negative_8bit=excluded.pwm_negative_8bit,
+                       positive_polarity=excluded.positive_polarity,
+                       negative_polarity=excluded.negative_polarity,
+                       description=excluded.description,
+                       updated_at=CURRENT_TIMESTAMP""",
+                (surface_id, name, int(pwm_positive_8bit), int(pwm_negative_8bit),
+                 int(positive_polarity), int(negative_polarity), description or ""),
+            )
+
+    def delete_calibration_surface(self, surface_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute("DELETE FROM calibration_surfaces WHERE id=?", (surface_id,))
+            return cursor.rowcount == 1
+

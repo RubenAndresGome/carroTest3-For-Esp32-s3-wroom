@@ -186,3 +186,21 @@ DiagnosticoMemoriaTorque obtenerDiagnosticoMemoriaTorque() {
   portEXIT_CRITICAL(&muxTorque);
   return copia;
 }
+
+bool obtenerCalibracionVigente(int& pwmPos8, int& pwmNeg8, int& candPos, int& candNeg) {
+  portENTER_CRITICAL(&muxTorque);
+  if (historial.cantidad == 0) {
+    portEXIT_CRITICAL(&muxTorque);
+    return false;
+  }
+  const ControlTorque::Registro& ultimo = historial.registros[historial.cantidad - 1];
+  pwmPos8 = (diagnostico.basePositiva8 >= ControlTorque::PWM_MIN_8BIT)
+      ? diagnostico.basePositiva8 : ultimo.pwmPositivo8;
+  pwmNeg8 = (diagnostico.baseNegativa8 >= ControlTorque::PWM_MIN_8BIT)
+      ? diagnostico.baseNegativa8 : ultimo.pwmNegativo8;
+  candPos = (ultimo.polaridadPositiva != 0) ? ultimo.polaridadPositiva : 1;
+  candNeg = (ultimo.polaridadNegativa != 0) ? ultimo.polaridadNegativa : -1;
+  portEXIT_CRITICAL(&muxTorque);
+  return true;
+}
+

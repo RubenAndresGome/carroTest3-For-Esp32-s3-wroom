@@ -832,6 +832,94 @@ class ApiTests(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_calibration_surfaces_crud_and_apply(self) -> None:
+        # GET surfaces
+        response = self.client.get("/api/v1/calibration/surfaces", headers={"X-App-Token": self.token})
+        self.assertEqual(response.status_code, 200)
+        surfaces = response.get_json()
+        self.assertGreaterEqual(len(surfaces), 3)
+
+        # POST new surface
+        new_surface = {
+            "name": "Superficie Test",
+            "pwm_pos": 160,
+            "pwm_neg": 165,
+            "cand_pos": 1,
+            "cand_neg": -1,
+            "description": "Superficie de prueba creada en test",
+        }
+        res_post = self.client.post("/api/v1/calibration/surfaces", json=new_surface, headers={"X-App-Token": self.token})
+        self.assertEqual(res_post.status_code, 201)
+        created = res_post.get_json()
+        self.assertEqual(created["name"], "Superficie Test")
+        self.assertEqual(created["pwm_positive_8bit"], 160)
+
+        # Apply surface
+        self._ready()
+        res_apply = self.client.post(f"/api/v1/calibration/surfaces/{created['id']}/apply", headers={"X-App-Token": self.token})
+        self.assertEqual(res_apply.status_code, 202)
+        applied = res_apply.get_json()
+        self.assertEqual(applied["surface_id"], created["id"])
+
+        # DELETE surface
+        res_del = self.client.delete(f"/api/v1/calibration/surfaces/{created['id']}", headers={"X-App-Token": self.token})
+        self.assertEqual(res_del.status_code, 200)
+        self.assertTrue(res_del.get_json()["ok"])
+
+    def test_disconnect_grace_period_preserves_running_mission(self) -> None:
+        self._ready()
+        session_id = self.service.start_session()
+        self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.assertEqual(self.service._session_id, session_id)
+
+        # Entering BACKOFF should NOT kill the mission immediately
+        self.service._on_connection_state(ConnectionState.BACKOFF, "transient_drop")
+        self.assertTrue(self.service.mission_status()["running"])
+        self.assertEqual(self.service._session_id, session_id)
+        self.assertIsNotNone(self.service._backoff_grace_timer)
+
+        # Reconnecting within grace period preserves mission and cancels timer
+        self.service._on_connection_state(ConnectionState.CONNECTED, "reconnected")
+        self.assertTrue(self.service.mission_status()["running"])
+        self.assertEqual(self.service._session_id, session_id)
+        self.assertIsNone(self.service._backoff_grace_timer)
+
+    def test_telemetry_syncs_surface_torque_in_database(self) -> None:
+        # Create or verify azulejo_cafe_liso with old low torque (140)
+        self.service.database.save_calibration_surface(
+            "azulejo_cafe_liso", "Azulejo Café Liso", 140, 140, 1, -1, "Superficie de prueba"
+        )
+        self.service.database.set_setting("active_surface_id", "azulejo_cafe_liso")
+
+        # Simulate telemetry message with confirmed torque >= 180
+        telemetry_msg = {
+            "evt": "telemetry",
+            "state": "ejecutando",
+            "seq": 10,
+            "x_mm": 0,
+            "y_mm": 0,
+            "yaw_deg": 45.0,
+            "heading_deg": 45.0,
+            "enc": [10, 0, 12, 11],
+            "pwmL": 200,
+            "pwmR": -200,
+            "torque_history": {
+                "record_count": 3,
+                "base_positive_8bit": 195,
+                "base_negative_8bit": 200,
+            },
+        }
+        self.service._on_robot_message(telemetry_msg)
+
+        # Confirm SQLite row was updated to the new verified torque
+        updated = self.service.database.get_calibration_surface("azulejo_cafe_liso")
+        self.assertIsNotNone(updated)
+        self.assertEqual(updated["pwm_positive_8bit"], 195)
+        self.assertEqual(updated["pwm_negative_8bit"], 200)
+
+
 
 if __name__ == "__main__":
     unittest.main()
+

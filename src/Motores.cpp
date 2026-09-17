@@ -151,6 +151,9 @@ static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
   return setMotorPWM(pinFwd, pinRev, vel * polaridad);
 }
 
+static bool enFrenoActivo = false;
+static uint32_t inicioFrenoActivoMs = 0;
+
 bool aplicarVelocidades(int velIzq, int velDer) {
   // Preflight completo: si el mapa o la inicialización son inválidos, no se
   // permite ninguna escritura parcial ni se elige un canal por defecto.
@@ -171,8 +174,16 @@ bool aplicarVelocidades(int velIzq, int velDer) {
     pwm_solicitado_R = 0;
     pwm_aplicado_L = 0;
     pwm_aplicado_R = 0;
+    enFrenoActivo = false;
     apagarCanalesPWM();
     return false;
+  }
+  if (enFrenoActivo) {
+    if (velIzq != 0 || velDer != 0) {
+      enFrenoActivo = false;
+    } else {
+      return true; // Conserva el pulso de freno dinámico activo en curso
+    }
   }
   const uint32_t ahora = millis();
   pwm_solicitado_L = constrain(velIzq, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
@@ -190,6 +201,7 @@ bool aplicarVelocidades(int velIzq, int velDer) {
     pwm_solicitado_R = 0;
     pwm_aplicado_L = 0;
     pwm_aplicado_R = 0;
+    enFrenoActivo = false;
     apagarCanalesPWM();
     return false;
   }
@@ -200,11 +212,43 @@ void frenarMotores() {
   const uint32_t ahora = millis();
   interlockL.detener(ahora);
   interlockR.detener(ahora);
+  enFrenoActivo = false;
   apagarCanalesPWM();
   pwm_aplicado_L = 0;
   pwm_aplicado_R = 0;
   pwm_solicitado_L = 0;
   pwm_solicitado_R = 0;
+}
+
+void frenarMotoresActivo() {
+  const uint32_t ahora = millis();
+  interlockL.detener(ahora);
+  interlockR.detener(ahora);
+  // DRV8833: IN1=1, IN2=1 activa ambos MOSFETs de canal N de lado bajo (LS-FETs),
+  // cortocircuitando los terminales del motor a GND para inducir frenado dinámico
+  // por fuerza contraelectromotriz (Back-EMF). Detiene el rotor en < 80 ms.
+  for (int canal = 0; canal < 8; ++canal) {
+    if ((mascaraCanalesPWM & (1U << canal)) != 0U) ledcWrite(canal, PWM_MAX);
+  }
+  pwm_aplicado_L = 0;
+  pwm_aplicado_R = 0;
+  pwm_solicitado_L = 0;
+  pwm_solicitado_R = 0;
+  enFrenoActivo = true;
+  inicioFrenoActivoMs = ahora;
+}
+
+void actualizarFrenoActivo() {
+  if (enFrenoActivo) {
+    if (millis() - inicioFrenoActivoMs >= DURACION_FRENO_ACTIVO_MS) {
+      apagarCanalesPWM();
+      enFrenoActivo = false;
+    }
+  }
+}
+
+bool frenoActivoEnCurso() {
+  return enFrenoActivo;
 }
 
 bool validarInterlockMotores() {

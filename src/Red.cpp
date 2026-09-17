@@ -142,6 +142,13 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   if (strcmp(cmd,"manual_begin")==0) { solicitarManualBegin(seq); encolarEvento(EVT_ACCEPTED, seq, "manual_begin"); return; }
   else if (strcmp(cmd,"manual_end")==0) { solicitarManualEnd(seq); encolarEvento(EVT_ACCEPTED, seq, "manual_end"); return; }
   else if (strcmp(cmd,"calibrate")==0)      { c.tipo=CMD_CALIBRATE; }
+  else if (strcmp(cmd,"set_calibration")==0) {
+    c.tipo = CMD_SET_CALIBRATION;
+    c.pwmPositivo8 = doc["pwm_pos"] | 0;
+    c.pwmNegativo8 = doc["pwm_neg"] | 0;
+    c.polaridadPositiva = doc["cand_pos"] | 0;
+    c.polaridadNegativa = doc["cand_neg"] | 0;
+  }
   else if (strcmp(cmd,"step")==0) {
     c.tipo=CMD_STEP;
     if (!leerFloatFinito(doc["heading"], c.heading) || !leerFloatFinito(doc["cm"], c.distanciaCm)) {
@@ -295,6 +302,8 @@ static void enviarTelemetria() {
   for (bool confiable : encoderConfiableGlobal) encConfiables.add(confiable);
   doc["encoder_scale_factor"] = FACTOR_ESCALA_ENCODER;
   doc["encoder_error_pct"] = ENCODER_ERROR_PORCENTAJE;
+  doc["encoder_ground_scale_factor"] = FACTOR_ESCALA_ODOMETRIA_SUELO;
+  doc["wheel_diameter_odometry_cm"] = WHEEL_DIAMETER_ODOMETRY_CM;
   JsonObject saludEncoders = doc.createNestedObject("encoder_health");
   saludEncoders["fl"] = textoSaludEncoder(estadoSaludEncoderGlobal[0]);
   saludEncoders["fr"] = textoSaludEncoder(estadoSaludEncoderGlobal[1]);
@@ -328,8 +337,9 @@ static void enviarTelemetria() {
   reingreso["fr"] = encoderMuestrasReingreso[1];
   reingreso["bl"] = encoderMuestrasReingreso[2];
   reingreso["br"] = encoderMuestrasReingreso[3];
-  fusionEncoders["distance_scale_factor"] = FACTOR_ESCALA_ENCODER;
+  fusionEncoders["distance_scale_factor"] = FACTOR_ESCALA_ENCODER * FACTOR_ESCALA_ODOMETRIA_SUELO;
   fusionEncoders["distance_error_pct"] = ENCODER_ERROR_PORCENTAJE;
+  fusionEncoders["ground_scale_factor"] = FACTOR_ESCALA_ODOMETRIA_SUELO;
   const DiagnosticoCalibracion diagnosticoCal = obtenerDiagnosticoCalibracion();
   JsonObject calDiag = doc.createNestedObject("calibration_diagnostics");
   calDiag["active"] = diagnosticoCal.activa;
@@ -497,6 +507,7 @@ static void enviarTelemetria() {
   control["right_compensation"] = factorCompensacionDer;
   control["heading_brake_side"] = pasoLadoFrenoRumbo;
   doc["cal"] = robotCalibrado;
+  doc["calibrated"] = robotCalibrado;
   doc["firmware"] = FIRMWARE_VERSION;
   doc["protocol"] = PROTOCOL_NAME;
   JsonArray capacidades = doc.createNestedArray("capabilities");

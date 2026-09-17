@@ -610,6 +610,29 @@ void test_divergencia_giro_actualiza_con_progreso_positivo_y_tolera_overshoot_no
   TEST_ASSERT_EQUAL_UINT32(0, estado.inicioDivergenciaMs);
 }
 
+void test_divergencia_giro_cruce_por_cero_con_reinicio_evita_falsa_alarma() {
+  using namespace ControlSeguridad;
+  EstadoVigilanciaDivergenciaGiro estado;
+  estado.reiniciar(21.1f);
+
+  // Convergencia normal desde 21.1° hacia 0°
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 13.0f, 1000, 12.0f, 500, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 4.9f, 1200, 12.0f, 500, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 0.5f, 1400, 12.0f, 500, true));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.5f, estado.menorErrorAbs);
+
+  // Chasis cruza el cero por inercia hasta 7.0° en polaridad opuesta.
+  // La lógica de cruce por cero en controlarGiro() detecta cambio de signo y reinicia:
+  estado.reiniciar(7.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 7.0f, estado.menorErrorAbs);
+
+  // Ahora el chasis converge de regreso desde 7.0° hacia 0°: no debe disparar divergencia
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 5.0f, 1600, 12.0f, 500, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 2.0f, 1800, 12.0f, 500, true));
+  TEST_ASSERT_FALSE(evaluarDivergenciaGiro(estado, 0.8f, 2000, 12.0f, 500, true));
+  TEST_ASSERT_EQUAL_UINT32(0, estado.inicioDivergenciaMs);
+}
+
 void test_polaridad_giro_negativa_mantiene_salidas_consistentes_con_candidato() {
   // Con cand = +1 (positivo / dextrógiro estándar): L empuja adelante (+), R atrás (-)
   const auto salidaPos = ControlRuta::balancearGiroDiferencial(
@@ -630,10 +653,157 @@ void test_polaridad_giro_negativa_mantiene_salidas_consistentes_con_candidato() 
   TEST_ASSERT_EQUAL_INT(0, salidaCero.pwmR);
 }
 
+void test_marco_unificado_invarianza_rotacional_cuatro_cuadrantes() {
+  const float rumbos[] = {0.0f, 45.0f, 90.0f, 180.0f, 270.0f};
+  constexpr float kPi = 3.14159265358979323846f;
+  for (float rumbo : rumbos) {
+    const float rad = rumbo * kPi / 180.0f;
+    const float ux = sinf(rad), uy = cosf(rad);
+    const float origenX = 12.0f, origenY = -7.0f;
+    const float objetivoX = origenX + 100.0f * ux;
+    const float objetivoY = origenY + 100.0f * uy;
+
+    // En t=0 el robot esta sobre el ancla: desvio lateral exactamente nulo.
+    const auto enOrigen = ControlRuta::calcularErroresTrayectoriaAnclado(
+        origenX, origenY, origenX, origenY, objetivoX, objetivoY, rumbo, 100.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, enOrigen.lateralCm);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, enOrigen.longitudinalCm);
+
+    // Un mismo desvio lateral relativo produce la misma correccion angular
+    // relativa, sin importar el rumbo absoluto del tramo.
+    const float desvioCm = 5.0f;
+    const float posX = origenX + 40.0f * ux + desvioCm * uy;
+    const float posY = origenY + 40.0f * uy - desvioCm * ux;
+    const auto desviado = ControlRuta::calcularErroresTrayectoriaAnclado(
+        posX, posY, origenX, origenY, objetivoX, objetivoY, rumbo, 100.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.002f, desvioCm, desviado.lateralCm);
+    const float correccion = ControlRuta::correccionLateralRumboDeg(
+        desviado.lateralCm, 2.0f, 18.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.002f, -10.0f, correccion);
+  }
+}
+
+void test_reversa_automatica_evita_pivote_180_grados() {
+  constexpr float umbral = 105.0f;
+  // Objetivo casi opuesto: la regla de minima rotacion elige reversa.
+  TEST_ASSERT_TRUE(ControlRuta::reversaAutomatica(180.0f, 0.0f, umbral));
+  const float rumboCuerpo = ControlRuta::rumboCuerpoParaTrayecto(180.0f, -1);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, rumboCuerpo);
+  // El micro-giro del chasis en reversa no supera 180 - 105 = 75 grados.
+  TEST_ASSERT_TRUE(fabsf(ControlRuta::errorAngularDeg(rumboCuerpo, 0.0f)) <= 75.0f);
+  // Un cambio de rumbo de 20 grados (170 -> 190) avanza: no dispara reversa.
+  TEST_ASSERT_FALSE(ControlRuta::reversaAutomatica(190.0f, 170.0f, umbral));
+  // Frontera: 105 grados exactos exigen reversa; por debajo se conserva avance.
+  TEST_ASSERT_TRUE(ControlRuta::reversaAutomatica(105.0f, 0.0f, umbral));
+  TEST_ASSERT_FALSE(ControlRuta::reversaAutomatica(104.9f, 0.0f, umbral));
+}
+
+void test_escala_odometria_suelo_calibrada() {
+  constexpr float kPi = 3.14159265358979323846f;
+  constexpr float diametroTeoricoCm = 6.6f;
+  constexpr float factorSuelo = 1.0f;
+  constexpr int ppr = 40;
+  const float cmPorTickTeorico = ControlRuta::distanciaPorTick(diametroTeoricoCm, ppr);
+  const float cmPorTickSuelo =
+      ControlRuta::distanciaPorTick(diametroTeoricoCm * factorSuelo, ppr);
+  TEST_ASSERT_FLOAT_WITHIN(0.0005f, kPi * 6.6f / 40.0f, cmPorTickSuelo);
+  TEST_ASSERT_FLOAT_WITHIN(0.0005f, cmPorTickTeorico * factorSuelo, cmPorTickSuelo);
+  // Con escala 1.0f, 100 cm ordenados exigen exactamente ~192.9 ticks (4.82 vueltas de rueda).
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, 192.9f, 100.0f / cmPorTickSuelo);
+}
+
+void test_fuente_unica_no_infla_distancia_en_modo_degradado() {
+  // FR ausente (0): el lado derecho depende solo de BR con ruido alto.
+  const int64_t ticks[4] = {70, 0, 70, 220};
+  const bool confiable[4] = {true, false, true, true};
+  const auto acotado = ControlSeguridad::promediosConfiableAcotados(ticks, confiable, 0.40f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 70.0f, acotado.izquierdo);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 70.0f, acotado.derecho);
+  // Con el lado opuesto detenido no se oculta el movimiento real.
+  const int64_t soloDerecha[4] = {0, 0, 0, 50};
+  const bool confiableSoloDerecha[4] = {false, false, false, true};
+  const auto sinOcultar = ControlSeguridad::promediosConfiableAcotados(
+      soloDerecha, confiableSoloDerecha, 0.40f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, sinOcultar.izquierdo);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 50.0f, sinOcultar.derecho);
+}
+
+void test_saturacion_pcnt_preserva_odometria() {
+  TEST_ASSERT_EQUAL_INT64(64, ControlSeguridad::saturarDeltaEncoder(150, 64));
+  TEST_ASSERT_EQUAL_INT64(-64, ControlSeguridad::saturarDeltaEncoder(-200, 64));
+  TEST_ASSERT_EQUAL_INT64(30, ControlSeguridad::saturarDeltaEncoder(30, 64));
+  TEST_ASSERT_EQUAL_INT64(-15, ControlSeguridad::saturarDeltaEncoder(-15, 64));
+  TEST_ASSERT_EQUAL_INT64(0, ControlSeguridad::saturarDeltaEncoder(100, 0));
+}
+
+void test_origen_planificado_conserva_desvio_entre_subtramos() {
+  // Simular avance en tramo continuo con subtramos de 50 cm hacia rumbo 0° (+Y)
+  // Al llegar al final de un tramo, el chasis acumuló un desvío lateral hacia la izquierda de 2.0 cm (X = -2.0)
+  const float targetX = 0.0f;
+  const float targetY = 100.0f;
+  const float distTramo = 50.0f;
+  const float rumbo = 0.0f;
+  const float rad = rumbo * 3.14159265358979323846f / 180.0f;
+
+  // Origen deducido de la recta planificada de la misión (no de la posición desplazada del robot)
+  const float origenPlanificadoX = targetX - distTramo * sinf(rad); // 0.0 cm
+  const float origenPlanificadoY = targetY - distTramo * cosf(rad); // 50.0 cm
+
+  // Pose real del robot con deriva hacia la izquierda (-X)
+  const float posX = -2.0f;
+  const float posY = 50.0f;
+
+  const auto errores = ControlRuta::calcularErroresTrayectoriaAnclado(
+      posX, posY, origenPlanificadoX, origenPlanificadoY, targetX, targetY, rumbo, distTramo);
+
+  // El error lateral residual se preserva exactamente: -2.0 cm (a la izquierda de la línea planificada)
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -2.0f, errores.lateralCm);
+
+  // Con la nueva ganancia lateral acordada de 2.25°/cm, genera una corrección de +4.5° hacia la derecha (+X)
+  const float correccion = ControlRuta::correccionLateralRumboDeg(errores.lateralCm, 2.25f, 18.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 4.5f, correccion);
+}
+
+void test_calibracion_evaluar_pivot_con_fr_desconectado() {
+  const int64_t d[4] = {5, 0, 4, 6}; // FL=5, FR=0 (aislado), BL=4, BR=6
+  const auto e = ControlCalibracion::evaluarPivot(2.0f, d);
+  TEST_ASSERT_TRUE(e.bilateral);
+  TEST_ASSERT_TRUE(e.torque);
+  TEST_ASSERT_EQUAL_INT64(5, e.izquierda);
+  TEST_ASSERT_EQUAL_INT64(6, e.derecha);
+}
+
+void test_giro_balance_concentrico_con_encoders_confiables() {
+  // Simular giro dextrógiro (cand = +1) con motor izquierdo ligeramente más veloz:
+  // d = {12, 0, 10, 8} -> Izq confiable (FL=12, BL=10) avg = 11.0 ticks
+  // Der confiable (FR desconectado=false, BR=8) = 8.0 ticks
+  const int64_t d[4] = {12, 0, 10, 8};
+  const bool confiable[4] = {true, false, true, true}; // FR aislado por calibración
+
+  const float ticksIzq = ControlSeguridad::promedioConfiableLado(d, confiable, true);
+  const float ticksDer = ControlSeguridad::promedioConfiableLado(d, confiable, false);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 11.0f, ticksIzq);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 8.0f, ticksDer);
+
+  const float cmPorTick = 6.6f * 3.14159265358979323846f / 40.0f;
+  const auto salida = ControlRuta::balancearGiroDiferencial(
+      800, 1, ticksIzq, ticksDer, cmPorTick, 15.0f * 4.0f, 45.0f * 4.0f, 1023);
+
+  // Al haber mayor desplazamiento izquierdo hacia adelante, el centro se desplaza > 0
+  TEST_ASSERT_TRUE(salida.desplazamientoCentroCm > 0.0f);
+  // La compensación reduce pwmL para evitar desplazamiento tangencial del centro
+  TEST_ASSERT_TRUE(salida.pwmL < 800);
+  TEST_ASSERT_TRUE(salida.pwmR <= 0);
+}
+
 }  // namespace
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_giro_balance_concentrico_con_encoders_confiables);
+  RUN_TEST(test_calibracion_evaluar_pivot_con_fr_desconectado);
+  RUN_TEST(test_origen_planificado_conserva_desvio_entre_subtramos);
+  RUN_TEST(test_saturacion_pcnt_preserva_odometria);
   RUN_TEST(test_desconexion_solo_cancela_calibracion);
   RUN_TEST(test_pivot_centrado_sesion_227_y_ventanas);
   RUN_TEST(test_historial_torque_por_lado);
@@ -687,6 +857,11 @@ int main(int, char**) {
   RUN_TEST(test_divergencia_giro_detecta_alejamiento_sostenido);
   RUN_TEST(test_divergencia_giro_tolera_ruido_menor_al_umbral_y_picos_breves);
   RUN_TEST(test_divergencia_giro_actualiza_con_progreso_positivo_y_tolera_overshoot_normal);
+  RUN_TEST(test_divergencia_giro_cruce_por_cero_con_reinicio_evita_falsa_alarma);
   RUN_TEST(test_polaridad_giro_negativa_mantiene_salidas_consistentes_con_candidato);
+  RUN_TEST(test_marco_unificado_invarianza_rotacional_cuatro_cuadrantes);
+  RUN_TEST(test_reversa_automatica_evita_pivote_180_grados);
+  RUN_TEST(test_escala_odometria_suelo_calibrada);
+  RUN_TEST(test_fuente_unica_no_infla_distancia_en_modo_degradado);
   return UNITY_END();
 }

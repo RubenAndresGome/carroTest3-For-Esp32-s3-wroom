@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import math
 import queue
+import re
 import threading
 import time
+import unicodedata
 import uuid
 from typing import Any
 
@@ -188,6 +190,7 @@ class RobotService:
     PROTOCOL = "steps-v3"
     ACTIVE_TELEMETRY_PERIOD_S = 0.2
     IDLE_TELEMETRY_PERIOD_S = 10.0
+    DISCONNECT_GRACE_PERIOD_S = 8.0
 
     def __init__(self, database: Database, host: str | None = None, start_gateway: bool = True,
                  max_message_bytes: int = 4096, settling_delay_s: float = 0.0) -> None:
@@ -197,6 +200,8 @@ class RobotService:
         self._robot_host = normalize_robot_host(host or database.get_setting("robot_host", DEFAULT_ROBOT_HOST))
         self._settling_delay_s = max(0.0, float(settling_delay_s))
         self._settling_timer: threading.Timer | None = None
+        self._backoff_grace_timer: threading.Timer | None = None
+        self._backoff_detail: str | None = None
         self._mission_accumulated_lateral_cm: float = 0.0
         self._mission_accumulated_angular_deg: float = 0.0
         self._mission_accuracy: dict[str, Any] = {}
@@ -1071,7 +1076,7 @@ class RobotService:
             if has_mission:
                 self.stop_mission("stopped_by_estop")
             self.stop_session("stopped_by_estop")
-        elif normalized_name == "calibrate":
+        elif normalized_name in {"calibrate", "set_calibration"}:
             with self._lock:
                 has_mission = self._mission_id is not None
             if has_mission:
@@ -1134,15 +1139,54 @@ class RobotService:
         self.events.publish("session", {"recording": False, "session_id": session_id})
         return session_id
 
+    def _cancel_disconnect_grace_timer(self) -> None:
+        with self._lock:
+            if self._backoff_grace_timer is not None:
+                self._backoff_grace_timer.cancel()
+                self._backoff_grace_timer = None
+                self._backoff_detail = None
+
+    def _schedule_disconnect_grace(self, detail: str) -> None:
+        with self._lock:
+            if self._backoff_grace_timer is not None:
+                return
+            self._backoff_detail = detail
+            timer = threading.Timer(
+                self.DISCONNECT_GRACE_PERIOD_S, self._on_disconnect_grace_expired, args=[detail]
+            )
+            timer.daemon = True
+            self._backoff_grace_timer = timer
+            timer.start()
+
+    def _on_disconnect_grace_expired(self, detail: str) -> None:
+        with self._lock:
+            self._backoff_grace_timer = None
+        self.database.insert_event(
+            self._session_id, "connection", Severity.ERROR.value,
+            {"state": ConnectionState.STOPPED.value, "detail": f"Tiempo de gracia de reconexión expirado (8s): {detail}"}
+        )
+        self.stop_session(f"grace_timeout: {detail}")
+
     def _on_connection_state(self, state: ConnectionState, detail: str | None) -> None:
         payload = {"state": state.value, "detail": detail}
         self.events.publish("connection", payload)
         if state == ConnectionState.CONNECTED:
+            self._cancel_disconnect_grace_timer()
             self.database.insert_event(self._session_id, "connection", Severity.INFO.value, payload)
-        elif state in {ConnectionState.STOPPED, ConnectionState.BACKOFF}:
+        elif state == ConnectionState.BACKOFF:
             self._touch.invalidate("connection_lost")
-            if state == ConnectionState.BACKOFF:
+            if self._session_id is not None:
+                self.database.update_session_disconnect_reason(self._session_id, detail)
                 self.database.insert_event(self._session_id, "connection", Severity.WARNING.value, payload)
+            with self._lock:
+                has_mission = self._mission_id is not None
+            if has_mission:
+                self._schedule_disconnect_grace(detail or state.value)
+            else:
+                self.stop_session(detail or state.value)
+        elif state == ConnectionState.STOPPED:
+            self._cancel_disconnect_grace_timer()
+            self._touch.invalidate("connection_lost")
             self.stop_session(detail or state.value)
 
     def _on_command_sent(self, command: RobotCommand) -> None:
@@ -1209,6 +1253,13 @@ class RobotService:
                     self._last_recorded_session_id = session_id
                     self._last_recorded_signature = signature
                     self._recorder.submit(session_id, snapshot)
+            if snapshot.torque_history and isinstance(snapshot.torque_history, dict):
+                count = int(snapshot.torque_history.get("record_count", 0) or 0)
+                if count > 0:
+                    base_pos = int(snapshot.torque_history.get("base_positive_8bit", 0) or 0)
+                    base_neg = int(snapshot.torque_history.get("base_negative_8bit", 0) or 0)
+                    if base_pos >= 180 or base_neg >= 180:
+                        self._sync_surface_torque_from_telemetry(base_pos, base_neg)
             return
 
         seq = int(message.get("seq", 0) or 0)
@@ -1541,3 +1592,94 @@ class RobotService:
 
     def purge_sessions(self, days: int) -> int:
         return self.database.purge_sessions(days)
+
+    def _format_surface_dict(self, row: Any) -> dict[str, Any]:
+        d = dict(row)
+        d["pwm_pos"] = d.get("pwm_positive_8bit")
+        d["pwm_neg"] = d.get("pwm_negative_8bit")
+        d["cand_pos"] = d.get("positive_polarity")
+        d["cand_neg"] = d.get("negative_polarity")
+        return d
+
+    def list_calibration_surfaces(self) -> list[dict[str, Any]]:
+        rows = self.database.list_calibration_surfaces()
+        return [self._format_surface_dict(row) for row in rows]
+
+    def get_calibration_surface(self, surface_id: str) -> dict[str, Any] | None:
+        row = self.database.get_calibration_surface(surface_id)
+        return self._format_surface_dict(row) if row is not None else None
+
+    def save_calibration_surface(
+        self, name: str, pwm_pos: int, pwm_neg: int, cand_pos: int, cand_neg: int,
+        description: str | None = None, surface_id: str | None = None,
+    ) -> dict[str, Any]:
+        if not name or not name.strip():
+            raise ValueError("El nombre de la superficie es obligatorio")
+        clean_name = unicodedata.normalize('NFKD', name.strip()).encode('ASCII', 'ignore').decode('ASCII')
+        sid = surface_id or re.sub(r'[^a-zA-Z0-9_]+', '_', clean_name.lower()).strip('_')
+        if not sid:
+            sid = f"surface_{uuid.uuid4().hex[:8]}"
+        desc = description.strip() if description and description.strip() else "Calibración empírica MPU/PCNT"
+        self.database.save_calibration_surface(
+            sid, name.strip(), pwm_pos, pwm_neg, cand_pos, cand_neg, desc
+        )
+        saved = self.database.get_calibration_surface(sid)
+        result = self._format_surface_dict(saved) if saved is not None else {"id": sid, "name": name, "pwm_pos": pwm_pos, "pwm_neg": pwm_neg, "cand_pos": cand_pos, "cand_neg": cand_neg}
+        self.events.publish("calibration_surfaces", {"action": "saved", "surface": result})
+        return result
+
+    def delete_calibration_surface(self, surface_id: str) -> bool:
+        ok = self.database.delete_calibration_surface(surface_id)
+        if ok:
+            self.events.publish("calibration_surfaces", {"action": "deleted", "id": surface_id})
+        return ok
+
+    def apply_calibration_surface(self, surface_id: str) -> dict[str, Any]:
+        surface = self.database.get_calibration_surface(surface_id)
+        if surface is None:
+            raise ValueError(f"Superficie no encontrada: {surface_id}")
+        self.database.set_setting("active_surface_id", surface_id)
+        cmd = self.send_command("set_calibration", {
+            "pwm_pos": surface["pwm_positive_8bit"],
+            "pwm_neg": surface["pwm_negative_8bit"],
+            "cand_pos": surface["positive_polarity"],
+            "cand_neg": surface["negative_polarity"],
+        })
+        return {
+            "command_id": cmd.command_id,
+            "surface_id": surface_id,
+            "name": surface["name"],
+            "surface": self._format_surface_dict(surface),
+        }
+
+    def _sync_surface_torque_from_telemetry(self, base_pos: int, base_neg: int) -> None:
+        surface_id = self.database.get_setting("active_surface_id")
+        surface = self.database.get_calibration_surface(surface_id) if surface_id else None
+        if surface is None:
+            surface = self.database.get_calibration_surface("azulejo_cafe_liso")
+        if surface is None:
+            surfaces = self.database.list_calibration_surfaces()
+            if len(surfaces) == 1:
+                surface = surfaces[0]
+            elif surfaces:
+                surface = next((s for s in surfaces if "loseta" in str(s["id"]).lower() or "azulejo" in str(s["id"]).lower()), surfaces[0])
+        if surface is not None:
+            curr_pos = int(surface["pwm_positive_8bit"] or 0)
+            curr_neg = int(surface["pwm_negative_8bit"] or 0)
+            target_pos = max(curr_pos, base_pos)
+            target_neg = max(curr_neg, base_neg)
+            if target_pos != curr_pos or target_neg != curr_neg:
+                self.database.save_calibration_surface(
+                    surface["id"],
+                    surface["name"],
+                    target_pos,
+                    target_neg,
+                    int(surface["positive_polarity"]),
+                    int(surface["negative_polarity"]),
+                    surface["description"],
+                )
+                updated = self.database.get_calibration_surface(surface["id"])
+                if updated:
+                    result = self._format_surface_dict(updated)
+                    self.events.publish("calibration_surfaces", {"action": "saved", "surface": result})
+

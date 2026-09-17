@@ -254,6 +254,57 @@ def cleanup_sessions() -> Response:
 
 
 
+@web.route("/api/v1/calibration/surfaces", methods=["GET", "POST"])
+@_require_token
+def calibration_surfaces() -> Response | tuple[Response, int]:
+    service = _service()
+    if request.method == "GET":
+        return jsonify(service.list_calibration_surfaces())
+    body = request.get_json(silent=True) or {}
+    try:
+        saved = service.save_calibration_surface(
+            name=str(body.get("name") or ""),
+            pwm_pos=int(body.get("pwm_pos")),
+            pwm_neg=int(body.get("pwm_neg")),
+            cand_pos=int(body.get("cand_pos", 1)),
+            cand_neg=int(body.get("cand_neg", -1)),
+            description=body.get("description"),
+            surface_id=body.get("id"),
+        )
+        return jsonify(saved), 201
+    except (ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.route("/api/v1/calibration/surfaces/<surface_id>", methods=["GET", "DELETE"])
+@_require_token
+def calibration_surface_item(surface_id: str) -> Response | tuple[Response, int]:
+    service = _service()
+    if request.method == "GET":
+        item = service.get_calibration_surface(surface_id)
+        if item is None:
+            return jsonify({"error": "superficie_no_encontrada"}), 404
+        return jsonify(item)
+    deleted = service.delete_calibration_surface(surface_id)
+    if not deleted:
+        return jsonify({"error": "superficie_no_encontrada"}), 404
+    return jsonify({"ok": True, "id": surface_id})
+
+
+@web.post("/api/v1/calibration/surfaces/<surface_id>/apply")
+@_require_token
+def apply_calibration_surface(surface_id: str) -> Response | tuple[Response, int]:
+    try:
+        result = _service().apply_calibration_surface(surface_id)
+        return jsonify(result), 202
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
 @web.get("/api/v1/sessions/<int:session_id>/telemetry.csv")
 def export_telemetry(session_id: int) -> Response:
     output = io.StringIO(newline="")
