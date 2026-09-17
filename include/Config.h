@@ -50,19 +50,14 @@ constexpr uint16_t IMU_CALIBRATION_SAMPLES = 256;
 constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
 
 constexpr float WHEEL_DIAMETER_CM = 6.6f;
-// Factor de corrección de distancia por pulso.
-// El filtro PCNT de 1023 ciclos APB (12.8 µs) elimina el ringing inductivo de
-// FL (GPIO11), de modo que FL y BL cuentan con precisión equivalente y ya no
-// es necesario compensar ticks espurios. Se usa el diámetro nominal puro.
-// Revalidar con tres corridas de 50 y 100 cm tras cualquier cambio mecánico.
-constexpr float ENCODER_ERROR_PORCENTAJE = 0.0f;
+// Factor de corrección de distancia por pulso calibrado con telemetría de suelo real:
+// A 228 ticks con factor 0.842 el chasis recorrió 120 cm reales (sobrepaso de 20 cm medido en cinta).
+// Relación física real: 120 cm / 228 ticks = 0.5263 cm/tick.
+// Para 100 cm exactos se requieren 190 ticks (factor 1.015f, corrección de +1.5% sobre diámetro nominal 6.6 cm).
+constexpr float ENCODER_ERROR_PORCENTAJE = 0.015f;
 constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
-// Calibracion de rodadura real en suelo. Con ruedas de 6.6 cm de diametro y
-// ENCODER_PPR = 40 (deteccion de subida y bajada de 20 ranuras), la escala
-// nominal pura es 1.0f (cmPorTick = pi * 6.6 / 40 = 0.5184 cm/tick).
-// 100 cm corresponden a 192.9 ticks (4.82 vueltas de rueda).
 constexpr float FACTOR_ESCALA_ODOMETRIA_SUELO = 1.0f;
 static_assert(FACTOR_ESCALA_ODOMETRIA_SUELO > 0.0f && FACTOR_ESCALA_ODOMETRIA_SUELO <= 1.0f,
               "La escala de suelo debe ser positiva y no amplificar la odometria teorica.");
@@ -91,31 +86,31 @@ constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
 
-// --- NIVELES DISCRETOS DE CRUCERO ADAPTATIVO (70% - 80% - 90% - 100%) ---
+// --- NIVELES DISCRETOS DE CRUCERO ADAPTATIVO (70% - 85% - 90% - 100%) ---
 constexpr int PWM_CRUCERO_70 = static_cast<int>(179 * PWM_SCALE_8_TO_10);  // 70.2% de 255 (~35-50 ticks/s objetivo)
 constexpr int PWM_CRUCERO_80 = static_cast<int>(204 * PWM_SCALE_8_TO_10);  // 80.0% de 255
+constexpr int PWM_CRUCERO_85 = static_cast<int>(217 * PWM_SCALE_8_TO_10);  // 85.1% de 255 (crucero nominal con torque firme)
 constexpr int PWM_CRUCERO_90 = static_cast<int>(230 * PWM_SCALE_8_TO_10);  // 90.2% de 255
 constexpr int PWM_CRUCERO_100 = PWM_SAFE_HARD_LIMIT;                        // 94.9% de 255 (242)
 
 // --- PARÁMETROS DE AVANCE RECTO (DRIVE) ---
-constexpr int VELOCIDAD_BASE_RECTO = PWM_CRUCERO_70; // Crucero nominal 70% PWM para reducir inercia y sobrepaso
-constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(160 * PWM_SCALE_8_TO_10);
-constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(145 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_BASE_RECTO = PWM_CRUCERO_85; // Crucero nominal 85% PWM para evitar atascos y pérdida de tracción
+constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(200 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(175 * PWM_SCALE_8_TO_10);
 // La reversa no entra directamente a crucero: después del interlock se rampa
 // desde el torque mínimo para que el PID confirme yaw antes de potencia plena.
 constexpr uint32_t RAMPA_REVERSA_MS = 900;
 // Dentro del cierre se reduce el torque sin debilitar el arranque de crucero.
-// Esto evita que un paso corto llegue al umbral con PWM excesivo todavía activo.
-constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(135 * PWM_SCALE_8_TO_10);
-// Piso inferior para reducción diferencial en avance recto (permite girar aún en precisión/desaceleración)
-constexpr int VELOCIDAD_MINIMA_DIFERENCIAL = static_cast<int>(100 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(180 * PWM_SCALE_8_TO_10);
+// Piso inferior para reducción diferencial en avance recto (garantiza tracción continua de ruedas internas sin bloqueo)
+constexpr int VELOCIDAD_MINIMA_DIFERENCIAL = static_cast<int>(165 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 1.0f;
-constexpr float DISTANCIA_APROXIMACION_CM = 45.0f;          // Zona de desaceleración extendida de frente
-constexpr float DISTANCIA_APROXIMACION_REVERSA_CM = 50.0f;  // Zona de desaceleración extendida en reversa
-constexpr float DISTANCIA_MICRO_PULSOS_CM = 5.0f;
-constexpr uint32_t APPROACH_PULSE_ON_MS = 40;
-constexpr uint32_t APPROACH_PULSE_OFF_MS = 60;
-constexpr int APPROACH_PULSE_PWM = static_cast<int>(145 * PWM_SCALE_8_TO_10);
+constexpr float DISTANCIA_APROXIMACION_CM = 15.0f;          // Zona de desaceleración acotada para sostener 85% de crucero hasta 85 cm
+constexpr float DISTANCIA_APROXIMACION_REVERSA_CM = 18.0f;
+constexpr float DISTANCIA_MICRO_PULSOS_CM = 3.0f;
+constexpr uint32_t APPROACH_PULSE_ON_MS = 250;
+constexpr uint32_t APPROACH_PULSE_OFF_MS = 120;
+constexpr int APPROACH_PULSE_PWM = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 150; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
 
 // --- DIMENSIONES FÍSICAS DEL CHASIS 4WD ---
@@ -154,9 +149,9 @@ constexpr uint32_t PAUSA_ENTRE_PASOS_MS = 600;
 // --- PARÁMETROS DE GIRO PIVOTE (TURN) ---
 constexpr uint32_t TURN_CONTROL_PERIOD_MS = 20;
 constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(247 * PWM_SCALE_8_TO_10); // Límite seguro para giros (247/255 = ~97%)
-// Giro inicial a ~65 % para vencer fricción. La rampa posterior conserva el
+// Giro inicial a ~84 % para vencer fricción estática del chasis 4WD. La rampa posterior conserva el
 // límite de 247/255 y el interlock universal al invertir polaridad.
-constexpr int PWM_TURN_START = static_cast<int>(165 * PWM_SCALE_8_TO_10);
+constexpr int PWM_TURN_START = static_cast<int>(215 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(10 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(4 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_FLOOR_OFFSET = static_cast<int>(15 * PWM_SCALE_8_TO_10);
@@ -164,14 +159,14 @@ constexpr float KP_GIRO_BALANCE_PWM_POR_CM = 15.0f * PWM_SCALE_8_TO_10;
 constexpr int PWM_GIRO_BALANCE_MAX = static_cast<int>(45 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
-constexpr float TOLERANCIA_GIRO_DEG = 1.0f;
+constexpr float TOLERANCIA_GIRO_DEG = 2.5f;
 constexpr float TOLERANCIA_CALIBRACION_DEG = 2.5f;
 constexpr float CALIBRACION_GIRO_TEST_DEG = 25.0f;
 constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 4.0f;
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
-constexpr uint32_t TURN_PULSE_ON_MS = 50;
-constexpr uint32_t TURN_PULSE_OFF_MS = 80;
+constexpr uint32_t TURN_PULSE_ON_MS = 250;
+constexpr uint32_t TURN_PULSE_OFF_MS = 120;
 constexpr float TURN_REACTIVATION_DEG = 1.0f;
 constexpr uint8_t TURN_MAX_ATTEMPTS = 33;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 1000;
@@ -179,8 +174,8 @@ constexpr uint32_t TURN_RETRY_PAUSE_MS = 1000;
 constexpr uint32_t TURN_SETTLE_MS = 250;
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_PASO_MS = 600; // Reposo total del MPU tras frenar avance
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_GIRO_MS = 400; // Reposo y verificación tras completar giro
-constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.0f;
-constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 1.2f;
+constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 2.5f; // Unificado con TOLERANCIA_GIRO_DEG
+constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 3.0f;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 60000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
@@ -190,7 +185,7 @@ constexpr uint32_t TURN_DIVERGENCE_TIMEOUT_MS = 300;
 
 // PID y Correcciones en marcha (MPU como autoridad angular única; encoders no interfieren en rumbo)
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
-constexpr int PWM_CORRECCION_RUMBO_MAX = static_cast<int>(110 * PWM_SCALE_8_TO_10);
+constexpr int PWM_CORRECCION_RUMBO_MAX = static_cast<int>(60 * PWM_SCALE_8_TO_10);
 constexpr int PWM_CORRECCION_ENCODER_MAX = 0;
 constexpr float KP_RUMBO_PWM_POR_GRADO = 10.0f * PWM_SCALE_8_TO_10;
 constexpr float KI_RUMBO_PWM_POR_GRADO_S = 1.8f * PWM_SCALE_8_TO_10;

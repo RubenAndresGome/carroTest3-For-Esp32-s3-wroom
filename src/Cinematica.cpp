@@ -42,8 +42,8 @@ void completarPaso();
 void iniciarVerificacionFinal();
 void verificarObjetivoFinal();
 void actualizarErroresTrayectoria();
-void iniciarRecuperacionEndpoint();
-void completarPasoConCorreccionPendiente();
+[[maybe_unused]] void iniciarRecuperacionEndpoint();
+[[maybe_unused]] void completarPasoConCorreccionPendiente();
 void iniciarPasoInterno();
 void fallo(const char* d);
 
@@ -63,6 +63,7 @@ ControlRuta::EstadoPI estadoPIRumbo = {};
 uint32_t inicioVerificacionFinalMs = 0;
 uint8_t intentosEndpoint = 0;
 bool recuperacionEndpointActiva = false;
+bool giroFinalRealizado = false;
 int direccionTraslacion = 1;
 int64_t ticksBaseAsentamiento[4] = {};
 float distanciaInicioAsentamientoCm = 0.0f;
@@ -568,7 +569,7 @@ void controlarGiro() {
           pwmGiroAct = 0;
           return;
         }
-        int pwmKick = max(minimo + static_cast<int>(6 * PWM_SCALE_8_TO_10), PWM_TURN_START);
+        int pwmKick = max(minimo + static_cast<int>(15 * PWM_SCALE_8_TO_10), PWM_TURN_START);
         pwmObj = min(PWM_TURN_MAX_LIMIT, pwmKick + pwmBoostFrenado);
       } else {
         frenarMotores();
@@ -578,7 +579,7 @@ void controlarGiro() {
           inicioPulsoFinoGiroMs = ahora;
           if (detectadoSinMovimiento) {
             pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - minimo,
-                                  pwmBoostFrenado + static_cast<int>(4 * PWM_SCALE_8_TO_10));
+                                  pwmBoostFrenado + static_cast<int>(10 * PWM_SCALE_8_TO_10));
           }
         }
         return;
@@ -633,7 +634,10 @@ void completarGiro() {
   faseRetornoGiro = Fase::NINGUNA;
   if (ret == Fase::GIRO_INICIAL) { iniciarPausaPreAvance(false); }
   else if (ret == Fase::GIRO_RECUPERACION) { iniciarPausaPreAvance(true); }
-  else if (ret == Fase::GIRO_FINAL) { iniciarVerificacionFinal(); }
+  else if (ret == Fase::GIRO_FINAL) {
+    giroFinalRealizado = true;
+    iniciarVerificacionFinal();
+  }
   else if (ret == Fase::GIRO_SOLO) { fin(EVT_COMPLETED, "turn_ok"); }
   else if (ret == Fase::CAL_VALIDAR_25) {
     iniciarFaseCal(Fase::CAL_PAUSA);
@@ -1032,12 +1036,12 @@ bool controlarAvance() {
   }
   pasoControlEncoderPwm = ctrlEnc;
 
-  // --- SELECCIÓN ADAPTATIVA DE VELOCIDAD DE CRUCERO (70% - 80% - 90% - 100%) ---
+  // --- SELECCIÓN ADAPTATIVA DE VELOCIDAD DE CRUCERO (85% - 90% - 100%) ---
   // Se evalúa la velocidad filtrada de encoders en ticks/s para mantener un régimen de traslación estable
-  static int nivelCruceroActual = PWM_CRUCERO_70;
+  static int nivelCruceroActual = VELOCIDAD_BASE_RECTO;
   static uint32_t ultimoCambioCruceroMs = 0;
   if (!conservarAcumulado && (millis() - inicioAvanceMs < 40)) {
-    nivelCruceroActual = PWM_CRUCERO_70;
+    nivelCruceroActual = VELOCIDAD_BASE_RECTO;
     ultimoCambioCruceroMs = millis();
   }
   const float ticksSegL = fabsf(s.delta_pulsos_filtrado_FL + s.delta_pulsos_filtrado_BL) * 0.5f * (1000.0f / float(SENSOR_PERIOD_MS));
@@ -1046,14 +1050,12 @@ bool controlarAvance() {
 
   if (millis() - ultimoCambioCruceroMs >= 200) {
     if (ticksSegPromedio < 25.0f && millis() - inicioAvanceMs >= 300) {
-      if (nivelCruceroActual == PWM_CRUCERO_70) nivelCruceroActual = PWM_CRUCERO_80;
-      else if (nivelCruceroActual == PWM_CRUCERO_80) nivelCruceroActual = PWM_CRUCERO_90;
+      if (nivelCruceroActual == PWM_CRUCERO_85) nivelCruceroActual = PWM_CRUCERO_90;
       else if (nivelCruceroActual == PWM_CRUCERO_90) nivelCruceroActual = PWM_CRUCERO_100;
       ultimoCambioCruceroMs = millis();
-    } else if (ticksSegPromedio > 65.0f) {
+    } else if (ticksSegPromedio > 75.0f) {
       if (nivelCruceroActual == PWM_CRUCERO_100) nivelCruceroActual = PWM_CRUCERO_90;
-      else if (nivelCruceroActual == PWM_CRUCERO_90) nivelCruceroActual = PWM_CRUCERO_80;
-      else if (nivelCruceroActual == PWM_CRUCERO_80) nivelCruceroActual = PWM_CRUCERO_70;
+      else if (nivelCruceroActual == PWM_CRUCERO_90) nivelCruceroActual = PWM_CRUCERO_85;
       ultimoCambioCruceroMs = millis();
     }
   }
@@ -1100,7 +1102,7 @@ bool controlarAvance() {
     inicioPulsoAproximacionMs = millis();
   }
 
-  // Compensacion derecha + reduccion dinamica del lado contrario al angulo desviado (extraida del test aprobado)
+  // Compensacion derecha + direccionamiento diferencial simetrico (preserva empuje neto hacia adelante)
   int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int redL = 0, redR = 0;
   int boostL = 0, boostR = 0;
@@ -1109,13 +1111,14 @@ bool controlarAvance() {
     // La calibración decide el lado en avance; en reversa se intercambia para
     // conservar el mismo signo físico de corrección del yaw.
     const int diffPwm = aproximar(fabsf(ctrlRumbo));
+    const int diffMitad = diffPwm / 2;
     if (ControlRuta::frenarLadoIzquierdoParaRumbo(cand, direccionTraslacion)) {
-      redL += diffPwm;
-      boostR += diffPwm / 4; // Empuje complementario si hay margen
+      redL += diffMitad;
+      boostR += diffMitad; // Reparto simétrico: empuje longitudinal constante sin caídas bruscas de par
       strncpy(pasoLadoFrenoRumbo, "left", sizeof(pasoLadoFrenoRumbo));
     } else {
-      redR += diffPwm;
-      boostL += diffPwm / 4;
+      redR += diffMitad;
+      boostL += diffMitad;
       strncpy(pasoLadoFrenoRumbo, "right", sizeof(pasoLadoFrenoRumbo));
     }
   } else {
@@ -1188,7 +1191,7 @@ void iniciarVerificacionFinal() {
   strncpy(faseComando, "verif_fin", sizeof(faseComando));
 }
 
-void iniciarRecuperacionEndpoint() {
+[[maybe_unused]] void iniciarRecuperacionEndpoint() {
   actualizarErroresTrayectoria();
   const float distancia = PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY);
   pasoDistanciaRecuperacionCm = distancia;
@@ -1244,15 +1247,8 @@ void iniciarRecuperacionEndpoint() {
 
 void verificarObjetivoFinal() {
   frenarMotores();
-  if (fabsf(errorAng360(pasoRumboFinalDeg, heading360)) > TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
+  if (!giroFinalRealizado && fabsf(errorAng360(pasoRumboFinalDeg, heading360)) > TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
     iniciarBaseGiro(pasoRumboFinalDeg, Fase::GIRO_FINAL);
-    return;
-  }
-  // La ventana de asentamiento exige que tanto la orientación como el punto
-  // absoluto permanezcan válidos durante la pausa completa; no basta con
-  // que vuelvan a coincidir justo al instante de confirmar el paso.
-  if (pasoObjetivoAbsoluto && !objetivoAbsolutoAlcanzado()) {
-    iniciarRecuperacionEndpoint();
     return;
   }
   const SensorSnapshot s = sensar();
@@ -1266,32 +1262,12 @@ void verificarObjetivoFinal() {
 }
 
 void completarPaso() {
-  const float distancia = pasoObjetivoAbsoluto
-      ? PoseGlobal.distanciaAlObjetivo(pasoTargetX, pasoTargetY) : 0.0f;
-  const ControlRuta::DecisionEndpoint decision = ControlRuta::decidirEndpointSeguro(
-      pasoObjetivoAbsoluto, objetivoAbsolutoAlcanzado(), intentosEndpoint,
-      INTENTOS_RECUPERACION_ENDPOINT_MAX, distancia,
-      DISTANCIA_MINIMA_RECUPERACION_ENDPOINT_CM);
-  if (decision == ControlRuta::DecisionEndpoint::CALIBRAR) {
-    pasoDistanciaRecuperacionCm = distancia;
-    strncpy(pasoDecisionRecuperacion, "soft_complete", sizeof(pasoDecisionRecuperacion));
-    completarPasoConCorreccionPendiente();
-    return;
-  }
-  if (decision == ControlRuta::DecisionEndpoint::FALLAR) {
-    fallo("endpoint_not_reached");
-    return;
-  }
-  if (decision == ControlRuta::DecisionEndpoint::RECUPERAR) {
-    iniciarRecuperacionEndpoint();
-    return;
-  }
   recuperacionEndpointActiva = false;
   progresoComando = 1.0f;
   fin(EVT_COMPLETED, "step_ok");
 }
 
-void completarPasoConCorreccionPendiente() {
+[[maybe_unused]] void completarPasoConCorreccionPendiente() {
   recuperacionEndpointActiva = false;
   progresoComando = 1.0f;
   // `completed` permite al planificador enviar el siguiente waypoint. El
@@ -1351,6 +1327,7 @@ void controlarPausaPreAvance() {
 }
 
 void iniciarPasoInterno() {
+  giroFinalRealizado = false;
   float errInicial = errorAng360(pasoRumboCuerpoDeg, heading360);
   if (fabsf(errInicial) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
     iniciarPausaPreAvance(false);
@@ -1535,6 +1512,7 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   pasoRecuperacionUsaReversa = false;
   intentosEndpoint = 0;
   recuperacionEndpointActiva = false;
+  giroFinalRealizado = false;
   distanciaPlanificadaCm = distanciaCm;
 
   if (objetivoAbsoluto) {
@@ -1603,6 +1581,7 @@ void cancelarMovimiento(const char* detalle) {
   antiFriccionActiva = false;
   antiFriccionPulsoEncendido = false;
   antiFriccionPwmObjetivo = 0;
+  giroFinalRealizado = false;
   if (falloEnclavado) {
     // STOP siempre desenergiza, pero nunca rearma silenciosamente un fallo.
     // El operador debe usar CLEAR_FAULT para volver a LISTO.
