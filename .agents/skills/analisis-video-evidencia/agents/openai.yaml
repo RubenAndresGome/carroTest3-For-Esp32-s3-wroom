@@ -1,0 +1,4 @@
+interface:
+  display_name: "Análisis de Video Forense para Robot"
+  short_description: "Uso de video como evidencia física para corregir fallos repetidos en chat"
+  default_prompt: "Usa $analisis-video-evidencia para analizar el video del ensayo del robot, solicitando la ubicación y el nombre del archivo, e investigar el fallo recurrente observado en el chat."
