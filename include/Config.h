@@ -50,13 +50,12 @@ constexpr uint16_t IMU_CALIBRATION_SAMPLES = 256;
 constexpr float IMU_GYRO_DEADBAND_RAD_S = 0.005f;
 
 constexpr float WHEEL_DIAMETER_CM = 6.6f;
-// Corrección firmada de la distancia por pulso. La fórmula es la solicitada:
-// constante efectiva = constante nominal + porcentaje * constante nominal.
-// Calibración provisional de suelo: los recorridos físicos reportaron un
-// sobreavance de 10 % en 1 m y de 15--20 % en 2 m. Al aumentar la distancia
-// estimada por tick, el restante se reduce antes y el robot ordena el freno
-// antes. Revalidar con tres corridas de 50 y 200 cm tras cada cambio mecánico.
-constexpr float ENCODER_ERROR_PORCENTAJE = 0.18f;
+// Factor de corrección de distancia por pulso.
+// El filtro PCNT de 1023 ciclos APB (12.8 µs) elimina el ringing inductivo de
+// FL (GPIO11), de modo que FL y BL cuentan con precisión equivalente y ya no
+// es necesario compensar ticks espurios. Se usa el diámetro nominal puro.
+// Revalidar con tres corridas de 50 y 100 cm tras cualquier cambio mecánico.
+constexpr float ENCODER_ERROR_PORCENTAJE = 0.0f;
 constexpr float FACTOR_ESCALA_ENCODER = 1.0f + ENCODER_ERROR_PORCENTAJE;
 static_assert(FACTOR_ESCALA_ENCODER > 0.0f,
               "La correccion del encoder debe conservar una distancia por pulso positiva.");
