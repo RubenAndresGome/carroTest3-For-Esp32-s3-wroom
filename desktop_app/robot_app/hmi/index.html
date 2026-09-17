@@ -854,11 +854,15 @@
         @media (max-width:1050px) { .route-form { grid-template-columns:minmax(145px,1fr) auto minmax(145px,1fr) minmax(145px,1fr); } .route-form .btn { width:100%; } }
         @media (max-width:600px) { .route-program-header { align-items:flex-start; } .route-mode-chip { font-size:8px; } .route-form { grid-template-columns:1fr 1fr; gap:8px; padding:9px; } .route-axis-toggle { align-self:end; } .route-form .btn { grid-column:span 1; font-size:10px; } }
         .route-map-card { position: relative; background: var(--bg-secondary); border-radius: var(--radius); border: 1px solid var(--border); padding: 10px; display: flex; flex-direction: column; transition: all 0.3s; }
-        .route-map-card.cinema-mode { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-primary); margin: 0; border: none; border-radius: 0; padding: 20px; }
+        .route-map-card.cinema-mode { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: var(--bg-primary); margin: 0; border: none; border-radius: 0; padding: 16px 20px 20px 20px; display: flex; flex-direction: column; }
+        .route-map-card.cinema-mode .route-map-header { padding-right: 150px; margin-bottom: 12px; }
+        .route-cinema-floating-close { display: none; }
+        .route-map-card.cinema-mode .route-cinema-floating-close { display: inline-flex; align-items: center; justify-content: center; gap: 6px; position: fixed; top: 14px; right: 18px; z-index: 10005; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: var(--radius-sm); box-shadow: 0 4px 16px rgba(0,0,0,0.6); cursor: pointer; background: var(--stop, #ef4444); color: #fff; border: 1px solid rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.5px; }
+        .route-map-card.cinema-mode .route-cinema-floating-close:hover { filter: brightness(1.15); transform: scale(1.02); }
         .route-map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .route-map-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
         .route-map-container { position: relative; flex-grow: 1; min-height: 360px; height: min(52vh,520px); display: flex; justify-content: center; align-items: center; overflow: hidden; background: linear-gradient(180deg,rgba(17,24,32,.96),rgba(10,14,20,.98)); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; }
-        .route-map-card.cinema-mode .route-map-container { min-height: auto; height: auto; }
+        .route-map-card.cinema-mode .route-map-container { min-height: 0; height: calc(100vh - 90px); flex: 1 1 auto; width: 100%; }
         .route-chart-canvas { width: 100% !important; height: 100% !important; }
         .route-angular-meta { display:grid; gap:8px; margin:0 0 10px; }
         .route-angular-meta[hidden] { display:none; }
@@ -1713,9 +1717,10 @@
 
             <div class="route-maps-grid">
                 <div class="route-map-card" id="card-plan-map">
+                    <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-plan-map" title="Salir de Modo Cine (Esc)">🗗 Reducir</button>
                     <div class="route-map-header">
                         <span class="route-map-title">Plan Teórico</span>
-                        <button class="btn btn-sm route-cinema" data-card="card-plan-map">⛶ Cine</button>
+                        <button class="btn btn-sm route-cinema" data-card="card-plan-map" title="Pantalla completa / Modo cine">⛶ Cine</button>
                     </div>
                     <div class="route-angular-meta" id="route-angular-meta" hidden>
                         <div class="route-angular-legend" role="list" aria-label="Leyenda del modo angular">
@@ -1732,9 +1737,10 @@
                 </div>
                 
                 <div class="route-map-card" id="card-telem-map">
+                    <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-telem-map" title="Salir de Modo Cine (Esc)">🗗 Reducir</button>
                     <div class="route-map-header">
                         <span class="route-map-title">Telemetría Real</span>
-                        <button class="btn btn-sm route-cinema" data-card="card-telem-map">⛶ Cine</button>
+                        <button class="btn btn-sm route-cinema" data-card="card-telem-map" title="Pantalla completa / Modo cine">⛶ Cine</button>
                     </div>
                     <div class="route-map-container">
                         <canvas class="route-chart-canvas" id="route-telem-chart" aria-label="Gráfica de telemetría real"></canvas>
@@ -3792,14 +3798,47 @@
             document.getElementById('route-metric-deviation').textContent=`${deviation.toFixed(1)} cm`;
         },
         preview() {
-            const card=document.getElementById('card-plan-map'), button=document.getElementById('btn-route-preview');
-            card.classList.toggle('cinema-mode'); button.setAttribute('aria-pressed',card.classList.contains('cinema-mode'));
-            button.textContent=card.classList.contains('cinema-mode')?'✕ Cerrar previsualización':'👁 Previsualizar'; this.resizeCharts();
+            this.toggleCinema('card-plan-map');
         },
         toggleCinema(cardId) {
             const card = document.getElementById(cardId);
-            card.classList.toggle('cinema-mode');
-            setTimeout(()=>this.resizeCharts(),0);
+            if (!card) return;
+            const isCinema = card.classList.toggle('cinema-mode');
+
+            // Si se activa modo cine en una tarjeta, desactivar la otra
+            const otherCardId = (cardId === 'card-plan-map') ? 'card-telem-map' : 'card-plan-map';
+            const otherCard = document.getElementById(otherCardId);
+            if (isCinema && otherCard && otherCard.classList.contains('cinema-mode')) {
+                otherCard.classList.remove('cinema-mode');
+                this._syncCinemaButton(otherCardId, false);
+            }
+
+            this._syncCinemaButton(cardId, isCinema);
+            setTimeout(() => this.resizeCharts(), 50);
+        },
+        _syncCinemaButton(cardId, isCinema) {
+            const btn = document.querySelector(`.route-cinema[data-card="${cardId}"]`);
+            if (btn) {
+                btn.setAttribute('aria-pressed', isCinema);
+                if (isCinema) {
+                    btn.classList.add('btn-stop');
+                    btn.innerHTML = '🗗 Reducir';
+                    btn.title = 'Salir de modo cine (Esc)';
+                } else {
+                    btn.classList.remove('btn-stop');
+                    btn.innerHTML = '⛶ Cine';
+                    btn.title = 'Pantalla completa / Modo cine';
+                }
+            }
+            if (cardId === 'card-plan-map') {
+                const previewBtn = document.getElementById('btn-route-preview');
+                if (previewBtn) {
+                    previewBtn.setAttribute('aria-pressed', isCinema);
+                    previewBtn.textContent = isCinema ? '✕ Cerrar previsualización' : '👁 Previsualizar';
+                    if (isCinema) previewBtn.classList.add('btn-stop');
+                    else previewBtn.classList.remove('btn-stop');
+                }
+            }
         },
         lockTabs() {
             document.querySelectorAll('.tab-btn').forEach(b => {
@@ -4223,7 +4262,15 @@
         LogSystem.init(); MotorViz.init(); EncoderSpeed.init(); FSMDisplay.update('INIT');
         Calibration.init(); SurfaceManager.init(); TabManager.init(); ConnectionPanel.init(); initChart(); Touch.init();
         if (typeof RouteManager !== 'undefined') RouteManager.init();
-        document.querySelectorAll('.route-cinema').forEach(button=>button.addEventListener('click',()=>RouteManager.toggleCinema(button.dataset.card)));
+        document.querySelectorAll('.route-cinema, .route-cinema-floating-close').forEach(button=>button.addEventListener('click',()=>RouteManager.toggleCinema(button.dataset.card)));
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                const activeCinema = document.querySelector('.route-map-card.cinema-mode');
+                if (activeCinema) {
+                    RouteManager.toggleCinema(activeCinema.id);
+                }
+            }
+        });
         document.addEventListener('visibilitychange',()=>{if(document.hidden)Touch.end();});
         window.addEventListener('blur',()=>Touch.end());
         window.addEventListener('pagehide',()=>Touch.end());

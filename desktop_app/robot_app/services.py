@@ -1253,6 +1253,13 @@ class RobotService:
                     self._last_recorded_session_id = session_id
                     self._last_recorded_signature = signature
                     self._recorder.submit(session_id, snapshot)
+            if snapshot.torque_history and isinstance(snapshot.torque_history, dict):
+                count = int(snapshot.torque_history.get("record_count", 0) or 0)
+                if count > 0:
+                    base_pos = int(snapshot.torque_history.get("base_positive_8bit", 0) or 0)
+                    base_neg = int(snapshot.torque_history.get("base_negative_8bit", 0) or 0)
+                    if base_pos >= 180 or base_neg >= 180:
+                        self._sync_surface_torque_from_telemetry(base_pos, base_neg)
             return
 
         seq = int(message.get("seq", 0) or 0)
@@ -1644,3 +1651,35 @@ class RobotService:
             "name": surface["name"],
             "surface": self._format_surface_dict(surface),
         }
+
+    def _sync_surface_torque_from_telemetry(self, base_pos: int, base_neg: int) -> None:
+        surface_id = self.database.get_setting("active_surface_id")
+        surface = self.database.get_calibration_surface(surface_id) if surface_id else None
+        if surface is None:
+            surface = self.database.get_calibration_surface("azulejo_cafe_liso")
+        if surface is None:
+            surfaces = self.database.list_calibration_surfaces()
+            if len(surfaces) == 1:
+                surface = surfaces[0]
+            elif surfaces:
+                surface = next((s for s in surfaces if "loseta" in str(s["id"]).lower() or "azulejo" in str(s["id"]).lower()), surfaces[0])
+        if surface is not None:
+            curr_pos = int(surface["pwm_positive_8bit"] or 0)
+            curr_neg = int(surface["pwm_negative_8bit"] or 0)
+            target_pos = max(curr_pos, base_pos)
+            target_neg = max(curr_neg, base_neg)
+            if target_pos != curr_pos or target_neg != curr_neg:
+                self.database.save_calibration_surface(
+                    surface["id"],
+                    surface["name"],
+                    target_pos,
+                    target_neg,
+                    int(surface["positive_polarity"]),
+                    int(surface["negative_polarity"]),
+                    surface["description"],
+                )
+                updated = self.database.get_calibration_surface(surface["id"])
+                if updated:
+                    result = self._format_surface_dict(updated)
+                    self.events.publish("calibration_surfaces", {"action": "saved", "surface": result})
+

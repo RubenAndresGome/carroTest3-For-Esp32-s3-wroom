@@ -148,28 +148,33 @@ constexpr uint32_t PAUSA_ENTRE_PASOS_MS = 600;
 
 // --- PARÁMETROS DE GIRO PIVOTE (TURN) ---
 constexpr uint32_t TURN_CONTROL_PERIOD_MS = 20;
-constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(247 * PWM_SCALE_8_TO_10); // Límite seguro para giros (247/255 = ~97%)
-// Giro inicial a ~84 % para vencer fricción estática del chasis 4WD. La rampa posterior conserva el
-// límite de 247/255 y el interlock universal al invertir polaridad.
-constexpr int PWM_TURN_START = static_cast<int>(215 * PWM_SCALE_8_TO_10);
+constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(255 * PWM_SCALE_8_TO_10); // Techo al 100% (255/255 = 1023/1023) exclusivo para giros
+constexpr int PWM_TURN_KICKSTART = static_cast<int>(247 * PWM_SCALE_8_TO_10); // ~97% arranque instantáneo para romper esticción 4WD
+// Piso de potencia mínima para giros (~70.6%) para vencer fricción estática y arrastre lateral 4WD
+constexpr int PWM_TURN_FLOOR_MIN = static_cast<int>(180 * PWM_SCALE_8_TO_10);
+// Giro inicial a ~97% para vencer fricción estática del chasis 4WD de inmediato
+constexpr int PWM_TURN_START = static_cast<int>(247 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_FAR_MARGIN = static_cast<int>(10 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_NEAR_MARGIN = static_cast<int>(4 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_FLOOR_OFFSET = static_cast<int>(15 * PWM_SCALE_8_TO_10);
 constexpr float KP_GIRO_BALANCE_PWM_POR_CM = 15.0f * PWM_SCALE_8_TO_10;
 constexpr int PWM_GIRO_BALANCE_MAX = static_cast<int>(45 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
-constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
+constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(6 * PWM_SCALE_8_TO_10);
+constexpr uint32_t TURN_RAMP_DOWN_INTERVAL_MS = 30; // 30 ms por escalón de descenso en zona de frenado
+constexpr int PWM_TURN_RAMP_DOWN_STEP = static_cast<int>(3 * PWM_SCALE_8_TO_10); // ~1.2% por escalón (~12 unidades)
 constexpr float TOLERANCIA_GIRO_DEG = 2.5f;
 constexpr float TOLERANCIA_CALIBRACION_DEG = 2.5f;
 constexpr float CALIBRACION_GIRO_TEST_DEG = 25.0f;
-constexpr float TURN_BRAKING_ZONE_DEG = 25.0f;
+constexpr float TURN_BRAKING_ZONE_DEG = 15.0f;
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 4.0f;
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
 constexpr uint32_t TURN_PULSE_ON_MS = 250;
+constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 80;
 constexpr uint32_t TURN_PULSE_OFF_MS = 120;
 constexpr float TURN_REACTIVATION_DEG = 1.0f;
-constexpr uint8_t TURN_MAX_ATTEMPTS = 33;
-constexpr uint32_t TURN_RETRY_PAUSE_MS = 1000;
+constexpr uint8_t TURN_MAX_ATTEMPTS = 121;
+constexpr uint32_t TURN_RETRY_PAUSE_MS = 300;
 // Exigir 250 ms de yaw estable en reposo absoluto antes de completar el giro
 constexpr uint32_t TURN_SETTLE_MS = 250;
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_PASO_MS = 600; // Reposo total del MPU tras frenar avance
@@ -177,11 +182,14 @@ constexpr uint32_t PAUSA_ESTABILIZACION_POST_GIRO_MS = 400; // Reposo y verifica
 constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 2.5f; // Unificado con TOLERANCIA_GIRO_DEG
 constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 3.0f;
 constexpr uint32_t TURN_STALL_MS = 4000;
-constexpr uint32_t TURN_TIMEOUT_MS = 60000;
+constexpr uint32_t TURN_TIMEOUT_MS = 90000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
-// Guarda activa de divergencia angular: aborta de inmediato ante giro inverso o trompo descontrolado
-constexpr float TURN_DIVERGENCE_THRESHOLD_DEG = 5.0f;
-constexpr uint32_t TURN_DIVERGENCE_TIMEOUT_MS = 300;
+// Guarda activa de divergencia angular: detecta giro inverso o trompo descontrolado
+constexpr float TURN_DIVERGENCE_THRESHOLD_DEG = 8.0f;
+constexpr uint32_t TURN_DIVERGENCE_TIMEOUT_MS = 400;
+// En calibración (mayor inercia por exploración a alta potencia y retorno), cotas adaptadas
+constexpr float TURN_DIVERGENCE_CALIBRATION_THRESHOLD_DEG = 12.0f;
+constexpr uint32_t TURN_DIVERGENCE_CALIBRATION_TIMEOUT_MS = 500;
 
 // PID y Correcciones en marcha (MPU como autoridad angular única; encoders no interfieren en rumbo)
 constexpr int PWM_CALIBRATION_MARGIN = static_cast<int>(8 * PWM_SCALE_8_TO_10);
@@ -193,7 +201,7 @@ constexpr float KD_RUMBO_PWM_POR_RAD_S = 18.0f * PWM_SCALE_8_TO_10;
 constexpr float KP_ENCODER_PWM_POR_TICK = 0.0f;
 constexpr float ERROR_INTEGRAL_RUMBO_MAX_GRADO_S = 40.0f;
 constexpr float ERROR_ENCODER_AUX_MAX_DEG = 8.0f;
-constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 2.0f;
+constexpr float KP_LATERAL_RUMBO_DEG_POR_CM = 2.25f;
 constexpr float CORRECCION_LATERAL_RUMBO_MAX_DEG = 18.0f;
 // Regla de minima rotacion del marco unificado: ante un cambio de rumbo
 // |delta theta| >= 105 grados el chasis conmuta a reversa y solo necesita un
@@ -217,7 +225,7 @@ constexpr uint32_t CAL_RETRY_PAUSE_MS = 750;
 constexpr uint32_t CAL_MAX_PWM_STALL_MS = 3000;
 constexpr float    CAL_RETURN_PROGRESS_DEG = 0.5f;
 constexpr uint32_t CAL_RETURN_NO_PROGRESS_MS = 15000;
-constexpr uint32_t CAL_RETURN_TIMEOUT_MS = 25000;
+constexpr uint32_t CAL_RETURN_TIMEOUT_MS = 60000;
 constexpr float DESACUERDO_MAXIMO_PAR = 0.25f;
 constexpr uint32_t DESACUERDO_ENCODER_PERSISTENTE_MS = 500;
 constexpr uint32_t PAUSA_REEVALUACION_MS = 500;

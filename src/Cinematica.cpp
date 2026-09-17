@@ -364,7 +364,11 @@ int pwmBusquedaGiro = 0;
 int pwmBoostFrenado = 0;
 uint32_t inicioPulsoFinoGiroMs = 0;
 bool pulsoFinoGiroEncendido = false;
+uint32_t inicioFrenoToleranciaMs = 0;
+uint32_t ultimoJerkMs = 0;
+bool jerkActivo = false;
 ControlSeguridad::EstadoVigilanciaDivergenciaGiro vigilanciaDivergenciaGiro;
+int ultimoSignoErrorGiro = 0;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   reiniciarControlRumbo();
@@ -372,22 +376,36 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   const SensorSnapshot s = sensar();
   copiarBase(ticksBaseGiroLocal, s);
   giroObjetivo = objetivoDeg;
-  giroEnTol = false; pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false;
+  giroEnTol = false; movGiroConfirmado=false; watchdogGiroArmado=false;
   intentoGiro=1; inicioIntentoGiroMs=millis(); inicioGiroTotalMs=millis();
   estableGiroDesdeMs=0; pausaReintentoGiroCal=false;
   inicioPulsoFinoGiroMs=millis(); pulsoFinoGiroEncendido=false;
+  inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false;
   ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
   ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=millis();
   ultimoCtrlGiroMs=0;
   ultimoAumentoTorqueGiroMs=millis();
   float errorIni = errorAng360(objetivoDeg, heading360);
-  vigilanciaDivergenciaGiro.reiniciar(fabsf(errorIni));
+  float errorIniAbs = fabsf(errorIni);
+  vigilanciaDivergenciaGiro.reiniciar(errorIniAbs);
   int signoIni = errorIni > 0 ? 1 : -1;
+  ultimoSignoErrorGiro = signoIni;
   int minIni = signoIni > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
-  if (minIni > 0) {
-    pwmBusquedaGiro = max(PWM_TURN_START, minIni - PWM_TURN_START_FLOOR_OFFSET);
+  if (errorIniAbs > TURN_HYBRID_THRESHOLD_DEG) {
+    // Macro-giro: Kickstart instantáneo con piso específico de este sentido aprendido en calibración
+    int kickstartSentido = max(PWM_TURN_KICKSTART, minIni + static_cast<int>(10 * PWM_SCALE_8_TO_10));
+    pwmBusquedaGiro = min(PWM_TURN_MAX_LIMIT, kickstartSentido);
+    pwmGiroAct = pwmBusquedaGiro;
+    signoGiroApl = signoIni;
   } else {
-    pwmBusquedaGiro = PWM_TURN_START;
+    // Micro-giro fino (<4.0°): iniciar en cero para que la máquina trifásica comience con pulso limpio
+    if (minIni > 0) {
+      pwmBusquedaGiro = max(PWM_TURN_START, minIni - PWM_TURN_START_FLOOR_OFFSET);
+    } else {
+      pwmBusquedaGiro = PWM_TURN_START;
+    }
+    pwmGiroAct = 0;
+    signoGiroApl = 0;
   }
   pwmBoostFrenado=0;
   faseRetornoGiro = retorno;
@@ -401,7 +419,8 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
 
 void reintentarGiro(const char* motivo) {
   frenarMotores(); pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false; giroEnTol=false;
-  pwmBoostFrenado=0;
+  pwmBoostFrenado=0; inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false;
+  ultimoSignoErrorGiro = 0;
   if (intentoGiro >= TURN_MAX_ATTEMPTS) { fallo(motivo); return; }
   ++intentoGiro;
   pausaReintentoGiroCal = true;
@@ -447,6 +466,13 @@ void controlarGiro() {
   float error = errorAng360(giroObjetivo, heading360);
   float errorAbs = fabsf(error);
   const int signoEsperado = error > 0 ? 1 : -1;
+  if (ultimoSignoErrorGiro != 0 && signoEsperado != ultimoSignoErrorGiro) {
+    // El chasis cruzó el rumbo objetivo (inercia / sobrepaso transitorio).
+    // Reiniciar vigilancia de divergencia desde el nuevo error para permitir
+    // que el lazo converja desde el nuevo lado sin disparar falsas divergencias.
+    vigilanciaDivergenciaGiro.reiniciar(errorAbs);
+    ultimoSignoErrorGiro = signoEsperado;
+  }
   int torqueCalibrado = signoEsperado > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
   if (torqueCalibrado == 0) {
     torqueCalibrado = pwmMinGiroPos > 0 ? pwmMinGiroPos : (pwmMinGiroNeg > 0 ? pwmMinGiroNeg : PWM_TURN_START);
@@ -457,20 +483,33 @@ void controlarGiro() {
   }
 
   int64_t d[4]; deltas(ticksBaseGiroLocal, s, d);
-  int64_t ladoTicks[2] = {d[0]+d[2], d[1]+d[3]};
-  const bool ambosLadosMoviendo = (ladoTicks[0] >= 2 && ladoTicks[1] >= 2);
+  int64_t ladoTicks[2] = {
+    (encoderConfiableGlobal[0] ? d[0] : 0) + (encoderConfiableGlobal[2] ? d[2] : 0),
+    (encoderConfiableGlobal[1] ? d[1] : 0) + (encoderConfiableGlobal[3] ? d[3] : 0)
+  };
+  const bool ladoIzqMoviendo = (encoderConfiableGlobal[0] && d[0] >= 2) ||
+                               (encoderConfiableGlobal[2] && d[2] >= 2);
+  const bool ladoDerMoviendo = (encoderConfiableGlobal[1] && d[1] >= 2) ||
+                               (encoderConfiableGlobal[3] && d[3] >= 2);
+  const bool ambosLadosMoviendo = ladoIzqMoviendo && ladoDerMoviendo;
   const bool gyroGirando = (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S);
   if (gyroGirando || ambosLadosMoviendo) {
     if (!movGiroConfirmado) {
       movGiroConfirmado = true;
-      if (signoEsperado > 0) pwmMinGiroPos = max(pwmMinGiroPos, pwmGiroAct);
-      else pwmMinGiroNeg = max(pwmMinGiroNeg, pwmGiroAct);
+      int torqueConfirmado = max(PWM_TURN_FLOOR_MIN, pwmGiroAct);
+      if (signoEsperado > 0) pwmMinGiroPos = max(pwmMinGiroPos, torqueConfirmado);
+      else pwmMinGiroNeg = max(pwmMinGiroNeg, torqueConfirmado);
+      solicitarGuardarTorque(
+          pwmMinGiroPos / PWM_SCALE_8_TO_10,
+          pwmMinGiroNeg / PWM_SCALE_8_TO_10,
+          candidatoGiroPos,
+          candidatoGiroNeg
+      );
     }
   }
 
-  // Mientras el torque siga incrementándose en rampa para vencer fricción y no haya movimiento confirmado,
-  // mantener fresco el temporizador de pulso para evitar falsos stalls durante la búsqueda de torque.
-  if (!movGiroConfirmado && pwmBusquedaGiro < PWM_TURN_MAX_LIMIT) {
+  // Mientras no haya movimiento confirmado, mantener fresco el temporizador de pulso para evitar falsos stalls
+  if (!movGiroConfirmado) {
     ultimoPulsoLadoGiroMs[0] = ultimoPulsoLadoGiroMs[1] = ahora;
   }
 
@@ -491,18 +530,60 @@ void controlarGiro() {
   if (ahora - inicioIntentoGiroMs > TURN_ATTEMPT_TIMEOUT_MS) { reintentarGiro("turn_timeout_attempt"); return; }
 
   // Guarda activa de divergencia angular (corte inmediato ante giro inverso o trompo descontrolado)
+  const float umbralDivergencia = (fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO)
+      ? TURN_DIVERGENCE_CALIBRATION_THRESHOLD_DEG
+      : TURN_DIVERGENCE_THRESHOLD_DEG;
+  const uint32_t timeoutDivergencia = (fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO)
+      ? TURN_DIVERGENCE_CALIBRATION_TIMEOUT_MS
+      : TURN_DIVERGENCE_TIMEOUT_MS;
+
   const bool movimientoPresenteGiro = movGiroConfirmado || (fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S) || ambosLadosMoviendo;
-  if (ControlSeguridad::evaluarDivergenciaGiro(vigilanciaDivergenciaGiro, errorAbs, ahora, TURN_DIVERGENCE_THRESHOLD_DEG, TURN_DIVERGENCE_TIMEOUT_MS, movimientoPresenteGiro)) {
-    frenarMotores();
+  if (ControlSeguridad::evaluarDivergenciaGiro(vigilanciaDivergenciaGiro, errorAbs, ahora, umbralDivergencia, timeoutDivergencia, movimientoPresenteGiro)) {
+    // 1. Frenado dinámico activo inmediato para neutralizar inercia no deseada
+    frenarMotoresActivo();
+    pwmGiroAct = 0;
+    signoGiroApl = 0;
+
+    // 2. Reparación inteligente del error con if condicional:
+    // Caso A: Si estamos en CAL_RETORNO y el robot ya está en las inmediaciones del reposo original (<= 12.0°)
+    if (fase == Fase::CAL_RETORNO && errorAbs <= 12.0f) {
+      completarGiro();
+      return;
+    }
+
+    // Caso B: Si aún quedan reintentos en la máquina de estados de giro
+    if (intentoGiro < TURN_MAX_ATTEMPTS) {
+      reintentarGiro((fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO) ? "cal_yaw_divergence" : "turn_angular_divergence");
+      return;
+    }
+
+    // Caso C: Solo si se agotaron todos los reintentos permitidos
     fallo((fase == Fase::CAL_VALIDAR_25 || fase == Fase::CAL_RETORNO) ? "cal_yaw_divergence" : "turn_angular_divergence");
     return;
   }
 
-  // --- latch de tolerancia y verificación estricta de reposo ---
+  // --- latch de tolerancia y freno dinámico activo por MPU ---
   const float tolGiro = (fase == Fase::CAL_RETORNO) ? TOLERANCIA_CALIBRACION_DEG : TOLERANCIA_GIRO_DEG;
   if (errorAbs <= tolGiro) {
-    frenarMotores(); pwmGiroAct=0; signoGiroApl=0; giroEnTol=true;
-    if (fabsf(s.gyro_z_filtrado_rad_s) > 0.02f) { estableGiroDesdeMs=0; return; }
+    pwmGiroAct = 0;
+    signoGiroApl = 0;
+    if (!giroEnTol) {
+      giroEnTol = true;
+      inicioFrenoToleranciaMs = ahora;
+      frenarMotoresActivo();
+      estableGiroDesdeMs = 0;
+      return;
+    }
+    if (ahora - inicioFrenoToleranciaMs < TURN_BRAKE_ACTIVE_MS) {
+      frenarMotoresActivo();
+      return;
+    }
+    // Tras el pulso de freno activo (Back-EMF), reposo quieto para muestreo de giróscopo MPU
+    frenarMotores();
+    if (fabsf(s.gyro_z_filtrado_rad_s) > 0.02f) {
+      estableGiroDesdeMs = 0;
+      return;
+    }
     if (!estableGiroDesdeMs) estableGiroDesdeMs = ahora;
     if (ahora - estableGiroDesdeMs >= TURN_SETTLE_MS) {
       completarGiro();
@@ -514,8 +595,28 @@ void controlarGiro() {
   if (giroEnTol) {
     giroEnTol = false;
     estableGiroDesdeMs = 0;
+    inicioFrenoToleranciaMs = 0;
+    vigilanciaDivergenciaGiro.reiniciar(errorAbs);
   }
   estableGiroDesdeMs = 0;
+
+  // Sacudida dinámica anti-bloqueo (dynamic jerk): si el chasis está a alta potencia pero no confirma movimiento tras 350 ms
+  if (!movGiroConfirmado && (ahora - inicioIntentoGiroMs > 350)) {
+    if (ahora - ultimoJerkMs >= 400) {
+      ultimoJerkMs = ahora;
+      jerkActivo = true;
+    }
+  }
+  if (jerkActivo) {
+    if (ahora - ultimoJerkMs < 40) {
+      frenarMotoresActivo();
+      pwmGiroAct = 0;
+      return;
+    } else {
+      jerkActivo = false;
+      pwmGiroAct = PWM_TURN_MAX_LIMIT;
+    }
+  }
 
   // --- calcular PWM ---
   int signoDeseado = error>0?1:-1;
@@ -528,7 +629,7 @@ void controlarGiro() {
     if (minimo == 0) { reintentarGiro("turn_not_calibrated"); return; }
   }
   int pwmLejos = max(PWM_TURN_START, min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_FAR_MARGIN));
-  int pwmCerca = min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_NEAR_MARGIN);
+  int pwmCerca = max(PWM_TURN_FLOOR_MIN, min(PWM_TURN_MAX_LIMIT, minimo - static_cast<int>(15 * PWM_SCALE_8_TO_10)));
 
   const bool detectadoSinMovimiento = (fabsf(s.gyro_z_filtrado_rad_s) < GYRO_MOVEMENT_RAD_S);
 
@@ -543,7 +644,7 @@ void controlarGiro() {
     pwmObj = pwmCerca + aproximar((pwmLejos - pwmCerca) * errorAbs / TURN_BRAKING_ZONE_DEG);
 
     if (errorAbs > TURN_HYBRID_THRESHOLD_DEG) {
-      // --- MODO 1: Rampa Adaptativa Rápida (4.0° a 25.0°) ---
+      // --- MODO 1: Rampa Adaptativa Rápida (4.0° a 15.0°) ---
       pulsoFinoGiroEncendido = false;
       inicioPulsoFinoGiroMs = ahora;
       if (detectadoSinMovimiento) {
@@ -559,30 +660,43 @@ void controlarGiro() {
       }
       pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     } else {
-      // --- MODO 2: aproximación fina por micro-pulsos intermitentes (<4.0°) ---
+      // --- MODO 2: aproximación fina por micro-pulsos trifásicos (<4.0°) ---
+      // Fase 1: 250 ms ON a par firme (75%-85% PWM, piso 70%)
+      // Fase 2: 80 ms Freno Activo dinámico (Back-EMF DRV8833 IN1=1, IN2=1)
+      // Fase 3: 120 ms Reposo mecánico total y lectura estricta de MPU (IN1=0, IN2=0)
       const uint32_t deltaPulso = ahora - inicioPulsoFinoGiroMs;
       if (pulsoFinoGiroEncendido) {
         if (deltaPulso >= TURN_PULSE_ON_MS) {
           pulsoFinoGiroEncendido = false;
           inicioPulsoFinoGiroMs = ahora;
-          frenarMotores();
+          frenarMotoresActivo();
           pwmGiroAct = 0;
           return;
         }
-        int pwmKick = max(minimo + static_cast<int>(15 * PWM_SCALE_8_TO_10), PWM_TURN_START);
+        int pwmKick = max(PWM_TURN_FLOOR_MIN, max(minimo + static_cast<int>(15 * PWM_SCALE_8_TO_10), PWM_TURN_START));
         pwmObj = min(PWM_TURN_MAX_LIMIT, pwmKick + pwmBoostFrenado);
       } else {
-        frenarMotores();
-        pwmGiroAct = 0;
-        if (deltaPulso >= TURN_PULSE_OFF_MS) {
+        if (deltaPulso < TURN_BRAKE_ACTIVE_MS) {
+          // Fase 2: Freno activo dinámico
+          frenarMotoresActivo();
+          pwmGiroAct = 0;
+          return;
+        } else if (deltaPulso < (TURN_BRAKE_ACTIVE_MS + TURN_PULSE_OFF_MS)) {
+          // Fase 3: Reposo mecánico y estabilización para lectura MPU
+          frenarMotores();
+          pwmGiroAct = 0;
+          return;
+        } else {
+          // Fin del ciclo completo de reposo (200 ms OFF totales) -> Iniciar nuevo pulso ON
           pulsoFinoGiroEncendido = true;
           inicioPulsoFinoGiroMs = ahora;
           if (detectadoSinMovimiento) {
             pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - minimo,
                                   pwmBoostFrenado + static_cast<int>(10 * PWM_SCALE_8_TO_10));
           }
+          int pwmKick = max(PWM_TURN_FLOOR_MIN, max(minimo + static_cast<int>(15 * PWM_SCALE_8_TO_10), PWM_TURN_START));
+          pwmObj = min(PWM_TURN_MAX_LIMIT, pwmKick + pwmBoostFrenado);
         }
-        return;
       }
     }
   } else {
@@ -600,8 +714,12 @@ void controlarGiro() {
     int paso = movGiroConfirmado ? PWM_TURN_SLEW_STEP : PWM_TURN_START_SLEW_STEP;
     if (errorAbs <= TURN_HYBRID_THRESHOLD_DEG) {
       pwmGiroAct = pwmObj;
-    } else if (pwmGiroAct<pwmObj) pwmGiroAct=min(pwmObj, pwmGiroAct+paso);
-    else pwmGiroAct=max(pwmObj, pwmGiroAct-PWM_TURN_SLEW_STEP);
+    } else if (pwmGiroAct<pwmObj) {
+      pwmGiroAct=min(pwmObj, pwmGiroAct+paso);
+    } else {
+      int pasoBajada = (errorAbs < TURN_BRAKING_ZONE_DEG) ? PWM_TURN_RAMP_DOWN_STEP : PWM_TURN_SLEW_STEP;
+      pwmGiroAct=max(pwmObj, pwmGiroAct-pasoBajada);
+    }
   }
   if (signoGiroApl != 0 && pwmGiroAct > 0) {
     int cand = signoGiroApl > 0 ? candidatoGiroPos : candidatoGiroNeg;
@@ -610,7 +728,13 @@ void controlarGiro() {
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? 1 : -1;
     }
-    if (!aplicarVelocidades(cand * pwmGiroAct, -cand * pwmGiroAct)) {
+    const float ticksIzq = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, true);
+    const float ticksDer = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, false);
+    const auto salidaGiro = ControlRuta::balancearGiroDiferencial(
+        pwmGiroAct, cand, ticksIzq, ticksDer,
+        ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR),
+        KP_GIRO_BALANCE_PWM_POR_CM, PWM_GIRO_BALANCE_MAX, PWM_TURN_MAX_LIMIT);
+    if (!aplicarVelocidades(salidaGiro.pwmL, salidaGiro.pwmR)) {
       fallo("motor_output_error");
       return;
     }
@@ -622,7 +746,7 @@ void controlarGiro() {
         pwmGiroAct, CALIBRATION_PWM_START, CALIBRATION_PWM_END, CALIBRATION_PWM_STEP);
   }
 
-  const uint32_t limiteSinProgresoMs = (!movGiroConfirmado && pwmBusquedaGiro < PWM_TURN_MAX_LIMIT) ? 10000 : 5000;
+  const uint32_t limiteSinProgresoMs = 15000;
   if (ahora - inicioIntentoGiroMs > limiteSinProgresoMs && !movGiroConfirmado) {
     reintentarGiro("turn_no_progress");
   }
@@ -728,11 +852,19 @@ void resetConfEncoders() {
 void iniciarAvance(bool conservar) {
   const SensorSnapshot s = sensar();
   if (!conservar) { distAcumuladaCm = 0.0f; intentosRecup = 0; }
-  // Anclaje del marco local: la recta directriz parte de la pose real del
-  // robot en este instante, tras estabilizar el giro y cualquier pausa previa.
-  // Garantiza error lateral nulo en t=0 para cualquier rumbo theta.
-  pasoOrigenTramoXCm = PoseGlobal.getX();
-  pasoOrigenTramoYCm = PoseGlobal.getY();
+  // Anclaje de trayectoria: si el paso persigue un objetivo espacial absoluto,
+  // la directriz se ancla a la recta planificada de la misión (deducida de target y rumbo)
+  // para preservar y corregir cualquier desvío lateral acumulado entre mini-tramos de 50 cm.
+  // En pasos relativos o sin target, se ancla en la pose real del robot.
+  if (pasoObjetivoAbsoluto && tieneTargetEspacial && !std::isnan(pasoTargetX) && !std::isnan(pasoTargetY)) {
+    constexpr float kPi = 3.14159265358979323846f;
+    const float rumboRad = pasoRumboTrayectoDeg * kPi / 180.0f;
+    pasoOrigenTramoXCm = pasoTargetX - distanciaPlanificadaCm * sinf(rumboRad);
+    pasoOrigenTramoYCm = pasoTargetY - distanciaPlanificadaCm * cosf(rumboRad);
+  } else {
+    pasoOrigenTramoXCm = PoseGlobal.getX();
+    pasoOrigenTramoYCm = PoseGlobal.getY();
+  }
   reiniciarControlRumbo();
   pasoEnReversa = direccionTraslacion < 0;
   // Una recuperación o reevaluación debe preservar los canales que ya fueron
@@ -1319,10 +1451,9 @@ void controlarPausaPreAvance() {
   float err = errorAng360(pasoRumboCuerpoDeg, heading360);
   if (fabsf(err) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
     iniciarAvance(pausaPreAvanceConservar);
-  } else if (fabsf(err) > UMBRAL_RECORRECCION_POST_FRENO_DEG) {
-    iniciarBaseGiro(pasoRumboCuerpoDeg, Fase::GIRO_INICIAL);
   } else {
-    iniciarAvance(pausaPreAvanceConservar);
+    // Si excede la tolerancia estricta (p. ej. > 2.5°), reorientar con micro-pulsos para garantizar avance ortogonal
+    iniciarBaseGiro(pasoRumboCuerpoDeg, Fase::GIRO_INICIAL);
   }
 }
 
@@ -1527,10 +1658,16 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   }
   pasoTargetXObjetivoCm = pasoTargetX;
   pasoTargetYObjetivoCm = pasoTargetY;
-  // Semilla del anclaje para la telemetria inicial del paso; iniciarAvance lo
-  // reafirma en la pose real tras estabilizar el giro.
-  pasoOrigenTramoXCm = PoseGlobal.getX();
-  pasoOrigenTramoYCm = PoseGlobal.getY();
+  // Semilla del anclaje de la recta planificada para telemetría inicial y avance
+  if (pasoObjetivoAbsoluto && tieneTargetEspacial && !std::isnan(pasoTargetX) && !std::isnan(pasoTargetY)) {
+    constexpr float kPi = 3.14159265358979323846f;
+    const float rumboRad = pasoRumboTrayectoDeg * kPi / 180.0f;
+    pasoOrigenTramoXCm = pasoTargetX - distanciaPlanificadaCm * sinf(rumboRad);
+    pasoOrigenTramoYCm = pasoTargetY - distanciaPlanificadaCm * cosf(rumboRad);
+  } else {
+    pasoOrigenTramoXCm = PoseGlobal.getX();
+    pasoOrigenTramoYCm = PoseGlobal.getY();
+  }
   actualizarErroresTrayectoria();
 
   distTargetMinimaCm = 1e9f;

@@ -885,6 +885,40 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.service._session_id, session_id)
         self.assertIsNone(self.service._backoff_grace_timer)
 
+    def test_telemetry_syncs_surface_torque_in_database(self) -> None:
+        # Create or verify azulejo_cafe_liso with old low torque (140)
+        self.service.database.save_calibration_surface(
+            "azulejo_cafe_liso", "Azulejo Café Liso", 140, 140, 1, -1, "Superficie de prueba"
+        )
+        self.service.database.set_setting("active_surface_id", "azulejo_cafe_liso")
+
+        # Simulate telemetry message with confirmed torque >= 180
+        telemetry_msg = {
+            "evt": "telemetry",
+            "state": "ejecutando",
+            "seq": 10,
+            "x_mm": 0,
+            "y_mm": 0,
+            "yaw_deg": 45.0,
+            "heading_deg": 45.0,
+            "enc": [10, 0, 12, 11],
+            "pwmL": 200,
+            "pwmR": -200,
+            "torque_history": {
+                "record_count": 3,
+                "base_positive_8bit": 195,
+                "base_negative_8bit": 200,
+            },
+        }
+        self.service._on_robot_message(telemetry_msg)
+
+        # Confirm SQLite row was updated to the new verified torque
+        updated = self.service.database.get_calibration_surface("azulejo_cafe_liso")
+        self.assertIsNotNone(updated)
+        self.assertEqual(updated["pwm_positive_8bit"], 195)
+        self.assertEqual(updated["pwm_negative_8bit"], 200)
+
+
 
 if __name__ == "__main__":
     unittest.main()
