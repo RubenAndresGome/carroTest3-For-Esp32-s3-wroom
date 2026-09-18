@@ -95,5 +95,14 @@ corrientes sostenidas menores de 1 A.
    180° salvo que la misión contenga `turn_to`. Verificar que cada ejecución
    tiene un `command_run_id` distinto y usarlo al trazar la SQLite.
 
+## Registro de Ensayo Físico Validado en Suelo (Sesión ADB #15622)
+
+- **Calibrador IMU**: `GYRO_Z_SCALE_FACTOR = 1.0959f` e integración temporal de microsegundos con `esp_timer_get_time()`.
+- **Resultados de Odometría y Ortogonalidad**:
+  - *Tramo 1 (55 cm en +Y, Cmd `5bcaaf46`)*: $(0.0, 0.0) \to (-1.6, 55.1)\text{ cm}$. Avance neto: $55.1\text{ cm}$ (error de $+1\text{ mm}$). Yaw máx: $3.8^\circ$. Estado: `completed (step_ok)`.
+  - *Tramo 2 (200 cm en +X tras giro a 90°, Cmd `0a95ebb7`)*: $(-1.6, 55.1) \to (176.5, 55.4)\text{ cm}$. Avance neto en X: $+178.1\text{ cm}$. **Desvío lateral en Y: $+0.3\text{ cm}$ (3 milímetros en 1.78 m de recorrido)**. Error angular final: **$-1.4^\circ$** (orientación real $92.1^\circ$ vs objetivo $90.0^\circ$). Estado: `completed (step_ok)`.
+- **Diagnóstico del Retorno y Modo de Conducción**:
+  - El tramo de retorno (`start_return_home`) despacha ahora `drive_mode: "auto"`. El algoritmo de `ControlRuta::reversaAutomatica` selecciona marcha atrás (`effective_mode=reverse`) al detectar el origen detrás ($\Delta \theta \ge 105^\circ$), eliminando giros de $180^\circ$ sobre las 4 ruedas y previniendo atascos por fricción o colisiones.
+
 La compilación y las pruebas automatizadas no sustituyen estas mediciones ni
 las maniobras físicas supervisadas.

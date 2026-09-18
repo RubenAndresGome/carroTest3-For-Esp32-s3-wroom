@@ -749,7 +749,7 @@ class RobotService:
                 "component": "vector" if route_mode == "angular_vectorial" else "return",
                 "heading_deg": heading,
                 "length_mm": length,
-                "drive_mode": "forward",
+                "drive_mode": "auto",
             })
             curr_x = target_pt["x_mm"]
             curr_y = target_pt["y_mm"]

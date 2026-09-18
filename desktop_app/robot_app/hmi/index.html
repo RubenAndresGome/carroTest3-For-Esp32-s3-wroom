@@ -3987,7 +3987,7 @@
                 const info=document.getElementById('route-ockham-sim-info');
                 if(box&&info){
                     box.style.display='block';
-                    info.textContent=`Simulación calculada: ${preview.total_steps} pasos enlazados hacia (0, 0) con avance frontal y supervisión de exactitud. Confirma para arrancar.`;
+                    info.textContent=`Simulación calculada: ${preview.total_steps} pasos enlazados hacia (0, 0) con retorno optimizado (reversa o avance automático) y supervisión de exactitud. Confirma para arrancar.`;
                 }
                 LogSystem.add('INFO',`Simulación de regreso Ockham lista: ${preview.total_steps} pasos enlazados calculados hacia el origen.`);
             } catch(error) { LogSystem.add('ERROR',`No se pudo simular Ockham: ${error.message}`); }
@@ -4001,7 +4001,7 @@
                 this.activeCommandId=mission.active_command_id||null;
                 this.isRunning=true; this.waitingForMovement=true;
                 this.clearTelemetryTrail(); this.lockTabs();
-                LogSystem.add('CMD','Ruta Ockham inversa confirmada e iniciada en avance frontal; supervisión de exactitud activa.');
+                LogSystem.add('CMD','Ruta Ockham inversa confirmada e iniciada con retorno automático; supervisión de exactitud activa.');
                 this.updateListUI(); this.drawPlan();
             } catch(error) { LogSystem.add('ERROR',`No se pudo iniciar regreso Ockham: ${error.message}`); }
         },
