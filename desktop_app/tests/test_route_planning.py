@@ -51,9 +51,9 @@ class RoutePlanningTests(unittest.TestCase):
         compilation = AngularVectorialRouteStrategy().compile({
             "vectors": [{"length_cm": 450, "relative_angle_deg": 45}],
         }, self.origin)
-        self.assertEqual(len(compilation.segments), 3)
+        self.assertEqual(len(compilation.segments), 9)
         self.assertTrue(all(math.isclose(segment["heading_deg"], 45.0) for segment in compilation.segments))
-        self.assertTrue(all(math.isclose(segment["length_mm"], 1500.0) for segment in compilation.segments))
+        self.assertTrue(all(math.isclose(segment["length_mm"], 500.0) for segment in compilation.segments))
 
     def test_zero_only_route_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "no contiene desplazamiento"):
@@ -66,8 +66,18 @@ class RoutePlanningTests(unittest.TestCase):
             "points": [{"x_mm": 1000, "y_mm": 1000}],
         }, self.origin)
         self.assertEqual([(segment["x_mm"], segment["y_mm"]) for segment in compilation.segments], [
-            (1000.0, 0.0), (1000.0, 1000.0),
+            (500.0, 0.0), (1000.0, 0.0), (1000.0, 500.0), (1000.0, 1000.0),
         ])
+
+    def test_rectangular_route_subdivides_55cm_into_balanced_segments(self) -> None:
+        compilation = RectangularRouteStrategy().compile({
+            "points": [{"x_mm": 0, "y_mm": 550}],
+        }, self.origin)
+        self.assertEqual(len(compilation.segments), 2)
+        self.assertEqual([(s["x_mm"], s["y_mm"]) for s in compilation.segments], [
+            (0.0, 275.0), (0.0, 550.0),
+        ])
+        self.assertEqual([s["length_mm"] for s in compilation.segments], [275.0, 275.0])
 
     def test_touch_compilation_is_orthogonal_exact_and_bounded(self) -> None:
         points = [{"x_mm": 0.0, "y_mm": 0.0}, {"x_mm": 4500.0, "y_mm": 3100.0}]

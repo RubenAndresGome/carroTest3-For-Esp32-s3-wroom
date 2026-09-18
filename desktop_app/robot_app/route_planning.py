@@ -67,9 +67,10 @@ class RouteExecutionStrategy(ABC):
     def _append_segment(
         segments: list[dict[str, Any]], start_x: float, start_y: float,
         target_x: float, target_y: float, logical_step_id: int, component: str,
+        max_segment_mm: float = DEFAULT_SUBSEGMENT_MM,
     ) -> tuple[float, float]:
         previous_x, previous_y = start_x, start_y
-        for target in split_segment_mm(start_x, start_y, target_x, target_y):
+        for target in split_segment_mm(start_x, start_y, target_x, target_y, max_segment_mm):
             dx = target["x_mm"] - previous_x
             dy = target["y_mm"] - previous_y
             distance_mm = math.hypot(dx, dy)
