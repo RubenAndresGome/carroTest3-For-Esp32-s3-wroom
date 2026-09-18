@@ -211,12 +211,12 @@ class ApiTests(unittest.TestCase):
     def test_route_is_split_and_sent_one_atomic_step_at_a_time(self) -> None:
         self._ready()
         mission = self.service.start_mission([{"x_mm": 4500, "y_mm": 0}])
-        self.assertEqual(mission["total_segments"], 9)
+        self.assertEqual(mission["total_segments"], 3)
         first = self.service.gateway._outgoing.queue[0].command
         self.assertEqual(first.name, "step")
         self.assertEqual(first.payload, {
-            "heading": 90.0, "cm": 50.0, "drive_mode": "auto",
-            "target_x_mm": 500.0, "target_y_mm": 0.0,
+            "heading": 90.0, "cm": 150.0, "drive_mode": "auto",
+            "target_x_mm": 1500.0, "target_y_mm": 0.0,
         })
         self.service._on_robot_message({"evt": "completed", "seq": first.seq, "detail": "step_ok"})
         status = self.service.mission_status()
@@ -225,16 +225,16 @@ class ApiTests(unittest.TestCase):
 
     def test_orthogonal_headings_follow_plus_y_zero_convention(self) -> None:
         self._ready()
-        self.service.start_mission([{"x_mm": 0, "y_mm": 500}, {"x_mm": 500, "y_mm": 500}])
+        self.service.start_mission([{"x_mm": 0, "y_mm": 1000}, {"x_mm": 1000, "y_mm": 1000}])
         first = self.service.gateway._outgoing.queue[0].command
         self.assertEqual(first.payload["heading"], 0.0)
         self.assertEqual(first.payload["drive_mode"], "auto")
-        self.assertEqual((first.payload["target_x_mm"], first.payload["target_y_mm"]), (0.0, 500.0))
+        self.assertEqual((first.payload["target_x_mm"], first.payload["target_y_mm"]), (0.0, 1000.0))
         self.service._on_robot_message({"evt": "completed", "seq": first.seq})
         commands = [item.command for item in self.service.gateway._outgoing.queue]
         self.assertEqual(commands[-1].payload["heading"], 90.0)
         self.assertEqual((commands[-1].payload["target_x_mm"], commands[-1].payload["target_y_mm"]),
-                         (500.0, 500.0))
+                         (1000.0, 1000.0))
 
     def test_diagonal_route_is_rejected_but_one_mm_tolerance_is_allowed(self) -> None:
         self._ready()
@@ -309,7 +309,7 @@ class ApiTests(unittest.TestCase):
             "mode": "angular_vectorial",
             "vectors": [{"length_cm": 450, "relative_angle_deg": 45}],
         })
-        self.assertEqual(mission["total_segments"], 9)
+        self.assertEqual(mission["total_segments"], 3)
         self._ready_vectorial(health="recovering")
         self.service._on_robot_message({
             "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok",
@@ -323,7 +323,7 @@ class ApiTests(unittest.TestCase):
     def test_soft_endpoint_advances_intermediate_but_blocks_final(self) -> None:
         self._ready()
         mission = self.service.start_mission([
-            {"x_mm": 500, "y_mm": 0}, {"x_mm": 500, "y_mm": 500},
+            {"x_mm": 1000, "y_mm": 0}, {"x_mm": 1000, "y_mm": 1000},
         ])
         self.service._on_robot_message({
             "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok_endpoint_soft",
@@ -383,7 +383,7 @@ class ApiTests(unittest.TestCase):
 
     def test_hello_reconciles_completed_step_without_repeating_it(self) -> None:
         self._ready()
-        mission = self.service.start_mission([{"x_mm": 500, "y_mm": 0}])
+        mission = self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         self.service._on_robot_message({
             "evt": "hello_ack", "state": "listo", "last_seq": mission["active_seq"],
             "session": self.service._controller_session, "protocol": "robot-s3-steps-v3",
@@ -437,16 +437,16 @@ class ApiTests(unittest.TestCase):
 
     def test_completed_route_returns_by_inverse_vectors_and_aligns_zero(self) -> None:
         self._ready()
-        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 500}, {"x_mm": 500, "y_mm": 500}])
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 1000}, {"x_mm": 1000, "y_mm": 1000}])
         self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
         self.service._on_robot_message({"evt": "completed", "seq": self.service.mission_status()["active_seq"],
                                         "detail": "step_ok"})
         self.assertEqual(self.service.database.get_setting("last_completed_route")["return_state"], "available")
-        self._ready(500, 500)
+        self._ready(1000, 1000)
         response = self.client.post("/api/v1/missions/return-home", json={},
                                     headers={"X-App-Token": self.token})
         self.assertEqual(response.status_code, 202)
-        self.assertEqual(response.json["planned_points"], [{"x_mm": 0.0, "y_mm": 500.0},
+        self.assertEqual(response.json["planned_points"], [{"x_mm": 0.0, "y_mm": 1000.0},
                                                             {"x_mm": 0.0, "y_mm": 0.0}])
         self.service._on_robot_message({"evt": "completed", "seq": response.json["active_seq"],
                                         "detail": "step_ok"})
@@ -463,18 +463,18 @@ class ApiTests(unittest.TestCase):
 
     def test_return_home_preview_returns_plan_without_starting(self) -> None:
         self._ready()
-        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 500}, {"x_mm": 500, "y_mm": 500}])
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 1000}, {"x_mm": 1000, "y_mm": 1000}])
         self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
         self.service._on_robot_message({"evt": "completed", "seq": self.service.mission_status()["active_seq"],
                                         "detail": "step_ok"})
-        self._ready(500, 500)
+        self._ready(1000, 1000)
         response = self.client.post("/api/v1/missions/return-home", json={"preview": True},
                                     headers={"X-App-Token": self.token})
         self.assertEqual(response.status_code, 202)
         data = response.json
         self.assertTrue(data["preview"])
         self.assertEqual(data["total_steps"], 2)
-        self.assertEqual(data["planned_points"], [{"x_mm": 0.0, "y_mm": 500.0}, {"x_mm": 0.0, "y_mm": 0.0}])
+        self.assertEqual(data["planned_points"], [{"x_mm": 0.0, "y_mm": 1000.0}, {"x_mm": 0.0, "y_mm": 0.0}])
         self.assertEqual(self.service.database.get_setting("last_completed_route")["return_state"], "available")
         self.assertFalse(self.service.mission_status()["running"])
 

@@ -159,7 +159,7 @@ class RobotCommand:
 
 def split_segment_mm(
     start_x_mm: float, start_y_mm: float, end_x_mm: float, end_y_mm: float,
-    max_segment_mm: float = DEFAULT_SUBSEGMENT_MM,
+    max_segment_mm: float = MAX_SEGMENT_MM,
 ) -> list[dict[str, float]]:
     """Divide un tramo absoluto sin cambiar su dirección ni perder el residual."""
     start_x = _finite_number(start_x_mm, "start_x_mm", -1e9, 1e9)

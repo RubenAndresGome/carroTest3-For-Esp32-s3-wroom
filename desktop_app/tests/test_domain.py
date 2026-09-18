@@ -52,10 +52,8 @@ class DomainTests(unittest.TestCase):
 
     def test_long_segment_is_split_without_losing_residual(self) -> None:
         pieces = split_segment_mm(0, 0, 4500, 0)
-        self.assertEqual(len(pieces), 9)
+        self.assertEqual(len(pieces), 3)
         self.assertEqual(pieces[-1], {"x_mm": 4500.0, "y_mm": 0.0})
-        pieces_2000 = split_segment_mm(0, 0, 4500, 0, max_segment_mm=2000)
-        self.assertEqual(len(pieces_2000), 3)
 
     def test_steps_v3_telemetry_is_normalized(self) -> None:
         snapshot = TelemetrySnapshot.from_message({

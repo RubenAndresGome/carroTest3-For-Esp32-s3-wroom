@@ -394,10 +394,13 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   ultimoSignoErrorGiro = signoIni;
   int minIni = signoIni > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
   if (errorIniAbs > TURN_HYBRID_THRESHOLD_DEG) {
-    // Macro-giro: Kickstart instantáneo con piso específico de este sentido aprendido en calibración
-    int kickstartSentido = max(PWM_TURN_KICKSTART, minIni + static_cast<int>(10 * PWM_SCALE_8_TO_10));
-    pwmBusquedaGiro = min(PWM_TURN_MAX_LIMIT, kickstartSentido);
-    pwmGiroAct = pwmBusquedaGiro;
+    // Macro-giro: Arranque suave desde el par calibrado o piso seguro, permitiendo
+    // que la rampa slew acelere sin romper la adherencia estática de las ruedas
+    int arranqueSentido = (minIni > 0)
+        ? max(PWM_TURN_FLOOR_MIN, minIni - PWM_TURN_START_FLOOR_OFFSET)
+        : PWM_TURN_START_MACRO;
+    pwmBusquedaGiro = arranqueSentido;
+    pwmGiroAct = arranqueSentido;
     signoGiroApl = signoIni;
   } else {
     // Micro-giro fino (<4.0°): iniciar en cero para que la máquina trifásica comience con pulso limpio
@@ -705,6 +708,12 @@ void controlarGiro() {
     pwmBoostFrenado = 0;
     pulsoFinoGiroEncendido = false;
     inicioPulsoFinoGiroMs = ahora;
+  }
+
+  // Control de tracción por giróscopo MPU6050: si la velocidad angular ya superó el régimen seguro,
+  // congelar el aumento de par para no romper el agarre estático ni causar derrape
+  if (errorAbs > TURN_HYBRID_THRESHOLD_DEG && fabsf(s.gyro_z_filtrado_rad_s) >= MAX_TURN_RATE_RAD_S) {
+    if (pwmObj > pwmGiroAct) pwmObj = pwmGiroAct;
   }
 
   // --- slew con protección de inversión (Motores.cpp añade 250 ms) ---
@@ -1275,8 +1284,8 @@ bool controlarAvance() {
   // MPU tiene autoridad exclusiva: encoders no interfieren en corrección de rumbo
   if (ctrlEnc > 0.0f) redL += aproximar(ctrlEnc); else if (ctrlEnc < 0.0f) redR += aproximar(-ctrlEnc);
 
-  int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
-  int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
+  int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
 
   if (!aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR)) {
     fallo("motor_output_error");
