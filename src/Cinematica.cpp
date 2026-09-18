@@ -72,6 +72,8 @@ uint32_t inicioAsentamientoMs = 0;
 uint32_t ultimoMovimientoAsentamientoMs = 0;
 uint32_t inicioPulsoAproximacionMs = 0;
 bool pulsoAproximacionEncendido = false;
+float distAcumuladaCm = 0.0f;
+bool pausaPreAvanceConservar = false;
 
 
 // ===== helpers de angulo (yaw normalizado 0..360, error -180..180) =====
@@ -392,10 +394,13 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   ultimoSignoErrorGiro = signoIni;
   int minIni = signoIni > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
   if (errorIniAbs > TURN_HYBRID_THRESHOLD_DEG) {
-    // Macro-giro: Kickstart instantáneo con piso específico de este sentido aprendido en calibración
-    int kickstartSentido = max(PWM_TURN_KICKSTART, minIni + static_cast<int>(10 * PWM_SCALE_8_TO_10));
-    pwmBusquedaGiro = min(PWM_TURN_MAX_LIMIT, kickstartSentido);
-    pwmGiroAct = pwmBusquedaGiro;
+    // Macro-giro: Arranque suave desde el par calibrado o piso seguro, permitiendo
+    // que la rampa slew acelere sin romper la adherencia estática de las ruedas
+    int arranqueSentido = (minIni > 0)
+        ? max(PWM_TURN_FLOOR_MIN, minIni - PWM_TURN_START_FLOOR_OFFSET)
+        : PWM_TURN_START_MACRO;
+    pwmBusquedaGiro = arranqueSentido;
+    pwmGiroAct = arranqueSentido;
     signoGiroApl = signoIni;
   } else {
     // Micro-giro fino (<4.0°): iniciar en cero para que la máquina trifásica comience con pulso limpio
@@ -705,6 +710,12 @@ void controlarGiro() {
     inicioPulsoFinoGiroMs = ahora;
   }
 
+  // Control de tracción por giróscopo MPU6050: si la velocidad angular ya superó el régimen seguro,
+  // congelar el aumento de par para no romper el agarre estático ni causar derrape
+  if (errorAbs > TURN_HYBRID_THRESHOLD_DEG && fabsf(s.gyro_z_filtrado_rad_s) >= MAX_TURN_RATE_RAD_S) {
+    if (pwmObj > pwmGiroAct) pwmObj = pwmGiroAct;
+  }
+
   // --- slew con protección de inversión (Motores.cpp añade 250 ms) ---
   if (signoGiroApl!=0 && signoDeseado!=signoGiroApl && pwmGiroAct>0) {
     pwmGiroAct = max(0, pwmGiroAct - PWM_TURN_SLEW_STEP);
@@ -730,8 +741,15 @@ void controlarGiro() {
     }
     const float ticksIzq = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, true);
     const float ticksDer = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, false);
+    // Solo aplicar compensación traslacional si ambos lados cuentan con encoders confiables y movimiento medido,
+    // evitando sesgos unilaterales hacia adelante ante fallos o retrasos de lectura de un lado
+    const bool encodersBilateralesListos = (encoderConfiableGlobal[0] || encoderConfiableGlobal[2]) &&
+                                          (encoderConfiableGlobal[1] || encoderConfiableGlobal[3]) &&
+                                          (ticksIzq > 0.0f && ticksDer > 0.0f);
+    const float tIzq = encodersBilateralesListos ? ticksIzq : 0.0f;
+    const float tDer = encodersBilateralesListos ? ticksDer : 0.0f;
     const auto salidaGiro = ControlRuta::balancearGiroDiferencial(
-        pwmGiroAct, cand, ticksIzq, ticksDer,
+        pwmGiroAct, cand, tIzq, tDer,
         ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR),
         KP_GIRO_BALANCE_PWM_POR_CM, PWM_GIRO_BALANCE_MAX, PWM_TURN_MAX_LIMIT);
     if (!aplicarVelocidades(salidaGiro.pwmL, salidaGiro.pwmR)) {
@@ -756,7 +774,10 @@ void completarGiro() {
   frenarMotores();
   Fase ret = faseRetornoGiro;
   faseRetornoGiro = Fase::NINGUNA;
-  if (ret == Fase::GIRO_INICIAL) { iniciarPausaPreAvance(false); }
+  if (ret == Fase::GIRO_INICIAL) {
+    const bool conservar = pausaPreAvanceConservar || (distAcumuladaCm > 0.0f) || (pasoDistanciaActualCm > 0.0f);
+    iniciarPausaPreAvance(conservar);
+  }
   else if (ret == Fase::GIRO_RECUPERACION) { iniciarPausaPreAvance(true); }
   else if (ret == Fase::GIRO_FINAL) {
     giroFinalRealizado = true;
@@ -785,7 +806,6 @@ void completarGiro() {
 // ============== AVANCE RECTO (fusion encoders + recuperacion rumbo + compensacion der) ==============
 float  rumboObjetivoDeg = 0.0f;
 float  distObjetivoCm = 0.0f;
-float  distAcumuladaCm = 0.0f;
 bool   conservarAcumulado = false;
 int64_t ticksBaseAvance[4] = {};
 uint32_t inicioAvanceMs = 0;
@@ -1062,11 +1082,19 @@ bool controlarAvance() {
       iniciarAsentamientoFinal(distMedida);
       return false;
     }
-    if (!pasoObjetivoAbsoluto && distEspacialActual < distTargetMinimaCm) {
+    if (distEspacialActual < distTargetMinimaCm) {
       distTargetMinimaCm = distEspacialActual;
-    } else if (!pasoObjetivoAbsoluto && distTargetMinimaCm <= 15.0f &&
+    } else if (distTargetMinimaCm <= 15.0f &&
                (distEspacialActual - distTargetMinimaCm) >= 2.0f) {
-      // Sobrepaso espacial detectado (se alejo 2 cm tras estar a menos de 15 cm del destino)
+      // Sobrepaso espacial detectado (se alejó 2 cm tras estar a menos de 15 cm del destino)
+      iniciarAsentamientoFinal(distMedida);
+      return false;
+    }
+
+    // Guarda longitudinal estricta para objetivos absolutos:
+    // Si pasoErrorLongitudinalCm <= 0.0f tras haber iniciado el avance (distMedida >= 5.0f o distObjetivoCm < 10.0f),
+    // el robot ya alcanzó o superó la coordenada longitudinal meta; frenar de inmediato.
+    if (pasoObjetivoAbsoluto && pasoErrorLongitudinalCm <= 0.0f && (distMedida >= 5.0f || distObjetivoCm < 10.0f)) {
       iniciarAsentamientoFinal(distMedida);
       return false;
     }
@@ -1132,7 +1160,9 @@ bool controlarAvance() {
 
   // El pivote sólo se solicita tras la histéresis configurada; los errores
   // menores se absorben en continuo para evitar el ciclo avance/giro.
-  if (fabsf(err) > ERROR_RUMBO_RECUPERAR_DEG) {
+  // En los últimos 15 cm de aproximación final, se inhibe el pivote en el lugar para que
+  // el lazo continuo PID guíe suavemente al robot hasta el punto meta sin interrupciones.
+  if (fabsf(err) > ERROR_RUMBO_RECUPERAR_DEG && restante > 15.0f) {
     if (!inicioErrorRumboMs) inicioErrorRumboMs = millis();
     if (millis() - inicioErrorRumboMs >= ERROR_RUMBO_RECUPERAR_MS) {
       frenarMotores();
@@ -1142,7 +1172,9 @@ bool controlarAvance() {
       iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
       return false;
     }
-  } else inicioErrorRumboMs = 0;
+  } else {
+    inicioErrorRumboMs = 0;
+  }
 
   // --- PID de rumbo con integral acotada y anti-windup ---
   const ControlRuta::SalidaPI salidaPI = ControlRuta::actualizarPI(
@@ -1259,8 +1291,8 @@ bool controlarAvance() {
   // MPU tiene autoridad exclusiva: encoders no interfieren en corrección de rumbo
   if (ctrlEnc > 0.0f) redL += aproximar(ctrlEnc); else if (ctrlEnc < 0.0f) redR += aproximar(-ctrlEnc);
 
-  int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
-  int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
+  int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
 
   if (!aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR)) {
     fallo("motor_output_error");
@@ -1409,7 +1441,6 @@ void completarPaso() {
 
 uint32_t inicioPausaPreGiroMs = 0;
 uint32_t inicioPausaPreAvanceMs = 0;
-bool pausaPreAvanceConservar = false;
 
 void iniciarPausaPreGiro() {
   frenarMotores();
@@ -1631,6 +1662,7 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   pasoHeadingObjetivo = pasoRumboFinalDeg;
   pasoDistanciaObjetivoCm = distanciaCm;
   pasoDistanciaActualCm = 0.0f;
+  distAcumuladaCm = 0.0f;
   pasoDistanciaRestanteCm = distanciaCm;
   pasoFrenoPrevistoCm = 0.0f;
   pasoArrastreFrenoCm = 0.0f;

@@ -67,6 +67,12 @@ constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
 // Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
 constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
+// Factor de escala de calibración física del giróscopo MPU6050.
+// Corrige la tolerancia de sensibilidad de fábrica del sensor (~8.7%).
+// Determinado en pista de 200 cm: con 90° integrados el robot giró físicamente 98.63° (30 cm en Y- a 2 m).
+// Factor = 98.63 / 90.0 = 1.0959f. Al multiplicar velocidadZ por este factor, la integración
+// acumula 90.0° exactamente cuando el chasis físico alcanza 90.0° perpendiculares.
+constexpr float GYRO_Z_SCALE_FACTOR = 1.0959f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID
@@ -162,12 +168,14 @@ constexpr int PWM_GIRO_BALANCE_MAX = static_cast<int>(45 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(6 * PWM_SCALE_8_TO_10);
 constexpr uint32_t TURN_RAMP_DOWN_INTERVAL_MS = 30; // 30 ms por escalón de descenso en zona de frenado
-constexpr int PWM_TURN_RAMP_DOWN_STEP = static_cast<int>(3 * PWM_SCALE_8_TO_10); // ~1.2% por escalón (~12 unidades)
+constexpr int PWM_TURN_RAMP_DOWN_STEP = static_cast<int>(6 * PWM_SCALE_8_TO_10); // ~2.4% por escalón (~24 unidades) para desaceleración ágil
 constexpr float TOLERANCIA_GIRO_DEG = 2.5f;
 constexpr float TOLERANCIA_CALIBRACION_DEG = 2.5f;
 constexpr float CALIBRACION_GIRO_TEST_DEG = 25.0f;
-constexpr float TURN_BRAKING_ZONE_DEG = 15.0f;
+constexpr float TURN_BRAKING_ZONE_DEG = 35.0f; // Zona de frenado ampliada (35°) para desacelerar suavemente y evitar sobrepaso
 constexpr float TURN_HYBRID_THRESHOLD_DEG = 4.0f;
+constexpr float MAX_TURN_RATE_RAD_S = 1.8f; // ~103 deg/s límite de velocidad angular para evitar patinación centrífuga
+constexpr int PWM_TURN_START_MACRO = static_cast<int>(190 * PWM_SCALE_8_TO_10); // ~74.5% arranque suave para macro-giros sin burnout
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
 constexpr uint32_t TURN_PULSE_ON_MS = 250;
 constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 80;

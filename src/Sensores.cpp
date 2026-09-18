@@ -15,6 +15,7 @@ static bool mpu_calibrado = false;
 static float anguloZ_acum = 0.0f;
 static float gyro_z_offset_rad_s = 0.0f;
 static unsigned long tiempoAnteriorIMU = 0;
+static int64_t tiempoAnteriorIMU_us = 0;
 static unsigned long ultimaLecturaIMU = 0;
 static uint32_t contadorRecentradosYaw = 0;
 static portMUX_TYPE muxOrientacionIMU = portMUX_INITIALIZER_UNLOCKED;
@@ -145,6 +146,7 @@ void setup_Sensores() {
             Serial.println("ERROR: MPU6050 sin suficientes muestras validas de calibracion.");
         }
         tiempoAnteriorIMU = millis();
+        tiempoAnteriorIMU_us = esp_timer_get_time();
         ultimaLecturaIMU = tiempoAnteriorIMU;
         anguloZ_acum = 0.0f;
         Serial.println("MPU6050 inicializado correctamente.");
@@ -213,6 +215,7 @@ void resetOrientacionIMU() {
     anguloZ = 0.0f;
     filtroGyroZ.limpiar();
     tiempoAnteriorIMU = millis();
+    tiempoAnteriorIMU_us = esp_timer_get_time();
     portEXIT_CRITICAL(&muxOrientacionIMU);
 }
 
@@ -235,6 +238,7 @@ bool recalibrarOffsetIMU(uint16_t muestras) {
         anguloZ = 0.0f;
         filtroGyroZ.limpiar();
         tiempoAnteriorIMU = millis();
+        tiempoAnteriorIMU_us = esp_timer_get_time();
         ultimaLecturaIMU = tiempoAnteriorIMU;
         portEXIT_CRITICAL(&muxOrientacionIMU);
         mpu_calibrado = true;
@@ -297,21 +301,25 @@ static void leerGiroscopio(SensorSnapshot &snap) {
         return;
     }
 
-    unsigned long t_ahora = millis();
-    float dt = (t_ahora - tiempoAnteriorIMU) / 1000.0f;
+    const int64_t t_ahora_us = esp_timer_get_time();
+    const unsigned long t_ahora = millis();
+    if (tiempoAnteriorIMU_us <= 0) tiempoAnteriorIMU_us = t_ahora_us;
+    float dt = static_cast<float>(t_ahora_us - tiempoAnteriorIMU_us) / 1000000.0f;
     if (dt <= 0.0f || dt > 0.5f) {
+        tiempoAnteriorIMU_us = t_ahora_us;
         tiempoAnteriorIMU = t_ahora;
         return;
     }
+    tiempoAnteriorIMU_us = t_ahora_us;
     tiempoAnteriorIMU = t_ahora;
     ultimaLecturaIMU = t_ahora;
     snap.mpu_stale = false;
 
-    // El offset se resta en el marco crudo del sensor y después se transforma
-    // al marco canónico del robot. No se corrige sólo la gráfica: control,
-    // odometría y telemetría consumen todos el mismo signo normalizado.
+    // El offset se resta en el marco crudo del sensor, se calibra por GYRO_Z_SCALE_FACTOR
+    // y después se transforma al marco canónico del robot. No se corrige sólo la gráfica: control,
+    // odometría y telemetría consumen todos el mismo signo y escala normalizados.
     const float velocidadZ =
-        (g.gyro.z - gyro_z_offset_rad_s) * MPU_YAW_POLARITY;
+        (g.gyro.z - gyro_z_offset_rad_s) * MPU_YAW_POLARITY * GYRO_Z_SCALE_FACTOR;
     portENTER_CRITICAL(&muxOrientacionIMU);
     float velocidadFiltrada = filtroGyroZ.agregar(velocidadZ);
     if (fabsf(velocidadFiltrada) < IMU_GYRO_DEADBAND_RAD_S) velocidadFiltrada = 0.0f;

@@ -360,6 +360,7 @@ class ApiTests(unittest.TestCase):
         command = self.service.gateway._outgoing.queue[-1].command
         self.assertAlmostEqual(command.payload["heading"], 225.0)
         self.assertAlmostEqual(command.payload["cm"], 50.0)
+        self.assertEqual(command.payload["drive_mode"], "auto")
 
     def test_fault_blocks_current_waypoint(self) -> None:
         self._ready()

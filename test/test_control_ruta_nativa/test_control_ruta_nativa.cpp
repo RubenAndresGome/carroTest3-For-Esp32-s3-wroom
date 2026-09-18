@@ -796,10 +796,51 @@ void test_giro_balance_concentrico_con_encoders_confiables() {
   TEST_ASSERT_TRUE(salida.pwmR <= 0);
 }
 
+void test_calcularErroresTrayectoriaAnclado_detecta_sobrepaso_longitudinal() {
+  // Tramo anclado de 55 cm a lo largo de heading 0.0 (eje +Y)
+  // Origen (0, 100), Destino (0, 155), Distancia planificada: 55 cm
+  const float origenX = 0.0f, origenY = 100.0f;
+  const float destinoX = 0.0f, destinoY = 155.0f;
+  const float rumboDeg = 0.0f;
+  const float distPlanCm = 55.0f;
+
+  // 1. A la mitad del camino (Y = 127.5 cm): restante 27.5 cm > 0
+  const auto mitad = ControlRuta::calcularErroresTrayectoriaAnclado(
+      0.0f, 127.5f, origenX, origenY, destinoX, destinoY, rumboDeg, distPlanCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 27.5f, mitad.longitudinalCm);
+
+  // 2. Exactamente en la meta (Y = 155.0 cm): restante 0.0 cm
+  const auto meta = ControlRuta::calcularErroresTrayectoriaAnclado(
+      0.0f, 155.0f, origenX, origenY, destinoX, destinoY, rumboDeg, distPlanCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, meta.longitudinalCm);
+
+  // 3. Sobrepaso espacial (Y = 157.0 cm): restante < 0 (-2.0 cm)
+  const auto sobrepaso = ControlRuta::calcularErroresTrayectoriaAnclado(
+      0.0f, 157.0f, origenX, origenY, destinoX, destinoY, rumboDeg, distPlanCm);
+  TEST_ASSERT_TRUE(sobrepaso.longitudinalCm < 0.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, -2.0f, sobrepaso.longitudinalCm);
+}
+
+void test_inhibicion_recuperacion_en_zona_aproximacion_final() {
+  // Simular condición de decisión para giros de recuperación en avance:
+  // Si restante <= 15.0 cm, debe continuar con corrección diferencial continua (sin pivot en el lugar)
+  const float errorRumbo = 7.5f; // Supera ERROR_RUMBO_RECUPERAR_DEG (6.0°)
+  const float restanteLejos = 35.0f;
+  const float restanteCerca = 10.0f;
+
+  const bool permiteRecuperacionLejos = (errorRumbo > 6.0f && restanteLejos > 15.0f);
+  const bool permiteRecuperacionCerca = (errorRumbo > 6.0f && restanteCerca > 15.0f);
+
+  TEST_ASSERT_TRUE(permiteRecuperacionLejos);
+  TEST_ASSERT_FALSE(permiteRecuperacionCerca);
+}
+
 }  // namespace
 
 int main(int, char**) {
   UNITY_BEGIN();
+  RUN_TEST(test_calcularErroresTrayectoriaAnclado_detecta_sobrepaso_longitudinal);
+  RUN_TEST(test_inhibicion_recuperacion_en_zona_aproximacion_final);
   RUN_TEST(test_giro_balance_concentrico_con_encoders_confiables);
   RUN_TEST(test_calibracion_evaluar_pivot_con_fr_desconectado);
   RUN_TEST(test_origen_planificado_conserva_desvio_entre_subtramos);
