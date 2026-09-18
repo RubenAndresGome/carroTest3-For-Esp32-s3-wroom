@@ -67,6 +67,12 @@ constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
 // Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
 constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
+// Factor de escala de calibración física del giróscopo MPU6050.
+// Corrige la tolerancia de sensibilidad de fábrica del sensor (~8.7%).
+// Determinado en pista de 200 cm: con 90° integrados el robot giró físicamente 98.63° (30 cm en Y- a 2 m).
+// Factor = 98.63 / 90.0 = 1.0959f. Al multiplicar velocidadZ por este factor, la integración
+// acumula 90.0° exactamente cuando el chasis físico alcanza 90.0° perpendiculares.
+constexpr float GYRO_Z_SCALE_FACTOR = 1.0959f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID

@@ -741,8 +741,15 @@ void controlarGiro() {
     }
     const float ticksIzq = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, true);
     const float ticksDer = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, false);
+    // Solo aplicar compensación traslacional si ambos lados cuentan con encoders confiables y movimiento medido,
+    // evitando sesgos unilaterales hacia adelante ante fallos o retrasos de lectura de un lado
+    const bool encodersBilateralesListos = (encoderConfiableGlobal[0] || encoderConfiableGlobal[2]) &&
+                                          (encoderConfiableGlobal[1] || encoderConfiableGlobal[3]) &&
+                                          (ticksIzq > 0.0f && ticksDer > 0.0f);
+    const float tIzq = encodersBilateralesListos ? ticksIzq : 0.0f;
+    const float tDer = encodersBilateralesListos ? ticksDer : 0.0f;
     const auto salidaGiro = ControlRuta::balancearGiroDiferencial(
-        pwmGiroAct, cand, ticksIzq, ticksDer,
+        pwmGiroAct, cand, tIzq, tDer,
         ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR),
         KP_GIRO_BALANCE_PWM_POR_CM, PWM_GIRO_BALANCE_MAX, PWM_TURN_MAX_LIMIT);
     if (!aplicarVelocidades(salidaGiro.pwmL, salidaGiro.pwmR)) {
