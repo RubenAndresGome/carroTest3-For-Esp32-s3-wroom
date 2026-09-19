@@ -22,6 +22,7 @@ struct SensorSnapshot {
     bool mpu_present;
     bool mpu_stale;
     bool mpu_calibrated;
+    bool fuente5vOk;
     uint32_t sequence;
 };
 

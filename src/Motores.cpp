@@ -1,6 +1,7 @@
 #include "Motores.h"
 #include "Config.h"
 #include "Debug.h"
+#include "Estado.h"
 
 int pwm_aplicado_L = 0;
 int pwm_aplicado_R = 0;
@@ -154,6 +155,14 @@ static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
 static bool enFrenoActivo = false;
 static uint32_t inicioFrenoActivoMs = 0;
 
+// Suma la zona muerta de arranque a la magnitud solicitada conservando el
+// signo y sin exceder el limite de giro.
+static int aplicarDeadband(int vel, int deadband) {
+  if (vel == 0 || deadband <= 0) return vel;
+  if (vel > 0) return min(PWM_TURN_MAX_LIMIT, vel + deadband);
+  return max(-PWM_TURN_MAX_LIMIT, vel - deadband);
+}
+
 bool aplicarVelocidades(int velIzq, int velDer) {
   // Preflight completo: si el mapa o la inicialización son inválidos, no se
   // permite ninguna escritura parcial ni se elige un canal por defecto.
@@ -188,6 +197,12 @@ bool aplicarVelocidades(int velIzq, int velDer) {
   const uint32_t ahora = millis();
   pwm_solicitado_L = constrain(velIzq, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
   pwm_solicitado_R = constrain(velDer, -PWM_TURN_MAX_LIMIT, PWM_TURN_MAX_LIMIT);
+  // Zona muerta de arranque por lado: los reductores TT no transmiten torque
+  // por debajo de cierto PWM. Con deadband 0 (sin calibrar) no cambia nada.
+  pwm_solicitado_L = aplicarDeadband(pwm_solicitado_L,
+      static_cast<int>(perfilCompensacion.getDeadbandIzq8() * PWM_SCALE_8_TO_10));
+  pwm_solicitado_R = aplicarDeadband(pwm_solicitado_R,
+      static_cast<int>(perfilCompensacion.getDeadbandDer8() * PWM_SCALE_8_TO_10));
   pwm_aplicado_L = interlockL.actualizar(pwm_solicitado_L, ahora);
   pwm_aplicado_R = interlockR.actualizar(pwm_solicitado_R, ahora);
 

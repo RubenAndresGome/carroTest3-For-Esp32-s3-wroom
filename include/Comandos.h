@@ -50,18 +50,25 @@ struct ComandoRed {
     int seq;
     float heading;      // STEP/TURN_TO: rumbo absoluto objetivo en grados [0, 360)
     float distanciaCm;  // STEP: distancia a avanzar en cm (siempre positiva)
-    float factor;       // SET_COMP: factor de compensación
+    float factor;       // SET_COMP: factor de compensación (compatibilidad)
+    // SET_COMP extendido: perfil adaptativo por lado calibrado por superficie.
+    float trimIzq;
+    float trimDer;
+    int deadbandIzq8;
+    int deadbandDer8;
     // Campos aditivos de STEP. En una misión el backend entrega el waypoint
     // exacto; los pasos manuales siguen usando sólo heading + cm.
     float targetXCm;
     float targetYCm;
     bool tieneObjetivoAbsoluto;
     ModoPaso modoPaso;
-    // Campos de SET_CALIBRATION (8-bit)
+    // Campos de SET_CALIBRATION (8-bit) y traslación parásita por superficie.
     int pwmPositivo8;
     int pwmNegativo8;
     int polaridadPositiva;
     int polaridadNegativa;
+    float icrXCm;
+    float icrYCm;
 };
 
 extern QueueHandle_t colaComandos;

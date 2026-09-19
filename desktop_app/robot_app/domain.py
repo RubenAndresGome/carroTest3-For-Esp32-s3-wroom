@@ -40,6 +40,10 @@ ALLOWED_COMMANDS = frozenset(
 
 MAX_SEGMENT_MM = 2_000.0
 DEFAULT_SUBSEGMENT_MM = 500.0
+# Residuo maximo que se absorbe en vez de compilarse como tramo propio. El
+# firmware rechaza cualquier paso < 0.5 cm; un residuo sub-centimetrico entre la
+# pose real y el waypoint generaba un micro-paso que abortaba la mision.
+SNAP_RESIDUAL_MM = 10.0
 CHASSIS_LENGTH_CM = 28.0
 CHASSIS_WIDTH_CM = 17.0
 CHASSIS_HALF_LENGTH_CM = 14.0
@@ -105,7 +109,15 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
     if name == "turn_to":
         return {"heading": _heading_degrees(source.get("heading"))}
     if name == "set_comp":
-        return {"factor": _finite_number(source.get("factor"), "factor", 0.8, 1.0)}
+        res: dict[str, Any] = {"factor": _finite_number(source.get("factor"), "factor", 0.8, 1.0)}
+        # Perfil adaptativo por lado: trims y zona muerta de arranque.
+        for field in ("trim_izq", "trim_der"):
+            if field in source and source[field] is not None:
+                res[field] = _finite_number(source[field], field, 0.8, 1.2)
+        for field in ("deadband_izq", "deadband_der"):
+            if field in source and source[field] is not None:
+                res[field] = int(_finite_number(source[field], field, 0, 30))
+        return res
     if name == "set_calibration":
         res: dict[str, Any] = {}
         if "pwm_pos" in source and source["pwm_pos"] is not None:
@@ -124,6 +136,10 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
             res["cand_neg"] = cneg
         if "cand_pos" in res and "cand_neg" in res and res["cand_pos"] == res["cand_neg"]:
             raise ValueError("cand_pos y cand_neg deben ser de signos opuestos")
+        # Centro instantaneo de rotacion (traslacion parasita) por superficie.
+        for field in ("icr_x_cm", "icr_y_cm"):
+            if field in source and source[field] is not None:
+                res[field] = _finite_number(source[field], field, -30.0, 30.0)
         return res
     return {}
 
@@ -267,6 +283,7 @@ class TelemetrySnapshot:
     calibration_diagnostics: dict[str, Any] = field(default_factory=dict)
     pcnt_init: dict[str, Any] = field(default_factory=dict)
     torque_history: dict[str, Any] = field(default_factory=dict)
+    power: dict[str, Any] = field(default_factory=dict)
     manual_phase: str = "idle"
     fault: dict[str, Any] = field(default_factory=dict)
     allowed_commands: tuple[str, ...] = ()
@@ -436,6 +453,8 @@ class TelemetrySnapshot:
             if isinstance(payload.get("pcnt_init", {}), Mapping) else {},
             torque_history=dict(payload.get("torque_history", {}))
             if isinstance(payload.get("torque_history", {}), Mapping) else {},
+            power=dict(payload.get("power", {}))
+            if isinstance(payload.get("power", {}), Mapping) else {},
             manual_phase=str(payload.get("manual_phase", "idle"))[:32],
             fault=dict(payload.get("fault", {}))
             if isinstance(payload.get("fault", {}), Mapping) else {},

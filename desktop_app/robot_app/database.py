@@ -113,6 +113,21 @@ class Database:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )""")
+            # Calibracion adaptativa por superficie: trim por lado, zona muerta
+            # de arranque e ICR de traslacion parasita. Migracion idempotente
+            # para bases existentes.
+            surface_columns = {row[1] for row in connection.execute("PRAGMA table_info(calibration_surfaces)")}
+            for column, declaration in (
+                ("trim_izq", "REAL NOT NULL DEFAULT 1.0"),
+                ("trim_der", "REAL NOT NULL DEFAULT 1.0"),
+                ("deadband_izq_8bit", "INTEGER NOT NULL DEFAULT 0"),
+                ("deadband_der_8bit", "INTEGER NOT NULL DEFAULT 0"),
+                ("icr_x_cm", "REAL NOT NULL DEFAULT 0.0"),
+                ("icr_y_cm", "REAL NOT NULL DEFAULT 0.0"),
+                ("gyro_scale", "REAL NOT NULL DEFAULT 1.0"),
+            ):
+                if column not in surface_columns:
+                    connection.execute(f"ALTER TABLE calibration_surfaces ADD COLUMN {column} {declaration}")
             existing_surfaces = connection.execute("SELECT COUNT(*) as count FROM calibration_surfaces").fetchone()["count"]
             if existing_surfaces == 0:
                 defaults = [
@@ -505,13 +520,18 @@ class Database:
     def save_calibration_surface(
         self, surface_id: str, name: str, pwm_positive_8bit: int, pwm_negative_8bit: int,
         positive_polarity: int, negative_polarity: int, description: str | None = None,
+        trim_izq: float = 1.0, trim_der: float = 1.0,
+        deadband_izq_8bit: int = 0, deadband_der_8bit: int = 0,
+        icr_x_cm: float = 0.0, icr_y_cm: float = 0.0, gyro_scale: float = 1.0,
     ) -> None:
         with self.transaction() as connection:
             connection.execute(
                 """INSERT INTO calibration_surfaces(id, name, pwm_positive_8bit, pwm_negative_8bit,
                                                   positive_polarity, negative_polarity, description,
+                                                  trim_izq, trim_der, deadband_izq_8bit, deadband_der_8bit,
+                                                  icr_x_cm, icr_y_cm, gyro_scale,
                                                   created_at, updated_at)
-                   VALUES(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                   VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                    ON CONFLICT(id) DO UPDATE SET
                        name=excluded.name,
                        pwm_positive_8bit=excluded.pwm_positive_8bit,
@@ -519,9 +539,18 @@ class Database:
                        positive_polarity=excluded.positive_polarity,
                        negative_polarity=excluded.negative_polarity,
                        description=excluded.description,
+                       trim_izq=excluded.trim_izq,
+                       trim_der=excluded.trim_der,
+                       deadband_izq_8bit=excluded.deadband_izq_8bit,
+                       deadband_der_8bit=excluded.deadband_der_8bit,
+                       icr_x_cm=excluded.icr_x_cm,
+                       icr_y_cm=excluded.icr_y_cm,
+                       gyro_scale=excluded.gyro_scale,
                        updated_at=CURRENT_TIMESTAMP""",
                 (surface_id, name, int(pwm_positive_8bit), int(pwm_negative_8bit),
-                 int(positive_polarity), int(negative_polarity), description or ""),
+                 int(positive_polarity), int(negative_polarity), description or "",
+                 float(trim_izq), float(trim_der), int(deadband_izq_8bit), int(deadband_der_8bit),
+                 float(icr_x_cm), float(icr_y_cm), float(gyro_scale)),
             )
 
     def delete_calibration_surface(self, surface_id: str) -> bool:

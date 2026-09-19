@@ -51,6 +51,36 @@ class DatabaseTests(unittest.TestCase):
             finally:
                 migrated.close()
 
+    def test_calibration_surface_migration_adds_adaptive_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.sqlite3"
+            connection = sqlite3.connect(path)
+            connection.execute(
+                "CREATE TABLE calibration_surfaces (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, "
+                "pwm_positive_8bit INTEGER NOT NULL, pwm_negative_8bit INTEGER NOT NULL, "
+                "positive_polarity INTEGER NOT NULL, negative_polarity INTEGER NOT NULL, "
+                "description TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+            )
+            connection.execute(
+                "INSERT INTO calibration_surfaces(id, name, pwm_positive_8bit, pwm_negative_8bit, "
+                "positive_polarity, negative_polarity, description, created_at, updated_at) "
+                "VALUES('vieja','Vieja',140,140,1,-1,'','2026-01-01','2026-01-01')"
+            )
+            connection.commit()
+            connection.close()
+
+            database = Database(path)
+            database.initialize()
+            row = database.get_calibration_surface("vieja")
+            self.assertEqual(row["pwm_positive_8bit"], 140)
+            self.assertAlmostEqual(row["trim_izq"], 1.0)
+            self.assertAlmostEqual(row["trim_der"], 1.0)
+            self.assertEqual(row["deadband_izq_8bit"], 0)
+            self.assertEqual(row["deadband_der_8bit"], 0)
+            self.assertAlmostEqual(row["icr_x_cm"], 0.0)
+            self.assertAlmostEqual(row["icr_y_cm"], 0.0)
+            self.assertAlmostEqual(row["gyro_scale"], 1.0)
+
     def test_settings_and_session_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "test.sqlite3")

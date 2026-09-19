@@ -148,6 +148,18 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
     c.pwmNegativo8 = doc["pwm_neg"] | 0;
     c.polaridadPositiva = doc["cand_pos"] | 0;
     c.polaridadNegativa = doc["cand_neg"] | 0;
+    c.icrXCm = ICR_X_CM_DEFAULT;
+    c.icrYCm = ICR_Y_CM_DEFAULT;
+    if (!doc["icr_x_cm"].isNull() &&
+        !leerFloatFinito(doc["icr_x_cm"], c.icrXCm)) {
+      responderRechazado(seq, "cal_icr_invalid"); return;
+    }
+    if (!doc["icr_y_cm"].isNull() &&
+        !leerFloatFinito(doc["icr_y_cm"], c.icrYCm)) {
+      responderRechazado(seq, "cal_icr_invalid"); return;
+    }
+    c.icrXCm = constrain(c.icrXCm, -ICR_LIMITE_CM, ICR_LIMITE_CM);
+    c.icrYCm = constrain(c.icrYCm, -ICR_LIMITE_CM, ICR_LIMITE_CM);
   }
   else if (strcmp(cmd,"step")==0) {
     c.tipo=CMD_STEP;
@@ -186,6 +198,17 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
   else if (strcmp(cmd,"set_comp")==0) {
     c.tipo=CMD_SET_COMP;
     if (!leerFloatFinito(doc["factor"], c.factor)) { responderRechazado(seq, "comp_invalid"); return; }
+    // Compatibilidad: el payload viejo trae solo `factor` para el lado derecho.
+    c.trimIzq = 1.0f;
+    c.trimDer = c.factor;
+    if (!doc["trim_izq"].isNull() && !leerFloatFinito(doc["trim_izq"], c.trimIzq)) {
+      responderRechazado(seq, "comp_invalid"); return;
+    }
+    if (!doc["trim_der"].isNull() && !leerFloatFinito(doc["trim_der"], c.trimDer)) {
+      responderRechazado(seq, "comp_invalid"); return;
+    }
+    c.deadbandIzq8 = doc["deadband_izq"] | 0;
+    c.deadbandDer8 = doc["deadband_der"] | 0;
   }
   else if (strcmp(cmd,"reset_pose")==0) { c.tipo=CMD_RESET_POSE; }
   else { responderRechazado(seq, "unknown_command"); return; }
@@ -298,12 +321,18 @@ static void enviarTelemetria() {
   }
   doc["degraded"] = modoDegradado;
   doc["degraded_mode"] = modoDegradado;
+  doc["encoder_total_failure"] = fallaTotalEncoders;
   JsonArray encConfiables = doc.createNestedArray("enc_trusted");
   for (bool confiable : encoderConfiableGlobal) encConfiables.add(confiable);
   doc["encoder_scale_factor"] = FACTOR_ESCALA_ENCODER;
   doc["encoder_error_pct"] = ENCODER_ERROR_PORCENTAJE;
   doc["encoder_ground_scale_factor"] = FACTOR_ESCALA_ODOMETRIA_SUELO;
   doc["wheel_diameter_odometry_cm"] = WHEEL_DIAMETER_ODOMETRY_CM;
+  // Visor de fuente de 5V: distingue "encoders desconectados" de "fuente
+  // apagada" para no reportar canales sanos que nunca cuentan.
+  JsonObject power = doc.createNestedObject("power");
+  power["5v_ok"] = s.fuente5vOk;
+  power["5v_detail"] = s.fuente5vOk ? "5v_ok" : "5v_fuente_desconectada";
   JsonObject saludEncoders = doc.createNestedObject("encoder_health");
   saludEncoders["fl"] = textoSaludEncoder(estadoSaludEncoderGlobal[0]);
   saludEncoders["fr"] = textoSaludEncoder(estadoSaludEncoderGlobal[1]);
@@ -467,7 +496,7 @@ static void enviarTelemetria() {
   doc["command_run_id"] = pasoEjecucionId;
   doc["phase"] = faseComando;
   doc["prog"] = roundf(progresoComando*100)/100;
-  doc["comp"] = roundf(factorCompensacionDer*100)/100;
+  doc["comp"] = roundf(perfilCompensacion.getLadoDer()*100)/100;
   JsonObject target = doc.createNestedObject("target");
   target["absolute"] = pasoObjetivoAbsoluto;
   target["x_cm"] = pasoTargetXObjetivoCm;
@@ -504,7 +533,13 @@ static void enviarTelemetria() {
   control["integral_deg_s"] = pasoIntegralRumboGradoS;
   control["encoder_pwm"] = pasoControlEncoderPwm;
   control["lateral_correction_deg"] = pasoControlLateralDeg;
-  control["right_compensation"] = factorCompensacionDer;
+  control["right_compensation"] = perfilCompensacion.getLadoDer();
+  control["left_compensation"] = perfilCompensacion.getLadoIzq();
+  control["compensation_prom"] = perfilCompensacion.getProm();
+  control["deadband_left_8bit"] = perfilCompensacion.getDeadbandIzq8();
+  control["deadband_right_8bit"] = perfilCompensacion.getDeadbandDer8();
+  control["icr_x_cm"] = icrXCm;
+  control["icr_y_cm"] = icrYCm;
   control["heading_brake_side"] = pasoLadoFrenoRumbo;
   doc["cal"] = robotCalibrado;
   doc["calibrated"] = robotCalibrado;

@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7.03";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -35,6 +35,13 @@ const int PIN_ENC_BR = 13;  // inferior derecho, cable rojo (TXS B1->A1)
 // No confundirlos con RX/TX, que son pines UART distintos.
 const int PIN_I2C_SDA = 8;
 const int PIN_I2C_SCL = 9;
+
+// Visor de fuente de 5V (encoder/TXS0108E B8 -> A8 -> GPIO1).
+// Permite distinguir "encoders desconectados" de "fuente de 5V apagada" en
+// telemetria en vez de reportar encoders sanos sin pulsos.
+const int PIN_SENSOR_5V = 1;
+constexpr bool SENSOR_5V_ACTIVO_ALTO = true;
+constexpr uint8_t SENSOR_5V_CONFIRMACION_MUESTRAS = 5;
 
 // Muestreo y filtros. PCNT conserva los pulsos acumulados; antes de sumarlos
 // se descarta cualquier salto físicamente imposible para impedir que una
@@ -117,7 +124,7 @@ constexpr float DISTANCIA_MICRO_PULSOS_CM = 3.0f;
 constexpr uint32_t APPROACH_PULSE_ON_MS = 250;
 constexpr uint32_t APPROACH_PULSE_OFF_MS = 120;
 constexpr int APPROACH_PULSE_PWM = static_cast<int>(180 * PWM_SCALE_8_TO_10);
-constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 150; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
+constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 300; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
 
 // --- DIMENSIONES FÍSICAS DEL CHASIS 4WD ---
 constexpr float CHASSIS_LENGTH_CM = 28.0f;
@@ -270,6 +277,12 @@ constexpr float STEP_MAX_DISTANCE_CM = 200.0f;
 constexpr float STEP_TARGET_MAX_ABS_CM = 10000.0f;
 constexpr float COMP_FACTOR_MIN = 0.80f;
 constexpr float COMP_FACTOR_MAX = 1.00f;
+// Modelo de traslacion parasita en giro puro: el centro instantaneo de rotacion
+// (ICR) no coincide con el centro geometrico. Al girar dTheta el centro se
+// desplaza dx = -y_icr*dTheta, dy = x_icr*dTheta. Se calibra por superficie.
+constexpr float ICR_X_CM_DEFAULT = 0.0f;
+constexpr float ICR_Y_CM_DEFAULT = 0.0f;
+constexpr float ICR_LIMITE_CM = 30.0f;
 
 // Diagnóstico RTOS
 constexpr uint32_t RTOS_STACK_MIN_ACCEPTABLE_BYTES = 1024;

@@ -157,6 +157,8 @@ void procesarComandos() {
                         !pcntInicializados() ? "pcnt_init_failed" : "cal_unavailable");
                 break;
             case CMD_SET_CALIBRATION:
+                icrXCm = cmd.icrXCm;
+                icrYCm = cmd.icrYCm;
                 if (!aplicarCalibracionInyectada(cmd.pwmPositivo8, cmd.pwmNegativo8, cmd.polaridadPositiva, cmd.polaridadNegativa, cmd.seq))
                     encolarEvento(EVT_REJECTED, cmd.seq, "cal_injection_failed");
                 break;
@@ -212,10 +214,11 @@ void procesarComandos() {
             case CMD_SET_COMP:
                 if (estadoActual != DESARMADO && estadoActual != LISTO) {
                     encolarEvento(EVT_REJECTED, cmd.seq, "busy");
-                } else if (cmd.factor >= COMP_FACTOR_MIN && cmd.factor <= COMP_FACTOR_MAX) {
-                    factorCompensacionDer = cmd.factor;
+                } else {
+                    perfilCompensacion.establecer(cmd.trimIzq, cmd.trimDer,
+                                                  cmd.deadbandIzq8, cmd.deadbandDer8);
                     encolarEvento(EVT_COMPLETED, cmd.seq, "comp_ok");
-                } else encolarEvento(EVT_REJECTED, cmd.seq, "comp_range");
+                }
                 break;
             default: break;
         }
@@ -259,6 +262,11 @@ static void ejecutarCicloControl() {
         WatchdogSeguridad.actualizarSaludEncoders(snap, pwm_aplicado_L, pwm_aplicado_R);
         heading360 = normalizar360(anguloZ);
         PoseGlobal.actualizarOrientacion(snap.imu_deltaZ_rad);
+        // Traslacion parasita: solo en pivote puro. En arcos y avance recto el
+        // ICR efectivo es otro y compensarlo descuadraria la pose.
+        if (estadoActual == EJECUTANDO && enFaseGiro()) {
+            PoseGlobal.aplicarCorreccionICR(snap.imu_deltaZ_rad, icrXCm, icrYCm);
+        }
         if (estadoActual == LISTO || estadoActual == DESARMADO) {
             recentrarYawIMUEnReposo();
         }

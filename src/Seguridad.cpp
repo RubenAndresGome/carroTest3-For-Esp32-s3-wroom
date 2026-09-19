@@ -179,6 +179,22 @@ void Seguridad::actualizarSaludEncoders(const SensorSnapshot &snap, int pwm_L, i
         }
     }
 
+    // Falla total de encoders: los cuatro canales en cero con PWM exigido. El
+    // chequeo por pareja no la detecta (cada encoder tiene a su pareja en cero)
+    // y el sistema reportaba "healthy" con los encoders desconectados. Se
+    // expone como diagnostico sin mutar la mascara de confianza para no romper
+    // el estimador de distancia.
+    static uint32_t inicioFallaTotalEncMs = 0;
+    const bool pwmExigidoAlgunLado = ladoExigido[0] || ladoExigido[1];
+    const bool todosCero = delta[0] == 0 && delta[1] == 0 && delta[2] == 0 && delta[3] == 0;
+    if (pwmExigidoAlgunLado && todosCero) {
+        if (inicioFallaTotalEncMs == 0) inicioFallaTotalEncMs = ahora;
+        fallaTotalEncoders = (ahora - inicioFallaTotalEncMs) >= ENCODER_SUSPECT_MS;
+    } else {
+        inicioFallaTotalEncMs = 0;
+        fallaTotalEncoders = false;
+    }
+
     modoDegradado = false;
     for (bool confiable : encoderConfiableGlobal) modoDegradado |= !confiable;
     encoderFusionDeltaL = ControlSeguridad::promedioConfiableLado(

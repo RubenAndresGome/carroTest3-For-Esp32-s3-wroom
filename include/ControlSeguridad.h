@@ -159,6 +159,23 @@ inline PromediosLado promediosConfiableAcotados(const int64_t valores[4],
   return resultado;
 }
 
+// Media aritmetica total de los canales marcados como confiables, sin
+// distincion de lado ni regla de minimos. Es el estimador de distancia pedido
+// por el usuario: un encoder que sub-lee no sesga el resultado a la baja.
+// Retorna -1 cuando no queda ninguna fuente confiable.
+inline float mediaEncodersSaludables(const int64_t valores[4],
+                                     const bool confiable[4]) {
+  float suma = 0.0f;
+  int n = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (confiable[i]) {
+      suma += static_cast<float>(valores[i]);
+      ++n;
+    }
+  }
+  return n > 0 ? suma / static_cast<float>(n) : -1.0f;
+}
+
 inline bool ladoEnStall(bool ladoExigido, bool pulsoFrontalCero,
                         bool pulsoPosteriorCero) {
   return ladoExigido && pulsoFrontalCero && pulsoPosteriorCero;

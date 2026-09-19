@@ -112,6 +112,11 @@ void setup_Sensores() {
                       diagnosticoPCNT[i].codigoError);
     }
 
+    // Visor de fuente de 5V (TXS B8 -> A8 -> GPIO). Entrada digital simple;
+    // se confirma por muestras para no reportar un flanco como perdida real.
+    pinMode(PIN_SENSOR_5V, INPUT);
+    snapshotControl.fuente5vOk = SENSOR_5V_ACTIVO_ALTO;
+
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
     Wire.setTimeout(10);
 
@@ -339,6 +344,19 @@ SensorSnapshot leerSensoresSincrono() {
 
     leerEncoders(snapshotControl);
     leerGiroscopio(snapshotControl);
+
+    // Confirmacion por muestras del visor de 5V: evita reportar un flanco
+    // aislado como perdida de fuente.
+    static uint8_t muestras5v = 0;
+    const bool lectura5v = SENSOR_5V_ACTIVO_ALTO
+        ? digitalRead(PIN_SENSOR_5V) == HIGH
+        : digitalRead(PIN_SENSOR_5V) == LOW;
+    if (lectura5v == snapshotControl.fuente5vOk) {
+        muestras5v = 0;
+    } else if (++muestras5v >= SENSOR_5V_CONFIRMACION_MUESTRAS) {
+        snapshotControl.fuente5vOk = lectura5v;
+        muestras5v = 0;
+    }
 
     portENTER_CRITICAL(&muxSnapshotSensores);
     snapshotPublicado = snapshotControl;

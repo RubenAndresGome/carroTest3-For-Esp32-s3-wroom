@@ -7,6 +7,7 @@
 #include "ControlTorque.h"
 #include "ControlInicializacionPCNT.h"
 #include "ControlConexion.h"
+#include "ControlCompensacion.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -835,6 +836,70 @@ void test_inhibicion_recuperacion_en_zona_aproximacion_final() {
   TEST_ASSERT_FALSE(permiteRecuperacionCerca);
 }
 
+void test_media_encoders_saludables_sin_cota_por_lado() {
+  // FR=0 y BL=3 excluidos: quedan FL=193 y BR=185 -> media = 189 (no ~127).
+  const int64_t ticks[4] = {193, 0, 3, 185};
+  const bool confiable[4] = {true, false, false, true};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 189.0f,
+                           ControlSeguridad::mediaEncodersSaludables(ticks, confiable));
+  // Caso real sesion #15626: los cuatro confiables, media simple = 410.5.
+  const int64_t reales[4] = {526, 150, 475, 491};
+  const bool todos[4] = {true, true, true, true};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 410.5f,
+                           ControlSeguridad::mediaEncodersSaludables(reales, todos));
+  // Sin fuentes confiables devuelve -1 (guarda de plausibilidad).
+  const bool ninguno[4] = {false, false, false, false};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f,
+                           ControlSeguridad::mediaEncodersSaludables(ticks, ninguno));
+}
+
+void test_perfil_compensacion_getters_y_promedio() {
+  ControlCompensacion::Perfil perfil;
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getLadoIzq());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getLadoDer());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getProm());
+  TEST_ASSERT_EQUAL_UINT8(0, perfil.getCantidad());
+
+  perfil.establecer(0.90f, 0.95f, 8, 12);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.90f, perfil.getLadoIzq());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.95f, perfil.getLadoDer());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.925f, perfil.getProm());
+  TEST_ASSERT_EQUAL_INT(8, perfil.getDeadbandIzq8());
+  TEST_ASSERT_EQUAL_INT(12, perfil.getDeadbandDer8());
+
+  // Limites: el trim no puede amplificar mas alla de TRIM_MAX ni recortar por
+  // debajo de TRIM_MIN; la deadband se acota a DEADBAND_MAX_8BIT.
+  perfil.establecer(1.50f, 0.50f, 99, -4);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, ControlCompensacion::TRIM_MAX, perfil.getLadoIzq());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, ControlCompensacion::TRIM_MIN, perfil.getLadoDer());
+  TEST_ASSERT_EQUAL_INT(ControlCompensacion::DEADBAND_MAX_8BIT, perfil.getDeadbandIzq8());
+  TEST_ASSERT_EQUAL_INT(0, perfil.getDeadbandDer8());
+
+  // Media incremental: dos muestras 1.0 y 0.8 -> 0.9.
+  ControlCompensacion::Perfil media;
+  ControlCompensacion::Muestra m1; m1.trimIzq = 1.0f; m1.trimDer = 1.0f;
+  ControlCompensacion::Muestra m2; m2.trimIzq = 0.8f; m2.trimDer = 0.8f;
+  media.agregar(m1);
+  media.agregar(m2);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.9f, media.getProm());
+  TEST_ASSERT_EQUAL_UINT8(2, media.getCantidad());
+}
+
+void test_correccion_traslacion_parasita_icr() {
+  // Con ICR en (0,0) no hay correccion.
+  const auto nulo = ControlRuta::corregirTraslacionParasita(0.0f, 0.0f, 1.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, nulo.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, nulo.dyCm);
+  // ICR desplazado: dx = -y_icr*dTheta, dy = x_icr*dTheta.
+  const auto correccion = ControlRuta::corregirTraslacionParasita(2.0f, 3.0f, 0.5f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, correccion.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, correccion.dyCm);
+  // Signo opuesto de giro invierte la correccion.
+  const auto inverso = ControlRuta::corregirTraslacionParasita(2.0f, 3.0f, -0.5f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, inverso.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, inverso.dyCm);
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -904,5 +969,8 @@ int main(int, char**) {
   RUN_TEST(test_reversa_automatica_evita_pivote_180_grados);
   RUN_TEST(test_escala_odometria_suelo_calibrada);
   RUN_TEST(test_fuente_unica_no_infla_distancia_en_modo_degradado);
+  RUN_TEST(test_media_encoders_saludables_sin_cota_por_lado);
+  RUN_TEST(test_perfil_compensacion_getters_y_promedio);
+  RUN_TEST(test_correccion_traslacion_parasita_icr);
   return UNITY_END();
 }

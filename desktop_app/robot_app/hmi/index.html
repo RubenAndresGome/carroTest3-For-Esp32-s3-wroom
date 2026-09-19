@@ -3867,6 +3867,7 @@
                 const mission=await WSControl.api('/api/v1/missions',{method:'POST',body:JSON.stringify(mode.missionPayload(this))});
                 this.isRunning=true; this.routeStartedAt=Date.now(); this.currentStepIndex=mission.current_index||0;
                 this.activeCommandId=mission.active_command_id; this.waitingForMovement=true;
+                this.clearTelemetryTrail();
                 this.lockTabs(); LogSystem.add('INFO',`Misión ${mission.id} iniciada con ${mission.total_segments} segmentos.`);
                 this.updateListUI(); this.drawPlan();
             } catch(error) {
@@ -3961,7 +3962,9 @@
         async ockhamReturn() {
             try {
                 const preview=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:JSON.stringify({preview:true})});
-                this.currentOrigin={x:state.telemetria.posX,y:state.telemetria.posY};
+                // Conservar el home de la mision como (0,0) del grafico: asi la
+                // traza del retorno se superpone al camino saliente invertido en
+                // vez de quedar en un marco relativo a la pose actual.
                 this.logicalSteps=[]; this.nextLogicalStepId=1;
                 const vectorialReturn=preview.mode==='angular_vectorial';
                 this.modeSelect.value=vectorialReturn?'vectorial':'rect';

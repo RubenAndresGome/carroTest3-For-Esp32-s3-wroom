@@ -1,4 +1,5 @@
 #include "Estado.h"
+#include "Config.h"
 #include <stddef.h>
 #if __has_include("Secrets.h")
 #include "Secrets.h"
@@ -45,6 +46,7 @@ float anguloZ = 0.0f;
 float heading360 = 0.0f;
 
 bool modoDegradado = false;
+bool fallaTotalEncoders = false;
 bool encoderConfiableGlobal[4] = {true, true, true, true};
 EstadoSaludEncoder estadoSaludEncoderGlobal[4] = {
     EstadoSaludEncoder::HEALTHY, EstadoSaludEncoder::HEALTHY,
@@ -62,7 +64,9 @@ uint8_t antiFriccionPulsoIndice = 0;
 int antiFriccionPwmObjetivo = 0;
 bool antiFriccionMovimientoConfirmado = false;
 
-float factorCompensacionDer = 1.0f;
+ControlCompensacion::Perfil perfilCompensacion;
+float icrXCm = ICR_X_CM_DEFAULT;
+float icrYCm = ICR_Y_CM_DEFAULT;
 
 float pasoHeadingObjetivo = 0.0f;
 float pasoDistanciaObjetivoCm = 0.0f;

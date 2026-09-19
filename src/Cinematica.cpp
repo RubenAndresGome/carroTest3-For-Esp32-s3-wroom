@@ -851,15 +851,9 @@ float promedioLado(const int64_t v[4], bool izq) {
   return ControlSeguridad::promedioConfiableLado(v, encoderConfiableGlobal, izq);
 }
 float estimarTicksAvance(const int64_t v[4]) {
-  if (!hayPorLado()) return -1.0f;
-  // La mediana decide que canales son coherentes; la distancia siempre se
-  // calcula como promedio de las fuentes confiables de cada lado. Si un lado
-  // quedo con una unica fuente (modo degradado), se acota contra el lado sano
-  // para que el ruido o el patinaje no inflen la distancia estimada.
-  const ControlSeguridad::PromediosLado promedios =
-      ControlSeguridad::promediosConfiableAcotados(v, encoderConfiableGlobal,
-                                                   DESACUERDO_MAXIMO_PAR);
-  return 0.5f*(promedios.izquierdo + promedios.derecho);
+  // Media aritmetica total de encoders saludables: sin distincion de lado y sin
+  // la regla de minimos que sesgaba a la baja con un encoder sub-lector.
+  return ControlSeguridad::mediaEncodersSaludables(v, encoderConfiableGlobal);
 }
 void resetConfEncoders() {
   for (int i = 0; i < 4; ++i) {
@@ -989,8 +983,12 @@ bool controlarAntiFriccion(const SensorSnapshot& s) {
   deltas(ticksBaseAntiFriccion, s, delta);
   const float deltaL = promedioLado(delta, true);
   const float deltaR = promedioLado(delta, false);
+  // Autoridad central del MPU: si el chasis roto o se traslado, el movimiento
+  // existe aunque un encoder degradado no lo reporte. Sin esta evidencia, la
+  // recuperacion anti-friccion enclavaba FALLO con el robot girando.
+  const bool mpuConfirma = fabsf(s.gyro_z_filtrado_rad_s) >= GYRO_MOVEMENT_RAD_S;
   if (ControlSeguridad::movimientoAntiFriccionConfirmado(
-          deltaL, deltaR, ANTIFRICTION_SUCCESS_TICKS)) {
+          deltaL, deltaR, ANTIFRICTION_SUCCESS_TICKS) || mpuConfirma) {
     antiFriccionActiva = false;
     antiFriccionPulsoEncendido = false;
     antiFriccionMovimientoConfirmado = true;
@@ -1267,7 +1265,12 @@ bool controlarAvance() {
   }
 
   // Compensacion derecha + direccionamiento diferencial simetrico (preserva empuje neto hacia adelante)
-  int baseDer = constrain(aproximar(base * factorCompensacionDer), VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  // Compensacion adaptativa por lado: corrige la asimetria de los reductores
+  // TT. El HMI la calibra y persiste por tipo de piso.
+  const int baseIzq = constrain(aproximar(base * perfilCompensacion.getLadoIzq()),
+                                VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  int baseDer = constrain(aproximar(base * perfilCompensacion.getLadoDer()),
+                          VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int redL = 0, redR = 0;
   int boostL = 0, boostR = 0;
   if (ctrlRumbo != 0.0f) {
@@ -1291,7 +1294,7 @@ bool controlarAvance() {
   // MPU tiene autoridad exclusiva: encoders no interfieren en corrección de rumbo
   if (ctrlEnc > 0.0f) redL += aproximar(ctrlEnc); else if (ctrlEnc < 0.0f) redR += aproximar(-ctrlEnc);
 
-  int magL = constrain(base - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
+  int magL = constrain(baseIzq - redL + boostL, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
   int magR = constrain(baseDer - redR + boostR, VELOCIDAD_MINIMA_DIFERENCIAL, PWM_SAFE_HARD_LIMIT);
 
   if (!aplicarVelocidades(direccionTraslacion * magL, direccionTraslacion * magR)) {
@@ -1335,6 +1338,12 @@ bool controlarAsentamientoFinal() {
   if (ticksArrastre > ticksAsentamientoAnterior + 0.25f ||
       fabsf(s.gyro_z_filtrado_rad_s) >= 0.04f) {
     ultimoMovimientoAsentamientoMs = ahora;
+    // Re-armar el freno activo mientras el chasis siga rodando por inercia:
+    // el pulso inicial de 300 ms puede expirar antes de que el robot se
+    // detenga en losa lisa.
+    if (ahora - inicioAsentamientoMs > DURACION_FRENO_ACTIVO_MS) {
+      frenarMotoresActivo();
+    }
   }
   ticksAsentamientoAnterior = ticksArrastre;
   actualizarErroresTrayectoria();
