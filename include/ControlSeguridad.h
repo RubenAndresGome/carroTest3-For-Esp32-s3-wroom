@@ -176,6 +176,72 @@ inline float mediaEncodersSaludables(const int64_t valores[4],
   return n > 0 ? suma / static_cast<float>(n) : -1.0f;
 }
 
+// Estimacion robusta de ticks de avance:
+// A partir de los canales marcados como confiables, si hay al menos 3 fuentes y
+// la magnitud supera el umbral minimo (ticksMinimosFiltro), calcula la mediana y
+// descarta cualquier canal que difiera mas de desacuerdoMaximo (25%) y al menos 5 ticks
+// respecto a dicha mediana. Luego promedia los canales coherentes.
+// Si no hay canales confiables retorna -1.0f.
+inline float estimacionRobustaTicksAvance(
+    const int64_t valores[4],
+    const bool confiable[4],
+    float desacuerdoMaximo = 0.25f,
+    int64_t ticksMinimosFiltro = 15) {
+  int64_t validos[4];
+  int n = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (confiable[i]) {
+      validos[n++] = valores[i];
+    }
+  }
+  if (n == 0) return -1.0f;
+  if (n == 1) return static_cast<float>(validos[0]);
+  if (n == 2) return 0.5f * static_cast<float>(validos[0] + validos[1]);
+
+  // Para 3 o 4 canales: ordenamiento por insercion para hallar la mediana
+  int64_t ordenados[4];
+  for (int i = 0; i < n; ++i) ordenados[i] = validos[i];
+  for (int i = 1; i < n; ++i) {
+    const int64_t actual = ordenados[i];
+    int j = i - 1;
+    while (j >= 0 && ordenados[j] > actual) {
+      ordenados[j + 1] = ordenados[j];
+      --j;
+    }
+    ordenados[j + 1] = actual;
+  }
+
+  float med = 0.0f;
+  if (n == 3) {
+    med = static_cast<float>(ordenados[1]);
+  } else {
+    med = 0.5f * static_cast<float>(ordenados[1] + ordenados[2]);
+  }
+
+  // Si los ticks acumulados aun no superan el umbral minimo, no descartar por porcentaje
+  // para evitar falsos positivos por desfase de pulsos al arrancar.
+  if (fabsf(med) < static_cast<float>(ticksMinimosFiltro)) {
+    float suma = 0.0f;
+    for (int i = 0; i < n; ++i) suma += static_cast<float>(validos[i]);
+    return suma / static_cast<float>(n);
+  }
+
+  float sumaCoherentes = 0.0f;
+  int numCoherentes = 0;
+  for (int i = 0; i < n; ++i) {
+    const float v = static_cast<float>(validos[i]);
+    const float diff = fabsf(v - med);
+    const bool esOutlier = (diff >= 5.0f) &&
+                           ((diff / fmaxf(1.0f, fabsf(med))) > desacuerdoMaximo);
+    if (!esOutlier) {
+      sumaCoherentes += v;
+      ++numCoherentes;
+    }
+  }
+
+  return (numCoherentes > 0) ? (sumaCoherentes / static_cast<float>(numCoherentes)) : med;
+}
+
 inline bool ladoEnStall(bool ladoExigido, bool pulsoFrontalCero,
                         bool pulsoPosteriorCero) {
   return ladoExigido && pulsoFrontalCero && pulsoPosteriorCero;
@@ -243,6 +309,46 @@ inline bool evaluarDivergenciaGiro(
     estado.inicioDivergenciaMs = 0;
   }
   return false;
+}
+
+// Guarda inercial de sentido de movimiento:
+// Evalúa si la aceleración longitudinal medida por el MPU6050 (en m/s²)
+// contradice flagrantemente la dirección de traslación ordenada (direccion: +1 avance, -1 reversa).
+// Si el vehículo está acelerando sostenidamente en sentido opuesto al ordenado, retorna true.
+inline bool detectarSentidoMovimientoInverso(
+    float accelY_m_s2, int direccionOrdenada, float umbralAceleracion = 1.8f) {
+  if (direccionOrdenada > 0 && accelY_m_s2 < -umbralAceleracion) {
+    return true; // Se ordenó avance, pero el chasis sufre empuje/aceleración en reversa
+  }
+  if (direccionOrdenada < 0 && accelY_m_s2 > umbralAceleracion) {
+    return true; // Se ordenó reversa, pero el chasis acelera hacia adelante
+  }
+  return false;
+}
+
+// Distancia angular estimada para detener el chasis con freno activo DRV8833 (Back-EMF).
+// Retorna la distancia en grados requerida para disipar la energia cinetica: Δθ = ω² / (2 * α)
+inline float calcularDistanciaFrenadoInercialDeg(float velAngularRadS, float decelDegS2 = 2400.0f) {
+  const float velDegS = fabsf(velAngularRadS) * 57.29578f;
+  if (decelDegS2 <= 0.0f) return 0.0f;
+  return (velDegS * velDegS) / (2.0f * decelDegS2);
+}
+
+// Evalua si se debe activar anticipadamente el freno activo dinamico para que la inercia
+// deposite al chasis sobre el angulo objetivo sin sobrepasarlo.
+inline bool evaluarFrenoActivoPredictivoGiro(
+    float errorAngDeg,
+    float velAngularRadS,
+    bool movimientoConfirmado,
+    float decelDegS2 = 2400.0f,
+    float distanciaMinimaDeg = 0.5f) {
+  if (!movimientoConfirmado) return false;
+  const bool girandoHaciaMeta = (errorAngDeg > 0.0f && velAngularRadS > 0.04f) ||
+                                (errorAngDeg < 0.0f && velAngularRadS < -0.04f);
+  if (!girandoHaciaMeta) return false;
+  const float distFreno = calcularDistanciaFrenadoInercialDeg(velAngularRadS, decelDegS2);
+  if (distFreno < distanciaMinimaDeg) return false;
+  return fabsf(errorAngDeg) <= distFreno;
 }
 
 }  // namespace ControlSeguridad

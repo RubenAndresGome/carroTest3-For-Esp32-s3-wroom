@@ -1083,7 +1083,6 @@ class RobotService:
                 has_mission = self._mission_id is not None
             if has_mission:
                 self.stop_mission("stopped_by_estop")
-            self.stop_session("stopped_by_estop")
         elif normalized_name in {"calibrate", "set_calibration"}:
             with self._lock:
                 has_mission = self._mission_id is not None
@@ -1237,7 +1236,6 @@ class RobotService:
                     has_mission = self._mission_id is not None
                 if has_mission:
                     self.stop_mission("stopped_by_estop")
-                self.stop_session("stopped_by_estop")
             # Fuente de 5V ausente: los encoders no pueden contar. Se bloquea la
             # mision activa con causa explicita en vez de dejar que el firmware
             # entre en recuperaciones y termine en FALLO.
@@ -1324,7 +1322,6 @@ class RobotService:
                 has_mission = self._mission_id is not None
             if has_mission:
                 self.stop_mission("stopped_by_estop")
-            self.stop_session("stopped_by_estop")
         severity = Severity.ERROR if kind == "fault" else Severity.INFO
         self.database.insert_event(self._session_id, kind or "message", severity.value, message)
         public_event = {**message, "type": kind, "id": command_id or None}
@@ -1680,6 +1677,10 @@ class RobotService:
         return ok
 
     def apply_calibration_surface(self, surface_id: str) -> dict[str, Any]:
+        with self._lock:
+            last_state = (self._last_telemetry.state if self._last_telemetry else "").upper()
+        if last_state in {"ESTOP", "FALLO", "FAULT"}:
+            raise RuntimeError(f"No se puede aplicar calibración: el robot está en {last_state}. Ejecute 'Rearmar' primero.")
         surface = self.database.get_calibration_surface(surface_id)
         if surface is None:
             raise ValueError(f"Superficie no encontrada: {surface_id}")

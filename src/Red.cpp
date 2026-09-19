@@ -312,6 +312,11 @@ static void enviarTelemetria() {
   doc["mpu_stale"] = s.mpu_stale;
   doc["mpu_calibrated"] = s.mpu_calibrated;
   doc["i2c_ok"] = s.mpu_present;
+  JsonObject imuAccel = doc.createNestedObject("imu_accel");
+  imuAccel["ax"] = roundf(s.accel_x_m_s2 * 100.0f) / 100.0f;
+  imuAccel["ay"] = roundf(s.accel_y_m_s2 * 100.0f) / 100.0f;
+  imuAccel["az"] = roundf(s.accel_z_m_s2 * 100.0f) / 100.0f;
+  imuAccel["pitch"] = roundf(s.pitch_dinamico_deg * 10.0f) / 10.0f;
   enc.add(s.pulsosFL); enc.add(s.pulsosFR); enc.add(s.pulsosBL); enc.add(s.pulsosBR);
   const ControlInicializacionPCNT::Canal* diagnosticoPcnt = diagnosticoInicializacionPCNT();
   JsonObject pcntInit = doc.createNestedObject("pcnt_init");

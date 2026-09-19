@@ -146,6 +146,7 @@ pnpm-debug.log*
 *.stackdump
 logs_mensajes/
 veredictos/
+scratch/
 **/crash*.txt
 **/logcat*.txt
 

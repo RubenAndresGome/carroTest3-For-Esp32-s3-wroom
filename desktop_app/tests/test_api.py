@@ -772,14 +772,14 @@ class ApiTests(unittest.TestCase):
         finally:
             reloaded_service.close()
 
-    def test_estop_command_kills_mission_and_session(self) -> None:
+    def test_estop_command_kills_mission_and_preserves_session(self) -> None:
         self._ready()
         self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         session_id = self.service.start_session()
         self.assertIsNotNone(self.service._session_id)
         self.assertTrue(self.service.mission_status()["running"])
         self.service.send_command("estop", {})
-        self.assertIsNone(self.service._session_id)
+        self.assertEqual(self.service._session_id, session_id)
         status = self.service.mission_status()
         self.assertIsNone(status["id"])
         self.assertFalse(status["running"])
@@ -810,30 +810,37 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status["stage"], "idle")
         self.assertIsNone(self.service.database.get_setting("active_mission"))
 
-    def test_estop_telemetry_kills_mission_and_session(self) -> None:
+    def test_estop_telemetry_kills_mission_and_preserves_session(self) -> None:
         self._ready()
         self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         session_id = self.service.start_session()
         self.assertIsNotNone(self.service._session_id)
         self.assertTrue(self.service.mission_status()["running"])
+        # Primer paquete con ESTOP
         self.service._on_robot_message({
             "evt": "telemetry", "state": "estop", "enc": [0, 0, 0, 0],
             "pwm": [0, 0], "yaw": 0,
         })
-        self.assertIsNone(self.service._session_id)
+        self.assertEqual(self.service._session_id, session_id)
+        # Segundo paquete sucesivo con ESTOP no debe ciclar ni crear nuevas sesiones
+        self.service._on_robot_message({
+            "evt": "telemetry", "state": "estop", "enc": [0, 0, 0, 0],
+            "pwm": [0, 0], "yaw": 0,
+        })
+        self.assertEqual(self.service._session_id, session_id)
         status = self.service.mission_status()
         self.assertIsNone(status["id"])
         self.assertFalse(status["running"])
         self.assertEqual(status["stage"], "idle")
         self.assertIsNone(self.service.database.get_setting("active_mission"))
 
-    def test_estop_latched_completed_kills_mission_and_session(self) -> None:
+    def test_estop_latched_completed_kills_mission_and_preserves_session(self) -> None:
         self._ready()
         self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         session_id = self.service.start_session()
         self.assertIsNotNone(self.service._session_id)
         self.service._on_robot_message({"evt": "completed", "seq": 10, "detail": "estop_latched"})
-        self.assertIsNone(self.service._session_id)
+        self.assertEqual(self.service._session_id, session_id)
         status = self.service.mission_status()
         self.assertIsNone(status["id"])
         self.assertFalse(status["running"])

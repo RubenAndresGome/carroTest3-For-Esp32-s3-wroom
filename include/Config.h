@@ -74,12 +74,11 @@ constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
 // Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
 constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
+constexpr float MPU_ACCEL_FORWARD_POLARITY = 1.0f; // Eje longitudinal del chasis (+Y frente)
 // Factor de escala de calibración física del giróscopo MPU6050.
-// Corrige la tolerancia de sensibilidad de fábrica del sensor (~8.7%).
-// Determinado en pista de 200 cm: con 90° integrados el robot giró físicamente 98.63° (30 cm en Y- a 2 m).
-// Factor = 98.63 / 90.0 = 1.0959f. Al multiplicar velocidadZ por este factor, la integración
-// acumula 90.0° exactamente cuando el chasis físico alcanza 90.0° perpendiculares.
-constexpr float GYRO_Z_SCALE_FACTOR = 1.0959f;
+// Ajustado tras validar freno activo dinámico DRV8833 a 2.1°:
+// elimina la sub-rotación física de ~4° generada por el factor anterior (1.0959f).
+constexpr float GYRO_Z_SCALE_FACTOR = 1.035f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID
@@ -204,18 +203,23 @@ constexpr int PWM_TURN_START_MACRO = static_cast<int>(190 * PWM_SCALE_8_TO_10); 
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
 // Micro-pulsos adaptados a los reductores TT: por debajo de ~50 ms no vencen la
 // esticcion ni el backlash; por encima de ~80 ms sobrepasan por inercia.
-constexpr uint32_t TT_MIN_PULSE_ON_MS = 50;
-constexpr uint32_t TURN_PULSE_ON_MS = 70;
+constexpr uint32_t TT_MIN_PULSE_ON_MS = 40;
+constexpr uint32_t TURN_PULSE_ON_MS = 45;
 constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 60;
 constexpr uint32_t TURN_PULSE_OFF_MS = 100;
+// Parametros de frenado activo predictivo dinamico (Back-EMF con DRV8833):
+// Desaceleracion ajustada a ~2400 deg/s² para activar freno dinamico a ~2.1° antes del objetivo (a 100 deg/s).
+constexpr float TURN_ACTIVE_BRAKE_DECEL_DEG_S2 = 2400.0f;
+constexpr int PWM_TURN_PULSE_FINE_OFFSET = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr float TURN_REACTIVATION_DEG = 1.0f;
-constexpr uint8_t TURN_MAX_ATTEMPTS = 121;
+constexpr uint8_t TURN_MAX_ATTEMPTS = 6;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 300;
 // Exigir 250 ms de yaw estable en reposo absoluto antes de completar el giro
 constexpr uint32_t TURN_SETTLE_MS = 250;
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_PASO_MS = 600; // Reposo total del MPU tras frenar avance
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_GIRO_MS = 400; // Reposo y verificación tras completar giro
-constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.0f; // Unificado con TOLERANCIA_GIRO_DEG
+constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.5f; // Unificado con TOLERANCIA_GIRO_FALLBACK_DEG para evitar hunting
+constexpr float UMBRAL_REACTIVACION_GIRO_PRE_AVANCE_DEG = 2.5f; // Histéresis antes de abortar avance hacia re-giro
 constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 1.5f;
 // Fallback de asentamiento: tras varios intentos sin alcanzar 1.0 grado con el
 // giroscopo en reposo, se amplia a este valor para no bloquear el paso.

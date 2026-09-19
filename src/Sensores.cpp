@@ -21,6 +21,11 @@ static unsigned long tiempoAnteriorIMU = 0;
 static int64_t tiempoAnteriorIMU_us = 0;
 static unsigned long ultimaLecturaIMU = 0;
 static uint32_t contadorRecentradosYaw = 0;
+static float accel_x_offset_m_s2 = 0.0f;
+static float accel_y_offset_m_s2 = 0.0f;
+static float accel_x_filtrada = 0.0f;
+static float accel_y_filtrada = 0.0f;
+static float accel_z_filtrada = 9.8f;
 static portMUX_TYPE muxOrientacionIMU = portMUX_INITIALIZER_UNLOCKED;
 static SensorSnapshot snapshotControl = {};
 static SensorSnapshot snapshotPublicado = {};
@@ -133,22 +138,28 @@ void setup_Sensores() {
         mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
         delay(250);
         // Calibracion rustica pero determinista: el carro debe permanecer
-        // quieto mientras se suman las muestras de reposo del eje Z.
+        // quieto mientras se suman las muestras de reposo del eje Z y acelerometro.
+        float suma_ax = 0.0f;
+        float suma_ay = 0.0f;
         float suma_z = 0.0f;
         uint16_t muestras_validas = 0;
         for (uint16_t i = 0; i < IMU_CALIBRATION_SAMPLES; ++i) {
             sensors_event_t a, g, temp;
             if (mpu.getEvent(&a, &g, &temp)) {
+                suma_ax += a.acceleration.x;
+                suma_ay += a.acceleration.y;
                 suma_z += g.gyro.z;
                 ++muestras_validas;
             }
             delay(2);
         }
         if (muestras_validas >= IMU_CALIBRATION_SAMPLES * 3 / 4) {
+            accel_x_offset_m_s2 = suma_ax / static_cast<float>(muestras_validas);
+            accel_y_offset_m_s2 = suma_ay / static_cast<float>(muestras_validas);
             gyro_z_offset_rad_s = suma_z / static_cast<float>(muestras_validas);
             mpu_calibrado = true;
-            Serial.printf("MPU6050 calibrado: offset GZ=%.6f rad/s (%u muestras).\n",
-                          gyro_z_offset_rad_s, muestras_validas);
+            Serial.printf("MPU6050 calibrado: GZ=%.6f rad/s, AX_off=%.4f, AY_off=%.4f m/s2 (%u muestras).\n",
+                          gyro_z_offset_rad_s, accel_x_offset_m_s2, accel_y_offset_m_s2, muestras_validas);
         } else {
             mpu_calibrado = false;
             Serial.println("ERROR: MPU6050 sin suficientes muestras validas de calibracion.");
@@ -238,11 +249,15 @@ void resetOrientacionIMU() {
 
 bool recalibrarOffsetIMU(uint16_t muestras) {
     if (!mpu_inicializado) return false;
+    float suma_ax = 0.0f;
+    float suma_ay = 0.0f;
     float suma_z = 0.0f;
     uint16_t validas = 0;
     for (uint16_t i = 0; i < muestras; ++i) {
         sensors_event_t a, g, temp;
         if (mpu.getEvent(&a, &g, &temp)) {
+            suma_ax += a.acceleration.x;
+            suma_ay += a.acceleration.y;
             suma_z += g.gyro.z;
             ++validas;
         }
@@ -250,6 +265,8 @@ bool recalibrarOffsetIMU(uint16_t muestras) {
     }
     if (validas >= muestras * 3 / 4) {
         portENTER_CRITICAL(&muxOrientacionIMU);
+        accel_x_offset_m_s2 = suma_ax / static_cast<float>(validas);
+        accel_y_offset_m_s2 = suma_ay / static_cast<float>(validas);
         gyro_z_offset_rad_s = suma_z / static_cast<float>(validas);
         anguloZ_acum = 0.0f;
         anguloZ = 0.0f;
@@ -333,20 +350,42 @@ static void leerGiroscopio(SensorSnapshot &snap) {
     snap.mpu_stale = false;
 
     // El offset se resta en el marco crudo del sensor, se calibra por GYRO_Z_SCALE_FACTOR
-    // y después se transforma al marco canónico del robot. No se corrige sólo la gráfica: control,
-    // odometría y telemetría consumen todos el mismo signo y escala normalizados.
-    const float velocidadZ =
+    // y después se transforma al marco canónico del robot.
+    const float velocidadZCruda =
         (g.gyro.z - gyro_z_offset_rad_s) * MPU_YAW_POLARITY *
         GYRO_Z_SCALE_FACTOR * escalaGiroRuntime;
     portENTER_CRITICAL(&muxOrientacionIMU);
-    float velocidadFiltrada = filtroGyroZ.agregar(velocidadZ);
+    // El filtro de promedio móvil y zona muerta se reservan exclusivamente para
+    // el término derivativo D del PID, control de tracción y telemetría (elimina ~40 ms de retraso en yaw).
+    float velocidadFiltrada = filtroGyroZ.agregar(velocidadZCruda);
     if (fabsf(velocidadFiltrada) < IMU_GYRO_DEADBAND_RAD_S) velocidadFiltrada = 0.0f;
     snap.gyro_z_filtrado_rad_s = velocidadFiltrada;
-    snap.imu_deltaZ_rad = velocidadFiltrada * dt;
+
+    // Integración numérica limpia con rechazo de ruido de reposo y vibración mecánica (deadband):
+    float velIntegrar = velocidadZCruda;
+    if (fabsf(velIntegrar) < IMU_GYRO_DEADBAND_RAD_S) velIntegrar = 0.0f;
+    snap.imu_deltaZ_rad = velIntegrar * dt;
 
     anguloZ_acum += snap.imu_deltaZ_rad;
     anguloZ = anguloZ_acum * 180.0f / PI;
     snap.yaw_integrado_deg = anguloZ;
+
+    // Aceleración lineal triaxial con rechazo de offset estático y filtro paso bajo IIR (alpha=0.2)
+    const float ax_raw = a.acceleration.x - accel_x_offset_m_s2;
+    const float ay_raw = (a.acceleration.y - accel_y_offset_m_s2) * MPU_ACCEL_FORWARD_POLARITY;
+    const float az_raw = a.acceleration.z;
+
+    accel_x_filtrada = 0.8f * accel_x_filtrada + 0.2f * ax_raw;
+    accel_y_filtrada = 0.8f * accel_y_filtrada + 0.2f * ay_raw;
+    accel_z_filtrada = 0.8f * accel_z_filtrada + 0.2f * az_raw;
+
+    snap.accel_x_m_s2 = accel_x_filtrada;
+    snap.accel_y_m_s2 = accel_y_filtrada;
+    snap.accel_z_m_s2 = accel_z_filtrada;
+
+    // Estimación de cabeceo dinámico (pitch en grados) para supervisión de transferencia de masa
+    snap.pitch_dinamico_deg = atan2f(accel_y_filtrada,
+        sqrtf(accel_x_filtrada * accel_x_filtrada + accel_z_filtrada * accel_z_filtrada)) * 180.0f / PI;
     portEXIT_CRITICAL(&muxOrientacionIMU);
 }
 
