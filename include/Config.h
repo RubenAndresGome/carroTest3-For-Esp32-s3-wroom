@@ -75,11 +75,9 @@ constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
 constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
 // Factor de escala de calibración física del giróscopo MPU6050.
-// Corrige la tolerancia de sensibilidad de fábrica del sensor (~8.7%).
-// Determinado en pista de 200 cm: con 90° integrados el robot giró físicamente 98.63° (30 cm en Y- a 2 m).
-// Factor = 98.63 / 90.0 = 1.0959f. Al multiplicar velocidadZ por este factor, la integración
-// acumula 90.0° exactamente cuando el chasis físico alcanza 90.0° perpendiculares.
-constexpr float GYRO_Z_SCALE_FACTOR = 1.0959f;
+// 1.0 = base neutral directa sin sesgo artificial. El ajuste por tipo de superficie
+// se calibra y persiste en runtime vía 'set_calibration' (gyro_scale).
+constexpr float GYRO_Z_SCALE_FACTOR = 1.0f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID
@@ -215,7 +213,8 @@ constexpr uint32_t TURN_RETRY_PAUSE_MS = 300;
 constexpr uint32_t TURN_SETTLE_MS = 250;
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_PASO_MS = 600; // Reposo total del MPU tras frenar avance
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_GIRO_MS = 400; // Reposo y verificación tras completar giro
-constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.0f; // Unificado con TOLERANCIA_GIRO_DEG
+constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.5f; // Unificado con TOLERANCIA_GIRO_FALLBACK_DEG para evitar hunting
+constexpr float UMBRAL_REACTIVACION_GIRO_PRE_AVANCE_DEG = 2.5f; // Histéresis antes de abortar avance hacia re-giro
 constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 1.5f;
 // Fallback de asentamiento: tras varios intentos sin alcanzar 1.0 grado con el
 // giroscopo en reposo, se amplia a este valor para no bloquear el paso.

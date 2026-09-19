@@ -333,16 +333,19 @@ static void leerGiroscopio(SensorSnapshot &snap) {
     snap.mpu_stale = false;
 
     // El offset se resta en el marco crudo del sensor, se calibra por GYRO_Z_SCALE_FACTOR
-    // y después se transforma al marco canónico del robot. No se corrige sólo la gráfica: control,
-    // odometría y telemetría consumen todos el mismo signo y escala normalizados.
-    const float velocidadZ =
+    // y después se transforma al marco canónico del robot.
+    const float velocidadZCruda =
         (g.gyro.z - gyro_z_offset_rad_s) * MPU_YAW_POLARITY *
         GYRO_Z_SCALE_FACTOR * escalaGiroRuntime;
     portENTER_CRITICAL(&muxOrientacionIMU);
-    float velocidadFiltrada = filtroGyroZ.agregar(velocidadZ);
+    // El filtro de promedio móvil y zona muerta se reservan exclusivamente para
+    // el término derivativo D del PID, control de tracción y telemetría (elimina ~40 ms de retraso en yaw).
+    float velocidadFiltrada = filtroGyroZ.agregar(velocidadZCruda);
     if (fabsf(velocidadFiltrada) < IMU_GYRO_DEADBAND_RAD_S) velocidadFiltrada = 0.0f;
     snap.gyro_z_filtrado_rad_s = velocidadFiltrada;
-    snap.imu_deltaZ_rad = velocidadFiltrada * dt;
+
+    // Integración numérica sin distorsión de fase ni mutilación de rotaciones lentas:
+    snap.imu_deltaZ_rad = velocidadZCruda * dt;
 
     anguloZ_acum += snap.imu_deltaZ_rad;
     anguloZ = anguloZ_acum * 180.0f / PI;

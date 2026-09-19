@@ -879,19 +879,12 @@ void iniciarAvance(bool conservar) {
   establecerLimiteContinuoPwm(PWM_SAFE_HARD_LIMIT);
   const SensorSnapshot s = sensar();
   if (!conservar) { distAcumuladaCm = 0.0f; intentosRecup = 0; }
-  // Anclaje de trayectoria: si el paso persigue un objetivo espacial absoluto,
-  // la directriz se ancla a la recta planificada de la misión (deducida de target y rumbo)
-  // para preservar y corregir cualquier desvío lateral acumulado entre mini-tramos de 50 cm.
-  // En pasos relativos o sin target, se ancla en la pose real del robot.
-  if (pasoObjetivoAbsoluto && tieneTargetEspacial && !std::isnan(pasoTargetX) && !std::isnan(pasoTargetY)) {
-    constexpr float kPi = 3.14159265358979323846f;
-    const float rumboRad = pasoRumboTrayectoDeg * kPi / 180.0f;
-    pasoOrigenTramoXCm = pasoTargetX - distanciaPlanificadaCm * sinf(rumboRad);
-    pasoOrigenTramoYCm = pasoTargetY - distanciaPlanificadaCm * cosf(rumboRad);
-  } else {
-    pasoOrigenTramoXCm = PoseGlobal.getX();
-    pasoOrigenTramoYCm = PoseGlobal.getY();
-  }
+  // Invarianza de marco local (ControlRuta.h:121): la directriz del tramo se
+  // ancla siempre en la pose real del robot al iniciar el avance para que el
+  // desvío lateral en t=0 sea exactamente cero y no se herede error residual de
+  // pasos anteriores ("efecto cangrejo"). El endpoint se valida al final.
+  pasoOrigenTramoXCm = PoseGlobal.getX();
+  pasoOrigenTramoYCm = PoseGlobal.getY();
   reiniciarControlRumbo();
   pasoEnReversa = direccionTraslacion < 0;
   // Una recuperación o reevaluación debe preservar los canales que ya fueron
@@ -1189,7 +1182,9 @@ bool controlarAvance() {
   pasoModoAngular = static_cast<uint8_t>(angular.modo);
   pasoModulacionIzq = angular.modLadoIzq;
   pasoModulacionDer = angular.modLadoDer;
-  if (angular.solicitarPivote) {
+  const float errRumboCuerpo = errorAng360(pasoRumboCuerpoDeg, heading360);
+  const bool autorizarPivote = angular.solicitarPivote && (fabsf(errRumboCuerpo) > TOLERANCIA_CARDINAL_ESTRICTA_DEG);
+  if (autorizarPivote) {
     frenarMotores();
     distAcumuladaCm = distMedida;
     if (intentosRecup >= INTENTOS_RECUPERACION_MAX) {
@@ -1200,7 +1195,7 @@ bool controlarAvance() {
       return false;
     }
     ++intentosRecup;
-    iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
+    iniciarBaseGiro(normalizar360(pasoRumboCuerpoDeg), Fase::GIRO_RECUPERACION);
     return false;
   }
 
@@ -1529,9 +1524,13 @@ void controlarPausaPreAvance() {
   float err = errorAng360(pasoRumboCuerpoDeg, heading360);
   if (fabsf(err) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
     iniciarAvance(pausaPreAvanceConservar);
-  } else {
-    // Si excede la tolerancia estricta (p. ej. > 2.5°), reorientar con micro-pulsos para garantizar avance ortogonal
+  } else if (fabsf(err) > UMBRAL_REACTIVACION_GIRO_PRE_AVANCE_DEG) {
+    // Solo si excede la cota de histéresis (>2.5°), reorientar con micro-pulsos
     iniciarBaseGiro(pasoRumboCuerpoDeg, Fase::GIRO_INICIAL);
+  } else {
+    // Zona de histéresis (1.5° a 2.5°): el giróscopo ya está estable en reposo;
+    // proceder al avance sin quedar atrapado en contragiros oscilatorios.
+    iniciarAvance(pausaPreAvanceConservar);
   }
 }
 
@@ -1739,16 +1738,9 @@ bool iniciarPaso(float heading, float distanciaCm, int seq, float targetX, float
   }
   pasoTargetXObjetivoCm = pasoTargetX;
   pasoTargetYObjetivoCm = pasoTargetY;
-  // Semilla del anclaje de la recta planificada para telemetría inicial y avance
-  if (pasoObjetivoAbsoluto && tieneTargetEspacial && !std::isnan(pasoTargetX) && !std::isnan(pasoTargetY)) {
-    constexpr float kPi = 3.14159265358979323846f;
-    const float rumboRad = pasoRumboTrayectoDeg * kPi / 180.0f;
-    pasoOrigenTramoXCm = pasoTargetX - distanciaPlanificadaCm * sinf(rumboRad);
-    pasoOrigenTramoYCm = pasoTargetY - distanciaPlanificadaCm * cosf(rumboRad);
-  } else {
-    pasoOrigenTramoXCm = PoseGlobal.getX();
-    pasoOrigenTramoYCm = PoseGlobal.getY();
-  }
+  // Semilla del anclaje de la recta: siempre anclado en pose real actual
+  pasoOrigenTramoXCm = PoseGlobal.getX();
+  pasoOrigenTramoYCm = PoseGlobal.getY();
   actualizarErroresTrayectoria();
 
   distTargetMinimaCm = 1e9f;
