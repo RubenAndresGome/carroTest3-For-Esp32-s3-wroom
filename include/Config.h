@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7.04";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -36,6 +36,13 @@ const int PIN_ENC_BR = 13;  // inferior derecho, cable rojo (TXS B1->A1)
 const int PIN_I2C_SDA = 8;
 const int PIN_I2C_SCL = 9;
 
+// Visor de fuente de 5V (encoder/TXS0108E B8 -> A8 -> GPIO1).
+// Permite distinguir "encoders desconectados" de "fuente de 5V apagada" en
+// telemetria en vez de reportar encoders sanos sin pulsos.
+const int PIN_SENSOR_5V = 1;
+constexpr bool SENSOR_5V_ACTIVO_ALTO = true;
+constexpr uint8_t SENSOR_5V_CONFIRMACION_MUESTRAS = 5;
+
 // Muestreo y filtros. PCNT conserva los pulsos acumulados; antes de sumarlos
 // se descarta cualquier salto físicamente imposible para impedir que una
 // lectura corrupta contamine pose, distancia y las misiones siguientes. El
@@ -67,12 +74,11 @@ constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
 // Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
 constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
+constexpr float MPU_ACCEL_FORWARD_POLARITY = 1.0f; // Eje longitudinal del chasis (+Y frente)
 // Factor de escala de calibración física del giróscopo MPU6050.
-// Corrige la tolerancia de sensibilidad de fábrica del sensor (~8.7%).
-// Determinado en pista de 200 cm: con 90° integrados el robot giró físicamente 98.63° (30 cm en Y- a 2 m).
-// Factor = 98.63 / 90.0 = 1.0959f. Al multiplicar velocidadZ por este factor, la integración
-// acumula 90.0° exactamente cuando el chasis físico alcanza 90.0° perpendiculares.
-constexpr float GYRO_Z_SCALE_FACTOR = 1.0959f;
+// Ajustado tras validar freno activo dinámico DRV8833 a 2.1°:
+// elimina la sub-rotación física de ~4° generada por el factor anterior (1.0959f).
+constexpr float GYRO_Z_SCALE_FACTOR = 1.035f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID
@@ -91,6 +97,15 @@ static_assert((PWM_POLARITY_FL == 1 || PWM_POLARITY_FL == -1) &&
 constexpr int PWM_MANUAL_MAX_LIMIT = static_cast<int>(230 * PWM_SCALE_8_TO_10);
 constexpr int PWM_MANUAL_RAMP_STEP = static_cast<int>(8 * PWM_SCALE_8_TO_10);
 constexpr int PWM_SAFE_HARD_LIMIT = static_cast<int>(242 * PWM_SCALE_8_TO_10); // Límite de avance 94.9%
+// Regimen de rafagas al 100% (255/255) exclusivo para transitorios cortos:
+// kickstart, desenclave de engranajes TT, micro-pulsos y sacudidas. Pasado el
+// tiempo maximo, el PWM se repliega al limite continuo; una nueva rafaga exige
+// el intervalo de enfriamiento.
+constexpr uint32_t PWM_BURST_MAX_MS = 80;
+constexpr uint32_t PWM_BURST_COOLDOWN_MS = 100;
+// La zona muerta actua como piso dinamico de arranque por debajo del crucero;
+// nunca se suma sobre velocidades de crucero (evita superar 242/255).
+constexpr int PWM_DEADBAND_UMBRAL_CRUCERO = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 
 // --- NIVELES DISCRETOS DE CRUCERO ADAPTATIVO (70% - 85% - 90% - 100%) ---
 constexpr int PWM_CRUCERO_70 = static_cast<int>(179 * PWM_SCALE_8_TO_10);  // 70.2% de 255 (~35-50 ticks/s objetivo)
@@ -117,7 +132,7 @@ constexpr float DISTANCIA_MICRO_PULSOS_CM = 3.0f;
 constexpr uint32_t APPROACH_PULSE_ON_MS = 250;
 constexpr uint32_t APPROACH_PULSE_OFF_MS = 120;
 constexpr int APPROACH_PULSE_PWM = static_cast<int>(180 * PWM_SCALE_8_TO_10);
-constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 150; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
+constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 300; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
 
 // --- DIMENSIONES FÍSICAS DEL CHASIS 4WD ---
 constexpr float CHASSIS_LENGTH_CM = 28.0f;
@@ -141,11 +156,15 @@ constexpr float GYRO_MOVEMENT_RAD_S = 0.12f;
 constexpr uint32_t DRIVE_STALL_MS = 6000;
 constexpr uint32_t DRIVE_BASE_TIMEOUT_MS = 15000;
 constexpr uint32_t DRIVE_TIMEOUT_PER_CM_MS = 400;
-// La corrección PID continua absorbe el desvío moderado. El pivote se arma
-// sólo ante una pérdida clara y sostenida de rumbo, evitando ciclos de
-// avance/giro durante segmentos cortos.
-constexpr float ERROR_RUMBO_RECUPERAR_DEG = 15.0f;
-constexpr uint32_t ERROR_RUMBO_RECUPERAR_MS = 600;
+// Lazo angular graduado durante el avance (ver include/ControlAngular.h):
+// A) diferencial suave sin detenerse hasta UMBRAL_ANGULAR_CONTINUO_DEG;
+// B) diferencial fuerte con retencion breve hasta UMBRAL_ANGULAR_TRANSITORIO_DEG;
+// C) pausa + pivote + reanudar conteo si el error persiste mas alla de la
+//    histeresis; D) cierre final sin pivote en los ultimos DISTANCIA_CIERRE_CM.
+constexpr float UMBRAL_ANGULAR_CONTINUO_DEG = 5.0f;
+constexpr float UMBRAL_ANGULAR_TRANSITORIO_DEG = 12.0f;
+constexpr uint32_t TIEMPO_SOSTENIDO_RECUPERACION_MS = 300;
+constexpr float DISTANCIA_CIERRE_ANGULAR_CM = 15.0f;
 constexpr float GIRO_RECUPERACION_MAX_DEG = 25.0f;
 // Un error persistente debe terminar en parada segura; no mantener PWM en un
 // ciclo de recuperación indefinido si el robot no responde.
@@ -156,6 +175,9 @@ constexpr uint32_t PAUSA_ENTRE_PASOS_MS = 600;
 constexpr uint32_t TURN_CONTROL_PERIOD_MS = 20;
 constexpr int PWM_TURN_MAX_LIMIT = static_cast<int>(255 * PWM_SCALE_8_TO_10); // Techo al 100% (255/255 = 1023/1023) exclusivo para giros
 constexpr int PWM_TURN_KICKSTART = static_cast<int>(247 * PWM_SCALE_8_TO_10); // ~97% arranque instantáneo para romper esticción 4WD
+// Limite continuo de giro/calibracion: por encima solo se permiten rafagas
+// acotadas (PWM_BURST_MAX_MS) hasta PWM_TURN_MAX_LIMIT.
+constexpr int PWM_TURN_CONTINUO_LIMIT = static_cast<int>(247 * PWM_SCALE_8_TO_10);
 // Piso de potencia mínima para giros (~70.6%) para vencer fricción estática y arrastre lateral 4WD
 constexpr int PWM_TURN_FLOOR_MIN = static_cast<int>(180 * PWM_SCALE_8_TO_10);
 // Giro inicial a ~97% para vencer fricción estática del chasis 4WD de inmediato
@@ -169,7 +191,9 @@ constexpr int PWM_TURN_SLEW_STEP = static_cast<int>(2 * PWM_SCALE_8_TO_10);
 constexpr int PWM_TURN_START_SLEW_STEP = static_cast<int>(6 * PWM_SCALE_8_TO_10);
 constexpr uint32_t TURN_RAMP_DOWN_INTERVAL_MS = 30; // 30 ms por escalón de descenso en zona de frenado
 constexpr int PWM_TURN_RAMP_DOWN_STEP = static_cast<int>(6 * PWM_SCALE_8_TO_10); // ~2.4% por escalón (~24 unidades) para desaceleración ágil
-constexpr float TOLERANCIA_GIRO_DEG = 2.5f;
+// Tolerancia angular estricta para pivotes cardinales: 1.0 grado para no
+// arrancar la recta con rumbo contaminado (antes 2.5 grados).
+constexpr float TOLERANCIA_GIRO_DEG = 1.0f;
 constexpr float TOLERANCIA_CALIBRACION_DEG = 2.5f;
 constexpr float CALIBRACION_GIRO_TEST_DEG = 25.0f;
 constexpr float TURN_BRAKING_ZONE_DEG = 35.0f; // Zona de frenado ampliada (35°) para desacelerar suavemente y evitar sobrepaso
@@ -177,18 +201,30 @@ constexpr float TURN_HYBRID_THRESHOLD_DEG = 4.0f;
 constexpr float MAX_TURN_RATE_RAD_S = 1.8f; // ~103 deg/s límite de velocidad angular para evitar patinación centrífuga
 constexpr int PWM_TURN_START_MACRO = static_cast<int>(190 * PWM_SCALE_8_TO_10); // ~74.5% arranque suave para macro-giros sin burnout
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
-constexpr uint32_t TURN_PULSE_ON_MS = 250;
-constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 80;
-constexpr uint32_t TURN_PULSE_OFF_MS = 120;
+// Micro-pulsos adaptados a los reductores TT: por debajo de ~50 ms no vencen la
+// esticcion ni el backlash; por encima de ~80 ms sobrepasan por inercia.
+constexpr uint32_t TT_MIN_PULSE_ON_MS = 40;
+constexpr uint32_t TURN_PULSE_ON_MS = 45;
+constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 60;
+constexpr uint32_t TURN_PULSE_OFF_MS = 100;
+// Parametros de frenado activo predictivo dinamico (Back-EMF con DRV8833):
+// Desaceleracion ajustada a ~2400 deg/s² para activar freno dinamico a ~2.1° antes del objetivo (a 100 deg/s).
+constexpr float TURN_ACTIVE_BRAKE_DECEL_DEG_S2 = 2400.0f;
+constexpr int PWM_TURN_PULSE_FINE_OFFSET = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr float TURN_REACTIVATION_DEG = 1.0f;
-constexpr uint8_t TURN_MAX_ATTEMPTS = 121;
+constexpr uint8_t TURN_MAX_ATTEMPTS = 6;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 300;
 // Exigir 250 ms de yaw estable en reposo absoluto antes de completar el giro
 constexpr uint32_t TURN_SETTLE_MS = 250;
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_PASO_MS = 600; // Reposo total del MPU tras frenar avance
 constexpr uint32_t PAUSA_ESTABILIZACION_POST_GIRO_MS = 400; // Reposo y verificación tras completar giro
-constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 2.5f; // Unificado con TOLERANCIA_GIRO_DEG
-constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 3.0f;
+constexpr float TOLERANCIA_CARDINAL_ESTRICTA_DEG = 1.5f; // Unificado con TOLERANCIA_GIRO_FALLBACK_DEG para evitar hunting
+constexpr float UMBRAL_REACTIVACION_GIRO_PRE_AVANCE_DEG = 2.5f; // Histéresis antes de abortar avance hacia re-giro
+constexpr float UMBRAL_RECORRECCION_POST_FRENO_DEG = 1.5f;
+// Fallback de asentamiento: tras varios intentos sin alcanzar 1.0 grado con el
+// giroscopo en reposo, se amplia a este valor para no bloquear el paso.
+constexpr float TOLERANCIA_GIRO_FALLBACK_DEG = 1.5f;
+constexpr uint8_t TURN_PULSOS_FALLBACK = 8;
 constexpr uint32_t TURN_STALL_MS = 4000;
 constexpr uint32_t TURN_TIMEOUT_MS = 90000;
 constexpr uint32_t TURN_ATTEMPT_TIMEOUT_MS = 15000;
@@ -270,6 +306,12 @@ constexpr float STEP_MAX_DISTANCE_CM = 200.0f;
 constexpr float STEP_TARGET_MAX_ABS_CM = 10000.0f;
 constexpr float COMP_FACTOR_MIN = 0.80f;
 constexpr float COMP_FACTOR_MAX = 1.00f;
+// Modelo de traslacion parasita en giro puro: el centro instantaneo de rotacion
+// (ICR) no coincide con el centro geometrico. Al girar dTheta el centro se
+// desplaza dx = -y_icr*dTheta, dy = x_icr*dTheta. Se calibra por superficie.
+constexpr float ICR_X_CM_DEFAULT = 0.0f;
+constexpr float ICR_Y_CM_DEFAULT = 0.0f;
+constexpr float ICR_LIMITE_CM = 30.0f;
 
 // Diagnóstico RTOS
 constexpr uint32_t RTOS_STACK_MIN_ACCEPTABLE_BYTES = 1024;

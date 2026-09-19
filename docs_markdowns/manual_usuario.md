@@ -226,47 +226,41 @@ La versión actual puede mostrar un mensaje genérico de “robot conectado y MP
 lista” para varias causas. Consultar protocolo, antigüedad de telemetría,
 `cal`, estado y último terminal antes de asumir que falló el Wi-Fi.
 
-## 7. Calibración supervisada y en espacio reducido
+## 7. Calibración supervisada y en espacio reducido (Dogma Canónico)
 
-La calibración del robot está optimizada para operar en **espacios reducidos**
-(áreas de prueba estrechas como mesas o pasillos de laboratorio):
+La calibración del robot sigue el **Dogma Canónico de Calibración** inmutable, optimizado para operar en **espacios reducidos** (mesas de prueba o pasillos estrechos):
 
-1. **Giro exclusivo en el sitio:** la calibración es un pivote puro sobre el centro
-   del chasis con cero traslación longitudinal o lateral (cero avance en X ni en Y).
-2. **MPU principal:** busca torque en ambas polaridades, exige signos de yaw
-   opuestos, reposa 2.5 s y vuelve al yaw inicial sin objetivo angular fijo.
-3. **PCNT como corroboración bilateral:** un canal con 2 ticks detecta torque,
-   pero el pivote sólo se valida cuando responde al menos una fuente por lado y
-   la relación lateral permanece entre 0.5 y 2.0. Se usa el máximo de FL/BL y
-   FR/BR para que un sensor silencioso no divida artificialmente la evidencia.
-   Esto no verifica dirección física porque los PCNT son de un solo canal.
-4. **Retorno vigilado:** al alcanzar el torque útil, frena si el error no mejora
-   0.5° durante 10 s, o si el retorno completo supera 25 s.
+1. **Cuenta regresiva y reposo de 5.0 s (`CAL_CUENTA_REGRESIVA`):** Antes de mover cualquier motor, el sistema mantiene el robot en reposo absoluto durante 5.0 s para estabilizar el filtro complementario y medir con precisión el sesgo (*bias*) del giróscopo MPU6050.
+2. **Búsqueda de torque en Polaridad Positiva (`CAL_A`):** Rampa suave de 140/255 a 247/255 hasta confirmar respuesta bilateral de encoders y velocidad angular `fabsf(gyro_z) >= 0.12 rad/s` sostenida por 100 ms. Si el giro inicial resulta negativo, invierte `candidatoCal` con pausa de 750 ms hasta validar polaridad dextrógira positiva `gyro_z > 0`.
+3. **Validación de giro a +25° (`CAL_VALIDAR_25`):** Pivote puro hasta alcanzar `yawInicio + 25°` (±2.5°) con reposo de asentamiento de 600 ms.
+4. **Reposo y Torque en Polaridad Opuesta (`CAL_PAUSA` y `CAL_B`):** Pausa de 2.5 s y búsqueda con sentido invertido validando movimiento bilateral con signo opuesto (`candidatoGiroPos != candidatoGiroNeg`).
+5. **Reposo y Retorno Estricto (`CAL_PAUSA_RETORNO` y `CAL_RETORNO`):** Pausa de 2.5 s y pivote de regreso hacia el `yawInicioCalDeg` original. Al estabilizarse, resetea la odometría de `PoseGlobal` (X=0, Y=0) y el yaw de la IMU a 0°.
 
 ### Procedimiento operativo
 
-1. Mantener las ruedas apoyadas sobre superficie horizontal libre de obstáculos inmediatos
-   (o elevadas para la primera prueba eléctrica).
-2. Habilitar VMOT con fuente limitada o batería protegida.
-3. Confirmar que los contadores PCNT o la prueba manual respondan.
-4. Pulsar **Recalibrar** una sola vez desde la interfaz.
-5. Observar las búsquedas A y B, el reposo y el retorno al yaw inicial.
-6. Aceptar sólo el terminal `completed/cal_ok` y estado final `listo`.
+1. Mantener las ruedas apoyadas sobre superficie horizontal libre de obstáculos inmediatos (o elevadas para la primera prueba eléctrica).
+2. Habilitar VMOT con fuente limitada (0.5 A) o batería protegida con fusible.
+3. Confirmar que los contadores PCNT respondan al giro manual de ruedas.
+4. Pulsar **Recalibrar** una sola vez desde la interfaz HMI.
+5. Observar la cuenta regresiva de 5.0 s en reposo absoluto, las búsquedas A y B, las pausas de 2.5 s y el retorno final al yaw inicial.
+6. Aceptar únicamente el terminal `completed/cal_ok` y estado final `listo`.
 
 ### Fallos de calibración
 
 | Detalle | Interpretación | Acción |
 |---|---|---|
-| `cal_encoders_all_zero_while_turning` | MPU detectó giro pero ningún PCNT marcó pulsos en 500 ms. | Verificar cableado o masa de los cuatro encoders. |
-| `cal_pcnt_insufficient_while_turning` | MPU giró, pero ningún PCNT alcanzó 2 ticks al agotar PWM máximo. | Revisar los cuatro canales PCNT y conectores. |
-| `cal_no_gyro_rotation` | Hubo actividad PCNT o PWM máximo, pero el MPU no confirmó giro. | Revisar MPU, tracción y alimentación. |
+| `cal_connection_lost` | El WebSocket se cerró o perdió durante la calibración activa. Core 1 frenó de inmediato por seguridad. | Verificar enlace Wi-Fi, reconectar WebSocket e iniciar calibración supervisada. |
+| `cal_stall_left` / `cal_stall_right` | Atasco físico de motor o rueda izquierda/derecha al aplicar rampa de torque. | Inspeccionar mecánicamente reductores TT, cableado del lado y tensión de VMOT. |
+| `cal_encoders_all_zero_while_turning` | MPU detectó giro pero ningún PCNT marcó pulsos en 500 ms. | Verificar cableado o masa de los cuatro encoders (TXS0108E). |
+| `cal_pcnt_insufficient_while_turning` | MPU giró, pero ningún PCNT alcanzó 2 ticks al agotar PWM máximo (247). | Revisar los cuatro canales PCNT y alineación de discos ranurados. |
+| `cal_no_gyro_rotation` | Hubo actividad PCNT o PWM máximo, pero el MPU no confirmó giro. | Revisar conexión I²C del MPU6050, tracción y alimentación de motores. |
 | `cal_pivot_one_side_only` | El MPU detectó torque, pero sólo respondió un lado durante 1.5 s o hasta 3°. | Revisar alimentación, driver, motor y encoder del lado silencioso. |
 | `cal_pivot_asymmetric` | Ambos lados respondieron, pero la relación permaneció fuera de 0.5–2.0 durante dos ventanas. | Revisar fricción, polaridades y alimentación; no continuar en suelo. |
 | `cal_pivot_unstable` | El MPU no se estabilizó con PWM cero durante el asentamiento. | Esperar inmovilidad y revisar vibración, inercia o montaje de la MPU. |
 | `cal_return_pivot_asymmetric` | El retorno avanzó angularmente sin evidencia bilateral equilibrada. | Revisar tracción y respuesta por lado antes de rearmar. |
-| `cal_return_no_yaw_progress` | Tras alcanzar el torque útil, el error de retorno no mejoró 0.5° durante 10 s. | Retirar obstáculos y revisar tracción. |
+| `cal_return_no_yaw_progress` | Tras alcanzar el torque útil, el error de retorno no mejoró 0.5° durante 10 s. | Retirar obstáculos y revisar tracción de las cuatro ruedas. |
 | `cal_return_timeout` | El retorno al yaw inicial superó 25 s. | Revisar alimentación, MPU y superficie. |
-| `cal_unavailable` | El estado actual no permite calibrar (e.g. comando activo). | Esperar parada, limpiar fallo si procede y revisar telemetría. |
+| `cal_unavailable` | El estado actual no permite calibrar (e.g. comando activo o fallo no limpiado). | Esperar parada, limpiar fallo si procede y revisar telemetría. |
 | Pérdida de conexión | No se conoce el estado final de la maniobra. | No repetir inmediatamente; reconectar y revisar `cal/state/last_seq`. |
 
 ## 8. Crear y ejecutar una ruta

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura FreeRTOS y Súper-ciclo de Control (100 Hz)",
+    "output": "firmware_superciclo.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "lazo-control", "label": "Lazo de control 100 Hz", "focus": ["hardware_io", "pose_est", "cinematica", "motores"], "note": "Trayectoria síncrona desde la lectura de sensores hasta la modulación PWM." },
+      { "id": "intercomunicacion-nucleos", "label": "Intercomunicación RTOS", "focus": ["task_web", "cola_cmd", "loop_100hz", "cola_evt", "telemetria"], "note": "Aislamiento entre la pila de red en Core 0 y el control de tiempo real en Core 1." },
+      { "id": "seguridad-hardware", "label": "Cadena de seguridad", "focus": ["pose_est", "seguridad", "motores"], "note": "Guarda de vigilancia angular, watchdogs y frenado de emergencia." }
+    ]
+  },
+  "components": [
+    { "id": "task_web", "type": "backend", "label": "Task_Web", "sublabel": "HTTP + WS :80", "pos": [40, 110], "size": [140, 56], "tag": "Core 0" },
+    { "id": "cola_cmd", "type": "messagebus", "label": "colaComandos", "sublabel": "Profundidad: 4", "pos": [250, 110], "size": [130, 56], "tag": "Queue" },
+    { "id": "telemetria", "type": "frontend", "label": "Telemetría", "sublabel": "Broadcast 10 Hz", "pos": [40, 250], "size": [140, 56], "tag": "SSE/WS" },
+    { "id": "cola_evt", "type": "messagebus", "label": "colaEventos", "sublabel": "Profundidad: 8", "pos": [250, 250], "size": [130, 56], "tag": "Queue" },
+    { "id": "loop_100hz", "type": "security", "label": "Superciclo 100Hz", "sublabel": "loop() nativo", "pos": [460, 110], "size": [150, 56], "tag": "Core 1" },
+    { "id": "cinematica", "type": "backend", "label": "Cinemática", "sublabel": "Pivote + Pulsos", "pos": [460, 250], "size": [150, 56], "tag": "Trayectoria" },
+    { "id": "motores", "type": "backend", "label": "Motores.cpp", "sublabel": "PWM + Interlock", "pos": [460, 390], "size": [150, 56], "tag": "DRV8833" },
+    { "id": "hardware_io", "type": "external", "label": "Periféricos HW", "sublabel": "PCNT + I2C", "pos": [680, 110], "size": [150, 56], "tag": "Sensores" },
+    { "id": "pose_est", "type": "backend", "label": "PoseEstimator", "sublabel": "40 PPR + MPU", "pos": [680, 250], "size": [150, 56], "tag": "Yaw/Pos" },
+    { "id": "seguridad", "type": "security", "label": "Seguridad", "sublabel": "Watchdog + E-STOP", "pos": [680, 390], "size": [150, 56], "tag": "Guarda" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Core 0 · Comunicaciones y Colas FreeRTOS (Stack 8192)", "wraps": ["task_web", "cola_cmd", "cola_evt", "telemetria"] },
+    { "kind": "security-group", "label": "Core 1 · Súper-ciclo Síncrono de Tiempo Real 100 Hz (Stack 8192)", "wraps": ["loop_100hz", "cinematica", "motores", "hardware_io", "pose_est", "seguridad"] }
+  ],
+  "connections": [
+    { "id": "web-cmd", "from": "task_web", "to": "cola_cmd", "label": "parsear" },
+    { "id": "cmd-loop", "from": "cola_cmd", "to": "loop_100hz", "label": "despachar" },
+    { "id": "loop-cine", "from": "loop_100hz", "to": "cinematica", "label": "10 ms", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "hw-pose", "from": "hardware_io", "to": "pose_est", "label": "muestra", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "pose-cine", "from": "pose_est", "to": "cinematica", "label": "pose" },
+    { "id": "pose-seg", "from": "pose_est", "to": "seguridad", "label": "yaw", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "seg-mot", "from": "seguridad", "to": "motores", "label": "freno", "variant": "security" },
+    { "id": "cine-mot", "from": "cinematica", "to": "motores", "label": "PWM", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "cine-evt", "from": "cinematica", "to": "cola_evt", "label": "step_ok" },
+    { "id": "evt-web", "from": "cola_evt", "to": "task_web", "label": "drenar", "fromSide": "top", "toSide": "right" },
+    { "id": "web-tel", "from": "task_web", "to": "telemetria", "label": "emisión", "fromSide": "bottom", "toSide": "top", "labelDy": 24, "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Súper-ciclo 100 Hz", "items": ["Core 1 ejecuta exclusivamente el loop() nativo sin colas internas", "PCNT, IMU, Pose, Seguridad, Cinemática y PWM consumen la misma muestra"] },
+    { "dot": "emerald", "title": "Aislamiento RTOS", "items": ["Core 0 absorbe la carga variable de red y serialización JSON", "Colas acotadas: comandos (4) y eventos (8) previenen desbordamiento"] },
+    { "dot": "rose", "title": "Leyes de Control DRV8833", "items": ["Límite 242 avance continuo y 247 giro; ráfagas 100% acotadas a 80 ms", "Tiempo muerto universal de 250 ms al invertir polaridad"] }
+  ]
+}

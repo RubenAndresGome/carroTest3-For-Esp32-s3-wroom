@@ -69,6 +69,21 @@ class RoutePlanningTests(unittest.TestCase):
             (1000.0, 0.0), (1000.0, 1000.0),
         ])
 
+    def test_rectangular_snaps_subcentimeter_residual(self) -> None:
+        # Pose real 2 mm por debajo del waypoint planificado: el residuo debe
+        # absorberse, no compilarse como micro-paso (el firmware exige >= 5 mm).
+        compilation = RectangularRouteStrategy().compile({
+            "points": [
+                {"x_mm": 0.0, "y_mm": 1550.0},
+                {"x_mm": 0.0, "y_mm": 1000.0},
+                {"x_mm": 0.0, "y_mm": 0.0},
+            ],
+        }, {"x_mm": 2000.0, "y_mm": 1548.0})
+        lengths = [segment["length_mm"] for segment in compilation.segments]
+        self.assertEqual(len(lengths), 3)
+        self.assertTrue(all(length >= 5.0 for length in lengths))
+        self.assertAlmostEqual(lengths[0], 2000.0)
+
     def test_touch_compilation_is_orthogonal_exact_and_bounded(self) -> None:
         points = [{"x_mm": 0.0, "y_mm": 0.0}, {"x_mm": 4500.0, "y_mm": 3100.0}]
         segments = compile_orthogonal_points(points)

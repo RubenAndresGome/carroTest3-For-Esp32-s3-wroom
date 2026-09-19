@@ -28,7 +28,9 @@
 ### Protección eléctrica del DRV8833
 
 #### Límites por firmware (todas las rutas de control)
-- PWM máximo de avance: 242/255 (~95%); giros autónomos, calibración y pivote continuo conservan 247/255 (~97%) para vencer fricción en superficies difíciles.
+- PWM máximo de avance sostenido: 242/255 (~95%); giros autónomos, calibración y pivote continuo conservan 247/255 (~97%) sostenido para vencer fricción en superficies difíciles.
+- Régimen de ráfagas al 100% (255/1023): autorizado solo para transitorios acotados (`PWM_BURST_MAX_MS = 80 ms`) como kickstart, desenclave de engranajes TT, micro-pulsos y sacudidas. Agotada la ráfaga, `Motores.cpp` repliega el PWM al límite continuo y exige `PWM_BURST_COOLDOWN_MS` de enfriamiento antes de una nueva. Queda prohibido el 100% sostenido en avance.
+- Zona muerta de arranque: actúa como **piso dinámico** solo por debajo de `PWM_DEADBAND_UMBRAL_CRUCERO` (180/255); nunca se suma sobre crucero, para no violar el límite de 242/255.
 - Tiempo muerto universal de 250 ms en `Motores.cpp:aplicarVelocidades()` al
   invertir sentido de giro. Aplica a joystick, giro autónomo y calibración.
 - Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog

@@ -270,6 +270,13 @@ def calibration_surfaces() -> Response | tuple[Response, int]:
             cand_neg=int(body.get("cand_neg", -1)),
             description=body.get("description"),
             surface_id=body.get("id"),
+            trim_izq=float(body.get("trim_izq", 1.0)),
+            trim_der=float(body.get("trim_der", 1.0)),
+            deadband_izq_8bit=int(body.get("deadband_izq_8bit", 0)),
+            deadband_der_8bit=int(body.get("deadband_der_8bit", 0)),
+            icr_x_cm=float(body.get("icr_x_cm", 0.0)),
+            icr_y_cm=float(body.get("icr_y_cm", 0.0)),
+            gyro_scale=float(body.get("gyro_scale", 1.0)),
         )
         return jsonify(saved), 201
     except (ValueError, TypeError) as exc:

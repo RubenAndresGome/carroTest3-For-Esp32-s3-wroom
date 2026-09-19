@@ -125,8 +125,10 @@ Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
   skill de trabajo, diagnóstico, invariantes de seguridad y validación.
 - [Router MCP de Subagentes IA](docs/mcp_agent_router.md):
   servidor MCP local para proveedores GPT, DeepSeek y OpenRouter.
-- [Documentación Interna Aditiva](intern_markdowns/estado_actual_sistema_2026.md):
-  síntesis técnica 2026, subagentes/rutas IA y guía del robot (excluida de Git).
+- [Auditoría del Estado Actual](docs/auditoria_estado_actual.md):
+  dictamen técnico del hito funcional, resolución de hallazgos (A-01 a A-12) y pruebas físicas.
+- [Mapas Arquitectónicos Interactivos (Archify)](DIAGRAMA_SISTEMA_GENERAL.md#mapas-arquitectónicos-interactivos-archify):
+  modelos interactivos tipados del contexto, súper-ciclo 100 Hz, dogma de calibración y seguridad eléctrica.
 
 - [docs/manual_usuario.md](docs/manual_usuario.md) para operación,
   recuperación de desconexiones y cierre seguro

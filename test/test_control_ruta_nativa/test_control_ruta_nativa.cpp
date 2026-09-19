@@ -7,6 +7,8 @@
 #include "ControlTorque.h"
 #include "ControlInicializacionPCNT.h"
 #include "ControlConexion.h"
+#include "ControlCompensacion.h"
+#include "ControlAngular.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -835,6 +837,209 @@ void test_inhibicion_recuperacion_en_zona_aproximacion_final() {
   TEST_ASSERT_FALSE(permiteRecuperacionCerca);
 }
 
+void test_media_encoders_saludables_sin_cota_por_lado() {
+  // FR=0 y BL=3 excluidos: quedan FL=193 y BR=185 -> media = 189 (no ~127).
+  const int64_t ticks[4] = {193, 0, 3, 185};
+  const bool confiable[4] = {true, false, false, true};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 189.0f,
+                           ControlSeguridad::mediaEncodersSaludables(ticks, confiable));
+  // Caso real sesion #15626: los cuatro confiables, media simple = 410.5.
+  const int64_t reales[4] = {526, 150, 475, 491};
+  const bool todos[4] = {true, true, true, true};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 410.5f,
+                           ControlSeguridad::mediaEncodersSaludables(reales, todos));
+  // Sin fuentes confiables devuelve -1 (guarda de plausibilidad).
+  const bool ninguno[4] = {false, false, false, false};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f,
+                           ControlSeguridad::mediaEncodersSaludables(ticks, ninguno));
+}
+
+void test_detectar_sentido_movimiento_inverso_acelerometro() {
+  using namespace ControlSeguridad;
+  // 1. Avance normal (direccion = +1): aceleracion positiva o nula -> no inverso
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(1.5f, 1, 1.8f));
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(0.0f, 1, 1.8f));
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(-1.0f, 1, 1.8f));
+
+  // 2. Avance con sacudida/tirón en reversa sostenido: Ay = -2.5 m/s² -> DEBE DETECTAR INVERSO
+  TEST_ASSERT_TRUE(detectarSentidoMovimientoInverso(-2.5f, 1, 1.8f));
+
+  // 3. Reversa normal (direccion = -1): aceleracion negativa o nula -> no inverso
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(-1.5f, -1, 1.8f));
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(0.0f, -1, 1.8f));
+
+  // 4. Reversa con avance espurio: Ay = +2.5 m/s² -> DEBE DETECTAR INVERSO
+  TEST_ASSERT_TRUE(detectarSentidoMovimientoInverso(2.5f, -1, 1.8f));
+}
+
+void test_perfil_compensacion_getters_y_promedio() {
+  ControlCompensacion::Perfil perfil;
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getLadoIzq());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getLadoDer());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getProm());
+  TEST_ASSERT_EQUAL_UINT8(0, perfil.getCantidad());
+
+  perfil.establecer(0.90f, 0.95f, 8, 12);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.90f, perfil.getLadoIzq());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.95f, perfil.getLadoDer());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.925f, perfil.getProm());
+  TEST_ASSERT_EQUAL_INT(8, perfil.getDeadbandIzq8());
+  TEST_ASSERT_EQUAL_INT(12, perfil.getDeadbandDer8());
+
+  // Limites: el trim no puede amplificar mas alla de TRIM_MAX ni recortar por
+  // debajo de TRIM_MIN; la deadband se acota a DEADBAND_MAX_8BIT.
+  perfil.establecer(1.50f, 0.50f, 99, -4);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, ControlCompensacion::TRIM_MAX, perfil.getLadoIzq());
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, ControlCompensacion::TRIM_MIN, perfil.getLadoDer());
+  TEST_ASSERT_EQUAL_INT(ControlCompensacion::DEADBAND_MAX_8BIT, perfil.getDeadbandIzq8());
+  TEST_ASSERT_EQUAL_INT(0, perfil.getDeadbandDer8());
+
+  // Media incremental: dos muestras 1.0 y 0.8 -> 0.9.
+  ControlCompensacion::Perfil media;
+  ControlCompensacion::Muestra m1; m1.trimIzq = 1.0f; m1.trimDer = 1.0f;
+  ControlCompensacion::Muestra m2; m2.trimIzq = 0.8f; m2.trimDer = 0.8f;
+  media.agregar(m1);
+  media.agregar(m2);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.9f, media.getProm());
+  TEST_ASSERT_EQUAL_UINT8(2, media.getCantidad());
+}
+
+void test_icr_proyeccion_global_cuatro_cuadrantes() {
+  constexpr float kPi = 3.14159265358979323846f;
+  // ICR (x=2, y=3), dTheta=0.5 -> desplazamiento body (-1.5, 1.0).
+  // theta=0: global = body.
+  const auto g0 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, 0.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, g0.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, g0.dyCm);
+  // theta=90: avance frontal del cuerpo -> +X global.
+  const auto g90 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, kPi / 2);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, g90.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, g90.dyCm);
+  // theta=180: signos invertidos.
+  const auto g180 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, kPi);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, g180.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, g180.dyCm);
+  // theta=270.
+  const auto g270 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, 3.0f * kPi / 2);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, g270.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, g270.dyCm);
+}
+
+void test_control_angular_modos_a_b_c_d() {
+  using ControlAngular::ModoRecuperacion;
+  const auto modo = [](const ControlAngular::DecisionAngular& d) {
+    return static_cast<uint8_t>(d.modo);
+  };
+  // Modo A: error 2 grados -> diferencial suave, frena el lado derecho.
+  const auto a = ControlAngular::evaluarLazoAngular(2.0f, 50.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::CONTINUO_SUAVE), modo(a));
+  TEST_ASSERT_TRUE(a.modLadoDer < a.modLadoIzq);
+  TEST_ASSERT_FALSE(a.solicitarPivote);
+  // Modo A: error negativo -> frena el lado izquierdo.
+  const auto aNeg = ControlAngular::evaluarLazoAngular(-2.0f, 50.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_TRUE(aNeg.modLadoIzq < aNeg.modLadoDer);
+  // Modo B: error 8 grados -> retencion fuerte del lado interno.
+  const auto b = ControlAngular::evaluarLazoAngular(8.0f, 50.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::FRENADO_TRANSITORIO), modo(b));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.55f, b.modLadoDer);
+  TEST_ASSERT_FALSE(b.solicitarPivote);
+  // Modo C: error 15 grados antes de la histeresis -> B sin pivote.
+  const auto c1 = ControlAngular::evaluarLazoAngular(15.0f, 50.0f, 100, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_FALSE(c1.solicitarPivote);
+  // Tras la histeresis -> C con pausa y pivote.
+  const auto c2 = ControlAngular::evaluarLazoAngular(15.0f, 50.0f, 300, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_TRUE(c2.solicitarPivote);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::PAUSA_PIVOTE), modo(c2));
+  // Modo D: resta <= 15 cm -> cierre final sin pivote.
+  const auto d = ControlAngular::evaluarLazoAngular(2.0f, 10.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::CIERRE_FINAL), modo(d));
+  TEST_ASSERT_FALSE(d.solicitarPivote);
+}
+
+void test_deadband_piso_no_infla_crucero() {
+  // A 200 (>= umbral 180) el piso no altera el valor.
+  TEST_ASSERT_EQUAL_INT(200, ControlCompensacion::aplicarPisoDeadband(200, 20, 180));
+  TEST_ASSERT_EQUAL_INT(-200, ControlCompensacion::aplicarPisoDeadband(-200, 20, 180));
+  // Por debajo del crucero el piso solo eleva si la deadband es mayor.
+  TEST_ASSERT_EQUAL_INT(30, ControlCompensacion::aplicarPisoDeadband(30, 20, 180));
+  TEST_ASSERT_EQUAL_INT(45, ControlCompensacion::aplicarPisoDeadband(45, 20, 180));
+  TEST_ASSERT_EQUAL_INT(-20, ControlCompensacion::aplicarPisoDeadband(-10, 20, 180));
+  // Cero se respeta (freno).
+  TEST_ASSERT_EQUAL_INT(0, ControlCompensacion::aplicarPisoDeadband(0, 20, 180));
+}
+
+void test_correccion_traslacion_parasita_icr() {
+  // Con ICR en (0,0) no hay correccion.
+  const auto nulo = ControlRuta::corregirTraslacionParasita(0.0f, 0.0f, 1.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, nulo.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, nulo.dyCm);
+  // ICR desplazado: dx = -y_icr*dTheta, dy = x_icr*dTheta.
+  const auto correccion = ControlRuta::corregirTraslacionParasita(2.0f, 3.0f, 0.5f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, correccion.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, correccion.dyCm);
+  // Signo opuesto de giro invierte la correccion.
+  const auto inverso = ControlRuta::corregirTraslacionParasita(2.0f, 3.0f, -0.5f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, inverso.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, inverso.dyCm);
+}
+
+void test_frenado_activo_predictivo_por_inercia() {
+  using namespace ControlSeguridad;
+  // 1. Sin movimiento confirmado -> jamás frena por predicción
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(4.0f, 1.745f, false));
+
+  // 2. Girando hacia la meta a alta velocidad (100 deg/s ~ 1.745 rad/s):
+  // Con decelDegS2 = 2400.0f: distFreno = 100^2 / (2 * 2400) = 2.083 deg.
+  // Si error es 2.0 deg (error <= distFreno) -> DEBE FRENAR DE INMEDIATO (~2.1° antes de la meta)
+  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(2.0f, 1.745f, true));
+  // Si error es 3.0 deg (error > distFreno) -> aún no frena
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(3.0f, 1.745f, true));
+
+  // 3. Girando en polaridad negativa (vel = -1.5 rad/s ~ -85.9 deg/s):
+  // distFreno = 85.9^2 / (2 * 2400) = 1.537 deg.
+  // Con error = -1.5 deg (|error| = 1.5 <= 1.537) -> DEBE FRENAR
+  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(-1.5f, -1.5f, true));
+  // Con error = -2.5 deg (|error| = 2.5 > 1.537) -> aún no frena
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(-2.5f, -1.5f, true));
+
+  // 4. Velocidad en sentido contrario (error positivo, giro negativo) -> NO debe frenar por predicción
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(4.0f, -1.745f, true));
+
+  // 5. Baja velocidad inercial (< 0.5 deg de parada) -> no interfiere con micro-pulsos
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(1.5f, 0.1f, true));
+}
+
+void test_estimacion_robusta_descarta_encoder_con_perdida_de_pulsos() {
+  using namespace ControlSeguridad;
+  // Caso real Sesion #16299 (Paso 100 cm): FR perdio ~60% de pulsos (95 vs 224, 221, 219)
+  const int64_t ticksReal[4] = {224, 95, 221, 219};
+  const bool todos[4] = {true, true, true, true};
+  // La estimacion robusta descarta FR y promedia los 3 coherentes: (224 + 221 + 219) / 3 = 221.33 ticks
+  // en lugar de la media ingenua (224 + 95 + 221 + 219) / 4 = 189.75 ticks.
+  const float estRobusta = estimacionRobustaTicksAvance(ticksReal, todos, 0.25f);
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 221.33f, estRobusta);
+
+  // Caso real Sesion #16299 (Paso 55 cm): FR=45 vs 124, 120, 119 -> descarta FR y promedia ~121.0 ticks
+  const int64_t ticksPaso2[4] = {124, 45, 120, 119};
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 121.0f, estimacionRobustaTicksAvance(ticksPaso2, todos, 0.25f));
+
+  // Caso normal con los 4 coherentes (desviacion minima < 25%) -> promedia los 4
+  const int64_t normales[4] = {200, 201, 199, 200};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 200.0f, estimacionRobustaTicksAvance(normales, todos, 0.25f));
+
+  // Con 1 canal previamente marcado degradado (FR=false) y los otros 3 sanos
+  const bool frDegradado[4] = {true, false, true, true};
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 221.33f, estimacionRobustaTicksAvance(ticksReal, frDegradado, 0.25f));
+
+  // Ticks muy bajos (< 15): no filtra para evitar falsos positivos por fase inicial
+  const int64_t arranque[4] = {3, 1, 3, 2};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.25f, estimacionRobustaTicksAvance(arranque, todos, 0.25f));
+
+  // Sin canales confiables -> devuelve -1.0f
+  const bool ninguno[4] = {false, false, false, false};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, estimacionRobustaTicksAvance(ticksReal, ninguno, 0.25f));
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -904,5 +1109,14 @@ int main(int, char**) {
   RUN_TEST(test_reversa_automatica_evita_pivote_180_grados);
   RUN_TEST(test_escala_odometria_suelo_calibrada);
   RUN_TEST(test_fuente_unica_no_infla_distancia_en_modo_degradado);
+  RUN_TEST(test_media_encoders_saludables_sin_cota_por_lado);
+  RUN_TEST(test_detectar_sentido_movimiento_inverso_acelerometro);
+  RUN_TEST(test_perfil_compensacion_getters_y_promedio);
+  RUN_TEST(test_correccion_traslacion_parasita_icr);
+  RUN_TEST(test_icr_proyeccion_global_cuatro_cuadrantes);
+  RUN_TEST(test_control_angular_modos_a_b_c_d);
+  RUN_TEST(test_deadband_piso_no_infla_crucero);
+  RUN_TEST(test_frenado_activo_predictivo_por_inercia);
+  RUN_TEST(test_estimacion_robusta_descarta_encoder_con_perdida_de_pulsos);
   return UNITY_END();
 }

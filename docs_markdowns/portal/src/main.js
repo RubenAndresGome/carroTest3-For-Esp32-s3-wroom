@@ -5,7 +5,7 @@ import Chart from "chart.js/auto";
 import { createIcons, Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X } from "lucide";
 import catalog from "../../catalogo_funciones.json";
 import sqliteSummary from "../../datos_sqlite_documentales.json";
-import { diagrams, evidence, findings, glossary, manuals } from "./content.js";
+import { archifyMaps, diagrams, evidence, findings, glossary, manuals } from "./content.js";
 
 const iconSet = { Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X };
 const app = document.querySelector("#app");
@@ -47,7 +47,7 @@ app.innerHTML = `
       </nav>
       <div class="mt-8 rounded-xl border border-line bg-white/[.025] p-4 text-xs text-slate-500">
         <p class="font-mono uppercase tracking-wide text-cyan">Corte documental</p>
-        <p class="mt-2 text-slate-300">Commit 7a69eac</p>
+        <p class="mt-2 text-slate-300">Commit 615d284 · Milestone 85/100</p>
         <p>${catalog.stats.files} archivos operativos</p>
         <p>Generado ${new Date(catalog.generated_at).toLocaleDateString("es-MX")}</p>
       </div>
@@ -76,10 +76,10 @@ app.innerHTML = `
             <p class="eyebrow">Dictamen</p>
             <h2 class="text-xl font-semibold text-white">Arquitectura correcta; resiliencia incompleta</h2>
             <p class="mt-4 leading-7 text-slate-400">Python y ESP32 tienen responsabilidades claras, pero una caída prolongada deja el gateway detenido y un reboot del robot borra la memoria necesaria para reanudar un paso con certeza.</p>
-            <div class="mt-6 space-y-3">
-              <div class="rounded-xl border border-mint/20 bg-mint/5 p-4"><strong class="text-mint">Fortaleza:</strong> <span class="text-slate-300">control en tiempo real y parada permanecen en el ESP32.</span></div>
-              <div class="rounded-xl border border-coral/20 bg-coral/5 p-4"><strong class="text-coral">Bloqueo:</strong> <span class="text-slate-300">calibración física reciente terminó con encoders en cero.</span></div>
-            </div>
+              <div class="mt-6 space-y-3">
+                <div class="rounded-xl border border-mint/20 bg-mint/5 p-4"><strong class="text-mint">Fortaleza:</strong> <span class="text-slate-300">control en tiempo real y parada permanecen en el ESP32.</span></div>
+                <div class="rounded-xl border border-mint/20 bg-mint/5 p-4"><strong class="text-mint">Resuelto:</strong> <span class="text-slate-300">encoders 40 PPR con filtro PCNT 1023 y calibración bilateral verificados en taller.</span></div>
+              </div>
           </article>
         </div>
         <div class="mt-8">
@@ -95,6 +95,33 @@ app.innerHTML = `
         <p class="section-copy">El controlador puede ser Windows o Android, nunca ambos. Python conserva misión e historial; el ESP32 conserva los lazos de 100 Hz y la autoridad de seguridad.</p>
         <div class="diagram mermaid">${diagrams.context}</div>
         <div class="diagram mermaid">${diagrams.runtime}</div>
+        <div class="mt-10">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="eyebrow">Modelos interactivos tipados</p>
+              <h3 class="text-2xl font-semibold text-white">Mapas Arquitectónicos del Sistema (Archify)</h3>
+            </div>
+            <span class="rounded-full border border-mint/40 bg-mint/10 px-3 py-1 font-mono text-xs text-mint">6 Mapas Tipados</span>
+          </div>
+          <p class="mt-2 text-sm text-slate-400">Diagramas interactivos de alta fidelidad compilados con Archify para exploración vectorial determinista, pan, zoom e inspección de dependencias.</p>
+          <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            ${archifyMaps.map((map) => `
+              <article class="card flex flex-col justify-between transition-all hover:border-mint/40">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="badge badge-low">${map.type}</span>
+                    <span class="font-mono text-xs text-slate-500">${map.id}</span>
+                  </div>
+                  <h4 class="mt-3 text-lg font-semibold text-white">${map.title}</h4>
+                  <p class="mt-2 text-xs leading-5 text-slate-400">${map.description}</p>
+                </div>
+                <div class="mt-5 flex gap-2">
+                  <a href="./${map.file}" target="_blank" rel="noopener" class="route-link text-xs w-full text-center flex items-center justify-center gap-1.5"><i data-lucide="maximize-2" class="h-3.5 w-3.5"></i> Abrir mapa interactivo</a>
+                </div>
+              </article>
+            `).join("")}
+          </div>
+        </div>
       </section>
 
       <section id="uml" class="section">

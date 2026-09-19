@@ -57,7 +57,23 @@ Giro absoluto sin traslación:
 {"evt":"completed","seq":6,"detail":"turn_ok"}
 ```
 
-Se conservan `calibrate`, `stop`, `estop`, `clear_fault`, `set_comp` y `reset_pose`. Todos llevan un `seq` positivo salvo `hello`.
+## Calibración supervisada (`calibrate`)
+
+El comando `calibrate` ejecuta el Dogma Canónico de Calibración en 5 fases usando el MPU6050 como autoridad angular única:
+
+```json
+{"cmd":"calibrate","seq":7}
+```
+
+Eventos de ciclo de calibración:
+- `progress`: Reporta fase actual (`CAL_CUENTA_REGRESIVA` 5.0 s para reposo y estabilización de sesgo MPU, `CAL_A` búsqueda de torque positivo, `CAL_VALIDAR_25` giro a +25°, `CAL_PAUSA` reposo 2.5 s, `CAL_B` búsqueda opuesta, `CAL_PAUSA_RETORNO` reposo 2.5 s, `CAL_RETORNO` regreso exacto a yaw inicial).
+- `completed`: `{"evt":"completed","seq":7,"detail":"cal_ok"}` al consolidar el retorno con pose (X=0, Y=0) y yaw reseteados.
+- `fault`:
+  - `cal_connection_lost`: Desconexión de WebSocket durante calibración; Core 0 notifica inmediatamente y Core 1 frena a PWM 0.
+  - `cal_stall_left` / `cal_stall_right`: Atasco detectado si no hay deltas de encoder o giro angular en la rampa.
+  - `cal_no_gyro_rotation`, `cal_pivot_asymmetric`, `cal_return_timeout`.
+
+Se conservan además `stop`, `estop`, `clear_fault`, `set_comp` y `reset_pose`. Todos llevan un `seq` positivo salvo `hello`. Las tramas JSON WebSocket admiten hasta 7168 bytes tanto en firmware como en el backend Python.
 
 ## Idempotencia y cierre
 
@@ -97,3 +113,19 @@ el mismo `run_id` para trazar una maniobra sin mezclarla con otra en SQLite.
 `pivot_avoided` y `min_distance_cm`. Si el punto está detrás, una recuperación
 amplia usa `reverse_no_pivot` para conservar la orientación del chasis; si el
 error es corto publica `soft_complete` y el terminal no bloqueante indicado.
+
+## Garantías de seguridad eléctrica y límites de potencia
+
+El protocolo y firmware aseguran la integridad del puente H DRV8833 en todas las transiciones:
+- **Límite de avance continuo:** 242/255 (~95%) para evitar sobrecalentamiento y saturación en los devanados de los motores TT.
+- **Límite de giro continuo:** 247/255 (~97%) para garantizar torque suficiente de pivote sobre superficies de alta fricción.
+- **Régimen de ráfagas acotadas:** PWM 255/255 solo permitido durante transitorios de despegue (kickstart) por un máximo de `PWM_BURST_MAX_MS = 80 ms`, exigiendo `PWM_BURST_COOLDOWN_MS = 250 ms` de enfriamiento.
+- **Tiempo muerto universal:** 250 ms en `Motores.cpp:aplicarVelocidades()` al invertir sentido de marcha o rotación, previniendo corrientes de shoot-through en los MOSFETs.
+- **Zona muerta como piso dinámico:** 140/255 activa únicamente por debajo de `PWM_DEADBAND_UMBRAL_CRUCERO` (180/255); nunca se adiciona sobre crucero.
+
+## Odometría de 40 PPR y aislamiento en pivote
+
+- **Resolución efectiva:** 40 pulsos por revolución (disco de 20 ranuras con lectura de flancos de subida y bajada por canal TXS0108E).
+- **Filtro hardware PCNT:** 1023 ciclos de reloj APB para supresión total de transitorios espurios inducidos por escobillas de los motores.
+- **Aislamiento en giro:** Durante pivote puro (`Giro.cpp`), la integración de distancia longitudinal se congela para evitar lecturas de arrastre parasitario causadas por el patinaje diagonal del chasis 4WD.
+

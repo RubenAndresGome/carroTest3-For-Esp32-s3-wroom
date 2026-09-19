@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "ControlCompensacion.h"
 
 // Máquina de estados simplificada del robot de memoria corta.
 // El robot ejecuta UN paso a la vez y reporta el resultado con su seq.
@@ -32,6 +33,7 @@ extern float heading360;
 
 // Encoders
 extern bool modoDegradado;
+extern bool fallaTotalEncoders;
 extern bool encoderConfiableGlobal[4];
 enum class EstadoSaludEncoder : uint8_t { HEALTHY, SUSPECT, EXCLUDED, RECOVERING };
 extern EstadoSaludEncoder estadoSaludEncoderGlobal[4];
@@ -49,9 +51,11 @@ extern uint8_t antiFriccionPulsoIndice;
 extern int antiFriccionPwmObjetivo;
 extern bool antiFriccionMovimientoConfirmado;
 
-// Compensación ajustable de asimetría mecánica. Por defecto neutra: el sesgo
-// residual se corrige con el término integral, no con un valor adivinado.
-extern float factorCompensacionDer;
+// Compensación adaptativa por lado (trim + zona muerta) y corrección de
+// traslación parásita del pivote. El HMI los persiste por tipo de piso.
+extern ControlCompensacion::Perfil perfilCompensacion;
+extern float icrXCm;
+extern float icrYCm;
 
 // Objetivos del paso en curso (para telemetría)
 extern float pasoHeadingObjetivo;
@@ -71,6 +75,9 @@ extern float pasoControlRumboI;
 extern float pasoControlRumboD;
 extern float pasoControlEncoderPwm;
 extern float pasoControlLateralDeg;
+extern uint8_t pasoModoAngular;
+extern float pasoModulacionIzq;
+extern float pasoModulacionDer;
 extern float pasoIntegralRumboGradoS;
 extern uint32_t pasoRampaReversaMs;
 extern char pasoLadoFrenoRumbo[8];

@@ -16,6 +16,10 @@ void setup_MotorPinsLow();
 bool validarInterlockMotores();
 bool setup_Motores();
 bool aplicarVelocidades(int velIzq, int velDer);
+// Limite continuo vigente: 242/255 en avance, 247/255 en giros y calibracion.
+// Por encima de el solo se autoriza una rafaga acotada de PWM_BURST_MAX_MS.
+void establecerLimiteContinuoPwm(int limite);
+int limiteContinuoPwm();
 void frenarMotores();
 void frenarMotoresActivo();
 void actualizarFrenoActivo();

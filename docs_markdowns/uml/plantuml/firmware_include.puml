@@ -8,35 +8,143 @@ skinparam componentBorderColor #39E6AA
 skinparam componentFontColor white
 skinparam ArrowColor #5BD8FF
 title firmware/include — grafo funcional
-component "activa\nCC=1 · Bajo" as n9e3776ac33
-component "pasoRampa\nCC=1 · Bajo" as n698b99e4f4
-component "pasosRampaTotal\nCC=1 · Bajo" as n9dbc84f914
-component "pwmObjetivo\nCC=1 · Bajo" as n797389931b
-component "candidatoDireccion\nCC=1 · Bajo" as nbb0e17a0ad
-component "deltaEncoders\nCC=1 · Bajo" as n5330a2250b
-component "promedioLados\nCC=1 · Bajo" as n48a7b26404
-component "ladosValidos\nCC=1 · Bajo" as n4f0d47a345
-component "encoderResponde\nCC=1 · Bajo" as n418b09ee7c
-component "encoderAislado\nCC=1 · Bajo" as n75715afd01
-component "stallAcumuladoMs\nCC=1 · Bajo" as n635f7f950d
-component "tipo\nCC=1 · Bajo" as nb9d52df174
-component "seq\nCC=1 · Bajo" as n54e28a7808
-component "heading\nCC=1 · Bajo" as na384e552ee
-component "distanciaCm\nCC=1 · Bajo" as n19302bb7c7
-component "factor\nCC=1 · Bajo" as n1a150105f0
-component "targetXCm\nCC=1 · Bajo" as n359e3192c8
-component "targetYCm\nCC=1 · Bajo" as n3ddd954461
-component "tieneObjetivoAbsoluto\nCC=1 · Bajo" as nd0867b25a6
-component "modoPaso\nCC=1 · Bajo" as n475cac3a15
-component "promedioIzquierdo\nCC=1 · Bajo" as n9965dceebe
-component "promedioDerecho\nCC=1 · Bajo" as n24ed847d8c
-component "ladoIzquierdoValido\nCC=1 · Bajo" as nc2849d5e46
-component "ladoDerechoValido\nCC=1 · Bajo" as n0f7dafc2cb
-component "responde\nCC=1 · Bajo" as na9951eb8f9
-component "sinRespuestaAislada\nCC=1 · Bajo" as n36e4bf09f8
-component "evaluarEncoders\nCC=4 · Bajo" as nd20cfb564a
-component "totalPasosRampa\nCC=3 · Bajo" as na4925ad6d3
-component "pasoRampaActual\nCC=5 · Bajo" as nbd8492d45a
+component "yawFaseDeltaDeg\nCC=1 · Bajo" as n3aa0313b9f
+component "yawFaseInicioDeg\nCC=1 · Bajo" as n3bf9ee8c5e
+component "pivotValidado\nCC=1 · Bajo" as n75cd180b40
+component "torqueDetectado\nCC=1 · Bajo" as n8378ae414a
+component "pwmLado8\nCC=1 · Bajo" as nf5f87e1f97
+component "movimientoFaseMs\nCC=1 · Bajo" as ndae7a414f5
+component "activa\nCC=1 · Bajo" as n76ba3d0e68
+component "pasoRampa\nCC=1 · Bajo" as nf5ce123982
+component "pasosRampaTotal\nCC=1 · Bajo" as n0efa03d230
+component "pwmObjetivo\nCC=1 · Bajo" as n59218b075f
+component "candidatoDireccion\nCC=1 · Bajo" as n3958adf576
+component "deltaEncoders\nCC=1 · Bajo" as n5e2b527190
+component "promedioLados\nCC=1 · Bajo" as ne5526dfff1
+component "ladosValidos\nCC=1 · Bajo" as n518f7a91a5
+component "encoderResponde\nCC=1 · Bajo" as n59aee03c76
+component "encoderAislado\nCC=1 · Bajo" as n8a794b6817
+component "stallAcumuladoMs\nCC=1 · Bajo" as nb4cce1e86b
+component "giroDetectadoSinEncoders\nCC=1 · Bajo" as ne50a5718ec
+component "silencioEncodersMs\nCC=1 · Bajo" as n1e4339fc62
+component "limiteSilencioEncodersMs\nCC=1 · Bajo" as nfa445bfc9d
+component "gyroConfirmado\nCC=1 · Bajo" as n5ddd68d439
+component "pcntCorroborado\nCC=1 · Bajo" as nb379fd2fac
+component "encodersQueResponden\nCC=1 · Bajo" as n8bd3150f8a
+component "respuestaFaseA\nCC=1 · Bajo" as ncf920954e5
+component "respuestaFaseB\nCC=1 · Bajo" as n36c0dd10ad
+component "yawInicioDeg\nCC=1 · Bajo" as n03b2658a4d
+component "yawActualDeg\nCC=1 · Bajo" as n6d636fed1a
+component "errorRetornoDeg\nCC=1 · Bajo" as nf08dfb4888
+component "retornoWatchdogArmado\nCC=1 · Bajo" as nc518a8ef5b
+component "retornoSinProgresoMs\nCC=1 · Bajo" as n8251a83c20
+component "ventanaMaxPwmMs\nCC=1 · Bajo" as n653fe65d9c
+component "pwmBase8\nCC=1 · Bajo" as n346f7da703
+component "pwmLogicoIzquierdo\nCC=1 · Bajo" as n70727c7784
+component "pwmLogicoDerecho\nCC=1 · Bajo" as n22a162a2e3
+component "pwmPuenteIzquierdo\nCC=1 · Bajo" as n93d1ca7b60
+component "pwmPuenteDerecho\nCC=1 · Bajo" as n0575fe31eb
+component "espera\nCC=1 · Bajo" as n69f4702a80
+component "throttle\nCC=1 · Bajo" as n16236834e2
+component "steering\nCC=1 · Bajo" as n874ac541cf
+component "stream\nCC=1 · Bajo" as n11fbb607cf
+component "frame\nCC=1 · Bajo" as n25bd93d145
+component "recibidoMs\nCC=1 · Bajo" as na4b210d593
+component "tipo\nCC=1 · Bajo" as n3db668c698
+component "seq\nCC=1 · Bajo" as n1cd885e859
+component "heading\nCC=1 · Bajo" as na8eb70fef4
+component "distanciaCm\nCC=1 · Bajo" as n97a01c41aa
+component "factor\nCC=1 · Bajo" as ncaefa53d86
+component "trimIzq\nCC=1 · Bajo" as nca386029a6
+component "trimDer\nCC=1 · Bajo" as nb32bf06d5d
+component "deadbandIzq8\nCC=1 · Bajo" as n74fd32b5f0
+component "deadbandDer8\nCC=1 · Bajo" as n3e920dc1e3
+component "targetXCm\nCC=1 · Bajo" as nfab86333b8
+component "targetYCm\nCC=1 · Bajo" as nd19be5daa9
+component "tieneObjetivoAbsoluto\nCC=1 · Bajo" as nd0487d22ad
+component "modoPaso\nCC=1 · Bajo" as ne10be54664
+component "pwmPositivo8\nCC=1 · Bajo" as n365bffe1da
+component "pwmNegativo8\nCC=1 · Bajo" as n0e6d16d762
+component "polaridadPositiva\nCC=1 · Bajo" as n153d4f89d3
+component "polaridadNegativa\nCC=1 · Bajo" as n46d714dfc5
+component "icrXCm\nCC=1 · Bajo" as n16b17b0977
+component "icrYCm\nCC=1 · Bajo" as n0855e222c3
+component "gyroScale\nCC=1 · Bajo" as ncc27e3c8ff
+component "modo\nCC=1 · Bajo" as nf26244801b
+component "modLadoIzq\nCC=1 · Bajo" as n87c7a8b205
+component "modLadoDer\nCC=1 · Bajo" as n355f82f8c6
+component "solicitarPivote\nCC=1 · Bajo" as nad4fc9b0ac
+component "limitarFactor\nCC=3 · Bajo" as ndbb55711d8
+component "evaluarLazoAngular\nCC=10 · Bajo" as n4c4985c55c
+component "derecha\nCC=1 · Bajo" as n8e5cdcf64e
+component "izquierda\nCC=1 · Bajo" as n842f94a38a
+component "bilateral\nCC=1 · Bajo" as n8496a04154
+component "equilibrado\nCC=1 · Bajo" as ndccebecfc6
+component "torque\nCC=1 · Bajo" as n4608cb7d79
+component "evaluarPivot\nCC=9 · Bajo" as n105ab83cda
+component "movimiento\nCC=1 · Bajo" as n7a8a83a568
+component "inicioMs\nCC=1 · Bajo" as n2239ddf9fe
+component "ventanaMs\nCC=1 · Bajo" as nccd5c1b580
+component "ventanasAsimetricas\nCC=1 · Bajo" as n47973578b8
+component "anterior\nCC=1 · Bajo" as nd45c19608e
+component "vigilarPivot\nCC=17 · Bajo" as nd974be94a5
+component "promedioIzquierdo\nCC=1 · Bajo" as n21704e3450
+component "promedioDerecho\nCC=1 · Bajo" as n7dd95b19b3
+component "ladoIzquierdoValido\nCC=1 · Bajo" as n485bbb3772
+component "ladoDerechoValido\nCC=1 · Bajo" as nbbd6826507
+component "responde\nCC=1 · Bajo" as n135223fafb
+component "sinRespuestaAislada\nCC=1 · Bajo" as n1fb504f91f
+component "activa\nCC=1 · Bajo" as nfc6bae17a5
+component "inicioMs\nCC=1 · Bajo" as n5d501cf5a9
+component "transcurridoMs\nCC=1 · Bajo" as ne9cbf2c806
+component "gyroConfirmado\nCC=1 · Bajo" as n8bc79b0ab0
+component "pcntCorroborado\nCC=1 · Bajo" as n2cb40b78ba
+component "encodersQueResponden\nCC=1 · Bajo" as nb3ceea2b4c
+component "confirmada\nCC=2 · Bajo" as n5500dff122
+component "izquierda\nCC=1 · Bajo" as n6a825a8498
+component "derecha\nCC=1 · Bajo" as n1a77d8793b
+component "comandoPivot\nCC=1 · Bajo" as n81a8c5698b
+component "evaluarMovimiento\nCC=3 · Bajo" as n0a4f2e1608
+component "actualizarSilencioConGiro\nCC=5 · Bajo" as n8b5b63f455
+component "reiniciarVigilanciaRetorno\nCC=1 · Bajo" as n5dcfbf291a
+component "retornoSinProgreso\nCC=2 · Bajo" as nea6f15cfa7
+component "evaluarEncoders\nCC=5 · Bajo" as n9715276ede
+component "totalPasosRampa\nCC=3 · Bajo" as n5e5431ed38
+component "pasoRampaActual\nCC=5 · Bajo" as n3f6bbe365f
+component "trimIzq\nCC=1 · Bajo" as nb19b6b0733
+component "trimDer\nCC=1 · Bajo" as nf74c4bc52a
+component "deadbandIzq8\nCC=1 · Bajo" as n060e89c1a9
+component "deadbandDer8\nCC=1 · Bajo" as n62db5a8b1f
+component "aplicarPisoDeadband\nCC=8 · Bajo" as n57b56ba33b
+component "limitarTrim\nCC=3 · Bajo" as ne9a5ae9234
+component "limitarDeadband8\nCC=3 · Bajo" as n5aff059ec7
+component "reiniciar\nCC=1 · Bajo" as n6bb5d261e7
+component "agregar\nCC=2 · Bajo" as n7fb6d0c102
+component "establecer\nCC=1 · Bajo" as nea7867a151
+component "getLadoIzq\nCC=1 · Bajo" as n29ed41e68e
+component "getLadoDer\nCC=1 · Bajo" as n73d8341834
+component "getProm\nCC=1 · Bajo" as nde2ac992b1
+component "getDeadbandIzq8\nCC=1 · Bajo" as nf3b4fd7db5
+component "getDeadbandDer8\nCC=1 · Bajo" as n87364083ce
+component "getCantidad\nCC=1 · Bajo" as n64775da460
+component "trimIzq_\nCC=1 · Bajo" as n5222fa26f5
+component "trimDer_\nCC=1 · Bajo" as n276e2dd258
+component "deadbandIzq8_\nCC=1 · Bajo" as n6356359dfd
+component "deadbandDer8_\nCC=1 · Bajo" as nb6e9e34d73
+component "cantidad_\nCC=1 · Bajo" as n2b0f3afa1f
+component "accionAlPerderWebSocket\nCC=2 · Bajo" as n32b5b0656f
+component "inicializado\nCC=1 · Bajo" as ncd3a618bee
+component "etapaFallida\nCC=1 · Bajo" as na72e11f638
+component "codigoError\nCC=1 · Bajo" as nc7ccfb1756
+component "registrar\nCC=3 · Bajo" as nc3ce7a9fb4
+component "todosListos\nCC=3 · Bajo" as n9934a6e3ba
+component "textoEtapa\nCC=8 · Bajo" as n97f322c4ca
+component "izquierdo\nCC=1 · Bajo" as n3b4ac7c7e5
+component "derecho\nCC=1 · Bajo" as n720f87bc76
+component "mezclar\nCC=7 · Bajo" as nd65f256f9d
+component "leaseVigente\nCC=2 · Bajo" as n2082f92a61
+component "esperaPrimerFrameVigente\nCC=1 · Bajo" as n2ee2698e9d
+component "acercar\nCC=6 · Bajo" as n3b720fa805
 component "longitudinalCm\nCC=1 · Bajo" as naf5b9be116
 component "lateralCm\nCC=1 · Bajo" as n7d8fcdccb4
 component "euclidianoCm\nCC=1 · Bajo" as n56c5928aa3
@@ -51,97 +159,170 @@ component "normalizar360\nCC=2 · Bajo" as n055e6556b4
 component "errorAngularDeg\nCC=3 · Bajo" as n40c8cb2eef
 component "reversaAutomatica\nCC=1 · Bajo" as nbe93f15ded
 component "rumboCuerpoParaTrayecto\nCC=2 · Bajo" as nb3b8b073ec
-component "correccionLateralParaDireccion\nCC=2 · Bajo" as n0fcdf5f124
-component "frenarLadoIzquierdoParaRumbo\nCC=1 · Bajo" as n8079dd1716
-component "distanciaPorTick\nCC=2 · Bajo" as nabeea36787
-component "distanciaFrenoPrevista\nCC=1 · Bajo" as nc92c4c3dbd
-component "calcularErroresTrayectoria\nCC=1 · Bajo" as n77bb7c210f
-component "correccionLateralRumboDeg\nCC=1 · Bajo" as n2ed90afeb2
-component "actualizarPI\nCC=6 · Bajo" as na4be9f82eb
-component "endpointAceptable\nCC=3 · Bajo" as n6686d80e74
-component "agotoIntentosEndpoint\nCC=1 · Bajo" as n123b18d6f2
-component "decidirEndpoint\nCC=4 · Bajo" as n2e65f908c7
-component "decidirEndpointSeguro\nCC=3 · Bajo" as n14c5e62500
+component "correccionLateralParaDireccion\nCC=1 · Bajo" as n0fcdf5f124
+component "frenarLadoIzquierdoParaRumbo\nCC=1 · Bajo" as n83ccfc8b5e
+component "distanciaPorTick\nCC=2 · Bajo" as n0d890751b6
+component "distanciaFrenoPrevista\nCC=1 · Bajo" as neab0d37517
+component "dxCm\nCC=1 · Bajo" as nde8d4a8d76
+component "dyCm\nCC=1 · Bajo" as n60d9a70d0c
+component "corregirTraslacionParasita\nCC=1 · Bajo" as na9de66bbea
+component "corregirTraslacionParasitaGlobal\nCC=1 · Bajo" as n563c096ba8
+component "calcularErroresTrayectoriaAnclado\nCC=1 · Bajo" as nc5ea7c7121
+component "calcularErroresTrayectoria\nCC=1 · Bajo" as n7f70feabff
+component "correccionLateralRumboDeg\nCC=1 · Bajo" as n38193be335
+component "actualizarPI\nCC=6 · Bajo" as n17f772aa89
+component "endpointAceptable\nCC=3 · Bajo" as nf4f7b06303
+component "agotoIntentosEndpoint\nCC=1 · Bajo" as n03b6c15711
+component "decidirEndpoint\nCC=4 · Bajo" as na93127da48
+component "decidirEndpointSeguro\nCC=3 · Bajo" as n6d56729432
+component "pwmL\nCC=1 · Bajo" as n4255c64c61
+component "pwmR\nCC=1 · Bajo" as n236174be0a
+component "compensacionPwm\nCC=1 · Bajo" as n16b9ef9cdf
+component "desplazamientoCentroCm\nCC=1 · Bajo" as ne57a5f160d
+component "balancearGiroDiferencial\nCC=6 · Bajo" as nf41610dbe0
 component "imuApta\nCC=2 · Bajo" as nc112944dbf
 component "estopSolicitado\nCC=1 · Bajo" as neefa84e65c
 component "encoderEsOutlier\nCC=1 · Bajo" as na3d5c6af71
-component "confiable\nCC=1 · Bajo" as n015925b31b
-component "mediana\nCC=1 · Bajo" as n1dd147497d
-component "modoDegradado\nCC=1 · Bajo" as n4af4da39bf
-component "ladoIzquierdoValido\nCC=1 · Bajo" as nbc1218dd16
-component "ladoDerechoValido\nCC=1 · Bajo" as n641bb93d5b
-component "medianaCuatro\nCC=4 · Bajo" as nd631f6f320
-component "clasificarEncoders\nCC=14 · Alto" as n6a1353563a
-component "promedioConfiableLado\nCC=6 · Bajo" as n35f31e7c43
-component "ladoEnStall\nCC=3 · Bajo" as ndd6f549d25
-component "fuentesPorLadoValidas\nCC=4 · Bajo" as ned19fbf336
-component "encoderSinRespuestaAislada\nCC=3 · Bajo" as n5097db7551
-component "nivelAntiFriccion8Bit\nCC=3 · Bajo" as n92bcf0cf35
-component "movimientoAntiFriccionConfirmado\nCC=2 · Bajo" as n812e2668e9
-component "stopDebePreservarFallo\nCC=2 · Medio" as n55f597d38b
+component "deltaEncoderPlausible\nCC=3 · Bajo" as n43dfc22137
+component "saturarDeltaEncoder\nCC=4 · Bajo" as n71c75d5282
+component "confiable\nCC=1 · Bajo" as n6e70133094
+component "mediana\nCC=1 · Bajo" as n2962f5392b
+component "modoDegradado\nCC=1 · Bajo" as n5cfbf8cf49
+component "ladoIzquierdoValido\nCC=1 · Bajo" as n11d5054f75
+component "ladoDerechoValido\nCC=1 · Bajo" as n90886550c6
+component "medianaCuatro\nCC=4 · Bajo" as nff5db8414e
+component "clasificarEncoders\nCC=14 · Alto" as n8b24e6cd48
+component "promedioConfiableLado\nCC=10 · Bajo" as n8abb50201e
+component "acotarLadoFuenteUnica\nCC=4 · Bajo" as n6aa4f9cadc
+component "izquierdo\nCC=1 · Bajo" as n7841f9a8b6
+component "derecho\nCC=1 · Bajo" as nac3233cbca
+component "promediosConfiableAcotados\nCC=5 · Bajo" as nb47a4d8778
+component "mediaEncodersSaludables\nCC=4 · Bajo" as nf3ce73e5b1
+component "ladoEnStall\nCC=3 · Bajo" as nf6ec66e2e5
+component "fuentesPorLadoValidas\nCC=4 · Bajo" as nea0febbbff
+component "encoderSinRespuestaAislada\nCC=3 · Bajo" as nafaa6c347f
+component "nivelAntiFriccion8Bit\nCC=3 · Bajo" as nf6dc87da2a
+component "movimientoAntiFriccionConfirmado\nCC=2 · Bajo" as ne5db5a99ce
+component "stopDebePreservarFallo\nCC=2 · Medio" as n6217a6dfb0
+component "menorErrorAbs\nCC=1 · Bajo" as na8545d2dcb
+component "inicioDivergenciaMs\nCC=1 · Bajo" as n604e35b998
+component "reiniciar\nCC=1 · Bajo" as na64ade02e7
+component "evaluarDivergenciaGiro\nCC=6 · Bajo" as n08ea8c7ec8
+component "secuencia\nCC=1 · Bajo" as n08c8aea920
+component "pwmPositivo8\nCC=1 · Bajo" as na36ca36aa3
+component "pwmNegativo8\nCC=1 · Bajo" as n057516ee67
+component "polaridadPositiva\nCC=1 · Bajo" as n6d9ed5afd3
+component "polaridadNegativa\nCC=1 · Bajo" as nb21d97b544
+component "pwmPositivoDerecho8\nCC=1 · Bajo" as n0143eb9bcd
+component "pwmNegativoDerecho8\nCC=1 · Bajo" as n074e7c7422
+component "Registro\nCC=1 · Bajo" as n2516e3ac06
+component "registros\nCC=1 · Bajo" as ne181a4f0e6
+component "cantidad\nCC=1 · Bajo" as n2443055d6c
+component "siguienteSecuencia\nCC=1 · Bajo" as n5c214e136f
+component "registroValido\nCC=14 · Bajo" as n2cc061f77d
+component "agregar\nCC=5 · Bajo" as n3126729334
+component "promedioDireccion\nCC=6 · Bajo" as n8407ecbc10
+component "baseDesdePromedio\nCC=3 · Bajo" as nc27e7694b9
+component "baseParaPolaridad\nCC=7 · Bajo" as nc44c21432c
+component "iguales\nCC=10 · Bajo" as n7642828021
 component "tipo\nCC=1 · Bajo" as nae6550dc08
 component "seq\nCC=1 · Bajo" as na459c2b651
 component "run_id\nCC=1 · Bajo" as nf13fbcc40f
 component "detalle\nCC=1 · Bajo" as n76ea421fa2
 component "progreso\nCC=1 · Bajo" as n62d9f5cb98
-component "getX\nCC=1 · Bajo" as n3bb4d1fc5e
-component "getY\nCC=1 · Bajo" as n9130f7fc90
-component "getThetaRad\nCC=1 · Bajo" as n1834fa7be3
-component "getThetaDeg\nCC=1 · Bajo" as n07aa956131
-component "getArcoCentroGiroCm\nCC=1 · Bajo" as n82c0e0074d
-component "getTraslacionGiroXCm\nCC=1 · Bajo" as n2fc3d55854
-component "getTraslacionGiroYCm\nCC=1 · Bajo" as nbe71efe7e7
-component "x_global\nCC=1 · Bajo" as nbedd71425a
-component "y_global\nCC=1 · Bajo" as nd7a4b30061
-component "theta_rad\nCC=1 · Bajo" as naaf8b63ce1
-component "last_pulsos_FL\nCC=1 · Bajo" as nb5a3b6f3c6
-component "last_pulsos_FR\nCC=1 · Bajo" as nb9bf88a428
-component "last_pulsos_BL\nCC=1 · Bajo" as n74d860e5dc
-component "last_pulsos_BR\nCC=1 · Bajo" as n6efa12ee47
-component "cm_por_pulso\nCC=1 · Bajo" as nca786383e3
-component "ultimo_signo_l\nCC=1 · Bajo" as nb936c76155
-component "ultimo_signo_r\nCC=1 · Bajo" as nb3c380a9a3
-component "arco_centro_giro_cm\nCC=1 · Bajo" as n1188c6a6bf
-component "traslacion_giro_x_cm\nCC=1 · Bajo" as nf4fed91bea
-component "traslacion_giro_y_cm\nCC=1 · Bajo" as n6bc5cba68b
-component "DISTANCIA_EJES_CM\nCC=1 · Bajo" as nedb05230fb
-component "inicio_movimiento_ms\nCC=1 · Bajo" as n75114b0e9b
-component "pulsos_movimiento_iniciales\nCC=1 · Bajo" as n9dc454a10d
-component "inicio_ventana_encoder_ms\nCC=1 · Bajo" as ncb4c7b8712
-component "pulsos_ventana_encoder\nCC=1 · Bajo" as n659411dda3
-component "pulsos_lado_anteriores\nCC=1 · Bajo" as ne3bba715f8
-component "ultimo_progreso_lado_ms\nCC=1 · Bajo" as n949a7da5ad
-component "pulsosFL\nCC=1 · Bajo" as na1bb2d9854
-component "pulsosFR\nCC=1 · Bajo" as nd1a857052e
-component "pulsosBL\nCC=1 · Bajo" as n9d7f448fe0
-component "pulsosBR\nCC=1 · Bajo" as n74e4f2a87a
-component "delta_pulsos_filtrado_FL\nCC=1 · Bajo" as n5b7748b089
-component "delta_pulsos_filtrado_FR\nCC=1 · Bajo" as n59e87ae3c9
-component "delta_pulsos_filtrado_BL\nCC=1 · Bajo" as n71156c1ab3
-component "delta_pulsos_filtrado_BR\nCC=1 · Bajo" as n0dc73f2365
-component "velocidad_filtrada_L_cm_s\nCC=1 · Bajo" as n4620569983
-component "velocidad_filtrada_R_cm_s\nCC=1 · Bajo" as n0a82169272
-component "imu_deltaZ_rad\nCC=1 · Bajo" as ndfa959ae0b
-component "gyro_z_filtrado_rad_s\nCC=1 · Bajo" as n887ffd1cbd
-component "gyro_z_offset_rad_s\nCC=1 · Bajo" as n28dd55e800
-component "yaw_integrado_deg\nCC=1 · Bajo" as n6a9588871e
-component "timestamp_ms\nCC=1 · Bajo" as n92b92815e1
-component "timestamp_us\nCC=1 · Bajo" as n53765c5a44
-component "mpu_present\nCC=1 · Bajo" as n6d2232461b
-component "mpu_stale\nCC=1 · Bajo" as n588b6ba92e
-component "mpu_calibrated\nCC=1 · Bajo" as n7c7ebe4c92
-component "sequence\nCC=1 · Bajo" as n19143883c9
-nbd8492d45a --> na4925ad6d3 : síncrona
+component "montada\nCC=1 · Bajo" as ndd532631c9
+component "cargada\nCC=1 · Bajo" as nfc3d9c8795
+component "persistenciaPendiente\nCC=1 · Bajo" as n5f4447e40f
+component "cantidad\nCC=1 · Bajo" as n79fb835f83
+component "promedioPositivo8\nCC=1 · Bajo" as nb8470830cf
+component "promedioNegativo8\nCC=1 · Bajo" as n5918a206e0
+component "promedioPositivoDerecho8\nCC=1 · Bajo" as n7ba6801160
+component "promedioNegativoDerecho8\nCC=1 · Bajo" as n1e15a19b52
+component "basePositiva8\nCC=1 · Bajo" as n5be541acbc
+component "baseNegativa8\nCC=1 · Bajo" as nffd501f233
+component "basePositivaDerecha8\nCC=1 · Bajo" as nc5cb624ee8
+component "baseNegativaDerecha8\nCC=1 · Bajo" as n2774780dd0
+component "estado\nCC=1 · Bajo" as nc498a4613a
+component "getX\nCC=1 · Bajo" as naa9da578f8
+component "getY\nCC=1 · Bajo" as naf8f41e631
+component "getThetaRad\nCC=1 · Bajo" as n20980b6f30
+component "getThetaDeg\nCC=1 · Bajo" as nac36fa6663
+component "getArcoCentroGiroCm\nCC=1 · Bajo" as nff974756ad
+component "getTraslacionGiroXCm\nCC=1 · Bajo" as n82db83bb77
+component "getTraslacionGiroYCm\nCC=1 · Bajo" as n9d4e73c7ad
+component "x_global\nCC=1 · Bajo" as n3dbfe4d0d9
+component "y_global\nCC=1 · Bajo" as nc5a12c778c
+component "theta_rad\nCC=1 · Bajo" as necee4cf49d
+component "last_pulsos_FL\nCC=1 · Bajo" as nb315bb1a18
+component "last_pulsos_FR\nCC=1 · Bajo" as n762f3deb2f
+component "last_pulsos_BL\nCC=1 · Bajo" as n720bd38ab2
+component "last_pulsos_BR\nCC=1 · Bajo" as n1c88521f52
+component "cm_por_pulso\nCC=1 · Bajo" as n0e2f0d781b
+component "ultimo_signo_l\nCC=1 · Bajo" as nd0a347894e
+component "ultimo_signo_r\nCC=1 · Bajo" as na5d37f3dca
+component "arco_centro_giro_cm\nCC=1 · Bajo" as nbe33aaafd3
+component "traslacion_giro_x_cm\nCC=1 · Bajo" as n264e386f24
+component "traslacion_giro_y_cm\nCC=1 · Bajo" as nc3757ed9ff
+component "DISTANCIA_EJES_CM\nCC=1 · Bajo" as n4618808b9b
+component "inicio_movimiento_ms\nCC=1 · Bajo" as nd82675d7a2
+component "pulsos_movimiento_iniciales\nCC=1 · Bajo" as nab14b99593
+component "inicio_ventana_encoder_ms\nCC=1 · Bajo" as n2ef907a2ab
+component "pulsos_ventana_encoder\nCC=1 · Bajo" as nbdc37de407
+component "pulsos_lado_anteriores\nCC=1 · Bajo" as n907986a977
+component "ultimo_progreso_lado_ms\nCC=1 · Bajo" as n2fc7bb45f0
+component "pulsosFL\nCC=1 · Bajo" as n82657c9903
+component "pulsosFR\nCC=1 · Bajo" as n3075dc8d7a
+component "pulsosBL\nCC=1 · Bajo" as n1e0778db97
+component "pulsosBR\nCC=1 · Bajo" as n8c3a1c8af0
+component "delta_pulsos_filtrado_FL\nCC=1 · Bajo" as ne2b0b8ee3a
+component "delta_pulsos_filtrado_FR\nCC=1 · Bajo" as ndb347ca2e8
+component "delta_pulsos_filtrado_BL\nCC=1 · Bajo" as na24e42f535
+component "delta_pulsos_filtrado_BR\nCC=1 · Bajo" as n5ecd3e147d
+component "velocidad_filtrada_L_cm_s\nCC=1 · Bajo" as n179a7b7eec
+component "velocidad_filtrada_R_cm_s\nCC=1 · Bajo" as n489373e2c4
+component "imu_deltaZ_rad\nCC=1 · Bajo" as nc75758f5a0
+component "gyro_z_filtrado_rad_s\nCC=1 · Bajo" as nadbe2b09d9
+component "gyro_z_offset_rad_s\nCC=1 · Bajo" as n769545aedf
+component "yaw_integrado_deg\nCC=1 · Bajo" as n7792cac4c0
+component "timestamp_ms\nCC=1 · Bajo" as n5cccdea709
+component "timestamp_us\nCC=1 · Bajo" as n16b79c39c7
+component "mpu_present\nCC=1 · Bajo" as ne5a2ed5fa5
+component "mpu_stale\nCC=1 · Bajo" as nceefbeb6ce
+component "mpu_calibrated\nCC=1 · Bajo" as nbea7d2baa2
+component "fuente5vOk\nCC=1 · Bajo" as ndce4385538
+component "sequence\nCC=1 · Bajo" as n8129f4b27b
+n4c4985c55c --> ndbb55711d8 : síncrona
+nd974be94a5 --> n105ab83cda : síncrona
+n9715276ede --> n8abb50201e : síncrona
+n3f6bbe365f --> n5e5431ed38 : síncrona
+n7fb6d0c102 --> n5aff059ec7 : síncrona
+n7fb6d0c102 --> ne9a5ae9234 : síncrona
+nea7867a151 --> n5aff059ec7 : síncrona
+nea7867a151 --> ne9a5ae9234 : síncrona
 n40c8cb2eef --> n055e6556b4 : síncrona
 nbe93f15ded --> n40c8cb2eef : síncrona
 nb3b8b073ec --> n055e6556b4 : síncrona
-nc92c4c3dbd --> nfd68ebbf51 : síncrona
-n2ed90afeb2 --> nfd68ebbf51 : síncrona
-na4be9f82eb --> nfd68ebbf51 : síncrona
-n2e65f908c7 --> n123b18d6f2 : síncrona
-n14c5e62500 --> n2e65f908c7 : síncrona
-n6a1353563a --> na3d5c6af71 : síncrona
-n6a1353563a --> nd631f6f320 : síncrona
+neab0d37517 --> nfd68ebbf51 : síncrona
+n563c096ba8 --> na9de66bbea : síncrona
+n7f70feabff --> nc5ea7c7121 : síncrona
+n38193be335 --> nfd68ebbf51 : síncrona
+n17f772aa89 --> nfd68ebbf51 : síncrona
+na93127da48 --> n03b6c15711 : síncrona
+n6d56729432 --> na93127da48 : síncrona
+nf41610dbe0 --> nfd68ebbf51 : síncrona
+n8b24e6cd48 --> na3d5c6af71 : síncrona
+n8b24e6cd48 --> nff5db8414e : síncrona
+nb47a4d8778 --> n6aa4f9cadc : síncrona
+nb47a4d8778 --> n8abb50201e : síncrona
+n2516e3ac06 --> n46d714dfc5 : síncrona
+n2516e3ac06 --> n153d4f89d3 : síncrona
+n2516e3ac06 --> n0e6d16d762 : síncrona
+n2516e3ac06 --> n074e7c7422 : síncrona
+n2516e3ac06 --> n365bffe1da : síncrona
+n2516e3ac06 --> n0143eb9bcd : síncrona
+n2516e3ac06 --> n08c8aea920 : síncrona
+n3126729334 --> n2cc061f77d : síncrona
+nc44c21432c --> nc27e7694b9 : síncrona
 legend
 |= Flecha |= Interacción |
 | --> | síncrona |

@@ -538,6 +538,49 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.service.mission_status()["stage"], "executing")
         self.assertEqual(self.service.mission_status()["current_index"], 1)
 
+    def test_reverse_step_does_not_request_180_pivot(self) -> None:
+        self.service._settling_delay_s = 0.10
+        self._ready()
+        mission = self.service.start_mission([
+            {"x_mm": 0, "y_mm": -1000}, {"x_mm": 0, "y_mm": -500},
+        ])
+        # Tramo ejecutado en reversa: el trayecto apunta a 180 pero el cuerpo
+        # conserva 0. El yaw real (0.9) esta alineado con el cuerpo: no debe
+        # dispararse realineamiento ni un pivote de 180 grados.
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x": 0.0, "y": -100.0, "yaw": 0.9,
+            "cal": True, "enc": [10, 10, 10, 10],
+            "motion": {"effective_mode": "reverse", "body_heading_deg": 0.0,
+                       "travel_heading_deg": 180.0, "final_heading_deg": 0.9},
+        }, 2)
+        self.service._on_robot_message({
+            "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok",
+        })
+        time.sleep(0.15)
+        status = self.service.mission_status()
+        self.assertNotEqual(status["stage"], "realigning")
+        self.assertEqual(status["current_index"], 1)
+        self.assertAlmostEqual(
+            self.service._mission_accuracy["error_angular_deg"], 0.9, places=1)
+
+    def test_return_home_snaps_subcentimeter_residual(self) -> None:
+        self._ready(2000, 1548)
+        self.service.database.set_setting("last_completed_route", {
+            "origin": {"x_mm": 0.0, "y_mm": 0.0},
+            "points": [
+                {"x_mm": 0.0, "y_mm": 1000.0},
+                {"x_mm": 0.0, "y_mm": 1550.0},
+                {"x_mm": 2000.0, "y_mm": 1550.0},
+                {"x_mm": 2000.0, "y_mm": 1548.0},
+            ],
+            "mode": "rectangular",
+            "return_state": "available",
+            "logical_steps": [],
+        })
+        preview = self.service.start_return_home(preview=True)
+        self.assertEqual(preview["total_steps"], 3)
+        self.assertTrue(all(point["length_mm"] >= 5.0 for point in preview["points"]))
+
     def test_corrupt_completed_route_is_rejected_without_consuming_it(self) -> None:
         self._ready()
         route = {"origin": {"x_mm": 0, "y_mm": 0}, "points": [{}], "return_state": "available"}
@@ -729,14 +772,14 @@ class ApiTests(unittest.TestCase):
         finally:
             reloaded_service.close()
 
-    def test_estop_command_kills_mission_and_session(self) -> None:
+    def test_estop_command_kills_mission_and_preserves_session(self) -> None:
         self._ready()
         self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         session_id = self.service.start_session()
         self.assertIsNotNone(self.service._session_id)
         self.assertTrue(self.service.mission_status()["running"])
         self.service.send_command("estop", {})
-        self.assertIsNone(self.service._session_id)
+        self.assertEqual(self.service._session_id, session_id)
         status = self.service.mission_status()
         self.assertIsNone(status["id"])
         self.assertFalse(status["running"])
@@ -767,30 +810,37 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status["stage"], "idle")
         self.assertIsNone(self.service.database.get_setting("active_mission"))
 
-    def test_estop_telemetry_kills_mission_and_session(self) -> None:
+    def test_estop_telemetry_kills_mission_and_preserves_session(self) -> None:
         self._ready()
         self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         session_id = self.service.start_session()
         self.assertIsNotNone(self.service._session_id)
         self.assertTrue(self.service.mission_status()["running"])
+        # Primer paquete con ESTOP
         self.service._on_robot_message({
             "evt": "telemetry", "state": "estop", "enc": [0, 0, 0, 0],
             "pwm": [0, 0], "yaw": 0,
         })
-        self.assertIsNone(self.service._session_id)
+        self.assertEqual(self.service._session_id, session_id)
+        # Segundo paquete sucesivo con ESTOP no debe ciclar ni crear nuevas sesiones
+        self.service._on_robot_message({
+            "evt": "telemetry", "state": "estop", "enc": [0, 0, 0, 0],
+            "pwm": [0, 0], "yaw": 0,
+        })
+        self.assertEqual(self.service._session_id, session_id)
         status = self.service.mission_status()
         self.assertIsNone(status["id"])
         self.assertFalse(status["running"])
         self.assertEqual(status["stage"], "idle")
         self.assertIsNone(self.service.database.get_setting("active_mission"))
 
-    def test_estop_latched_completed_kills_mission_and_session(self) -> None:
+    def test_estop_latched_completed_kills_mission_and_preserves_session(self) -> None:
         self._ready()
         self.service.start_mission([{"x_mm": 1000, "y_mm": 0}])
         session_id = self.service.start_session()
         self.assertIsNotNone(self.service._session_id)
         self.service._on_robot_message({"evt": "completed", "seq": 10, "detail": "estop_latched"})
-        self.assertIsNone(self.service._session_id)
+        self.assertEqual(self.service._session_id, session_id)
         status = self.service.mission_status()
         self.assertIsNone(status["id"])
         self.assertFalse(status["running"])
@@ -840,7 +890,7 @@ class ApiTests(unittest.TestCase):
         surfaces = response.get_json()
         self.assertGreaterEqual(len(surfaces), 3)
 
-        # POST new surface
+        # POST new surface with the adaptive calibration fields.
         new_surface = {
             "name": "Superficie Test",
             "pwm_pos": 160,
@@ -848,12 +898,26 @@ class ApiTests(unittest.TestCase):
             "cand_pos": 1,
             "cand_neg": -1,
             "description": "Superficie de prueba creada en test",
+            "trim_izq": 0.92,
+            "trim_der": 0.97,
+            "deadband_izq_8bit": 6,
+            "deadband_der_8bit": 9,
+            "icr_x_cm": 1.5,
+            "icr_y_cm": -2.0,
+            "gyro_scale": 1.07,
         }
         res_post = self.client.post("/api/v1/calibration/surfaces", json=new_surface, headers={"X-App-Token": self.token})
         self.assertEqual(res_post.status_code, 201)
         created = res_post.get_json()
         self.assertEqual(created["name"], "Superficie Test")
         self.assertEqual(created["pwm_positive_8bit"], 160)
+        self.assertAlmostEqual(created["trim_izq"], 0.92)
+        self.assertAlmostEqual(created["trim_der"], 0.97)
+        self.assertEqual(created["deadband_izq_8bit"], 6)
+        self.assertEqual(created["deadband_der_8bit"], 9)
+        self.assertAlmostEqual(created["icr_x_cm"], 1.5)
+        self.assertAlmostEqual(created["icr_y_cm"], -2.0)
+        self.assertAlmostEqual(created["gyro_scale"], 1.07)
 
         # Apply surface
         self._ready()
@@ -861,11 +925,49 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(res_apply.status_code, 202)
         applied = res_apply.get_json()
         self.assertEqual(applied["surface_id"], created["id"])
+        # La superficie aplica torque/ICR y el perfil adaptativo por lado.
+        names = [item.command.name for item in self.service.gateway._outgoing.queue]
+        self.assertIn("set_calibration", names)
+        self.assertIn("set_comp", names)
+        calibration = next(item.command for item in self.service.gateway._outgoing.queue
+                           if item.command.name == "set_calibration")
+        self.assertAlmostEqual(calibration.payload["icr_x_cm"], 1.5)
+        self.assertAlmostEqual(calibration.payload["icr_y_cm"], -2.0)
+        self.assertAlmostEqual(calibration.payload["gyro_scale"], 1.07)
+        compensation = next(item.command for item in self.service.gateway._outgoing.queue
+                            if item.command.name == "set_comp")
+        self.assertAlmostEqual(compensation.payload["trim_izq"], 0.92)
+        self.assertAlmostEqual(compensation.payload["trim_der"], 0.97)
+        self.assertEqual(compensation.payload["deadband_izq"], 6)
 
         # DELETE surface
         res_del = self.client.delete(f"/api/v1/calibration/surfaces/{created['id']}", headers={"X-App-Token": self.token})
         self.assertEqual(res_del.status_code, 200)
         self.assertTrue(res_del.get_json()["ok"])
+
+    def test_mission_blocks_when_5v_source_is_lost(self) -> None:
+        self._ready()
+        self.service.start_mission([{"x_mm": 0, "y_mm": 1000}])
+        self.assertTrue(self.service.mission_status()["running"])
+        self.service._on_robot_message({
+            "evt": "telemetry", "state": "ejecutando", "x": 0.0, "y": 0.0, "yaw": 0.0,
+            "cal": True, "enc": [0, 0, 0, 0],
+            "power": {"5v_ok": False, "5v_detail": "5v_fuente_desconectada"},
+        })
+        status = self.service.mission_status()
+        self.assertTrue(status["blocked"])
+        self.assertIn("5v_fuente_desconectada", str(status.get("error") or ""))
+
+    def test_heading_recovery_exhausted_blocks_mission_without_fault(self) -> None:
+        self._ready()
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 1000}])
+        self.service._on_robot_message({
+            "evt": "completed", "seq": mission["active_seq"],
+            "detail": "heading_recovery_exhausted_soft",
+        })
+        status = self.service.mission_status()
+        self.assertTrue(status["blocked"])
+        self.assertIn("heading_recovery_exhausted", str(status.get("error") or ""))
 
     def test_disconnect_grace_period_preserves_running_mission(self) -> None:
         self._ready()

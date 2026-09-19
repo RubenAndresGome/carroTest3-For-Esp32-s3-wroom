@@ -11,7 +11,7 @@ export default defineConfig({
   publicDir: resolve(import.meta.dirname, "../../evidencia"),
   build: {
     outDir: resolve(import.meta.dirname, "../../docs"),
-    emptyOutDir: true,
+    emptyOutDir: false,
     sourcemap: false,
     // El portal incluye Mermaid en el bundle; no depende de un CDN en Pages.
     chunkSizeWarningLimit: 1500,

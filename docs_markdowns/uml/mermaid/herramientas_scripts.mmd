@@ -33,17 +33,18 @@ flowchart LR
     n4df1dd2897["init()"]
   end
   subgraph f1["consultar_db.py"]
-    n6460493b44["connect_db(db_path: str)"]
-    n04c91c6a18["show_summary(conn: sqlite3.Connection)"]
-    nfacd9846a2["list_sessions(conn: sqlite3.Connection, limit: int)"]
-    n9650665764["list_commands(conn: sqlite3.Connection, limit: int)"]
-    na9ad2a9d1f["list_events(conn: sqlite3.Connection, limit: int)"]
-    n2e4c463a2b["list_telemetry(conn: sqlite3.Connection, limit: int)"]
-    n6a2af42b30["_angular_delta_deg(reference: float, value: float)"]
-    n51949693e6["list_segments(conn: sqlite3.Connection, limit: int)"]
-    nf7e56de919["trace_command(conn: sqlite3.Connection, command_prefix: str)"]
-    n3bb7a88720["search_all(conn: sqlite3.Connection, term: str)"]
-    nd2eac5ac8e["main()"]
+    nb391cbbc20["local_session_label(row: sqlite3.Row, prefix: str = 'started')"]
+    n9cd8234207["connect_db(db_path: str)"]
+    n808b5cb284["show_summary(conn: sqlite3.Connection)"]
+    nd11d227f1a["list_sessions(conn: sqlite3.Connection, limit: int)"]
+    n06004134a7["list_commands(conn: sqlite3.Connection, limit: int)"]
+    nbaa4dfdd0f["list_events(conn: sqlite3.Connection, limit: int)"]
+    n045311b46e["list_telemetry(conn: sqlite3.Connection, limit: int)"]
+    nca5a308e36["_angular_delta_deg(reference: float, value: float)"]
+    ne7789e784f["list_segments(conn: sqlite3.Connection, limit: int)"]
+    n301b3d3054["trace_command(conn: sqlite3.Connection, command_prefix: str)"]
+    n569b24b0a7["search_all(conn: sqlite3.Connection, term: str)"]
+    n61e3332d73["main()"]
   end
   subgraph f2["generar_catalogo.py"]
     nd51f2a6408["active_files()"]
@@ -83,9 +84,12 @@ flowchart LR
   end
   subgraph f5["validar_enlaces.py"]
     n5f476609c0["markdown_files()"]
-    ne1a2132fe2["normalize_target(raw: str)"]
-    n42af9ef3dd["candidates_for(document: Path, target: str)"]
-    n2e8d1b06ae["main()"]
+    nef1683839e["normalize_target(raw: str)"]
+    n665e17835e["candidates_for(document: Path, target: str)"]
+    n667ac1e252["main()"]
+  end
+  subgraph f6["preparar_spiffs.ps1"]
+    nbc404b234a["Convertir-NumeroParticion([string] $Valor)"]
   end
   n01061f78b6 --> n09bc0b5b13
   n01061f78b6 --> n14f1ef6e7b
@@ -104,9 +108,7 @@ flowchart LR
   n1c9814c081 --> n9eab49d8ad
   n1c9814c081 --> ncb8c29961f
   n29119f8e5f --> ne7fd0cdcfd
-  n2e8d1b06ae --> n42af9ef3dd
-  n2e8d1b06ae --> n5f476609c0
-  n2e8d1b06ae --> ne1a2132fe2
+  n301b3d3054 --> nca5a308e36
   n315958bad0 --> n09bc0b5b13
   n315958bad0 --> n14f1ef6e7b
   n315958bad0 --> n4671b319ba
@@ -131,13 +133,25 @@ flowchart LR
   n505bfe6358 --> n756c4c6df7
   n505bfe6358 --> ndcc2caa7d0
   n505bfe6358 --> ne7fd0cdcfd
-  n51949693e6 --> n6a2af42b30
+  n61e3332d73 --> n045311b46e
+  n61e3332d73 --> n06004134a7
+  n61e3332d73 --> n301b3d3054
+  n61e3332d73 --> n569b24b0a7
+  n61e3332d73 --> n808b5cb284
+  n61e3332d73 --> n9cd8234207
+  n61e3332d73 --> nbaa4dfdd0f
+  n61e3332d73 --> nd11d227f1a
+  n61e3332d73 --> ne7789e784f
   n622aa6745d --> n09bc0b5b13
   n622aa6745d --> n14f1ef6e7b
   n622aa6745d --> n198e0e1e49
   n622aa6745d --> n593102974c
   n622aa6745d --> nc0f3636e27
+  n667ac1e252 --> n5f476609c0
+  n667ac1e252 --> n665e17835e
+  n667ac1e252 --> nef1683839e
   n756c4c6df7 --> n09bc0b5b13
+  n808b5cb284 --> nb391cbbc20
   n93bfeb5085 --> n09bc0b5b13
   n9c3c116062 --> n09bc0b5b13
   n9c3c116062 --> n198e0e1e49
@@ -152,19 +166,12 @@ flowchart LR
   ncffa2c3ca5 --> n07fe6a944c
   ncffa2c3ca5 --> n210980a486
   ncffa2c3ca5 --> n6d08e8ebec
-  nd2eac5ac8e --> n04c91c6a18
-  nd2eac5ac8e --> n2e4c463a2b
-  nd2eac5ac8e --> n3bb7a88720
-  nd2eac5ac8e --> n51949693e6
-  nd2eac5ac8e --> n6460493b44
-  nd2eac5ac8e --> n9650665764
-  nd2eac5ac8e --> na9ad2a9d1f
-  nd2eac5ac8e --> nf7e56de919
-  nd2eac5ac8e --> nfacd9846a2
+  nd11d227f1a --> nb391cbbc20
   ndcc2caa7d0 --> n29119f8e5f
   ndcc2caa7d0 --> n756c4c6df7
   ndf4f4132cd --> n09bc0b5b13
   ne07e262822 --> ne7fd0cdcfd
+  ne7789e784f --> nca5a308e36
   ne8ee46a3f6 --> n4d3e366351
   ne8ee46a3f6 --> n4fea69e755
   ne8ee46a3f6 --> n695976a230
@@ -184,7 +191,6 @@ flowchart LR
   nee872e3d0e --> ncffa2c3ca5
   nee872e3d0e --> nd51f2a6408
   nee872e3d0e --> ne8ee46a3f6
-  nf7e56de919 --> n6a2af42b30
   nf82920201d --> n1aaec6a3f2
   nf82920201d --> n3cf472952d
   classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
@@ -221,17 +227,18 @@ flowchart LR
   class naa0319038c bajo
   class n756c4c6df7 bajo
   class n4df1dd2897 bajo
-  class n6460493b44 bajo
-  class n04c91c6a18 bajo
-  class nfacd9846a2 bajo
-  class n9650665764 bajo
-  class na9ad2a9d1f bajo
-  class n2e4c463a2b alto
-  class n6a2af42b30 bajo
-  class n51949693e6 medio
-  class nf7e56de919 alto
-  class n3bb7a88720 bajo
-  class nd2eac5ac8e bajo
+  class nb391cbbc20 bajo
+  class n9cd8234207 bajo
+  class n808b5cb284 bajo
+  class nd11d227f1a bajo
+  class n06004134a7 bajo
+  class nbaa4dfdd0f bajo
+  class n045311b46e alto
+  class nca5a308e36 bajo
+  class ne7789e784f medio
+  class n301b3d3054 alto
+  class n569b24b0a7 bajo
+  class n61e3332d73 bajo
   class nd51f2a6408 bajo
   class n210980a486 bajo
   class n07fe6a944c bajo
@@ -263,6 +270,7 @@ flowchart LR
   class nf237d76ace bajo
   class n489ce3258b bajo
   class n5f476609c0 bajo
-  class ne1a2132fe2 bajo
-  class n42af9ef3dd bajo
-  class n2e8d1b06ae bajo
+  class nef1683839e bajo
+  class n665e17835e bajo
+  class n667ac1e252 bajo
+  class nbc404b234a bajo

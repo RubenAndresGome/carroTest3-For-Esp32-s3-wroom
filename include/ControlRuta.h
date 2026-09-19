@@ -82,6 +82,42 @@ inline float distanciaFrenoPrevista(float pwm, float baseCm, float cmPorPwm,
   return limitar(baseCm + fabsf(pwm) * cmPorPwm, baseCm, maximoCm);
 }
 
+// Traslacion parasita en giro de radio cero. En un chasis 4WD sin suspension,
+// los 4 apoyos sobrerrestringen el plano y el peso se concentra en una diagonal;
+// ademas los motores TT no entregan la misma fuerza. El centro instantaneo de
+// rotacion (ICR) queda fuera del centro geometrico y, al girar dTheta, el centro
+// del chasis se desplaza:
+//   dx = -y_icr * dTheta
+//   dy =  x_icr * dTheta
+// La correccion se aplica solo en giro puro (pivote); en arcos y avance recto
+// el ICR efectivo es otro y no se compensa.
+struct CorreccionICR {
+  float dxCm;
+  float dyCm;
+};
+
+inline CorreccionICR corregirTraslacionParasita(float xIcrCm, float yIcrCm,
+                                                float deltaThetaRad) {
+  return {-yIcrCm * deltaThetaRad, xIcrCm * deltaThetaRad};
+}
+
+// Proyeccion al marco global del desplazamiento parasito del pivote. El vector
+// (dx_body, dy_body) esta en el marco del chasis (dx derecha, dy frente); se
+// rota por el rumbo actual theta (0 = +Y, 90 = +X, horario positivo):
+//   dx_global =  dx_body*cos(theta) + dy_body*sin(theta)
+//   dy_global = -dx_body*sin(theta) + dy_body*cos(theta)
+// Sin esta rotacion, un pivote orientado a 90/180/270 grados contamina la pose.
+inline CorreccionICR corregirTraslacionParasitaGlobal(float xIcrCm, float yIcrCm,
+                                                      float deltaThetaRad, float thetaRad) {
+  const CorreccionICR body = corregirTraslacionParasita(xIcrCm, yIcrCm, deltaThetaRad);
+  const float cosT = cosf(thetaRad);
+  const float sinT = sinf(thetaRad);
+  return {
+      body.dxCm * cosT + body.dyCm * sinT,
+      -body.dxCm * sinT + body.dyCm * cosT,
+  };
+}
+
 // Invarianza de marco local: la recta directriz del tramo se ancla en la pose
 // real del robot al iniciar el avance, no en un origen deducido del waypoint.
 // Asi el desvio lateral al instante t=0 es exactamente cero para cualquier

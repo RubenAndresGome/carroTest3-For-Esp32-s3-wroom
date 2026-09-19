@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Dogma Canónico de Calibración",
+    "output": "calibracion_dogma.html",
+    "viewBox": [1080, 620],
+    "column_fit": "spread",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "preparacion-reposo", "label": "Reposo y MPU", "focus": ["user", "hmi", "py", "esp", "imu"], "note": "Estabilización obligatoria de 5.0 segundos para recalibrar el sesgo del giróscopo." },
+      { "id": "busqueda-torque", "label": "Búsqueda bilateral", "focus": ["esp", "mot", "imu"], "note": "Rampas protegidas de torque en polaridad positiva y opuesta con validación física." },
+      { "id": "retorno-conclusion", "label": "Retorno y aceptación", "focus": ["esp", "mot", "py", "hmi"], "note": "Pivote estricto a 0°, reseteo de pose y habilitación de misiones en Python." }
+    ]
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "Operador", "sublabel": "HMI local" },
+    { "id": "hmi", "type": "frontend", "label": "HMI Canónica", "sublabel": "HTML5 Web" },
+    { "id": "py", "type": "backend", "label": "RobotService", "sublabel": "Backend Python" },
+    { "id": "esp", "type": "security", "label": "ESP32-S3", "sublabel": "Core 0 / Core 1" },
+    { "id": "imu", "type": "frontend", "label": "MPU6050", "sublabel": "Giroscopio I2C" },
+    { "id": "mot", "type": "backend", "label": "DRV8833", "sublabel": "Motores 4WD" }
+  ],
+  "segments": [
+    { "from": 150, "to": 260, "label": "Inicio y reposo" },
+    { "from": 270, "to": 410, "label": "Búsqueda y giro" },
+    { "from": 420, "to": 505, "label": "Retorno y listo" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "user", "to": "hmi", "y": 160, "label": "pulsar Recalibrar", "variant": "default" },
+    { "id": "m2", "from": "hmi", "to": "py", "y": 190, "label": "POST /commands calibrate", "variant": "security" },
+    { "id": "m3", "from": "py", "to": "esp", "y": 220, "label": "calibrate(seq)", "variant": "emphasis" },
+    { "id": "m4", "from": "esp", "to": "py", "y": 250, "label": "accepted(cal)", "variant": "return" },
+    { "id": "m5", "from": "esp", "to": "imu", "y": 280, "label": "reposo 5.0 s (bias MPU)", "variant": "default" },
+    { "id": "m6", "from": "esp", "to": "mot", "y": 310, "label": "CAL_A: rampa 140->247", "variant": "emphasis" },
+    { "id": "m7", "from": "imu", "to": "esp", "y": 340, "label": "gyro_z >= 0.12 rad/s", "variant": "return" },
+    { "id": "m8", "from": "esp", "to": "mot", "y": 370, "label": "CAL_VALIDAR_25: giro +25°", "variant": "emphasis" },
+    { "id": "m9", "from": "esp", "to": "mot", "y": 400, "label": "CAL_B: rampa polaridad opuesta", "variant": "emphasis" },
+    { "id": "m10", "from": "esp", "to": "mot", "y": 430, "label": "CAL_RETORNO: pivote a 0°", "variant": "emphasis" },
+    { "id": "m11", "from": "esp", "to": "py", "y": 460, "label": "completed(cal_ok)", "variant": "return" },
+    { "id": "m12", "from": "py", "to": "hmi", "y": 490, "label": "SSE: estado listo", "variant": "return" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Invariante de Estabilización", "items": ["La calibración inicia con 5.0 s de reposo para filtrar deriva del giróscopo", "La polaridad se autovalida bilateralmente con gyro_z y encoders"] },
+    { "dot": "cyan", "title": "Fases de Torque", "items": ["CAL_A busca torque positivo y valida giro a +25°", "CAL_B confirma torque opuesto y CAL_RETORNO vuelve exactamente a yaw 0°"] },
+    { "dot": "rose", "title": "Protección de Bloqueo", "items": ["Falta de ticks de encoder o de giro angular dispara cal_stall_left/right", "Ante stall, el PWM cae a cero inmediato y se bloquea la ejecución de rutas"] }
+  ]
+}

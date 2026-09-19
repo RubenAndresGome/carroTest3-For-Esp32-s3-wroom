@@ -15,12 +15,8 @@
 1. Limitar la fuente a 0.5 A o usar batería con fusible de 1 A.
 2. Medir en serie con VMOT durante calibración, avance y giro.
 3. Medir corriente de arranque y rotor bloqueado por motor.
-4. Confirmar PWM cero antes de calibrar, techo global 230/255 en avance, 247/255 en giros y al menos 250 ms
-   a cero antes de toda inversión.
-5. Ejecutar calibración: rampa desde cero y búsqueda hasta 247/255, detección
-   por 1° de yaw acumulado, corroboración equilibrada por ambos lados, reposo
-   2.5 s y regreso independiente al yaw inicial. No existe tramo adicional de
-   +10° o +25°.
+4. Confirmar PWM cero antes de calibrar, techo global 242/255 (~95%) en avance, 247/255 (~97%) en giros, ráfaga máxima 255/255 (≤80 ms con enfriamiento de 250 ms) y al menos 250 ms a cero antes de toda inversión.
+5. Ejecutar Dogma Canónico de Calibración: reposo y cuenta regresiva de 5.0 s para estabilizar sesgo MPU, búsqueda A de torque positivo hasta 247/255 con corroboración bilateral PCNT (filtro 1023 ciclos APB, 40 PPR) y gyro_z ≥ 0.12 rad/s, validación de giro a +25° (±2.5°), reposo de 2.5 s, búsqueda B con polaridad opuesta bilateral, reposo de 2.5 s y retorno exacto al yaw inicial con reseteo de pose (0,0).
 6. Probar E-STOP durante una maniobra y confirmar enclavamiento y PWM cero.
 
 No se afirmará seguridad eléctrica y no se operará en suelo hasta verificar

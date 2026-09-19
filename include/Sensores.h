@@ -17,11 +17,16 @@ struct SensorSnapshot {
     float gyro_z_filtrado_rad_s;
     float gyro_z_offset_rad_s;
     float yaw_integrado_deg;
+    float accel_x_m_s2;
+    float accel_y_m_s2; // Eje longitudinal del robot (+Y avance, -Y reversa)
+    float accel_z_m_s2;
+    float pitch_dinamico_deg;
     uint32_t timestamp_ms;
     uint64_t timestamp_us;
     bool mpu_present;
     bool mpu_stale;
     bool mpu_calibrated;
+    bool fuente5vOk;
     uint32_t sequence;
 };
 
@@ -37,3 +42,7 @@ float obtenerYawIMUDeg();
 bool recentrarYawIMUEnReposo();
 uint32_t cantidadRecentradosYawIMU();
 void resetFiltrosEncoder();
+// Escala de giroscopo por superficie (persistida por el HMI). Se multiplica por
+// GYRO_Z_SCALE_FACTOR en la integracion de rumbo.
+void establecerEscalaGiro(float escala);
+float obtenerEscalaGiro();

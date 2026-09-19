@@ -14,8 +14,8 @@ from typing import Any
 
 from .config import DEFAULT_ROBOT_HOST, normalize_robot_host
 from .database import Database
-from .domain import (MAX_SEGMENT_MM, PWM_SAFE_LIMIT, CommandStatus, ConnectionState, RobotCommand, Severity,
-                     TelemetrySnapshot)
+from .domain import (MAX_SEGMENT_MM, PWM_SAFE_LIMIT, SNAP_RESIDUAL_MM, CommandStatus, ConnectionState, RobotCommand,
+                     Severity, TelemetrySnapshot)
 from .gateway import RobotGateway
 from .route_planning import (RectangularRouteStrategy, compile_touch_path,
                              strategy_for_request)
@@ -717,14 +717,19 @@ class RobotService:
         home_y = float(source_origin.get("y_mm", 0.0))
 
         return_points: list[dict[str, Any]] = []
-        curr_x = waypoints[-1]["x_mm"]
-        curr_y = waypoints[-1]["y_mm"]
+        # Anclar el retorno en la pose real del robot, no en el ultimo waypoint
+        # planificado: un residuo sub-centimetrico generaba un micro-paso que el
+        # firmware rechazaba y abortaba la mision.
+        start_x = float(telemetry.x_mm)
+        start_y = float(telemetry.y_mm)
+        curr_x = start_x
+        curr_y = start_y
 
         for logical_id, target in enumerate(reversed(waypoints[:-1]), start=1):
             dx = target["x_mm"] - curr_x
             dy = target["y_mm"] - curr_y
             length = math.hypot(dx, dy)
-            if length < 1.0:
+            if length < SNAP_RESIDUAL_MM:
                 continue
             if route_mode != "angular_vectorial":
                 # Forzar ortogonalidad cardinal pura en pasos rectangulares
@@ -741,6 +746,9 @@ class RobotService:
             else:
                 target_pt = {"x_mm": float(target["x_mm"]), "y_mm": float(target["y_mm"])}
                 heading = math.degrees(math.atan2(dx, dy)) % 360.0
+
+            if length < SNAP_RESIDUAL_MM:
+                continue
 
             return_points.append({
                 "x_mm": target_pt["x_mm"],
@@ -761,7 +769,7 @@ class RobotService:
         if len(return_points) > 256:
             raise RuntimeError("La ruta inversa excede los 256 pasos atómicos")
 
-        return_origin = {"x_mm": waypoints[-1]["x_mm"], "y_mm": waypoints[-1]["y_mm"]}
+        return_origin = {"x_mm": start_x, "y_mm": start_y}
 
         if preview:
             return {
@@ -1075,7 +1083,6 @@ class RobotService:
                 has_mission = self._mission_id is not None
             if has_mission:
                 self.stop_mission("stopped_by_estop")
-            self.stop_session("stopped_by_estop")
         elif normalized_name in {"calibrate", "set_calibration"}:
             with self._lock:
                 has_mission = self._mission_id is not None
@@ -1229,7 +1236,17 @@ class RobotService:
                     has_mission = self._mission_id is not None
                 if has_mission:
                     self.stop_mission("stopped_by_estop")
-                self.stop_session("stopped_by_estop")
+            # Fuente de 5V ausente: los encoders no pueden contar. Se bloquea la
+            # mision activa con causa explicita en vez de dejar que el firmware
+            # entre en recuperaciones y termine en FALLO.
+            if snapshot.power and snapshot.power.get("5v_ok") is False:
+                with self._lock:
+                    has_running_mission = (
+                        self._mission_id is not None and not self._mission_blocked
+                        and self._mission_stage in {"executing", "settling", "realigning", "aligning_final"}
+                    )
+                if has_running_mission:
+                    self._block_mission("5v_fuente_desconectada")
             if session_id is not None and self._identity_session_id != session_id:
                 self.database.update_session_identity(
                     session_id, snapshot.robot_id, snapshot.firmware_version, self.gateway.snapshot()["protocol"]
@@ -1293,12 +1310,18 @@ class RobotService:
                 has_mission = self._mission_id is not None
             if has_mission:
                 self.stop_mission("calibration_completed")
+        # Parada suave por agotar la recuperacion angular: no es un exito, pero
+        # tampoco enclava FALLO. Se bloquea la mision con causa explicita.
+        if kind in {"completed", "already_done"} and "heading_recovery_exhausted" in detail_str:
+            with self._lock:
+                has_mission = self._mission_id is not None and not self._mission_blocked
+            if has_mission:
+                self._block_mission("heading_recovery_exhausted")
         if any(k in detail_str for k in ("estop", "e-stop", "emergencia")):
             with self._lock:
                 has_mission = self._mission_id is not None
             if has_mission:
                 self.stop_mission("stopped_by_estop")
-            self.stop_session("stopped_by_estop")
         severity = Severity.ERROR if kind == "fault" else Severity.INFO
         self.database.insert_event(self._session_id, kind or "message", severity.value, message)
         public_event = {**message, "type": kind, "id": command_id or None}
@@ -1388,7 +1411,18 @@ class RobotService:
                 ux, uy = math.sin(rad), math.cos(rad)
                 error_long_cm = (dx_mm * ux + dy_mm * uy) / 10.0
                 error_lat_cm = (dx_mm * uy - dy_mm * ux) / 10.0
-                error_angular_deg = (actual_yaw - target_heading + 180.0) % 360.0 - 180.0
+                # El objetivo de orientacion del cuerpo depende del modo efectivo:
+                # en reversa el chasis conserva su rumbo (heading + 180) y no el
+                # rumbo del trayecto. Comparar contra el heading del trayecto
+                # reportaria un error falso de 180 grados y ordenaria un pivote
+                # destructivo que la reversa precisamente evita.
+                expected_heading = target_heading
+                motion = telemetry.motion if isinstance(telemetry.motion, dict) else {}
+                if str(motion.get("effective_mode") or "").lower() == "reverse":
+                    body_heading = motion.get("body_heading_deg")
+                    expected_heading = (float(body_heading) if body_heading is not None
+                                        else (target_heading + 180.0) % 360.0)
+                error_angular_deg = (actual_yaw - expected_heading + 180.0) % 360.0 - 180.0
 
                 self._mission_accumulated_lateral_cm += abs(error_lat_cm)
                 self._mission_accumulated_angular_deg += abs(error_angular_deg)
@@ -1399,7 +1433,9 @@ class RobotService:
                 if self._settling_delay_s > 0.0 and not is_last_step:
                     if abs(error_angular_deg) > 1.5 or self._mission_accumulated_lateral_cm > 2.5:
                         realign_needed = True
-                        cardinal_target = round(target_heading / 90.0) * 90.0 % 360.0
+                        # Realinear a la cardinal del rumbo del cuerpo esperado
+                        # (giro mas corto), nunca a la del trayecto en reversa.
+                        cardinal_target = round(expected_heading / 90.0) * 90.0 % 360.0
 
                 self._mission_accuracy = {
                     "step_index": curr_idx + 1,
@@ -1612,6 +1648,9 @@ class RobotService:
     def save_calibration_surface(
         self, name: str, pwm_pos: int, pwm_neg: int, cand_pos: int, cand_neg: int,
         description: str | None = None, surface_id: str | None = None,
+        trim_izq: float = 1.0, trim_der: float = 1.0,
+        deadband_izq_8bit: int = 0, deadband_der_8bit: int = 0,
+        icr_x_cm: float = 0.0, icr_y_cm: float = 0.0, gyro_scale: float = 1.0,
     ) -> dict[str, Any]:
         if not name or not name.strip():
             raise ValueError("El nombre de la superficie es obligatorio")
@@ -1621,7 +1660,10 @@ class RobotService:
             sid = f"surface_{uuid.uuid4().hex[:8]}"
         desc = description.strip() if description and description.strip() else "Calibración empírica MPU/PCNT"
         self.database.save_calibration_surface(
-            sid, name.strip(), pwm_pos, pwm_neg, cand_pos, cand_neg, desc
+            sid, name.strip(), pwm_pos, pwm_neg, cand_pos, cand_neg, desc,
+            trim_izq=trim_izq, trim_der=trim_der,
+            deadband_izq_8bit=deadband_izq_8bit, deadband_der_8bit=deadband_der_8bit,
+            icr_x_cm=icr_x_cm, icr_y_cm=icr_y_cm, gyro_scale=gyro_scale,
         )
         saved = self.database.get_calibration_surface(sid)
         result = self._format_surface_dict(saved) if saved is not None else {"id": sid, "name": name, "pwm_pos": pwm_pos, "pwm_neg": pwm_neg, "cand_pos": cand_pos, "cand_neg": cand_neg}
@@ -1635,6 +1677,10 @@ class RobotService:
         return ok
 
     def apply_calibration_surface(self, surface_id: str) -> dict[str, Any]:
+        with self._lock:
+            last_state = (self._last_telemetry.state if self._last_telemetry else "").upper()
+        if last_state in {"ESTOP", "FALLO", "FAULT"}:
+            raise RuntimeError(f"No se puede aplicar calibración: el robot está en {last_state}. Ejecute 'Rearmar' primero.")
         surface = self.database.get_calibration_surface(surface_id)
         if surface is None:
             raise ValueError(f"Superficie no encontrada: {surface_id}")
@@ -1644,9 +1690,25 @@ class RobotService:
             "pwm_neg": surface["pwm_negative_8bit"],
             "cand_pos": surface["positive_polarity"],
             "cand_neg": surface["negative_polarity"],
+            "icr_x_cm": float(surface["icr_x_cm"] or 0.0),
+            "icr_y_cm": float(surface["icr_y_cm"] or 0.0),
+            "gyro_scale": float(surface["gyro_scale"] or 1.0),
+        })
+        # El perfil adaptativo por lado viaja aparte para no acoplar el
+        # contrato de torque con la compensacion.
+        trim_der = float(surface["trim_der"] or 1.0)
+        comp = self.send_command("set_comp", {
+            # `factor` es el contrato heredado (0.80..1.00); el valor real por
+            # lado viaja en trim_izq/trim_der.
+            "factor": min(1.0, max(0.8, trim_der)),
+            "trim_izq": float(surface["trim_izq"] or 1.0),
+            "trim_der": trim_der,
+            "deadband_izq": int(surface["deadband_izq_8bit"] or 0),
+            "deadband_der": int(surface["deadband_der_8bit"] or 0),
         })
         return {
             "command_id": cmd.command_id,
+            "compensation_command_id": comp.command_id,
             "surface_id": surface_id,
             "name": surface["name"],
             "surface": self._format_surface_dict(surface),

@@ -13,6 +13,9 @@ public:
     void actualizarOdometria(int64_t pulsosFL, int64_t pulsosFR, int64_t pulsosBL, int64_t pulsosBR, bool avanzando);
 
     void actualizarOrientacion(float imu_delta_z);
+    // Compensacion de traslacion parasita en giro de radio cero. Se invoca solo
+    // durante un pivote (fase de giro), con el dTheta del MPU y el ICR calibrado.
+    void aplicarCorreccionICR(float deltaThetaRad, float xIcrCm, float yIcrCm);
     void iniciarMedicionTraslacionGiro();
 
     float getX() const { return x_global; }

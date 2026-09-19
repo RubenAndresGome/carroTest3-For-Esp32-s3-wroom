@@ -11,6 +11,7 @@ from .domain import (
     CHASSIS_HALF_LENGTH_CM,
     DEFAULT_SUBSEGMENT_MM,
     MAX_SEGMENT_MM,
+    SNAP_RESIDUAL_MM,
     RobotCommand,
     split_segment_mm,
 )
@@ -103,6 +104,13 @@ class RectangularRouteStrategy(RouteExecutionStrategy):
             validated = RobotCommand.create("move", point).payload
             target_x, target_y = validated["x_mm"], validated["y_mm"]
             start_x, start_y = x_mm, y_mm
+            # Absorber residuos sub-centimetricos (p. ej. 2 mm entre la pose real
+            # y el waypoint) en vez de compilarlos como tramo propio: el firmware
+            # exige >= 0.5 cm y un micro-paso abortaba la mision.
+            if abs(target_x - start_x) <= SNAP_RESIDUAL_MM:
+                target_x = start_x
+            if abs(target_y - start_y) <= SNAP_RESIDUAL_MM:
+                target_y = start_y
             dx, dy = target_x - start_x, target_y - start_y
             logical_steps.append({
                 "id": logical_id, "type": "rectangular",
@@ -110,7 +118,9 @@ class RectangularRouteStrategy(RouteExecutionStrategy):
                 "target": {"x_mm": target_x, "y_mm": target_y},
                 "dx_mm": dx, "dy_mm": dy,
             })
-            if abs(dx) > 1.0 and abs(dy) > 1.0:
+            if abs(dx) <= SNAP_RESIDUAL_MM and abs(dy) <= SNAP_RESIDUAL_MM:
+                continue
+            if abs(dx) > SNAP_RESIDUAL_MM and abs(dy) > SNAP_RESIDUAL_MM:
                 x_mm, y_mm = self._append_segment(
                     segments, x_mm, y_mm, target_x, y_mm, logical_id, "x",
                 )
@@ -118,11 +128,7 @@ class RectangularRouteStrategy(RouteExecutionStrategy):
                     segments, x_mm, y_mm, target_x, target_y, logical_id, "y",
                 )
             else:
-                if abs(dx) <= 1.0:
-                    target_x = x_mm
-                if abs(dy) <= 1.0:
-                    target_y = y_mm
-                component = "x" if abs(target_x - x_mm) > 1.0 else "y"
+                component = "x" if abs(dx) > SNAP_RESIDUAL_MM else "y"
                 x_mm, y_mm = self._append_segment(
                     segments, x_mm, y_mm, target_x, target_y, logical_id, component,
                 )

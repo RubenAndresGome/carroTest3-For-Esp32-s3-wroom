@@ -35,7 +35,20 @@ Este directorio reúne la documentación técnica vigente, esquemas de funcionam
 - [**Manual de Ensamble Físico y Hardware**](hardware/manual_ensamble_fisico.md): Diagramas de cableado y montaje físico.
 - [**Router MCP de Subagentes IA (`docs/mcp_agent_router.md`)**](../docs/mcp_agent_router.md): Integración de `ask_gpt`, `ask_deepseek` y `ask_openrouter`.
 - [**Skill Flujo Carro ESP32 (`.agents/skills/carro-esp32-workflow/SKILL.md`)**](../.agents/skills/carro-esp32-workflow/SKILL.md): Flujo de trabajo, diagnóstico, invariantes y validación.
--  [**Documentación Interna Aditiva (`intern_markdowns/`)**](../intern_markdowns/estado_actual_sistema_2026.md): Estado actual 2026, subagentes/rutas IA y workflow del robot (excluida de Git).
+- [**Auditoría y Estado Actual del Sistema**](auditoria_estado_actual.md): Evaluación técnica del hito Milestone Funcional, resolución de hallazgos (A-01 a A-12) y dictamen de pruebas físicas.
+
+---
+
+## Mapas Interactivos del Sistema (Generados con Archify)
+
+Los diagramas arquitectónicos y de secuencia del sistema han sido compilados con **Archify** en modelos tipados interactivos (con renderizado SVG determinista, zoom, pan y trazado de dependencias):
+
+1. [**Mapa de Contexto del Sistema**](archify/exportados/sistema_contexto.html): Límites del sistema, actores (HMI, Backend, Android, ESP32, Motores).
+2. [**Súper-Ciclo del Firmware 100 Hz**](archify/exportados/firmware_superciclo.html): Desacoplamiento Core 0 / Core 1, colas FreeRTOS y pipelines de tiempo real.
+3. [**Secuencia del Dogma de Calibración**](archify/exportados/calibracion_dogma.html): Protocolo inmutable en 5 fases (cuenta regresiva 5.0 s MPU, búsqueda A, validación +25°, búsqueda B y retorno).
+4. [**Flujo de Misión y Navegación Ortogonal**](archify/exportados/mision_navegacion.html): Descomposición en tramos ≤200 cm, lazo cerrado y retorno Ockham.
+5. [**Ciclo de Vida de Comandos y FSM**](archify/exportados/fsm_ciclo_vida.html): Transiciones de estado de comandos `robot-s3-steps-v3`.
+6. [**Protección Eléctrica del DRV8833**](archify/exportados/seguridad_electrica.html): Techos de PWM (242/247), ráfagas acotadas (80 ms), zonas muertas y tiempo muerto (250 ms).
 
 ---
 
@@ -46,15 +59,13 @@ Los documentos de iteraciones anteriores están conservados en [`archive/legacy`
 ## Regeneración y validación
 
 ```powershell
-python scripts/documentacion/generar_catalogo.py
-python scripts/documentacion/renderizar_uml.py
-python scripts/documentacion/generar_resumen_sqlite.py
-python scripts/documentacion/validar_enlaces.py
-Push-Location docs/portal
-pnpm install --frozen-lockfile
-pnpm run check
-pnpm run build
+py scripts/documentacion/generar_catalogo.py
+node scripts/documentacion/compilar_archify.mjs
+py scripts/documentacion/validar_enlaces.py
+Push-Location docs_markdowns/portal
+npx pnpm run check
+npx pnpm run build
 Pop-Location
 ```
 
-El inventario excluye `archive/`, pruebas, dependencias, `.pio`, `build` y `dist`. La salida versionada se genera en `documentacionCompleta/site/`; se regenera desde `docs/portal/` y no se edita manualmente.
+El inventario excluye `archive/`, pruebas, dependencias, `.pio`, `build` y `dist`. La salida versionada se genera en `docs/`; se regenera desde `docs_markdowns/portal/` y no se edita manualmente.

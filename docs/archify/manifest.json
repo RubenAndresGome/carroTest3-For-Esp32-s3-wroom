@@ -1,0 +1,50 @@
+[
+  {
+    "id": "sistema_contexto",
+    "title": "Arquitectura General y Contexto Operativo",
+    "type": "architecture",
+    "html": "archify/sistema_contexto.html",
+    "bytes": 813490,
+    "sha256": "9c8a8c249c166ad72d65b1cdc245a05279fc8e5c0610cd94f0e16f8187fe0aba"
+  },
+  {
+    "id": "firmware_superciclo",
+    "title": "Arquitectura FreeRTOS y Súper-ciclo (100 Hz)",
+    "type": "architecture",
+    "html": "archify/firmware_superciclo.html",
+    "bytes": 817256,
+    "sha256": "c8256e3fc700ce544495714244b556602e4c5ad5fd601f669bafeb59f2729ca7"
+  },
+  {
+    "id": "calibracion_dogma",
+    "title": "Dogma Canónico de Calibración",
+    "type": "sequence",
+    "html": "archify/calibracion_dogma.html",
+    "bytes": 810334,
+    "sha256": "5cb16f7527a46ca1ed086c950aa5611163ce24479807ecca063da5e4534effa5"
+  },
+  {
+    "id": "mision_navegacion",
+    "title": "Navegación Ortogonal y Retorno Ockham",
+    "type": "workflow",
+    "html": "archify/mision_navegacion.html",
+    "bytes": 815457,
+    "sha256": "5867d69b8531698db459d99a40455a6ec7c8a841bb8688516a5244e2db9fa51f"
+  },
+  {
+    "id": "fsm_ciclo_vida",
+    "title": "Ciclo de Vida y Estados del Robot (FSM)",
+    "type": "lifecycle",
+    "html": "archify/fsm_ciclo_vida.html",
+    "bytes": 806571,
+    "sha256": "fa71504eabe90e8696dbe6271a4a0ed0d0bac8674d44cacfaf6981db48d29e95"
+  },
+  {
+    "id": "seguridad_electrica",
+    "title": "Protección Eléctrica DRV8833 y Leyes de Potencia",
+    "type": "architecture",
+    "html": "archify/seguridad_electrica.html",
+    "bytes": 813527,
+    "sha256": "5f237feb77c20de5d3219ef930960f0619729635d91b580e098217a29c1a68dd"
+  }
+]

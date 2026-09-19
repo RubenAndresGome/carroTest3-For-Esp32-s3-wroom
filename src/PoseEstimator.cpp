@@ -1,5 +1,6 @@
 #include "PoseEstimator.h"
 #include "Config.h"
+#include "ControlRuta.h"
 #include "ControlSeguridad.h"
 #include "Motores.h"
 #include <math.h>
@@ -68,6 +69,16 @@ void PoseEstimator::iniciarMedicionTraslacionGiro() {
     arco_centro_giro_cm = 0.0f;
     traslacion_giro_x_cm = 0.0f;
     traslacion_giro_y_cm = 0.0f;
+}
+
+void PoseEstimator::aplicarCorreccionICR(float deltaThetaRad, float xIcrCm, float yIcrCm) {
+    if (deltaThetaRad == 0.0f) return;
+    // El desplazamiento parasito nace en el marco del chasis; debe rotarse al
+    // marco global con el rumbo actual antes de acumularlo en la pose.
+    const ControlRuta::CorreccionICR correccion =
+        ControlRuta::corregirTraslacionParasitaGlobal(xIcrCm, yIcrCm, deltaThetaRad, theta_rad);
+    x_global += correccion.dxCm;
+    y_global += correccion.dyCm;
 }
 
 void PoseEstimator::actualizarOrientacion(float imu_delta_z) {

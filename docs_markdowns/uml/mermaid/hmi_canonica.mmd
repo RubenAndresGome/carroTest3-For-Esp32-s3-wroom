@@ -1,353 +1,567 @@
 flowchart LR
   subgraph f0["index.html"]
-    nb1acc3cce7["initChart()"]
-    nc1640824a1["actualizarBarra()"]
-    n1b607fb26a["init()"]
-    n4f7537ca14["api(path, options={})"]
-    naeae46f1da["closeApplication(force=false)"]
-    n055dab6e7a["connectBackend()"]
-    nac48c7072a["consumeBackend(message)"]
-    n7abed99562["applyBackendTelemetry(raw)"]
-    n17f0c7a20b["send(obj)"]
-    nae5572d7eb["sendMove(x, y)"]
-    nb4af8d3535["init()"]
-    na4346fe45f["normalizeRobotState(value)"]
-    n4967bb66ed["hasAllowed(command)"]
-    n28fb8e2939["mpuStatus(raw)"]
-    nf91edf236e["canCalibrate()"]
-    n23bac5952d["canRearm()"]
-    n94e4460257["calibrationBlockReason()"]
-    nf32b4c5137["updateAvailability()"]
-    n25157419be["showCause(reason,visible)"]
-    nb5e07517be["setState(label,ready,tone='')"]
-    n5b802e66bc["valueAt(container,key,index,fallback=undefined)"]
-    na0a3156b4d["renderDiagnostics(raw)"]
-    nf6f593dfc0["side(name,index)"]
-    nc21439d3c0["applyTelemetry(raw)"]
-    n01f701ba91["onRobotEvent(event)"]
-    n6b96f4103c["init()"]
-    nd0e52be730["change(action)"]
-    nde3e20bade["applySnapshot(snapshot)"]
-    n0914dad4f1["applyConnection(connection)"]
-    nb24cd8720a["applySession(session)"]
-    n38cb02f0ea["applyIdentity(telemetry)"]
-    n16d12405c9["esc(value)"]
-    nca7537eac6["loadHistory()"]
-    n5a5dc18a23["init()"]
-    n3d075db654["updateCount()"]
-    n04d9c55d48["add(level, message)"]
-    n9f14d6ab0c["clear()"]
-    nff19473b99["setFilter(l, a)"]
-    ne327e63753["downloadTXT()"]
-    nccff2af84e["init()"]
-    naf4c5b7e8d["_ticks(gId, n, rI, rO)"]
-    n53d6b3b060["loop(now)"]
-    nbd2e4c50ba["init()"]
-    n5ded8e9598["update(t)"]
-    n5341096a80["render()"]
-    nb49ccf5e8b["_process(t)"]
-    n580bca8fab["_uiTelem()"]
-    n2715fff301["_uiPos()"]
-    n8e1f50fd6a["_ui()"]
-    nb4ca1eaab7["update(s)"]
-    nf883460453["init()"]
-    ne2d1a50fe8["_chartOptions()"]
-    n143fb59079["_initCharts()"]
-    nfa15c0b79b["afterDatasetsDraw(chart)"]
-    n2a9fc73980["resizeCharts()"]
-    n8b2b2cf663["clearTelemetryTrail()"]
-    na00ebc0480["updateLabels()"]
-    ndae9567b8d["completarEjeRectangular(campoEditado)"]
-    nf2c63acc3f["updatePreview()"]
-    n68ca9e4a65["addStep()"]
-    nb748fcc7ba["removeLastStep()"]
-    n06147bb597["appendLimited(x0,y0,x1,y1,label)"]
-    n0dedef95ba["updateListUI()"]
-    n69d6a1b63c["drawPlan()"]
-    nc90172bfcc["autoScale()"]
-    n21c20d5a5b["updateTelemetryMap(posX, posY, orientacion)"]
-    n7c90634ab8["toggleCinema(cardId)"]
-    n1e53a2da6d["lockTabs()"]
-    n76d298a20f["unlockTabs()"]
-    nd8825ef6f2["start()"]
-    n9e8ed0051e["onRobotEvent(event)"]
-    nba1114148a["onMission(mission)"]
-    n830e7a3ecd["onFsmIdle()"]
-    n2c6ca31a84["failRoute(reason)"]
-    n86cc429127["stopAndReset()"]
-    n4ab00c047d["clearRobotMemory()"]
-    n35d01a0e08["ockhamReturn()"]
-    n7664f511b2["init()"]
-    nf621bdbf77["init()"]
-    nb49bf20bf9["_pos(e)"]
-    n50689df926["_sendManual(pwmL, pwmR, dirL, dirR, force=false)"]
-    na6e1676e04["start(e)"]
-    naeb3bdc38c["move(e)"]
-    n8ef20fa21f["end()"]
-    n72be99321d["_resetVis()"]
-    ne9c8d043aa["_bars(pL,pR,dL,dR)"]
-    nb7125b7bce["_dirName(a,m)"]
-    na4441bac8e["init()"]
+    nc920c20639["initChart()"]
+    n4a66003236["actualizarBarra()"]
+    n24a15ab599["init()"]
+    n3984eeca7a["api(path, options={})"]
+    n41139c6e59["closeApplication(force=false)"]
+    n990f36719a["connectBackend()"]
+    n83e1f6a5de["consumeBackend(message)"]
+    n8856afd435["applyBackendTelemetry(raw)"]
+    n2523b3da51["send(obj)"]
+    na16d4b72eb["manual(path, payload={})"]
+    n2603ab56e9["sendMove(x, y)"]
+    n864016acc7["init()"]
+    ncdfe0b2c0c["normalizeRobotState(value)"]
+    n7d3ca3c276["hasAllowed(command)"]
+    ne92e783fe2["mpuStatus(raw)"]
+    n40ce9c5f59["canCalibrate()"]
+    nf0e5493a09["canRearm()"]
+    ndf2e6d76df["calibrationBlockReason()"]
+    nec94ee18ab["updateAvailability()"]
+    na1ce955727["showCause(reason,visible)"]
+    n361356a4fb["setState(label,ready,tone='')"]
+    n1823b5c386["valueAt(container,key,index,fallback=undefined)"]
+    nc685433f8a["renderDiagnostics(raw)"]
+    n4f39883c9d["applyTelemetry(raw)"]
+    n2a0ce8d425["onRobotEvent(event)"]
+    nf4f2edf3b0["init()"]
+    nf4f2714d2e["loadSurfaces(selectId = null)"]
+    nd3d33dd5de["onSurfaceSelect(id)"]
+    nfdecd17167["applySelected()"]
+    n5876df6dcf["saveCurrentLiveSurface()"]
+    n1cd5896aad["handleCalibrationCompleted()"]
+    n4de58be028["saveCurrent()"]
+    n0d33e5a437["captureFromTelemetry()"]
+    na50e4ee06c["deleteSelected()"]
+    naba53ca132["init()"]
+    n22f5ba83e3["change(action)"]
+    n4f2356b488["applySnapshot(snapshot)"]
+    nb376cb9cd7["applyConnection(connection)"]
+    nf04d539831["applySession(session)"]
+    n88349ff6d1["applyIdentity(telemetry)"]
+    n4cf2b8c26c["esc(value)"]
+    n2561c0f60d["loadHistory()"]
+    n405209be20["init()"]
+    n9da1292af1["updateCount()"]
+    n8d5d55c2c5["add(level, message)"]
+    n82fb9bcb0b["clear()"]
+    n270fccf849["setFilter(l, a)"]
+    nb56e3ee7a0["downloadTXT()"]
+    n94797771e7["init()"]
+    n9dec1603e3["_ticks(gId, n, rI, rO)"]
+    nf6fe4c7477["loop(now)"]
+    nb339029d3f["init()"]
+    n6168507dea["update(t)"]
+    n401052095a["render()"]
+    n009152b5be["_process(t)"]
+    nc73c6a1f4c["_uiTelem()"]
+    na43b41b606["_uiPos()"]
+    n5926c7ce85["_ui()"]
+    n99cd090c2a["update(s)"]
+    nf055780b3f["constructor(key)"]
+    n5f9ec861e3["configureForm()"]
+    n0a0ae594e2["createLogicalStep()"]
+    nb2b401af5f["buildVisualization()"]
+    nf1ed7a87ce["updatePreview()"]
+    ne5f48b24e3["missionPayload(manager)"]
+    nc55f64d092["expandExecutionWaypoints(manager, step)"]
+    ncc81181bcd["constructor()"]
+    n0b10740a12["configureForm(manager)"]
+    nb2d31879d2["createLogicalStep(manager, dx, dy)"]
+    n5949ff7abc["buildVisualization(manager)"]
+    n37ceb0fe01["constructor(key, apiMode, direct)"]
+    nc407314f0e["configureForm(manager)"]
+    n48d8d9108e["createLogicalStep(manager, length, theta)"]
+    n91f67f7733["buildVisualization(manager)"]
+    n5554fcb8e6["missionPayload(manager)"]
+    n1ec8e9647d["updatePreview(manager)"]
+    n231abe9ad5["constructor()"]
+    n2bd7768d42["constructor()"]
+    n03b4554ec6["init()"]
+    n27e22de182["activeMode()"]
+    nbc88534577["logicalEndpoint()"]
+    nef8c1560ef["updateModeLock()"]
+    nc7b2d56643["_chartOptions()"]
+    nb41c327362["_initCharts()"]
+    nf365a41764["label(text,x,y,color)"]
+    n1a267233bf["arrow(from,to,color,text,side=1)"]
+    ndab4919006["afterDatasetsDraw(chart)"]
+    n48f5c03768["resizeCharts()"]
+    nd7b60dcf0e["clearTelemetryTrail()"]
+    n65c9da4c9e["applyCapabilities(capabilities)"]
+    n3b93d41978["applyConfig(config)"]
+    ne922c112c5["applyVectorialTelemetry(raw)"]
+    nbb969c4429["vectorialReadiness()"]
+    n9f8603867e["renderVectorialSafety()"]
+    nfc48ee9c84["updateLabels()"]
+    nf30ad44fd3["completarEjeRectangular(campoEditado)"]
+    n9809f0accf["updatePreview()"]
+    n61922f18a3["addStep()"]
+    n8d2d36a778["removeLastStep()"]
+    n1c432b7d7f["appendLimited(x0,y0,x1,y1,label,logicalStepId,component)"]
+    n5f0a389548["updateListUI()"]
+    naf4ef91332["drawPlan()"]
+    n6c594e9d16["autoScale()"]
+    n71cffbb962["updateTelemetryMap(posX, posY, orientacion)"]
+    nfd2260262b["renderMetrics()"]
+    n8106d678ad["preview()"]
+    nd0ff89b74b["toggleCinema(cardId)"]
+    n9e26492ebb["_syncCinemaButton(cardId, isCinema)"]
+    n3dcd1bbbb9["lockTabs()"]
+    n99e2233f50["unlockTabs()"]
+    n4188fe30c8["start()"]
+    n013c917aad["onRobotEvent(event)"]
+    n911d7be02d["onMission(mission)"]
+    nb6c6b50937["onFsmIdle()"]
+    n03c6ba6f65["failRoute(reason)"]
+    n4fc8d483c3["stopAndReset()"]
+    ne37b6fd98a["clearRobotMemory()"]
+    na37ae42142["ockhamReturn()"]
+    ncebc828126["confirmOckhamReturn()"]
+    nfe554c3fd4["cancelOckhamReturn()"]
+    n4e04079c5a["init()"]
+    n3be661733c["init()"]
+    nfba79c889b["setCapability(enabled)"]
+    n6c36da3dd8["_pos(e)"]
+    n5347835722["_sendManual(pwmL, pwmR, dirL, dirR, force=false)"]
+    n12c7f631ab["start(e)"]
+    nfecebf0c4f["move(e)"]
+    n753836fe5a["end()"]
+    ndf34350afe["renderRecording(recording)"]
+    n023e86354e["draw(list,color,dash,w)"]
+    nc18886817a["returnRecording()"]
+    nfd76531c65["deleteRecording()"]
+    nee211105b1["_resetVis()"]
+    nb77a7b658f["_bars(pL,pR,dL,dR)"]
+    n712549f675["_dirName(a,m)"]
+    n13420fc034["init()"]
   end
-  n01f701ba91 --> n04d9c55d48
-  n01f701ba91 --> n25157419be
-  n01f701ba91 --> nb5e07517be
-  n01f701ba91 --> nf32b4c5137
-  n04d9c55d48 --> n3d075db654
-  n055dab6e7a --> n04d9c55d48
-  n055dab6e7a --> n4f7537ca14
-  n055dab6e7a --> nac48c7072a
-  n0914dad4f1 --> n8e1f50fd6a
-  n0914dad4f1 --> nf32b4c5137
-  n143fb59079 --> ne2d1a50fe8
-  n143fb59079 --> nfa15c0b79b
-  n17f0c7a20b --> n04d9c55d48
-  n17f0c7a20b --> n4f7537ca14
-  n1b607fb26a --> n04d9c55d48
-  n1b607fb26a --> n055dab6e7a
-  n1e53a2da6d --> n04d9c55d48
-  n21c20d5a5b --> n5ded8e9598
-  n23bac5952d --> n4967bb66ed
-  n2c6ca31a84 --> n04d9c55d48
-  n2c6ca31a84 --> n0dedef95ba
-  n2c6ca31a84 --> n76d298a20f
-  n35d01a0e08 -.-> n04d9c55d48
-  n35d01a0e08 -.-> n0dedef95ba
-  n35d01a0e08 -.-> n1e53a2da6d
-  n35d01a0e08 -.-> n4f7537ca14
-  n35d01a0e08 -.-> n69d6a1b63c
-  n35d01a0e08 -.-> n8b2b2cf663
-  n35d01a0e08 -.-> nc90172bfcc
-  n4ab00c047d --> n04d9c55d48
-  n4ab00c047d --> n0dedef95ba
-  n4ab00c047d --> n4f7537ca14
-  n4ab00c047d --> n69d6a1b63c
-  n4ab00c047d --> n76d298a20f
-  n50689df926 --> n17f0c7a20b
-  n53d6b3b060 --> n04d9c55d48
-  n580bca8fab --> n5ded8e9598
-  n5ded8e9598 --> n5341096a80
-  n68ca9e4a65 -.-> n04d9c55d48
-  n68ca9e4a65 -.-> n06147bb597
-  n68ca9e4a65 -.-> n0dedef95ba
-  n68ca9e4a65 -.-> n69d6a1b63c
-  n68ca9e4a65 -.-> n8b2b2cf663
-  n68ca9e4a65 -.-> nc90172bfcc
-  n69d6a1b63c -.-> n5ded8e9598
-  n6b96f4103c --> nca7537eac6
-  n6b96f4103c --> nd0e52be730
-  n7abed99562 --> n04d9c55d48
-  n7abed99562 --> n38cb02f0ea
-  n7abed99562 --> n5ded8e9598
-  n7abed99562 --> nb49ccf5e8b
-  n7abed99562 --> nc21439d3c0
-  n7c90634ab8 --> n2a9fc73980
-  n86cc429127 -.-> n04d9c55d48
-  n86cc429127 -.-> n0dedef95ba
-  n86cc429127 -.-> n4f7537ca14
-  n86cc429127 -.-> n69d6a1b63c
-  n86cc429127 -.-> n76d298a20f
-  n86cc429127 -.-> n8b2b2cf663
-  n8b2b2cf663 --> n5ded8e9598
-  n8e1f50fd6a --> n5341096a80
-  n8ef20fa21f --> n50689df926
-  n8ef20fa21f --> n72be99321d
-  n8ef20fa21f --> ne9c8d043aa
-  n94e4460257 --> n28fb8e2939
-  n94e4460257 --> n4967bb66ed
-  n9f14d6ab0c --> n3d075db654
-  na00ebc0480 --> nf2c63acc3f
-  na0a3156b4d --> n5b802e66bc
-  na0a3156b4d --> nf6f593dfc0
-  na4441bac8e --> n04d9c55d48
-  na4441bac8e --> n17f0c7a20b
-  na4441bac8e --> n5ded8e9598
-  na4441bac8e --> n7c90634ab8
-  na4441bac8e --> n8ef20fa21f
-  na4441bac8e --> n9f14d6ab0c
-  na4441bac8e --> naeae46f1da
-  na4441bac8e --> nb1acc3cce7
-  na4441bac8e --> nca7537eac6
-  na4441bac8e --> ne327e63753
-  na4441bac8e --> nff19473b99
-  na6e1676e04 --> n04d9c55d48
-  na6e1676e04 --> n50689df926
-  na6e1676e04 --> naeb3bdc38c
-  nac48c7072a --> n01f701ba91
-  nac48c7072a --> n04d9c55d48
-  nac48c7072a --> n0914dad4f1
-  nac48c7072a --> n7abed99562
-  nac48c7072a --> nb24cd8720a
-  nac48c7072a --> nba1114148a
-  nac48c7072a --> nca7537eac6
-  nac48c7072a --> nde3e20bade
-  nae5572d7eb --> n04d9c55d48
-  nae5572d7eb --> n4f7537ca14
-  naeae46f1da --> n04d9c55d48
-  naeae46f1da --> n4f7537ca14
-  naeb3bdc38c --> n50689df926
-  naeb3bdc38c --> n8ef20fa21f
-  naeb3bdc38c --> nb49bf20bf9
-  naeb3bdc38c --> nb7125b7bce
-  naeb3bdc38c --> ne9c8d043aa
-  nb1acc3cce7 --> n5ded8e9598
-  nb1acc3cce7 --> nae5572d7eb
-  nb1acc3cce7 --> nc1640824a1
-  nb49ccf5e8b --> n04d9c55d48
-  nb49ccf5e8b --> n21c20d5a5b
-  nb49ccf5e8b --> n2715fff301
-  nb49ccf5e8b --> n580bca8fab
-  nb49ccf5e8b --> n5ded8e9598
-  nb49ccf5e8b --> n830e7a3ecd
-  nb4af8d3535 --> n04d9c55d48
-  nb4af8d3535 --> n17f0c7a20b
-  nb4af8d3535 --> n23bac5952d
-  nb4af8d3535 --> n94e4460257
-  nb4af8d3535 --> nb5e07517be
-  nb4af8d3535 --> nf32b4c5137
-  nb4af8d3535 --> nf91edf236e
-  nb4ca1eaab7 --> n04d9c55d48
-  nb5e07517be --> nf32b4c5137
-  nb748fcc7ba -.-> n04d9c55d48
-  nb748fcc7ba -.-> n0dedef95ba
-  nb748fcc7ba -.-> n69d6a1b63c
-  nb748fcc7ba -.-> nc90172bfcc
-  nba1114148a --> n04d9c55d48
-  nba1114148a --> n0dedef95ba
-  nba1114148a --> n2c6ca31a84
-  nba1114148a --> n69d6a1b63c
-  nba1114148a --> n76d298a20f
-  nbd2e4c50ba --> n5341096a80
-  nc1640824a1 --> n5ded8e9598
-  nc21439d3c0 --> n04d9c55d48
-  nc21439d3c0 --> n25157419be
-  nc21439d3c0 --> n28fb8e2939
-  nc21439d3c0 --> na0a3156b4d
-  nc21439d3c0 --> na4346fe45f
-  nc21439d3c0 --> nb5e07517be
-  nc90172bfcc -.-> n5ded8e9598
-  nca7537eac6 --> n04d9c55d48
-  nca7537eac6 --> n16d12405c9
-  nca7537eac6 --> n4f7537ca14
-  nccff2af84e --> n53d6b3b060
-  nccff2af84e --> naf4c5b7e8d
-  nd0e52be730 --> n04d9c55d48
-  nd0e52be730 --> n4f7537ca14
-  nd0e52be730 --> nde3e20bade
-  nd8825ef6f2 -.-> n04d9c55d48
-  nd8825ef6f2 -.-> n0dedef95ba
-  nd8825ef6f2 -.-> n1e53a2da6d
-  nd8825ef6f2 -.-> n4f7537ca14
-  nd8825ef6f2 -.-> n69d6a1b63c
-  nde3e20bade --> n0914dad4f1
-  nde3e20bade --> n38cb02f0ea
-  nde3e20bade --> nb24cd8720a
-  nf32b4c5137 --> n23bac5952d
-  nf32b4c5137 --> n94e4460257
-  nf32b4c5137 --> nf91edf236e
-  nf621bdbf77 --> n8ef20fa21f
-  nf621bdbf77 --> naeb3bdc38c
-  nf621bdbf77 --> nd8825ef6f2
-  nf6f593dfc0 --> n5b802e66bc
-  nf883460453 --> n143fb59079
-  nf883460453 --> n35d01a0e08
-  nf883460453 --> n4ab00c047d
-  nf883460453 --> n68ca9e4a65
-  nf883460453 --> n86cc429127
-  nf883460453 --> na00ebc0480
-  nf883460453 --> nb748fcc7ba
-  nf883460453 --> nd8825ef6f2
-  nf883460453 --> ndae9567b8d
-  nf883460453 --> nf2c63acc3f
-  nf91edf236e --> n4967bb66ed
+  n009152b5be --> n6168507dea
+  n009152b5be --> n71cffbb962
+  n009152b5be --> n8d5d55c2c5
+  n009152b5be --> na43b41b606
+  n009152b5be --> nb6c6b50937
+  n009152b5be --> nc73c6a1f4c
+  n03b4554ec6 --> n3984eeca7a
+  n03b4554ec6 --> n3b93d41978
+  n03b4554ec6 --> n4188fe30c8
+  n03b4554ec6 --> n4fc8d483c3
+  n03b4554ec6 --> n61922f18a3
+  n03b4554ec6 --> n8106d678ad
+  n03b4554ec6 --> n8d2d36a778
+  n03b4554ec6 --> n8d5d55c2c5
+  n03b4554ec6 --> n9f8603867e
+  n03b4554ec6 --> na37ae42142
+  n03b4554ec6 --> nb41c327362
+  n03b4554ec6 --> ncebc828126
+  n03b4554ec6 --> ne37b6fd98a
+  n03b4554ec6 --> nf1ed7a87ce
+  n03b4554ec6 --> nf30ad44fd3
+  n03b4554ec6 --> nfc48ee9c84
+  n03b4554ec6 --> nfe554c3fd4
+  n03c6ba6f65 --> n5f0a389548
+  n03c6ba6f65 --> n8d5d55c2c5
+  n03c6ba6f65 --> n99e2233f50
+  n03c6ba6f65 --> n9f8603867e
+  n0d33e5a437 --> n8d5d55c2c5
+  n12c7f631ab --> n5347835722
+  n12c7f631ab --> n8d5d55c2c5
+  n12c7f631ab --> na16d4b72eb
+  n12c7f631ab --> nee211105b1
+  n12c7f631ab --> nfecebf0c4f
+  n13420fc034 --> n03c6ba6f65
+  n13420fc034 --> n2523b3da51
+  n13420fc034 --> n2561c0f60d
+  n13420fc034 --> n270fccf849
+  n13420fc034 --> n41139c6e59
+  n13420fc034 --> n6168507dea
+  n13420fc034 --> n753836fe5a
+  n13420fc034 --> n82fb9bcb0b
+  n13420fc034 --> n8d5d55c2c5
+  n13420fc034 --> n99e2233f50
+  n13420fc034 --> nb56e3ee7a0
+  n13420fc034 --> nc920c20639
+  n13420fc034 --> nd0ff89b74b
+  n1a267233bf --> nf365a41764
+  n1cd5896aad --> n3984eeca7a
+  n1cd5896aad --> n8d5d55c2c5
+  n1cd5896aad --> nf4f2714d2e
+  n22f5ba83e3 --> n3984eeca7a
+  n22f5ba83e3 --> n4f2356b488
+  n22f5ba83e3 --> n8d5d55c2c5
+  n24a15ab599 --> n8d5d55c2c5
+  n24a15ab599 --> n990f36719a
+  n2523b3da51 --> n3984eeca7a
+  n2523b3da51 --> n8d5d55c2c5
+  n2561c0f60d --> n3984eeca7a
+  n2561c0f60d --> n4cf2b8c26c
+  n2561c0f60d --> n8d5d55c2c5
+  n2603ab56e9 --> n3984eeca7a
+  n2603ab56e9 --> n8d5d55c2c5
+  n2a0ce8d425 --> n1cd5896aad
+  n2a0ce8d425 --> n361356a4fb
+  n2a0ce8d425 --> n8d5d55c2c5
+  n2a0ce8d425 --> na1ce955727
+  n2a0ce8d425 --> nec94ee18ab
+  n361356a4fb --> nec94ee18ab
+  n3b93d41978 --> n9f8603867e
+  n3be661733c --> n4188fe30c8
+  n3be661733c --> n753836fe5a
+  n3be661733c --> nc18886817a
+  n3be661733c --> ndf34350afe
+  n3be661733c --> nfba79c889b
+  n3be661733c --> nfd76531c65
+  n3be661733c --> nfecebf0c4f
+  n3dcd1bbbb9 --> n8d5d55c2c5
+  n40ce9c5f59 --> n7d3ca3c276
+  n41139c6e59 --> n3984eeca7a
+  n41139c6e59 --> n8d5d55c2c5
+  n4188fe30c8 -.-> n27e22de182
+  n4188fe30c8 -.-> n3984eeca7a
+  n4188fe30c8 -.-> n3dcd1bbbb9
+  n4188fe30c8 -.-> n5f0a389548
+  n4188fe30c8 -.-> n8d5d55c2c5
+  n4188fe30c8 -.-> n99e2233f50
+  n4188fe30c8 -.-> naf4ef91332
+  n4188fe30c8 -.-> nbb969c4429
+  n4188fe30c8 -.-> nd7b60dcf0e
+  n4188fe30c8 -.-> ne5f48b24e3
+  n48d8d9108e --> nbc88534577
+  n4a66003236 --> n6168507dea
+  n4de58be028 --> n3984eeca7a
+  n4de58be028 --> n8d5d55c2c5
+  n4de58be028 --> nf4f2714d2e
+  n4f2356b488 --> n65c9da4c9e
+  n4f2356b488 --> n88349ff6d1
+  n4f2356b488 --> nb376cb9cd7
+  n4f2356b488 --> nf04d539831
+  n4f39883c9d --> n361356a4fb
+  n4f39883c9d --> n8d5d55c2c5
+  n4f39883c9d --> na1ce955727
+  n4f39883c9d --> nc685433f8a
+  n4f39883c9d --> ncdfe0b2c0c
+  n4f39883c9d --> ne92e783fe2
+  n4fc8d483c3 -.-> n3984eeca7a
+  n4fc8d483c3 -.-> n5f0a389548
+  n4fc8d483c3 -.-> n8d5d55c2c5
+  n4fc8d483c3 -.-> n99e2233f50
+  n4fc8d483c3 -.-> n9f8603867e
+  n4fc8d483c3 -.-> nd7b60dcf0e
+  n4fc8d483c3 -.-> nef8c1560ef
+  n4fc8d483c3 -.-> nf1ed7a87ce
+  n4fc8d483c3 -.-> nfc48ee9c84
+  n5347835722 --> n753836fe5a
+  n5347835722 --> n8d5d55c2c5
+  n5347835722 --> na16d4b72eb
+  n5876df6dcf --> n3984eeca7a
+  n5876df6dcf --> n8d5d55c2c5
+  n5876df6dcf --> nf4f2714d2e
+  n5926c7ce85 --> n401052095a
+  n6168507dea --> n401052095a
+  n61922f18a3 -.-> n0a0ae594e2
+  n61922f18a3 -.-> n27e22de182
+  n61922f18a3 -.-> n5f0a389548
+  n61922f18a3 -.-> n6c594e9d16
+  n61922f18a3 -.-> n8d5d55c2c5
+  n61922f18a3 -.-> nc55f64d092
+  n61922f18a3 -.-> nd7b60dcf0e
+  n61922f18a3 -.-> nef8c1560ef
+  n61922f18a3 -.-> nf1ed7a87ce
+  n61922f18a3 -.-> nfc48ee9c84
+  n65c9da4c9e --> n3b93d41978
+  n6c594e9d16 -.-> n27e22de182
+  n6c594e9d16 -.-> n6168507dea
+  n71cffbb962 --> n6168507dea
+  n71cffbb962 --> nfd2260262b
+  n753836fe5a --> n8d5d55c2c5
+  n753836fe5a --> na16d4b72eb
+  n753836fe5a --> nb77a7b658f
+  n753836fe5a --> ndf34350afe
+  n753836fe5a --> nee211105b1
+  n8106d678ad --> nd0ff89b74b
+  n82fb9bcb0b --> n9da1292af1
+  n83e1f6a5de --> n2561c0f60d
+  n83e1f6a5de --> n2a0ce8d425
+  n83e1f6a5de --> n3b93d41978
+  n83e1f6a5de --> n4f2356b488
+  n83e1f6a5de --> n8856afd435
+  n83e1f6a5de --> n8d5d55c2c5
+  n83e1f6a5de --> n911d7be02d
+  n83e1f6a5de --> nb376cb9cd7
+  n83e1f6a5de --> nf04d539831
+  n864016acc7 -.-> n03c6ba6f65
+  n864016acc7 -.-> n2523b3da51
+  n864016acc7 -.-> n361356a4fb
+  n864016acc7 -.-> n3984eeca7a
+  n864016acc7 -.-> n40ce9c5f59
+  n864016acc7 -.-> n5f0a389548
+  n864016acc7 -.-> n8d5d55c2c5
+  n864016acc7 -.-> naf4ef91332
+  n864016acc7 -.-> ndf2e6d76df
+  n864016acc7 -.-> nec94ee18ab
+  n864016acc7 -.-> nf0e5493a09
+  n8856afd435 --> n009152b5be
+  n8856afd435 --> n4f39883c9d
+  n8856afd435 --> n6168507dea
+  n8856afd435 --> n88349ff6d1
+  n8856afd435 --> n8d5d55c2c5
+  n8856afd435 --> ne922c112c5
+  n8856afd435 --> nfba79c889b
+  n8d2d36a778 -.-> n5f0a389548
+  n8d2d36a778 -.-> n6c594e9d16
+  n8d2d36a778 -.-> n8d5d55c2c5
+  n8d2d36a778 -.-> nef8c1560ef
+  n8d2d36a778 -.-> nf1ed7a87ce
+  n8d2d36a778 -.-> nfc48ee9c84
+  n8d5d55c2c5 --> n9da1292af1
+  n911d7be02d --> n03c6ba6f65
+  n911d7be02d --> n5f0a389548
+  n911d7be02d --> n8d5d55c2c5
+  n911d7be02d --> n99e2233f50
+  n911d7be02d --> n9f8603867e
+  n911d7be02d --> naf4ef91332
+  n94797771e7 --> n9dec1603e3
+  n94797771e7 --> nf6fe4c7477
+  n9809f0accf --> n27e22de182
+  n990f36719a --> n3984eeca7a
+  n990f36719a --> n83e1f6a5de
+  n990f36719a --> n8d5d55c2c5
+  n99cd090c2a --> n8d5d55c2c5
+  n9e26492ebb --> n8d5d55c2c5
+  n9f8603867e --> nbb969c4429
+  na16d4b72eb --> n3984eeca7a
+  na37ae42142 -.-> n3984eeca7a
+  na37ae42142 -.-> n5f0a389548
+  na37ae42142 -.-> n6c594e9d16
+  na37ae42142 -.-> n8d5d55c2c5
+  na37ae42142 -.-> naf4ef91332
+  na37ae42142 -.-> nef8c1560ef
+  na50e4ee06c --> n3984eeca7a
+  na50e4ee06c --> n8d5d55c2c5
+  na50e4ee06c --> nf4f2714d2e
+  naba53ca132 --> n22f5ba83e3
+  naba53ca132 --> n2561c0f60d
+  naf4ef91332 -.-> n27e22de182
+  naf4ef91332 -.-> n6168507dea
+  naf4ef91332 -.-> nb2b401af5f
+  nb2d31879d2 --> nbc88534577
+  nb339029d3f --> n401052095a
+  nb376cb9cd7 -.-> n03c6ba6f65
+  nb376cb9cd7 -.-> n5926c7ce85
+  nb376cb9cd7 -.-> n5f0a389548
+  nb376cb9cd7 -.-> n99e2233f50
+  nb376cb9cd7 -.-> naf4ef91332
+  nb376cb9cd7 -.-> nec94ee18ab
+  nb41c327362 --> n1a267233bf
+  nb41c327362 --> nc7b2d56643
+  nb41c327362 --> ndab4919006
+  nb41c327362 --> nf365a41764
+  nc18886817a -.-> n3984eeca7a
+  nc18886817a -.-> n6c594e9d16
+  nc18886817a -.-> n8d5d55c2c5
+  nc18886817a -.-> n911d7be02d
+  nc407314f0e --> n9f8603867e
+  nc407314f0e --> nf1ed7a87ce
+  nc55f64d092 --> n1c432b7d7f
+  nc685433f8a --> n1823b5c386
+  nc73c6a1f4c --> n6168507dea
+  nc920c20639 --> n2603ab56e9
+  nc920c20639 --> n4a66003236
+  nc920c20639 --> n6168507dea
+  ncebc828126 --> n3984eeca7a
+  ncebc828126 --> n3dcd1bbbb9
+  ncebc828126 --> n5f0a389548
+  ncebc828126 --> n8d5d55c2c5
+  ncebc828126 --> naf4ef91332
+  ncebc828126 --> nd7b60dcf0e
+  nd0ff89b74b --> n48f5c03768
+  nd0ff89b74b --> n9e26492ebb
+  nd7b60dcf0e --> n6168507dea
+  nd7b60dcf0e --> nfd2260262b
+  ndf2e6d76df --> n7d3ca3c276
+  ndf2e6d76df --> ne92e783fe2
+  ndf34350afe --> n023e86354e
+  ne37b6fd98a --> n3984eeca7a
+  ne37b6fd98a --> n5f0a389548
+  ne37b6fd98a --> n8d5d55c2c5
+  ne37b6fd98a --> n99e2233f50
+  ne37b6fd98a --> naf4ef91332
+  ne922c112c5 --> n9f8603867e
+  nec94ee18ab --> n40ce9c5f59
+  nec94ee18ab --> ndf2e6d76df
+  nec94ee18ab --> nf0e5493a09
+  nf04d539831 -.-> n03c6ba6f65
+  nf04d539831 -.-> n5f0a389548
+  nf04d539831 -.-> naf4ef91332
+  nf0e5493a09 --> n7d3ca3c276
+  nf4f2714d2e --> n3984eeca7a
+  nf4f2714d2e --> n8d5d55c2c5
+  nf4f2714d2e --> nd3d33dd5de
+  nf4f2edf3b0 --> n0d33e5a437
+  nf4f2edf3b0 --> n4de58be028
+  nf4f2edf3b0 --> n5876df6dcf
+  nf4f2edf3b0 --> na50e4ee06c
+  nf4f2edf3b0 --> nd3d33dd5de
+  nf4f2edf3b0 --> nf4f2714d2e
+  nf4f2edf3b0 --> nfdecd17167
+  nf6fe4c7477 --> n8d5d55c2c5
+  nfba79c889b --> n753836fe5a
+  nfc48ee9c84 --> n27e22de182
+  nfc48ee9c84 --> n5f9ec861e3
+  nfc48ee9c84 --> naf4ef91332
+  nfd2260262b -.-> nbc88534577
+  nfd76531c65 --> n3984eeca7a
+  nfd76531c65 --> n8d5d55c2c5
+  nfd76531c65 --> ndf34350afe
+  nfdecd17167 --> n361356a4fb
+  nfdecd17167 --> n3984eeca7a
+  nfdecd17167 --> n8d5d55c2c5
+  nfdecd17167 --> nec94ee18ab
+  nfe554c3fd4 -.-> n5f0a389548
+  nfe554c3fd4 -.-> n8d5d55c2c5
+  nfe554c3fd4 -.-> naf4ef91332
+  nfecebf0c4f --> n5347835722
+  nfecebf0c4f --> n6c36da3dd8
+  nfecebf0c4f --> n712549f675
+  nfecebf0c4f --> n753836fe5a
+  nfecebf0c4f --> nb77a7b658f
   classDef alto fill:#5b1f2a,stroke:#ff7a7a,color:#fff
   classDef medio fill:#4a3717,stroke:#ffca67,color:#fff
   classDef bajo fill:#123b3a,stroke:#39e6aa,color:#fff
-  class nb1acc3cce7 medio
-  class nc1640824a1 bajo
-  class n1b607fb26a bajo
-  class n4f7537ca14 bajo
-  class naeae46f1da medio
-  class n055dab6e7a bajo
-  class nac48c7072a medio
-  class n7abed99562 alto
-  class n17f0c7a20b medio
-  class nae5572d7eb bajo
-  class nb4af8d3535 medio
-  class na4346fe45f bajo
-  class n4967bb66ed bajo
-  class n28fb8e2939 bajo
-  class nf91edf236e bajo
-  class n23bac5952d medio
-  class n94e4460257 medio
-  class nf32b4c5137 medio
-  class n25157419be bajo
-  class nb5e07517be medio
-  class n5b802e66bc bajo
-  class na0a3156b4d bajo
-  class nf6f593dfc0 bajo
-  class nc21439d3c0 alto
-  class n01f701ba91 bajo
-  class n6b96f4103c bajo
-  class nd0e52be730 bajo
-  class nde3e20bade bajo
-  class n0914dad4f1 medio
-  class nb24cd8720a medio
-  class n38cb02f0ea bajo
-  class n16d12405c9 bajo
-  class nca7537eac6 medio
-  class n5a5dc18a23 bajo
-  class n3d075db654 bajo
-  class n04d9c55d48 bajo
-  class n9f14d6ab0c bajo
-  class nff19473b99 bajo
-  class ne327e63753 bajo
-  class nccff2af84e bajo
-  class naf4c5b7e8d bajo
-  class n53d6b3b060 alto
-  class nbd2e4c50ba bajo
-  class n5ded8e9598 bajo
-  class n5341096a80 medio
-  class nb49ccf5e8b bajo
-  class n580bca8fab bajo
-  class n2715fff301 bajo
-  class n8e1f50fd6a bajo
-  class nb4ca1eaab7 medio
-  class nf883460453 medio
-  class ne2d1a50fe8 bajo
-  class n143fb59079 bajo
-  class nfa15c0b79b bajo
-  class n2a9fc73980 bajo
-  class n8b2b2cf663 bajo
-  class na00ebc0480 bajo
-  class ndae9567b8d bajo
-  class nf2c63acc3f bajo
-  class n68ca9e4a65 bajo
-  class nb748fcc7ba bajo
-  class n06147bb597 bajo
-  class n0dedef95ba bajo
-  class n69d6a1b63c bajo
-  class nc90172bfcc bajo
-  class n21c20d5a5b bajo
-  class n7c90634ab8 bajo
-  class n1e53a2da6d bajo
-  class n76d298a20f bajo
-  class nd8825ef6f2 medio
-  class n9e8ed0051e bajo
-  class nba1114148a medio
-  class n830e7a3ecd bajo
-  class n2c6ca31a84 bajo
-  class n86cc429127 medio
-  class n4ab00c047d medio
-  class n35d01a0e08 medio
-  class n7664f511b2 bajo
-  class nf621bdbf77 bajo
-  class nb49bf20bf9 bajo
-  class n50689df926 medio
-  class na6e1676e04 medio
-  class naeb3bdc38c medio
-  class n8ef20fa21f medio
-  class n72be99321d bajo
-  class ne9c8d043aa bajo
-  class nb7125b7bce bajo
-  class na4441bac8e alto
+  class nc920c20639 medio
+  class n4a66003236 bajo
+  class n24a15ab599 bajo
+  class n3984eeca7a bajo
+  class n41139c6e59 medio
+  class n990f36719a bajo
+  class n83e1f6a5de medio
+  class n8856afd435 alto
+  class n2523b3da51 medio
+  class na16d4b72eb bajo
+  class n2603ab56e9 bajo
+  class n864016acc7 medio
+  class ncdfe0b2c0c bajo
+  class n7d3ca3c276 bajo
+  class ne92e783fe2 bajo
+  class n40ce9c5f59 bajo
+  class nf0e5493a09 medio
+  class ndf2e6d76df medio
+  class nec94ee18ab medio
+  class na1ce955727 bajo
+  class n361356a4fb medio
+  class n1823b5c386 bajo
+  class nc685433f8a alto
+  class n4f39883c9d alto
+  class n2a0ce8d425 bajo
+  class nf4f2edf3b0 alto
+  class nf4f2714d2e alto
+  class nd3d33dd5de bajo
+  class nfdecd17167 alto
+  class n5876df6dcf alto
+  class n1cd5896aad alto
+  class n4de58be028 alto
+  class n0d33e5a437 alto
+  class na50e4ee06c medio
+  class naba53ca132 bajo
+  class n22f5ba83e3 bajo
+  class n4f2356b488 bajo
+  class nb376cb9cd7 medio
+  class nf04d539831 medio
+  class n88349ff6d1 bajo
+  class n4cf2b8c26c bajo
+  class n2561c0f60d medio
+  class n405209be20 bajo
+  class n9da1292af1 bajo
+  class n8d5d55c2c5 bajo
+  class n82fb9bcb0b bajo
+  class n270fccf849 bajo
+  class nb56e3ee7a0 bajo
+  class n94797771e7 bajo
+  class n9dec1603e3 bajo
+  class nf6fe4c7477 alto
+  class nb339029d3f bajo
+  class n6168507dea bajo
+  class n401052095a medio
+  class n009152b5be bajo
+  class nc73c6a1f4c bajo
+  class na43b41b606 bajo
+  class n5926c7ce85 bajo
+  class n99cd090c2a medio
+  class nf055780b3f bajo
+  class n5f9ec861e3 bajo
+  class n0a0ae594e2 bajo
+  class nb2b401af5f bajo
+  class nf1ed7a87ce bajo
+  class ne5f48b24e3 bajo
+  class nc55f64d092 bajo
+  class ncc81181bcd bajo
+  class n0b10740a12 bajo
+  class nb2d31879d2 bajo
+  class n5949ff7abc bajo
+  class n37ceb0fe01 bajo
+  class nc407314f0e bajo
+  class n48d8d9108e bajo
+  class n91f67f7733 bajo
+  class n5554fcb8e6 bajo
+  class n1ec8e9647d bajo
+  class n231abe9ad5 bajo
+  class n2bd7768d42 bajo
+  class n03b4554ec6 medio
+  class n27e22de182 bajo
+  class nbc88534577 bajo
+  class nef8c1560ef bajo
+  class nc7b2d56643 bajo
+  class nb41c327362 bajo
+  class nf365a41764 bajo
+  class n1a267233bf bajo
+  class ndab4919006 bajo
+  class n48f5c03768 bajo
+  class nd7b60dcf0e bajo
+  class n65c9da4c9e bajo
+  class n3b93d41978 bajo
+  class ne922c112c5 bajo
+  class nbb969c4429 bajo
+  class n9f8603867e bajo
+  class nfc48ee9c84 bajo
+  class nf30ad44fd3 bajo
+  class n9809f0accf bajo
+  class n61922f18a3 bajo
+  class n8d2d36a778 bajo
+  class n1c432b7d7f bajo
+  class n5f0a389548 bajo
+  class naf4ef91332 bajo
+  class n6c594e9d16 bajo
+  class n71cffbb962 bajo
+  class nfd2260262b bajo
+  class n8106d678ad bajo
+  class nd0ff89b74b bajo
+  class n9e26492ebb medio
+  class n3dcd1bbbb9 bajo
+  class n99e2233f50 bajo
+  class n4188fe30c8 medio
+  class n013c917aad bajo
+  class n911d7be02d medio
+  class nb6c6b50937 bajo
+  class n03c6ba6f65 bajo
+  class n4fc8d483c3 medio
+  class ne37b6fd98a medio
+  class na37ae42142 medio
+  class ncebc828126 medio
+  class nfe554c3fd4 bajo
+  class n4e04079c5a bajo
+  class n3be661733c bajo
+  class nfba79c889b bajo
+  class n6c36da3dd8 bajo
+  class n5347835722 medio
+  class n12c7f631ab medio
+  class nfecebf0c4f medio
+  class n753836fe5a medio
+  class ndf34350afe bajo
+  class n023e86354e bajo
+  class nc18886817a medio
+  class nfd76531c65 bajo
+  class nee211105b1 bajo
+  class nb77a7b658f bajo
+  class n712549f675 bajo
+  class n13420fc034 alto
