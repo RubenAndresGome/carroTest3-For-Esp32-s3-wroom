@@ -872,9 +872,9 @@ float promedioLado(const int64_t v[4], bool izq) {
   return ControlSeguridad::promedioConfiableLado(v, encoderConfiableGlobal, izq);
 }
 float estimarTicksAvance(const int64_t v[4]) {
-  // Media aritmetica total de encoders saludables: sin distincion de lado y sin
-  // la regla de minimos que sesgaba a la baja con un encoder sub-lector.
-  return ControlSeguridad::mediaEncodersSaludables(v, encoderConfiableGlobal);
+  // Estimacion robusta de avance: descarta encoders con perdida anomala de pulsos
+  // para evitar sobre-recorrido y promedia unicamente canales coherentes.
+  return ControlSeguridad::estimacionRobustaTicksAvance(v, encoderConfiableGlobal, DESACUERDO_MAXIMO_PAR);
 }
 void resetConfEncoders() {
   for (int i = 0; i < 4; ++i) {
@@ -1057,6 +1057,10 @@ bool controlarAvance() {
   }
   const SensorSnapshot s = sensar();
   int64_t d[4]; deltas(ticksBaseAvance, s, d);
+  if (detectarOutliers(d)) {
+    iniciarPausaReeval(d);
+    return false;
+  }
   float ticksEst = estimarTicksAvance(d);
   if (ticksEst<0) { fallo("enc_no_estimation"); return false; }
   // La misma escala efectiva debe gobernar el PID y la pose. Antes el PID

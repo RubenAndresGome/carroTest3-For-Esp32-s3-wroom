@@ -989,22 +989,55 @@ void test_frenado_activo_predictivo_por_inercia() {
   TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(4.0f, 1.745f, false));
 
   // 2. Girando hacia la meta a alta velocidad (100 deg/s ~ 1.745 rad/s):
-  // distFreno = 100^2 / (2 * 1200) = 4.167 deg.
-  // Si error es 4.0 deg (error <= distFreno) -> DEBE FRENAR DE INMEDIATO
-  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(4.0f, 1.745f, true));
-  // Si error es 6.0 deg (error > distFreno) -> aún no frena
-  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(6.0f, 1.745f, true));
+  // Con decelDegS2 = 2400.0f: distFreno = 100^2 / (2 * 2400) = 2.083 deg.
+  // Si error es 2.0 deg (error <= distFreno) -> DEBE FRENAR DE INMEDIATO (~2.1° antes de la meta)
+  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(2.0f, 1.745f, true));
+  // Si error es 3.0 deg (error > distFreno) -> aún no frena
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(3.0f, 1.745f, true));
 
-  // 3. Girando en polaridad negativa (error = -3.0 deg, vel = -1.5 rad/s ~ -85.9 deg/s):
-  // distFreno = 85.9^2 / 2400 = 3.07 deg.
-  // Con error = -3.0 deg (|error| = 3.0 <= 3.07) -> DEBE FRENAR
-  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(-3.0f, -1.5f, true));
+  // 3. Girando en polaridad negativa (vel = -1.5 rad/s ~ -85.9 deg/s):
+  // distFreno = 85.9^2 / (2 * 2400) = 1.537 deg.
+  // Con error = -1.5 deg (|error| = 1.5 <= 1.537) -> DEBE FRENAR
+  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(-1.5f, -1.5f, true));
+  // Con error = -2.5 deg (|error| = 2.5 > 1.537) -> aún no frena
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(-2.5f, -1.5f, true));
 
   // 4. Velocidad en sentido contrario (error positivo, giro negativo) -> NO debe frenar por predicción
   TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(4.0f, -1.745f, true));
 
   // 5. Baja velocidad inercial (< 0.5 deg de parada) -> no interfiere con micro-pulsos
   TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(1.5f, 0.1f, true));
+}
+
+void test_estimacion_robusta_descarta_encoder_con_perdida_de_pulsos() {
+  using namespace ControlSeguridad;
+  // Caso real Sesion #16299 (Paso 100 cm): FR perdio ~60% de pulsos (95 vs 224, 221, 219)
+  const int64_t ticksReal[4] = {224, 95, 221, 219};
+  const bool todos[4] = {true, true, true, true};
+  // La estimacion robusta descarta FR y promedia los 3 coherentes: (224 + 221 + 219) / 3 = 221.33 ticks
+  // en lugar de la media ingenua (224 + 95 + 221 + 219) / 4 = 189.75 ticks.
+  const float estRobusta = estimacionRobustaTicksAvance(ticksReal, todos, 0.25f);
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 221.33f, estRobusta);
+
+  // Caso real Sesion #16299 (Paso 55 cm): FR=45 vs 124, 120, 119 -> descarta FR y promedia ~121.0 ticks
+  const int64_t ticksPaso2[4] = {124, 45, 120, 119};
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 121.0f, estimacionRobustaTicksAvance(ticksPaso2, todos, 0.25f));
+
+  // Caso normal con los 4 coherentes (desviacion minima < 25%) -> promedia los 4
+  const int64_t normales[4] = {200, 201, 199, 200};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 200.0f, estimacionRobustaTicksAvance(normales, todos, 0.25f));
+
+  // Con 1 canal previamente marcado degradado (FR=false) y los otros 3 sanos
+  const bool frDegradado[4] = {true, false, true, true};
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 221.33f, estimacionRobustaTicksAvance(ticksReal, frDegradado, 0.25f));
+
+  // Ticks muy bajos (< 15): no filtra para evitar falsos positivos por fase inicial
+  const int64_t arranque[4] = {3, 1, 3, 2};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 2.25f, estimacionRobustaTicksAvance(arranque, todos, 0.25f));
+
+  // Sin canales confiables -> devuelve -1.0f
+  const bool ninguno[4] = {false, false, false, false};
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, estimacionRobustaTicksAvance(ticksReal, ninguno, 0.25f));
 }
 
 }  // namespace
@@ -1084,5 +1117,6 @@ int main(int, char**) {
   RUN_TEST(test_control_angular_modos_a_b_c_d);
   RUN_TEST(test_deadband_piso_no_infla_crucero);
   RUN_TEST(test_frenado_activo_predictivo_por_inercia);
+  RUN_TEST(test_estimacion_robusta_descarta_encoder_con_perdida_de_pulsos);
   return UNITY_END();
 }
