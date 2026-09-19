@@ -74,10 +74,13 @@ constexpr float WHEEL_DIAMETER_ODOMETRY_CM =
 // Compatible con comparador LM393 + level shifter TXS0108E verificado en suelo.
 constexpr int ENCODER_PPR = 40;
 constexpr float MPU_YAW_POLARITY = -1.0f;
+constexpr float MPU_ACCEL_FORWARD_POLARITY = 1.0f; // Eje longitudinal del chasis (+Y frente)
 // Factor de escala de calibración física del giróscopo MPU6050.
-// 1.0 = base neutral directa sin sesgo artificial. El ajuste por tipo de superficie
-// se calibra y persiste en runtime vía 'set_calibration' (gyro_scale).
-constexpr float GYRO_Z_SCALE_FACTOR = 1.0f;
+// Corrige la tolerancia de sensibilidad de fábrica del sensor (~8.7%).
+// Determinado en pista de 200 cm: con 90° integrados el robot giró físicamente 98.63° (30 cm en Y- a 2 m).
+// Factor = 98.63 / 90.0 = 1.0959f. Al multiplicar velocidadZ por este factor, la integración
+// acumula 90.0° exactamente cuando el chasis físico alcanza 90.0° perpendiculares.
+constexpr float GYRO_Z_SCALE_FACTOR = 1.0959f;
 constexpr float YAW_RECENTER_THRESHOLD_DEG = 720.0f;
 
 // Calibración y PID
@@ -207,7 +210,7 @@ constexpr uint32_t TURN_PULSE_ON_MS = 70;
 constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 60;
 constexpr uint32_t TURN_PULSE_OFF_MS = 100;
 constexpr float TURN_REACTIVATION_DEG = 1.0f;
-constexpr uint8_t TURN_MAX_ATTEMPTS = 121;
+constexpr uint8_t TURN_MAX_ATTEMPTS = 6;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 300;
 // Exigir 250 ms de yaw estable en reposo absoluto antes de completar el giro
 constexpr uint32_t TURN_SETTLE_MS = 250;

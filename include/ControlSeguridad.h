@@ -245,4 +245,19 @@ inline bool evaluarDivergenciaGiro(
   return false;
 }
 
+// Guarda inercial de sentido de movimiento:
+// Evalúa si la aceleración longitudinal medida por el MPU6050 (en m/s²)
+// contradice flagrantemente la dirección de traslación ordenada (direccion: +1 avance, -1 reversa).
+// Si el vehículo está acelerando sostenidamente en sentido opuesto al ordenado, retorna true.
+inline bool detectarSentidoMovimientoInverso(
+    float accelY_m_s2, int direccionOrdenada, float umbralAceleracion = 1.8f) {
+  if (direccionOrdenada > 0 && accelY_m_s2 < -umbralAceleracion) {
+    return true; // Se ordenó avance, pero el chasis sufre empuje/aceleración en reversa
+  }
+  if (direccionOrdenada < 0 && accelY_m_s2 > umbralAceleracion) {
+    return true; // Se ordenó reversa, pero el chasis acelera hacia adelante
+  }
+  return false;
+}
+
 }  // namespace ControlSeguridad

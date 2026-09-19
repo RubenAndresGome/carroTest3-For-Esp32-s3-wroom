@@ -371,6 +371,7 @@ uint8_t pulsosFinosGiro = 0;
 uint32_t inicioFrenoToleranciaMs = 0;
 uint32_t ultimoJerkMs = 0;
 bool jerkActivo = false;
+uint8_t contadorJerkIntento = 0;
 ControlSeguridad::EstadoVigilanciaDivergenciaGiro vigilanciaDivergenciaGiro;
 int ultimoSignoErrorGiro = 0;
 
@@ -386,7 +387,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   intentoGiro=1; inicioIntentoGiroMs=millis(); inicioGiroTotalMs=millis();
   estableGiroDesdeMs=0; pausaReintentoGiroCal=false;
   inicioPulsoFinoGiroMs=millis(); pulsoFinoGiroEncendido=false; pulsosFinosGiro=0;
-  inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false;
+  inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false; contadorJerkIntento=0;
   ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
   ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=millis();
   ultimoCtrlGiroMs=0;
@@ -428,7 +429,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
 
 void reintentarGiro(const char* motivo) {
   frenarMotores(); pwmGiroAct=0; signoGiroApl=0; movGiroConfirmado=false; watchdogGiroArmado=false; giroEnTol=false;
-  pwmBoostFrenado=0; inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false;
+  pwmBoostFrenado=0; inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false; contadorJerkIntento=0;
   ultimoSignoErrorGiro = 0;
   if (intentoGiro >= TURN_MAX_ATTEMPTS) { fallo(motivo); return; }
   ++intentoGiro;
@@ -615,11 +616,13 @@ void controlarGiro() {
   }
   estableGiroDesdeMs = 0;
 
-  // Sacudida dinámica anti-bloqueo (dynamic jerk): si el chasis está a alta potencia pero no confirma movimiento tras 350 ms
-  if (!movGiroConfirmado && (ahora - inicioIntentoGiroMs > 350)) {
-    if (ahora - ultimoJerkMs >= 400) {
+  // Sacudida dinámica anti-bloqueo (dynamic jerk): máximo 2 pulsos por intento para desenclavar TT
+  // sin incurrir en sacudidas repetitivas hacia atrás si el chasis patina en azulejo.
+  if (!movGiroConfirmado && (ahora - inicioIntentoGiroMs > 400) && contadorJerkIntento < 2) {
+    if (ahora - ultimoJerkMs >= 600) {
       ultimoJerkMs = ahora;
       jerkActivo = true;
+      ++contadorJerkIntento;
     }
   }
   if (jerkActivo) {
@@ -750,20 +753,12 @@ void controlarGiro() {
       else if (candidatoGiroNeg != 0) cand = (signoGiroApl < 0) ? candidatoGiroNeg : -candidatoGiroNeg;
       else cand = (signoGiroApl > 0) ? 1 : -1;
     }
-    const float ticksIzq = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, true);
-    const float ticksDer = ControlSeguridad::promedioConfiableLado(d, encoderConfiableGlobal, false);
-    // Solo aplicar compensación traslacional si ambos lados cuentan con encoders confiables y movimiento medido,
-    // evitando sesgos unilaterales hacia adelante ante fallos o retrasos de lectura de un lado
-    const bool encodersBilateralesListos = (encoderConfiableGlobal[0] || encoderConfiableGlobal[2]) &&
-                                          (encoderConfiableGlobal[1] || encoderConfiableGlobal[3]) &&
-                                          (ticksIzq > 0.0f && ticksDer > 0.0f);
-    const float tIzq = encodersBilateralesListos ? ticksIzq : 0.0f;
-    const float tDer = encodersBilateralesListos ? ticksDer : 0.0f;
-    const auto salidaGiro = ControlRuta::balancearGiroDiferencial(
-        pwmGiroAct, cand, tIzq, tDer,
-        ControlRuta::distanciaPorTick(WHEEL_DIAMETER_ODOMETRY_CM, ENCODER_PPR),
-        KP_GIRO_BALANCE_PWM_POR_CM, PWM_GIRO_BALANCE_MAX, PWM_TURN_MAX_LIMIT);
-    if (!aplicarVelocidades(salidaGiro.pwmL, salidaGiro.pwmR)) {
+    // Par torsional puro simétrico: en giro sobre el propio eje, ambos lados se
+    // energizan con magnitudes idénticas y signos opuestos (+cand * PWM, -cand * PWM).
+    // Esto garantiza matemáticamente empuje neto traslacional cero (velMedia = 0),
+    // eliminando el retroceso parásito que provocaba balancearGiroDiferencial al
+    // derrapar ruedas en azulejo.
+    if (!aplicarVelocidades(cand * pwmGiroAct, -cand * pwmGiroAct)) {
       fallo("motor_output_error");
       return;
     }
@@ -1104,6 +1099,20 @@ bool controlarAvance() {
     }
   }
 
+  // Guarda inercial de sentido de movimiento mediante MPU6050 (Acelerómetro longitudinal):
+  // Si durante el avance se detecta empuje/deslizamiento en sentido opuesto sostenido (>250 ms),
+  // abortar de inmediato para evitar que el vehículo se aviente en sentido contrario.
+  static uint32_t inicioAceleracionInversaMs = 0;
+  if (s.mpu_calibrated && ControlSeguridad::detectarSentidoMovimientoInverso(s.accel_y_m_s2, direccionTraslacion, 2.0f)) {
+    if (!inicioAceleracionInversaMs) inicioAceleracionInversaMs = millis();
+    if (millis() - inicioAceleracionInversaMs > 250) {
+      inicioAceleracionInversaMs = 0;
+      fallo("chassis_reverse_slip_detected");
+      return false;
+    }
+  } else {
+    inicioAceleracionInversaMs = 0;
+  }
 
   // stall per side
   if (!hayPorLado()) { fallo("enc_no_side"); return false; }
@@ -1126,7 +1135,7 @@ bool controlarAvance() {
         ++intentosRecup;
         frenarMotores();
         distAcumuladaCm = distMedida;
-        iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
+        iniciarBaseGiro(normalizar360(pasoRumboCuerpoDeg), Fase::GIRO_RECUPERACION);
         return false;
       }
       fallo(i==0?"drive_stall_left[Cinematica.cpp:503]":"drive_stall_right[Cinematica.cpp:503]"); return false;
@@ -1289,17 +1298,15 @@ bool controlarAvance() {
     inicioPulsoAproximacionMs = millis();
   }
 
-  // Compensacion derecha + direccionamiento diferencial simetrico (preserva empuje neto hacia adelante)
-  // Compensacion adaptativa por lado: corrige la asimetria de los reductores
-  // TT. El HMI la calibra y persiste por tipo de piso.
-  // La modulacion del lazo angular se aplica sobre el crucero antes del PID:
-  // en modo B el lado interno retiene par y el externo empuja para reorientar
-  // sin detener el avance.
+  // Compensación derecha + direccionamiento diferencial simétrico (preserva empuje neto hacia adelante).
+  // La compensación adaptativa por lado corrige la asimetría de fábrica de los motores TT.
+  // El direccionamiento diferencial de rumbo lo realiza exclusivamente el lazo PI en lazo cerrado (ctrlRumbo),
+  // evitando el doble frenado que antes calaba un lado del chasis y provocaba latigazos violentos.
   const int baseIzq = constrain(
-      aproximar(base * perfilCompensacion.getLadoIzq() * angular.modLadoIzq),
+      aproximar(base * perfilCompensacion.getLadoIzq()),
       VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int baseDer = constrain(
-      aproximar(base * perfilCompensacion.getLadoDer() * angular.modLadoDer),
+      aproximar(base * perfilCompensacion.getLadoDer()),
       VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int redL = 0, redR = 0;
   int boostL = 0, boostR = 0;

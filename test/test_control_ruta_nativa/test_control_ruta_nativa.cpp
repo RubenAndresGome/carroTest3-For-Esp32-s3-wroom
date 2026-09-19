@@ -854,6 +854,24 @@ void test_media_encoders_saludables_sin_cota_por_lado() {
                            ControlSeguridad::mediaEncodersSaludables(ticks, ninguno));
 }
 
+void test_detectar_sentido_movimiento_inverso_acelerometro() {
+  using namespace ControlSeguridad;
+  // 1. Avance normal (direccion = +1): aceleracion positiva o nula -> no inverso
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(1.5f, 1, 1.8f));
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(0.0f, 1, 1.8f));
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(-1.0f, 1, 1.8f));
+
+  // 2. Avance con sacudida/tirón en reversa sostenido: Ay = -2.5 m/s² -> DEBE DETECTAR INVERSO
+  TEST_ASSERT_TRUE(detectarSentidoMovimientoInverso(-2.5f, 1, 1.8f));
+
+  // 3. Reversa normal (direccion = -1): aceleracion negativa o nula -> no inverso
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(-1.5f, -1, 1.8f));
+  TEST_ASSERT_FALSE(detectarSentidoMovimientoInverso(0.0f, -1, 1.8f));
+
+  // 4. Reversa con avance espurio: Ay = +2.5 m/s² -> DEBE DETECTAR INVERSO
+  TEST_ASSERT_TRUE(detectarSentidoMovimientoInverso(2.5f, -1, 1.8f));
+}
+
 void test_perfil_compensacion_getters_y_promedio() {
   ControlCompensacion::Perfil perfil;
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getLadoIzq());
@@ -1035,6 +1053,7 @@ int main(int, char**) {
   RUN_TEST(test_escala_odometria_suelo_calibrada);
   RUN_TEST(test_fuente_unica_no_infla_distancia_en_modo_degradado);
   RUN_TEST(test_media_encoders_saludables_sin_cota_por_lado);
+  RUN_TEST(test_detectar_sentido_movimiento_inverso_acelerometro);
   RUN_TEST(test_perfil_compensacion_getters_y_promedio);
   RUN_TEST(test_correccion_traslacion_parasita_icr);
   RUN_TEST(test_icr_proyeccion_global_cuatro_cuadrantes);
