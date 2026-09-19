@@ -260,4 +260,29 @@ inline bool detectarSentidoMovimientoInverso(
   return false;
 }
 
+// Distancia angular estimada para detener el chasis con freno activo DRV8833 (Back-EMF).
+// Retorna la distancia en grados requerida para disipar la energia cinetica: Δθ = ω² / (2 * α)
+inline float calcularDistanciaFrenadoInercialDeg(float velAngularRadS, float decelDegS2 = 1200.0f) {
+  const float velDegS = fabsf(velAngularRadS) * 57.29578f;
+  if (decelDegS2 <= 0.0f) return 0.0f;
+  return (velDegS * velDegS) / (2.0f * decelDegS2);
+}
+
+// Evalua si se debe activar anticipadamente el freno activo dinamico para que la inercia
+// deposite al chasis sobre el angulo objetivo sin sobrepasarlo.
+inline bool evaluarFrenoActivoPredictivoGiro(
+    float errorAngDeg,
+    float velAngularRadS,
+    bool movimientoConfirmado,
+    float decelDegS2 = 1200.0f,
+    float distanciaMinimaDeg = 0.5f) {
+  if (!movimientoConfirmado) return false;
+  const bool girandoHaciaMeta = (errorAngDeg > 0.0f && velAngularRadS > 0.04f) ||
+                                (errorAngDeg < 0.0f && velAngularRadS < -0.04f);
+  if (!girandoHaciaMeta) return false;
+  const float distFreno = calcularDistanciaFrenadoInercialDeg(velAngularRadS, decelDegS2);
+  if (distFreno < distanciaMinimaDeg) return false;
+  return fabsf(errorAngDeg) <= distFreno;
+}
+
 }  // namespace ControlSeguridad

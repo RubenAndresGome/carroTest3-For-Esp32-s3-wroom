@@ -983,6 +983,30 @@ void test_correccion_traslacion_parasita_icr() {
   TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, inverso.dyCm);
 }
 
+void test_frenado_activo_predictivo_por_inercia() {
+  using namespace ControlSeguridad;
+  // 1. Sin movimiento confirmado -> jamás frena por predicción
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(4.0f, 1.745f, false));
+
+  // 2. Girando hacia la meta a alta velocidad (100 deg/s ~ 1.745 rad/s):
+  // distFreno = 100^2 / (2 * 1200) = 4.167 deg.
+  // Si error es 4.0 deg (error <= distFreno) -> DEBE FRENAR DE INMEDIATO
+  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(4.0f, 1.745f, true));
+  // Si error es 6.0 deg (error > distFreno) -> aún no frena
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(6.0f, 1.745f, true));
+
+  // 3. Girando en polaridad negativa (error = -3.0 deg, vel = -1.5 rad/s ~ -85.9 deg/s):
+  // distFreno = 85.9^2 / 2400 = 3.07 deg.
+  // Con error = -3.0 deg (|error| = 3.0 <= 3.07) -> DEBE FRENAR
+  TEST_ASSERT_TRUE(evaluarFrenoActivoPredictivoGiro(-3.0f, -1.5f, true));
+
+  // 4. Velocidad en sentido contrario (error positivo, giro negativo) -> NO debe frenar por predicción
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(4.0f, -1.745f, true));
+
+  // 5. Baja velocidad inercial (< 0.5 deg de parada) -> no interfiere con micro-pulsos
+  TEST_ASSERT_FALSE(evaluarFrenoActivoPredictivoGiro(1.5f, 0.1f, true));
+}
+
 }  // namespace
 
 int main(int, char**) {
@@ -1059,5 +1083,6 @@ int main(int, char**) {
   RUN_TEST(test_icr_proyeccion_global_cuatro_cuadrantes);
   RUN_TEST(test_control_angular_modos_a_b_c_d);
   RUN_TEST(test_deadband_piso_no_infla_crucero);
+  RUN_TEST(test_frenado_activo_predictivo_por_inercia);
   return UNITY_END();
 }

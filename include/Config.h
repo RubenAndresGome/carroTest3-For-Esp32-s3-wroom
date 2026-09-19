@@ -205,10 +205,14 @@ constexpr int PWM_TURN_START_MACRO = static_cast<int>(190 * PWM_SCALE_8_TO_10); 
 constexpr uint32_t TURN_RAMP_ADAPTIVE_INTERVAL_MS = 150;
 // Micro-pulsos adaptados a los reductores TT: por debajo de ~50 ms no vencen la
 // esticcion ni el backlash; por encima de ~80 ms sobrepasan por inercia.
-constexpr uint32_t TT_MIN_PULSE_ON_MS = 50;
-constexpr uint32_t TURN_PULSE_ON_MS = 70;
+constexpr uint32_t TT_MIN_PULSE_ON_MS = 40;
+constexpr uint32_t TURN_PULSE_ON_MS = 45;
 constexpr uint32_t TURN_BRAKE_ACTIVE_MS = 60;
 constexpr uint32_t TURN_PULSE_OFF_MS = 100;
+// Parametros de frenado activo predictivo dinamico (Back-EMF con DRV8833):
+// Desaceleracion estimada en azulejo ~1200 deg/s² (~20.9 rad/s²).
+constexpr float TURN_ACTIVE_BRAKE_DECEL_DEG_S2 = 1200.0f;
+constexpr int PWM_TURN_PULSE_FINE_OFFSET = static_cast<int>(5 * PWM_SCALE_8_TO_10);
 constexpr float TURN_REACTIVATION_DEG = 1.0f;
 constexpr uint8_t TURN_MAX_ATTEMPTS = 6;
 constexpr uint32_t TURN_RETRY_PAUSE_MS = 300;

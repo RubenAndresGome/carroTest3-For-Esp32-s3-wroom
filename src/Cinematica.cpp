@@ -410,9 +410,9 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   } else {
     // Micro-giro fino (<4.0°): iniciar en cero para que la máquina trifásica comience con pulso limpio
     if (minIni > 0) {
-      pwmBusquedaGiro = max(PWM_TURN_START, minIni - PWM_TURN_START_FLOOR_OFFSET);
+      pwmBusquedaGiro = minIni + PWM_TURN_PULSE_FINE_OFFSET;
     } else {
-      pwmBusquedaGiro = PWM_TURN_START;
+      pwmBusquedaGiro = PWM_TURN_FLOOR_MIN;
     }
     pwmGiroAct = 0;
     signoGiroApl = 0;
@@ -459,10 +459,12 @@ void controlarGiro() {
     int signoReint = errorReint > 0 ? 1 : -1;
     int minReint = signoReint > 0 ? pwmMinGiroPos : pwmMinGiroNeg;
     int pwmArranque;
-    if (minReint > 0) {
-      pwmArranque = max(PWM_TURN_START, minReint - PWM_TURN_START_FLOOR_OFFSET);
+    if (fabsf(errorReint) <= TURN_HYBRID_THRESHOLD_DEG) {
+      pwmArranque = (minReint > 0) ? (minReint + PWM_TURN_PULSE_FINE_OFFSET) : PWM_TURN_FLOOR_MIN;
+    } else if (minReint > 0) {
+      pwmArranque = max(PWM_TURN_FLOOR_MIN, minReint - PWM_TURN_START_FLOOR_OFFSET);
     } else {
-      pwmArranque = PWM_TURN_START;
+      pwmArranque = PWM_TURN_START_MACRO;
     }
     // Si el intento anterior no confirmó movimiento, conservar el PWM máximo
     // alcanzado en lugar de reiniciar desde cero. Esto evita que reintentos
@@ -616,6 +618,18 @@ void controlarGiro() {
   }
   estableGiroDesdeMs = 0;
 
+  // Frenado Activo Predictivo Dinámico por Inercia (DRV8833 Back-EMF):
+  // Si el chasis gira hacia el objetivo y la distancia de frenado calculada
+  // para disipar su velocidad angular es suficiente para depositarlo en la meta,
+  // activar de inmediato frenarMotoresActivo() para que la inercia lo lleve a 0°/90° sin sobrepaso.
+  if (ControlSeguridad::evaluarFrenoActivoPredictivoGiro(
+          error, s.gyro_z_filtrado_rad_s, movGiroConfirmado, TURN_ACTIVE_BRAKE_DECEL_DEG_S2, 0.5f)) {
+    frenarMotoresActivo();
+    pwmGiroAct = 0;
+    signoGiroApl = 0;
+    return;
+  }
+
   // Sacudida dinámica anti-bloqueo (dynamic jerk): máximo 2 pulsos por intento para desenclavar TT
   // sin incurrir en sacudidas repetitivas hacia atrás si el chasis patina en azulejo.
   if (!movGiroConfirmado && (ahora - inicioIntentoGiroMs > 400) && contadorJerkIntento < 2) {
@@ -647,7 +661,8 @@ void controlarGiro() {
     if (minimo == 0) { reintentarGiro("turn_not_calibrated"); return; }
   }
   int pwmLejos = max(PWM_TURN_START, min(PWM_TURN_MAX_LIMIT, minimo+PWM_TURN_FAR_MARGIN));
-  int pwmCerca = max(PWM_TURN_FLOOR_MIN, min(PWM_TURN_MAX_LIMIT, minimo - static_cast<int>(15 * PWM_SCALE_8_TO_10)));
+  int floorCerca = (minimo > 0) ? minimo : PWM_TURN_FLOOR_MIN;
+  int pwmCerca = min(PWM_TURN_MAX_LIMIT, floorCerca);
 
   const bool detectadoSinMovimiento = (fabsf(s.gyro_z_filtrado_rad_s) < GYRO_MOVEMENT_RAD_S);
 
@@ -679,9 +694,9 @@ void controlarGiro() {
       pwmObj = min(PWM_TURN_MAX_LIMIT, pwmObj + pwmBoostFrenado);
     } else {
       // --- MODO 2: aproximación fina por micro-pulsos trifásicos (<4.0°) ---
-      // Fase 1: 250 ms ON a par firme (75%-85% PWM, piso 70%)
-      // Fase 2: 80 ms Freno Activo dinámico (Back-EMF DRV8833 IN1=1, IN2=1)
-      // Fase 3: 120 ms Reposo mecánico total y lectura estricta de MPU (IN1=0, IN2=0)
+      // Fase 1: TURN_PULSE_ON_MS (45 ms) ON a par calibrado mínimo real (sin kick violento de 97%)
+      // Fase 2: TURN_BRAKE_ACTIVE_MS (60 ms) Freno Activo dinámico (Back-EMF DRV8833 IN1=1, IN2=1)
+      // Fase 3: TURN_PULSE_OFF_MS (100 ms) Reposo mecánico total y lectura estricta de MPU (IN1=0, IN2=0)
       const uint32_t deltaPulso = ahora - inicioPulsoFinoGiroMs;
       if (pulsoFinoGiroEncendido) {
         if (deltaPulso >= TURN_PULSE_ON_MS) {
@@ -691,7 +706,7 @@ void controlarGiro() {
           pwmGiroAct = 0;
           return;
         }
-        int pwmKick = max(PWM_TURN_FLOOR_MIN, max(minimo + static_cast<int>(15 * PWM_SCALE_8_TO_10), PWM_TURN_START));
+        int pwmKick = (minimo > 0) ? (minimo + PWM_TURN_PULSE_FINE_OFFSET) : PWM_TURN_FLOOR_MIN;
         pwmObj = min(PWM_TURN_MAX_LIMIT, pwmKick + pwmBoostFrenado);
       } else {
         if (deltaPulso < TURN_BRAKE_ACTIVE_MS) {
@@ -705,15 +720,15 @@ void controlarGiro() {
           pwmGiroAct = 0;
           return;
         } else {
-          // Fin del ciclo completo de reposo (200 ms OFF totales) -> Iniciar nuevo pulso ON
+          // Fin del ciclo completo de reposo -> Iniciar nuevo pulso ON
           pulsoFinoGiroEncendido = true;
           if (pulsosFinosGiro < 255) ++pulsosFinosGiro;
           inicioPulsoFinoGiroMs = ahora;
           if (detectadoSinMovimiento) {
             pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - minimo,
-                                  pwmBoostFrenado + static_cast<int>(10 * PWM_SCALE_8_TO_10));
+                                  pwmBoostFrenado + static_cast<int>(5 * PWM_SCALE_8_TO_10));
           }
-          int pwmKick = max(PWM_TURN_FLOOR_MIN, max(minimo + static_cast<int>(15 * PWM_SCALE_8_TO_10), PWM_TURN_START));
+          int pwmKick = (minimo > 0) ? (minimo + PWM_TURN_PULSE_FINE_OFFSET) : PWM_TURN_FLOOR_MIN;
           pwmObj = min(PWM_TURN_MAX_LIMIT, pwmKick + pwmBoostFrenado);
         }
       }
