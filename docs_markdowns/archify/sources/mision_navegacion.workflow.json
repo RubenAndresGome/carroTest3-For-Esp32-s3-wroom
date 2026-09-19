@@ -1,0 +1,90 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Navegación Ortogonal y Retorno Ockham",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "ruta-completa",
+        "label": "Ruta hacia adelante",
+        "focus": ["trazar", "hmi_post", "subdividir", "despachar", "pivote_avance", "confirmar"],
+        "note": "Trazado en HMI, partición ortogonal en tramos <=200 cm y avance paso a paso."
+      },
+      {
+        "id": "retorno-ockham",
+        "label": "Retorno Ockham",
+        "focus": ["confirmar", "pedir_retorno", "invertir_ruta", "retorno_cero"],
+        "note": "Inversión de vectores en orden inverso sin marcha atrás ciega, concluyendo a yaw 0°."
+      },
+      {
+        "id": "parada-segura",
+        "label": "Parada de seguridad",
+        "focus": ["pivote_avance", "freno_estop"],
+        "note": "Corte de energía ante divergencia angular de yaw o stall de encoder."
+      }
+    ],
+    "output": "mision_navegacion.html"
+  },
+  "lanes": [
+    { "id": "ui", "label": "Operador HMI" },
+    { "id": "backend", "label": "Backend Python (RobotService)" },
+    { "id": "firmware", "label": "Firmware Core 1 (100 Hz)" },
+    { "id": "seguridad", "label": "Seguridad & Freno", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "trazado", "label": "1. Trazado", "fromCol": 0, "toCol": 1 },
+    { "id": "ejecucion", "label": "2. Avance Paso a Paso", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "retorno", "label": "3. Retorno Ockham", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["trazar", "hmi_post", "subdividir", "despachar", "pivote_avance", "confirmar", "pedir_retorno", "invertir_ruta", "retorno_cero"],
+  "nodes": [
+    { "id": "trazar", "lane": "ui", "col": 0, "type": "frontend", "label": "Trazar Ruta", "sublabel": "polyline mm", "width": 132 },
+    { "id": "hmi_post", "lane": "ui", "col": 1, "type": "frontend", "label": "Enviar Misión", "sublabel": "POST /missions", "tag": "X-App-Token", "width": 132 },
+    { "id": "subdividir", "lane": "backend", "col": 2, "type": "backend", "label": "Subdividir", "sublabel": "tramos <=200 cm", "tag": "ortogonal", "width": 132 },
+    { "id": "despachar", "lane": "backend", "col": 3, "type": "backend", "label": "Despachar step", "sublabel": "JSON v3 seq", "tag": "idempotente", "width": 132 },
+    { "id": "pivote_avance", "lane": "firmware", "col": 3, "type": "security", "label": "Giro + Avance", "sublabel": "pulsos + 40 PPR", "tag": "100 Hz", "width": 132 },
+    { "id": "freno_estop", "lane": "seguridad", "col": 3, "type": "security", "label": "Freno Inmediato", "sublabel": "PWM = 0", "tag": "corte", "width": 132 },
+    { "id": "confirmar", "lane": "backend", "col": 4, "type": "database", "label": "Confirmar Paso", "sublabel": "step_ok en SQLite", "width": 132 },
+    { "id": "pedir_retorno", "lane": "ui", "col": 4, "type": "frontend", "label": "Retorno Ockham", "sublabel": "ruta finalizada", "width": 132 },
+    { "id": "invertir_ruta", "lane": "backend", "col": 5, "type": "backend", "label": "Invertir Ruta", "sublabel": "orden inverso", "tag": "sin reversa", "width": 132 },
+    { "id": "retorno_cero", "lane": "firmware", "col": 5, "type": "security", "label": "turn_to(0°)", "sublabel": "pose inicial", "tag": "Home", "width": 132 }
+  ],
+  "edges": [
+    { "id": "e-trazar-post", "from": "trazar", "to": "hmi_post" },
+    { "id": "e-post-sub", "from": "hmi_post", "to": "subdividir", "label": "HTTP" },
+    { "id": "e-sub-desp", "from": "subdividir", "to": "despachar", "label": "encolar" },
+    { "id": "e-desp-piv", "from": "despachar", "to": "pivote_avance", "label": "WebSocket" },
+    { "id": "e-piv-conf", "from": "pivote_avance", "to": "confirmar", "label": "step_ok" },
+    { "id": "e-piv-freno", "from": "pivote_avance", "to": "freno_estop", "label": "divergencia", "variant": "security", "role": "error" },
+    { "id": "e-conf-ret", "from": "confirmar", "to": "pedir_retorno", "label": "lista" },
+    { "id": "e-ret-inv", "from": "pedir_retorno", "to": "invertir_ruta", "label": "POST" },
+    { "id": "e-inv-cero", "from": "invertir_ruta", "to": "retorno_cero", "label": "tramo inverso" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Regla Ortogonal",
+      "items": [
+        "Los tramos físicos son exclusivamente giros de orientación y avance frontal",
+        "Se eliminó el avance en reversa ciega para asegurar tracción simétrica"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Retorno Ockham",
+      "items": [
+        "Invierte los vectores en orden cronológico inverso",
+        "Concluye con turn_to(0°) para restablecer la postura inicial exacta"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Seguridad Atómica",
+      "items": [
+        "Cada paso es atómico; si ocurre desconexión, Python no repite avance a ciegas",
+        "El firmware corta PWM a 0 si la divergencia de yaw excede la tolerancia"
+      ]
+    }
+  ]
+}

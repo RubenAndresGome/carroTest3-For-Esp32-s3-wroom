@@ -1,6 +1,6 @@
 # Auditoría del estado actual
 
-**Corte auditado:** `7a69eac`  
+**Corte auditado:** `615d284` (Hito Funcional 85/100: ruta completa, ángulo aceptable, retorno Ockham)  
 **Alcance:** `src/`, `include/`, `desktop_app/`, `android_app/`, scripts activos,
 protocolo v3, SQLite y evidencia audiovisual.  
 **Exclusiones del conteo activo:** `archive/`, archivos `.disabled`, dependencias
@@ -99,16 +99,17 @@ Anteriormente las reglas y el código no coincidían. Con la última actualizaci
 - Efecto corregido: las pruebas físicas ahora reflejan el comportamiento esperado y seguro.
 - Condición de mantenimiento: cualquier cambio en `include/Config.h` debe ir acompañado de una prueba automática que audite estas constantes de seguridad.
 
-### A-06 — Alta operativa: calibración con IMU activa y encoders en cero
+### A-06 — Resuelto: lectura de encoders y calibración bilateral validadas
 
-La [evidencia SQLite de la prueba](../evidencia/incidentes/2026-07-30_reinicio_y_calibracion.md)
-registró giro por IMU, cuatro
-encoders en cero y fallo `cal_stall_left`.
+Anteriormente la evidencia SQLite preliminar registró encoders en cero y fallo `cal_stall_left`. En la iteración actual (`bc81616`, `3830519`, `4ad3d3e` y `615d284`):
+- Se recalibró el periférico hardware PCNT con filtro anti-rebote de 1023 ciclos de reloj para suprimir ruido eléctrico de motores.
+- Se ajustó la escala física a 40 PPR (relación 2:1 por flancos).
+- Se aisló la odometría lineal durante giros y se blindó el detector de salud de encoders.
+- Se añadió la recalibración del sesgo de la IMU MPU6050 en reposo tras la cuenta regresiva de 5.0 s.
+- **Validación en taller:** Calibración completa exitosa (`cal_ok`), ejecución de ruta completa y retorno Ockham operativo alcanzando el hito **85/100**.
 
-- Efecto: el robot se mueve, pero no puede confirmar movimiento por lado ni
-  completar calibración de forma confiable.
-- Recomendación: prueba con ruedas elevadas, inspección de GPIO/PCNT y conectores,
-  alimentación limitada y registro simultáneo de cada encoder.
+- Efecto corregido: el robot confirma movimiento bilateral por encoders y giróscopo, completando la rutina de calibración y retornando a $0^\circ$ de forma consistente.
+- Condición de mantenimiento: conservar el filtro PCNT y la resolución de 40 PPR; verificar periódicamente el cableado del level shifter TXS0108E.
 
 ### A-07 — Resuelto: módulo de misión completa retirado del firmware activo
 
@@ -232,11 +233,9 @@ descartar la precondición de escritores/checkpoints concurrentes.
 | Desaparece el AP por tiempo prolongado | Sin telemetría fresca | Mantener misión pausada y reintentar transporte indefinidamente sin afirmar estado físico. |
 
 ## Criterios pendientes para aceptación
-
-1. Resolver A-01 a A-04 antes de declarar tolerancia completa a desconexión.
-2. Resolver A-06 antes de nuevas rutas en suelo.
-3. Ejecutar prueba de corriente obligatoria.
-4. Correlacionar video, telemetría y medición física en una misma sesión.
-5. Verificar ruta `Y+100,Y+50,X+190,X-190`, retorno Ockham y yaw final.
-6. Actualizar/verificar SQLite según A-13 antes de usar la bitácora como prueba
-   única de recuperación tras cierres abruptos.
+ 
+1. Resolver A-01 a A-04 antes de declarar tolerancia completa a desconexión y fallos de nodo.
+2. Mantener la verificación de A-06 y la simetría 4WD verificadas en taller (completado para el hito 85/100).
+3. Realizar prueba de corriente con amperímetro en serie bajo carga continua de suelo.
+4. Extender la correlación telemetría-video hacia nuevas misiones autónomas.
+5. Actualizar/verificar SQLite según A-13 antes de usar la bitácora como prueba única de recuperación tras cierres abruptos.

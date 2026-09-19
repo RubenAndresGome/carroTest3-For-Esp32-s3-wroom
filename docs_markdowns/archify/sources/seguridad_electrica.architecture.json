@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Protección Eléctrica del DRV8833 y Leyes de Potencia",
+    "output": "seguridad_electrica.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "software-limites", "label": "Límites de firmware", "focus": ["pwm_clamp", "burst_limiter", "interlock", "deadband"], "note": "Clamps de PWM continuo, ráfagas acotadas a 80 ms e interlocks de 250 ms." },
+      { "id": "circuito-potencia", "label": "Circuito y hardware", "focus": ["gpio_boot", "polyfuse", "caps_snubbers", "drv8833", "motores_tt"], "note": "Desacople capacitivo, fusibles e inmunidad durante el boot ROM." }
+    ]
+  },
+  "components": [
+    { "id": "pwm_clamp", "type": "security", "label": "Clamps de PWM", "sublabel": "242 crucero / 247 giro", "pos": [40, 110], "size": [140, 56], "tag": "Límites" },
+    { "id": "burst_limiter", "type": "security", "label": "Limitador Ráfagas", "sublabel": "Máx 80ms al 100%", "pos": [260, 110], "size": [140, 56], "tag": "80 ms" },
+    { "id": "interlock", "type": "security", "label": "Interlock 250ms", "sublabel": "Tiempo muerto inversión", "pos": [480, 110], "size": [150, 56], "tag": "Protección" },
+    { "id": "deadband", "type": "backend", "label": "Zona Muerta 180", "sublabel": "Piso dinámico de par", "pos": [710, 110], "size": [140, 56], "tag": "Torque" },
+    { "id": "gpio_boot", "type": "security", "label": "setup_MotorPinsLow", "sublabel": "Pines LOW en boot", "pos": [40, 260], "size": [140, 56], "tag": "Boot ROM" },
+    { "id": "polyfuse", "type": "security", "label": "Fusible 1.5A", "sublabel": "Corte por sobrecorriente", "pos": [260, 260], "size": [140, 56], "tag": "VMOT" },
+    { "id": "caps_snubbers", "type": "cloud", "label": "Desacople RC", "sublabel": "100µF VMOT + 0.1µF", "pos": [480, 260], "size": [150, 56], "tag": "Filtrado" },
+    { "id": "drv8833", "type": "backend", "label": "Driver DRV8833", "sublabel": "Dual H-Bridge IC", "pos": [710, 260], "size": [140, 56], "tag": "Puente H" },
+    { "id": "motores_tt", "type": "external", "label": "4× Motores TT", "sublabel": "Chasis 4WD Invertido", "pos": [480, 390], "size": [150, 56], "tag": "Actuadores" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Capa de Software y Firmware (Protección Dinámica RTOS)", "wraps": ["pwm_clamp", "burst_limiter", "interlock", "deadband"] },
+    { "kind": "security-group", "label": "Capa Física y Eléctrica (Circuito de Potencia y Chasis)", "wraps": ["gpio_boot", "polyfuse", "caps_snubbers", "drv8833", "motores_tt"] }
+  ],
+  "connections": [
+    { "id": "clamp-burst", "from": "pwm_clamp", "to": "burst_limiter", "label": "80ms" },
+    { "id": "burst-inter", "from": "burst_limiter", "to": "interlock", "label": "control" },
+    { "id": "inter-dead", "from": "interlock", "to": "deadband", "label": "piso" },
+    { "id": "dead-drv", "from": "deadband", "to": "drv8833", "label": "señal PWM", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "boot-poly", "from": "gpio_boot", "to": "polyfuse", "label": "seguridad" },
+    { "id": "poly-caps", "from": "polyfuse", "to": "caps_snubbers", "label": "VMOT" },
+    { "id": "caps-drv", "from": "caps_snubbers", "to": "drv8833", "label": "potencia" },
+    { "id": "drv-mot", "from": "drv8833", "to": "motores_tt", "label": "corriente H", "fromSide": "bottom", "toSide": "right", "labelDy": 24 }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "Límites Eléctricos de Software", "items": ["PWM sostenido máximo de avance: 242/255 (~95%)", "Ráfagas al 100% acotadas a 80 ms con enfriamiento obligatorio", "Tiempo muerto de 250 ms al invertir sentido de giro"] },
+    { "dot": "emerald", "title": "Protección Física de Taller", "items": ["Capacitores >=100µF en VMOT-GND y 0.1µF en cada motor", "Fusible o polyfuse de 1.5 A por driver", "VMOT físicamente apagado durante boot y carga de firmware"] },
+    { "dot": "cyan", "title": "Prueba de Corriente Obligatoria", "items": ["Ruedas elevadas y fuente de laboratorio limitada a 0.5 A", "Verificación estricta de corriente <1 A sostenido antes de operar en suelo"] }
+  ]
+}

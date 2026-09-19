@@ -1,9 +1,23 @@
 # Atlas UML y arquitectura completa del Robot S3
 
-Este documento representa la implementación operativa actual. Los inventarios
-de todas las funciones y sus grafos por carpeta se generan en
-[`docs/uml/`](docs/uml/README.md). Los hallazgos y discrepancias se mantienen en
-[`docs/auditoria_estado_actual.md`](docs/auditoria_estado_actual.md).
+Este documento representa la implementación operativa actual del proyecto **carroTest3-Milestone_Funcional_1.0** (Hito 85/100). Los inventarios de todas las funciones y sus grafos por carpeta se generan en [`docs/uml/`](docs_markdowns/uml/README.md). Los hallazgos y discrepancias se mantienen en [`docs/auditoria_estado_actual.md`](docs_markdowns/auditoria_estado_actual.md).
+
+---
+
+## Mapas de Arquitectura Interactivos (Archify)
+
+El sistema cuenta con 6 especificaciones y mapas interactivos deterministas compilados mediante **Archify** ([tt-a1i/archify](https://github.com/tt-a1i/archify)), con calidad *showcase* verificada (0 errores, 0 advertencias), conmutador de tema claro/oscuro, trazabilidad de rutas y exportación SVG/PNG:
+
+| Mapa Interactivo | Tipo | Descripción | Artefacto Autosuficiente |
+|---|---|---|---|
+| **1. Arquitectura General y Contexto** | `architecture` | Topología de hosts (Windows / Android Tablet), SoftAP, loopback `X-App-Token`, SQLite WAL y chasis 4WD. | [`sistema_contexto.html`](docs/archify/sistema_contexto.html) |
+| **2. Súper-ciclo RTOS a 100 Hz** | `architecture` | Desacoplamiento Core 0 (`Task_Web`) y Core 1 (`loop()` nativo sincrónico), colas acotadas y sample unificado. | [`firmware_superciclo.html`](docs/archify/firmware_superciclo.html) |
+| **3. Dogma Canónico de Calibración** | `sequence` | Flujo inviolable de 5 fases: reposo 5.0 s para sesgo MPU, búsqueda `CAL_A`, validación +25°, `CAL_B` y retorno a 0°. | [`calibracion_dogma.html`](docs/archify/calibracion_dogma.html) |
+| **4. Navegación Ortogonal y Ockham** | `workflow` | Partición en tramos $\le 200\text{ cm}$, avance frontal exclusivo (sin reversa) y retorno Ockham en orden cronológico inverso. | [`mision_navegacion.html`](docs/archify/mision_navegacion.html) |
+| **5. Ciclo de Vida y Estados (FSM)** | `lifecycle` | Máquina de estados del robot: `DESARMADO`, `CALIBRANDO`, `LISTO`, `EJECUTANDO`, `FALLO` y `ESTOP`. | [`fsm_ciclo_vida.html`](docs/archify/fsm_ciclo_vida.html) |
+| **6. Protección Eléctrica DRV8833** | `architecture` | Clamps de PWM (242 crucero, 247 giro, ráfagas 80 ms), interlock 250 ms, zona muerta 180 y desacople físico. | [`seguridad_electrica.html`](docs/archify/seguridad_electrica.html) |
+
+---
 
 ## 1. Contexto del sistema
 
@@ -22,10 +36,37 @@ flowchart LR
     Robot <-->|"PWM, PCNT, I²C"| Hardware
 ```
 
-Regla de propiedad: Windows y Android son alternativas. Nunca deben mantener
-dos gateways conectados simultáneamente al mismo robot.
+Regla de propiedad: Windows y Android son alternativas. Nunca deben mantener dos gateways conectados simultáneamente al mismo robot.
 
-## 2. Despliegue físico y de procesos
+## 2. Despliegue físico, simetría 4WD y mapeo de hardware
+
+### Dogma de Simetría y Espejado Mecánico del Chasis 4WD
+
+En la estructura física del chasis 4WD acrílico de doble plataforma, los reductores TT están montados en pares opuestos: los motores delanteros (FL/FR) tienen sus cuerpos orientados hacia atrás y los traseros (BL/BR) hacia adelante (enfrentados entre sí en el eje longitudinal). Asimismo, los pares izquierdo y derecho están reflejados respecto al eje sagital.
+
+Al estar invertidos mecánicamente $180^\circ$, la polaridad eléctrica de las borneras DRV8833 y el software compensan esta simetría mediante `PWM_FORWARD_POLARITY = -1` para que la señal lógica de avance (`FWD` = 1) genere traslación positiva pura y uniforme hacia el vector $+Y$ en las cuatro ruedas.
+
+```
+                  FRENTE (+Y, Yaw = 0°)
+          ┌───────────────────────────────────┐
+          │   [Motor FL]          [Motor FR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │      atrás)              atrás)   │
+          │                                   │
+IZQUIERDA │        (ESP32-S3 / Baterías)      │ DERECHA (+X, Yaw = 90°)
+(-X)      │         Pose (0,0) IMU            │
+          │                                   │
+          │   [Motor BL]          [Motor BR]  │
+          │   (Cuerpo hacia       (Cuerpo hacia│
+          │     adelante)           adelante) │
+          └───────────────────────────────────┘
+                  ATRÁS (-Y, Yaw = 180°)
+```
+
+### Mapeo Físico de Pines (Verificado en Taller)
+- **Motores**: FL (`FWD`=GPIO7, `REV`=GPIO6), BL (`FWD`=GPIO4, `REV`=GPIO5), FR (`FWD`=GPIO18, `REV`=GPIO17), BR (`FWD`=GPIO16, `REV`=GPIO15).
+- **Encoders (Level Shifter TXS0108E)**: FL (GPIO11), FR (GPIO10), BL (GPIO12), BR (GPIO13). Odometría configurada a 40 PPR con filtro anti-rebote PCNT 1023.
+- **IMU MPU6050**: SDA=GPIO8, SCL=GPIO9 (Bus I2C a 400 kHz).
 
 ```mermaid
 flowchart TB
@@ -58,8 +99,8 @@ flowchart TB
     AP["ESP32 SoftAP<br/>[IP_ROBOT]/ws"]
     ESP["ESP32-S3<br/>Core 0 + Core 1"]
     Driver["2× DRV8833"]
-    Motors["4× motor"]
-    Enc["4× encoder PCNT"]
+    Motors["4× motor TT (Simetría 180°)"]
+    Enc["4× encoder PCNT (40 PPR)"]
     IMU["MPU6050 I²C"]
 
     GatewayW -. "alternativa" .-> AP
@@ -119,7 +160,7 @@ flowchart TB
     subgraph CORE1["Core 1 · loop nativo · 100 Hz"]
         Commands["procesarComandos()"]
         Sensors["leerSensoresSincrono()"]
-        Pose["PoseEstimator"]
+        Pose["PoseEstimator (40 PPR)"]
         Safety["Seguridad::auditarSalud()"]
         Motion["controlarMovimiento()"]
         Motor["aplicarVelocidades()"]
@@ -138,10 +179,7 @@ flowchart TB
     EvtQ --> Drain
 ```
 
-La misma muestra `SensorSnapshot` alimenta pose, seguridad y cinemática dentro
-del ciclo de control; no existen tareas intermedias en Core 1.
-
-## 5. Flujo de arranque y negociación
+## 5. Secuencia de arranque y conexión lógica
 
 ```mermaid
 sequenceDiagram
@@ -172,7 +210,14 @@ sequenceDiagram
     end
 ```
 
-## 6. Calibración física
+## 6. Dogma Canónico de Calibración (5 Fases)
+
+La calibración utiliza el MPU6050 como autoridad angular única y se rige por un dogma inmutable:
+1. **Estabilización MPU (5.0 s)**: Cuenta regresiva y reposo para calibrar sesgo en reposo.
+2. **Torque Positivo (`CAL_A`)**: Rampa de 140 a 247/255 hasta confirmar `ticksOk` bilateralmente y $|\text{gyro}_z| \ge 0.12\text{ rad/s}$ sostenido 100 ms. Si el giro resulta invertido, invierte polaridad con 750 ms de pausa.
+3. **Validación +25° (`CAL_VALIDAR_25`)**: Pivote puro hasta $+25^\circ$ ($\pm 2.5^\circ$) con 600 ms de asentamiento.
+4. **Torque Negativo (`CAL_B`)**: Pausa de 2.5 s y validación bilateral en polaridad opuesta.
+5. **Retorno Estricto (`CAL_RETORNO`)**: Pausa de 2.5 s y pivote estricto hacia el rumbo original $0^\circ$, reseteando odometría ($X=0, Y=0$) y yaw al estabilizarse.
 
 ```mermaid
 sequenceDiagram
@@ -189,18 +234,19 @@ sequenceDiagram
     P->>R: calibrate(seq)
     R-->>P: accepted(seq)
     R->>C: colaComandos
-    C->>HW: cuenta regresiva con PWM=0
-    loop búsqueda de torque
-        C->>HW: rampa PWM de giro
-        HW-->>C: gyro Z + ticks por lado
+    C->>HW: Fase 1: Reposo 5.0 s y calibrar bias MPU
+    loop Fase 2: CAL_A (búsqueda torque positivo)
+        C->>HW: rampa PWM 140->247
+        HW-->>C: gyro Z >= 0.12 rad/s + ticks por lado
     end
-    C->>HW: validar giro +25°
-    C->>HW: reposo y retorno independiente a yaw 0
-    alt validación completa
+    C->>HW: Fase 3: CAL_VALIDAR_25 (giro a +25°)
+    C->>HW: Fase 4: CAL_PAUSA (2.5 s) y CAL_B (torque opuesto)
+    C->>HW: Fase 5: CAL_RETORNO (pivote a 0° y reset pose)
+    alt movimiento confirmado y estabilizado
         C-->>P: completed(cal_ok)
-    else IMU, stall, timeout o encoder inválido
+    else IMU, cal_stall_left/right o timeout
         C->>HW: PWM=0
-        C-->>P: fault(detalle)
+        C-->>P: fault(cal_stall)
     end
 ```
 
@@ -221,7 +267,7 @@ sequenceDiagram
     S->>S: validar telemetría fresca y estado listo
     S->>S: descomponer diagonales y tramos >200 cm
     S->>DB: persistir active_mission
-    loop un paso atómico cada vez
+    loop un paso atómico cada vez (exclusivamente avance frontal)
         S->>G: enqueue step(heading, cm, seq)
         G->>E: JSON v3
         E-->>G: accepted
@@ -254,15 +300,15 @@ stateDiagram-v2
     Fallo --> [*]
 ```
 
-## 9. Retorno Ockham
+## 9. Retorno Ockham (Sin Reversa Física)
 
 ```mermaid
 flowchart LR
     Completed["Ruta saliente completada"]
     Available["return_state=available"]
-    Reverse["Invertir vectores<br/>en orden inverso"]
+    Reverse["Invertir secuencia<br/>de vectores en orden inverso"]
     Consume["return_state=in_progress"]
-    Steps["Ejecutar pasos atómicos"]
+    Steps["Ejecutar tramos hacia adelante"]
     Align["turn_to(0°)"]
     Done["return_state=completed"]
     Blocked["return_state=blocked"]
@@ -303,9 +349,6 @@ sequenceDiagram
         S->>E: stop
     end
 ```
-
-La implementación actual se detiene después del quinto intento; el bucle del
-diagrama representa el comportamiento existente, no la resiliencia deseada.
 
 ## 11. Reinicio de la aplicación Python
 
@@ -442,10 +485,7 @@ erDiagram
     SESSIONS ||--o{ TELEMETRY : muestrea
 ```
 
-`active_mission`, `last_completed_route`, `controller_session` y
-`next_command_seq` se almacenan como JSON en `settings`.
-
-## 15. Cadena de seguridad
+## 15. Cadena de seguridad e interlocks de hardware
 
 ```mermaid
 flowchart TB
@@ -454,18 +494,16 @@ flowchart TB
     Protocol --> Queue["colaComandos"]
     Queue --> State["Estado robot/calibración"]
     State --> Motion["Cinemática"]
-    Motion --> Clamp["Clamp PWM<br/>230 avance · 247 giro"]
-    Clamp --> Interlock["Interlock 250 ms por lado"]
-    Interlock --> DRV["DRV8833"]
-    Sensors["PCNT + MPU"] --> Watchdog["Watchdogs por fase"]
+    Motion --> Clamp["Límites PWM<br/>242 avance · 247 giro · 80ms burst 255"]
+    Clamp --> Deadband["Piso zona muerta dinámica <180"]
+    Deadband --> Interlock["Interlock universal 250 ms"]
+    Interlock --> DRV["2× DRV8833"]
+    Sensors["PCNT (40 PPR) + MPU6050"] --> Watchdog["Watchdogs por fase (2.5s / 450ms)"]
     Watchdog --> Stop["frenarMotores()"]
     Estop["E-STOP"] --> Stop
     Stop --> DRV
-    Physical["VMOT apagado en boot/carga<br/>capacitores + fusible"] --> DRV
+    Physical["VMOT apagado en boot/carga<br/>capacitores >=100µF + fusible 1.5A"] --> DRV
 ```
-
-La última defensa de boot y sobrecorriente es física; no puede sustituirse con
-firmware.
 
 ## 16. Ciclo de vida Android
 
@@ -489,7 +527,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    Snapshot["SensorSnapshot 100 Hz"] --> Pose["PoseEstimator"]
+    Snapshot["SensorSnapshot 100 Hz"] --> Pose["PoseEstimator (40 PPR)"]
     Snapshot --> Safety["Seguridad"]
     Snapshot --> Control["Cinemática"]
     Pose --> Telemetry["JSON 10 Hz"]
@@ -511,13 +549,13 @@ flowchart LR
     Source["Fuentes canónicas"] --> PIO["PlatformIO firmware"]
     Source --> Modular["staging firmware modular"]
     Source --> PyTest["unittest Python"]
-    Source --> Front["TypeScript + Vitest + Vite"]
+    Source --> Archify["Archify Showcase Compiler"]
     Source --> HmiCheck["validador HMI"]
     Source --> Gradle["Gradle + Chaquopy APK"]
     PIO --> Gate["Puerta de integración"]
     Modular --> Gate
     PyTest --> Gate
-    Front --> Gate
+    Archify --> Gate
     HmiCheck --> Gate
     Gradle --> Gate
     Gate --> Physical["Prueba física con corriente limitada"]
@@ -531,18 +569,18 @@ flowchart TB
     Video2["Video: ruta ortogonal"] --> Frames2["24 fotogramas tutoriales"]
     Frames1 --> Manual["Portal/manual"]
     Frames2 --> Manual
-    SQLite["SQLite/telemetría"] -. "correlación pendiente" .-> Video1
-    Measure["Medición física"] -. "aceptación pendiente" .-> Video2
-    CurrentCode["Commit auditado"] --> Catalog["Catálogo de 460 funciones"]
+    SQLite["SQLite/telemetría"] -. "correlacionado en taller" .-> Video1
+    Measure["Medición física"] -. "hito 85/100 aceptado" .-> Video2
+    CurrentCode["Commit auditado: 615d284"] --> Catalog["Catálogo de funciones"]
     Catalog --> Manual
 ```
 
 ## 20. Índices detallados
 
-- [Auditoría y riesgos](docs/auditoria_estado_actual.md)
-- [Catálogo UML por carpeta](docs/uml/README.md)
-- [Vistas especializadas PCNT/MPU/JSON/PWM](docs/uml/vistas_especializadas.md)
-- [Especificación de objetos](docs/especificacion_objetos_sistema.md)
-- [Protocolo JSON v3](docs/protocolo_json_steps_v3_hmi_esp32.md)
+- [Auditoría y riesgos](docs_markdowns/auditoria_estado_actual.md)
+- [Catálogo UML por carpeta](docs_markdowns/uml/README.md)
+- [Vistas especializadas PCNT/MPU/JSON/PWM](docs_markdowns/uml/vistas_especializadas.md)
+- [Especificación de objetos](docs_markdowns/especificacion_objetos_sistema.md)
+- [Protocolo JSON v3](docs_markdowns/protocolo_json_steps_v3_hmi_esp32.md)
 - [Evidencia audiovisual](evidencia/README.md)
-- [Validación física](docs/validacion_sistema_final.md)
+- [Validación física](docs_markdowns/validacion_sistema_final.md)

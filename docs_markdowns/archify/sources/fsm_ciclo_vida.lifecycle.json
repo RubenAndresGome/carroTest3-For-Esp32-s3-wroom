@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Ciclo de Vida y Estados del Robot (FSM)",
+    "output": "fsm_ciclo_vida.html",
+    "viewBox": [1030, 630],
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "camino-operativo", "label": "Operación normal", "focus": ["desarmado", "calibrando", "listo", "ejecutando", "completado"], "note": "Desde el encendido hasta la ejecución de misiones validadas." },
+      { "id": "interrupciones", "label": "Pausas y esperas", "focus": ["listo", "pausado"], "note": "Pausa controlada solicitada desde HMI sin pérdida de calibración." },
+      { "id": "recuperacion-fallos", "label": "Manejo de fallos", "focus": ["ejecutando", "fallo", "desarmado", "estop"], "note": "Recuperación de fallos de encoder y parada crítica de emergencia." }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "Fases de Operación" },
+    { "id": "waiting", "label": "Pausa y Reposo" },
+    { "id": "exceptions", "label": "Recuperación de Fallo" },
+    { "id": "terminal", "label": "Parada Crítica" }
+  ],
+  "states": [
+    { "id": "desarmado", "type": "start", "label": "DESARMADO", "sublabel": "inicio / boot", "lane": "main", "col": 0, "step": "01", "tag": "inicio" },
+    { "id": "calibrando", "type": "active", "label": "CALIBRANDO", "sublabel": "5 fases dogma", "lane": "main", "col": 1, "step": "02", "tag": "dogma" },
+    { "id": "listo", "type": "active", "label": "LISTO", "sublabel": "pose verificable", "lane": "main", "col": 2, "step": "03", "tag": "armado" },
+    { "id": "ejecutando", "type": "active", "label": "EJECUTANDO", "sublabel": "step atómico", "lane": "main", "col": 3, "step": "04", "tag": "misión" },
+    { "id": "completado", "type": "success", "label": "COMPLETADO", "sublabel": "misión terminada", "lane": "main", "col": 4, "step": "05", "tag": "fin" },
+    { "id": "pausado", "type": "waiting", "label": "PAUSADO", "sublabel": "espera HMI", "lane": "waiting", "col": 0, "tag": "pausa" },
+    { "id": "fallo", "type": "failure", "label": "FALLO", "sublabel": "stall de encoder", "lane": "exceptions", "col": 1, "yOffset": 78, "tag": "recuperable" },
+    { "id": "estop", "type": "failure", "label": "ESTOP", "sublabel": "PWM cero absoluto", "lane": "terminal", "col": 1, "tag": "emergencia" }
+  ],
+  "transitions": [
+    { "id": "pausa-solicitada", "from": "listo", "to": "pausado", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "fallo-ocurrido", "from": "ejecutando", "to": "fallo", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "fallo-recuperacion", "from": "fallo", "to": "desarmado", "variant": "emphasis", "fromSide": "left", "toSide": "top", "via": [[20, 385], [20, 80], [94, 80]] },
+    { "id": "fallo-a-estop", "from": "fallo", "to": "estop", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Máquina de Estados Concurrente",
+      "items": [
+        "El ESP32 es la autoridad final de transición de estados",
+        "No se autoriza ningún movimiento de traslación sin estar en estado LISTO"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Degradación y Parada",
+      "items": [
+        "La pérdida de ticks o divergencia de yaw transiciona inmediatamente a FALLO",
+        "ESTOP tiene prioridad absoluta en la cola y anula cualquier rampa activa"
+      ]
+    }
+  ]
+}

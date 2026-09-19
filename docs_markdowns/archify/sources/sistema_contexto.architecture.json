@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura General y Contexto Operativo",
+    "output": "sistema_contexto.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "flujo-comando", "label": "Flujo de comando", "focus": ["operador", "hmi", "backend", "gateway", "esp32", "drivers", "motores"], "note": "Trayectoria desde el operador hasta la tracción en ruedas." },
+      { "id": "persistencia-telemetria", "label": "Telemetría y persistencia", "focus": ["sensores", "esp32", "gateway", "backend", "db", "hmi"], "note": "Adquisición de PCNT e IMU, tránsito por WebSocket y persistencia SQLite." },
+      { "id": "fronteras-hardware", "label": "Límites y hardware", "focus": ["esp32", "drivers", "motores", "sensores"], "note": "Subsistemas embebidos dentro de la plataforma física del robot." }
+    ]
+  },
+  "components": [
+    { "id": "operador", "type": "external", "label": "Operador", "sublabel": "HMI Web", "pos": [40, 110], "size": [130, 56] },
+    { "id": "hmi", "type": "frontend", "label": "HMI Canónica", "sublabel": "HTML5 + Token", "pos": [260, 110], "size": [140, 56], "tag": "loopback" },
+    { "id": "backend", "type": "backend", "label": "RobotService", "sublabel": "Flask + Waitress", "pos": [500, 110], "size": [150, 56], "tag": "Python" },
+    { "id": "gateway", "type": "messagebus", "label": "RobotGateway", "sublabel": "Cola + WS v3", "pos": [740, 110], "size": [140, 56] },
+    { "id": "db", "type": "database", "label": "SQLite Local", "sublabel": "robot.sqlite3", "pos": [260, 250], "size": [140, 56], "tag": "WAL" },
+    { "id": "esp32", "type": "security", "label": "ESP32-S3", "sublabel": "Superciclo 100Hz", "pos": [740, 250], "size": [140, 56], "tag": "FreeRTOS" },
+    { "id": "sensores", "type": "frontend", "label": "PCNT + MPU", "sublabel": "Encoders + IMU", "pos": [500, 250], "size": [140, 56], "tag": "40 PPR" },
+    { "id": "drivers", "type": "backend", "label": "2× DRV8833", "sublabel": "Puente H", "pos": [740, 390], "size": [140, 56], "tag": "interlock" },
+    { "id": "motores", "type": "cloud", "label": "4× Motores TT", "sublabel": "Chasis 4WD", "pos": [970, 390], "size": [130, 56] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Controlador Único (Windows Host o Android Tablet)", "wraps": ["hmi", "backend", "db", "gateway"] },
+    { "kind": "security-group", "label": "Robot Físico ESP32-S3 (Chasis 4WD)", "wraps": ["esp32", "drivers", "motores", "sensores"] }
+  ],
+  "connections": [
+    { "id": "op-hmi", "from": "operador", "to": "hmi", "label": "interacción", "variant": "emphasis" },
+    { "id": "hmi-backend", "from": "hmi", "to": "backend", "label": "REST + Token", "variant": "security" },
+    { "id": "backend-gw", "from": "backend", "to": "gateway", "label": "paso atómico" },
+    { "id": "backend-db", "from": "backend", "to": "db", "label": "WAL", "fromSide": "bottom", "toSide": "top" },
+    { "id": "gw-esp", "from": "gateway", "to": "esp32", "label": "WebSocket v3", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "esp-drv", "from": "esp32", "to": "drivers", "label": "PWM 100Hz", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "drv-mot", "from": "drivers", "to": "motores", "label": "tracción" },
+    { "id": "sns-esp", "from": "sensores", "to": "esp32", "label": "PCNT + I2C" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Propiedad Exclusiva", "items": ["Windows y Android son excluyentes; nunca coexisten dos sockets", "Token X-App-Token obligatorio en peticiones REST"] },
+    { "dot": "cyan", "title": "Misión y Control", "items": ["Python subdivide rutas ortogonales en pasos <=200 cm", "Core 1 del ESP32 ejecuta el súper-ciclo síncrono de 100 Hz"] },
+    { "dot": "rose", "title": "Protección Eléctrica", "items": ["PWM sostenido limitado a 242 crucero y 247 giro", "Interlock universal de 250 ms al invertir polaridad"] }
+  ]
+}

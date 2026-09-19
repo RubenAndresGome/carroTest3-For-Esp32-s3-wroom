@@ -4,7 +4,7 @@ export const findings = [
   { id: "A-03", severity: "Alta", title: "seq=1 reinicia la ventana idempotente", detail: "Cada misión vuelve a secuencia 1 dentro de la misma sesión y el UUID Python no viaja en step/turn_to.", source: "services.py:_activate_mission · Red.cpp:98-104" },
   { id: "A-04", severity: "Alta", title: "Evento terminal descartable", detail: "encolarEvento ignora el resultado de xQueueSend después de limpiar el comando activo.", source: "src/Eventos.cpp:6-30" },
   { id: "A-05", severity: "Alta", title: "Reglas y constantes contradictorias", detail: "Stalls, tolerancia, rampa y aproximación fina escritos no coinciden con Config.h y Cinematica.cpp.", source: "AGENTS.md · include/Config.h" },
-  { id: "A-06", severity: "Alta", title: "Calibración sin ticks", detail: "La prueba reciente mostró giro por IMU, cuatro encoders en cero y cal_stall_left.", source: "SQLite de la prueba física" },
+  { id: "A-06", severity: "Resuelto", title: "Encoders y filtrado PCNT verificados", detail: "Resolución 40 PPR (escala 2:1), filtro hardware PCNT 1023 ciclos, aislamiento en giro y corroboración bilateral validados en taller.", source: "src/Encoders.cpp · SQLite Sesión 15622" },
   { id: "A-07", severity: "Resuelto", title: "Mision.cpp retirado del firmware activo", detail: "El módulo histórico de misión completa vive fuera del árbol activo; Python conserva la propiedad de misión y el ESP32 ejecuta pasos atómicos.", source: "archive/legacy/firmware_mission/Mision.cpp · src/main.cpp" },
   { id: "A-08", severity: "Media", title: "Sesiones SQLite fragmentadas", detail: "Cada estado BACKOFF cierra la sesión histórica aunque la sesión de protocolo siga viva.", source: "services.py:_on_connection_state" },
   { id: "A-09", severity: "Media", title: "Autopruebas de firmware no ejecutadas", detail: "Las validaciones puras del interlock y RTOS existen, pero no forman parte de una puerta automática.", source: "src/Motores.cpp · src/DiagnosticoRTOS.cpp" },
@@ -72,19 +72,31 @@ export const diagrams = {
     H->>P: POST /commands calibrate
     P->>E: calibrate(seq)
     E-->>P: accepted
-    loop búsqueda de torque
-      S-->>E: gyro + ticks por lado
-      E->>M: rampa PWM protegida
+    Note over E,S: Fase 1: CAL_CUENTA_REGRESIVA 5.0 s (sesgo MPU)
+    loop Búsqueda A (torque positivo)
+      S-->>E: gyro_z >= 0.12 rad/s + ticks bilaterales
+      E->>M: rampa PWM 140 a 247
       E-->>P: progress(cal/cal_a)
     end
-    E->>M: validar +25°, reposo y retorno
-    alt movimiento confirmado
+    Note over E,M: Fase 2: CAL_VALIDAR_25 (giro +25 deg)
+    E->>M: pivote fino +25 deg (asentamiento 600 ms)
+    Note over E,M: Fase 3: CAL_PAUSA (reposo 2.5 s) y CAL_B
+    loop Búsqueda B (torque opuesto)
+      S-->>E: gyro_z opuesto + ticks bilaterales
+      E->>M: rampa opuesta protegida
+      E-->>P: progress(cal/cal_b)
+    end
+    Note over E,M: Fase 4: CAL_PAUSA_RETORNO (reposo 2.5 s)
+    Note over E,M: Fase 5: CAL_RETORNO (regreso a yaw original)
+    E->>M: pivote hacia yaw original
+    alt retorno exitoso
       E-->>P: completed(cal_ok)
+      Note over E: PoseGlobal=(0,0), yaw=0
       P-->>H: listo / rutas habilitadas
-    else encoder sin progreso
+    else atasco o pérdida socket
       E->>M: PWM = 0
-      E-->>P: fault(cal_stall_left/right)
-      P-->>H: fallo / rutas bloqueadas
+      E-->>P: fault(cal_stall_left/right/cal_connection_lost)
+      P-->>H: fallo / parada segura
     end`,
   returnHome: `sequenceDiagram
     autonumber
@@ -363,3 +375,49 @@ export const evidence = [
     frames: makeFrames("ruta_ortogonal", 88.533333, ["Inicio", "Tramo Y+100", "Tramo Y+50", "Giro y X+190", "X−190", "Corte final"]),
   },
 ];
+
+export const archifyMaps = [
+  {
+    id: "sistema_contexto",
+    title: "Contexto del Sistema",
+    file: "archify/sistema_contexto.html",
+    type: "Architecture",
+    description: "Límites arquitectónicos entre Operador, HMI/Backend, Android, ESP32-S3 y Planta Motriz.",
+  },
+  {
+    id: "firmware_superciclo",
+    title: "Súper-Ciclo 100 Hz Firmware",
+    file: "archify/firmware_superciclo.html",
+    type: "Architecture",
+    description: "Pipeline síncrono Core 1 (PCNT/MPU, Pose, Seguridad, Cinemática, PWM) y Core 0 (Task_Web).",
+  },
+  {
+    id: "calibracion_dogma",
+    title: "Dogma Canónico de Calibración",
+    file: "archify/calibracion_dogma.html",
+    type: "Sequence",
+    description: "Secuencia inmutable en 5 fases con cuenta regresiva 5.0 s, búsqueda A, validación +25°, búsqueda B y retorno a yaw 0.",
+  },
+  {
+    id: "mision_navegacion",
+    title: "Misión y Navegación Ortogonal",
+    file: "archify/mision_navegacion.html",
+    type: "Workflow",
+    description: "Descomposición ortogonal de tramos ≤200 cm, lazo cerrado heading PID y retorno Ockham seguro.",
+  },
+  {
+    id: "fsm_ciclo_vida",
+    title: "Ciclo de Vida de Comandos (FSM)",
+    file: "archify/fsm_ciclo_vida.html",
+    type: "Lifecycle",
+    description: "Transiciones de estado de comandos robot-s3-steps-v3 con ventanas de idempotencia seq/last_seq.",
+  },
+  {
+    id: "seguridad_electrica",
+    title: "Seguridad Eléctrica DRV8833",
+    file: "archify/seguridad_electrica.html",
+    type: "Architecture",
+    description: "Techos de PWM (242/247), ráfagas kickstart (80 ms), zonas muertas y tiempo muerto universal (250 ms).",
+  },
+];
+

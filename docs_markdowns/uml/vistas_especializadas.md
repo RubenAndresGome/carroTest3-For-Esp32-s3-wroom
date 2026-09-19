@@ -155,7 +155,7 @@ sequenceDiagram
     S->>P: imu_deltaZ_rad
     P->>P: actualizarOrientacion(dTheta)
     C->>P: aplicarCorreccionICR(dTheta, icrX, icrY)
-    P->>P: x += -y_icr*dTheta ; y += x_icr*dTheta
+    P->>P: corregir dx = -y_icr*dTheta, dy = x_icr*dTheta
     C->>M: aplicarVelocidades(pwmL, pwmR)
     M-->>M: trim por lado + zona muerta
 ```
