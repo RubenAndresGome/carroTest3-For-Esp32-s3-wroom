@@ -19,6 +19,17 @@ struct Muestra {
   int deadbandDer8 = 0;
 };
 
+// Piso dinamico de arranque: solo eleva velocidades por debajo del umbral de
+// crucero (vence la esticcion de los TT). Nunca suma sobre el crucero, por lo
+// que no puede superar el limite continuo de avance (242/255).
+inline int aplicarPisoDeadband(int vel, int deadband, int umbralCrucero) {
+  if (vel == 0 || deadband <= 0) return vel;
+  const int mag = vel < 0 ? -vel : vel;
+  if (umbralCrucero > 0 && mag >= umbralCrucero) return vel;
+  const int piso = mag > deadband ? mag : deadband;
+  return vel > 0 ? piso : -piso;
+}
+
 inline float limitarTrim(float valor) {
   return valor < TRIM_MIN ? TRIM_MIN : (valor > TRIM_MAX ? TRIM_MAX : valor);
 }

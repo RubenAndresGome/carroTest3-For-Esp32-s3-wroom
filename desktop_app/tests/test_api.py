@@ -897,7 +897,7 @@ class ApiTests(unittest.TestCase):
             "deadband_der_8bit": 9,
             "icr_x_cm": 1.5,
             "icr_y_cm": -2.0,
-            "gyro_scale": 1.05,
+            "gyro_scale": 1.07,
         }
         res_post = self.client.post("/api/v1/calibration/surfaces", json=new_surface, headers={"X-App-Token": self.token})
         self.assertEqual(res_post.status_code, 201)
@@ -910,6 +910,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(created["deadband_der_8bit"], 9)
         self.assertAlmostEqual(created["icr_x_cm"], 1.5)
         self.assertAlmostEqual(created["icr_y_cm"], -2.0)
+        self.assertAlmostEqual(created["gyro_scale"], 1.07)
 
         # Apply surface
         self._ready()
@@ -925,6 +926,7 @@ class ApiTests(unittest.TestCase):
                            if item.command.name == "set_calibration")
         self.assertAlmostEqual(calibration.payload["icr_x_cm"], 1.5)
         self.assertAlmostEqual(calibration.payload["icr_y_cm"], -2.0)
+        self.assertAlmostEqual(calibration.payload["gyro_scale"], 1.07)
         compensation = next(item.command for item in self.service.gateway._outgoing.queue
                             if item.command.name == "set_comp")
         self.assertAlmostEqual(compensation.payload["trim_izq"], 0.92)
@@ -948,6 +950,17 @@ class ApiTests(unittest.TestCase):
         status = self.service.mission_status()
         self.assertTrue(status["blocked"])
         self.assertIn("5v_fuente_desconectada", str(status.get("error") or ""))
+
+    def test_heading_recovery_exhausted_blocks_mission_without_fault(self) -> None:
+        self._ready()
+        mission = self.service.start_mission([{"x_mm": 0, "y_mm": 1000}])
+        self.service._on_robot_message({
+            "evt": "completed", "seq": mission["active_seq"],
+            "detail": "heading_recovery_exhausted_soft",
+        })
+        status = self.service.mission_status()
+        self.assertTrue(status["blocked"])
+        self.assertIn("heading_recovery_exhausted", str(status.get("error") or ""))
 
     def test_disconnect_grace_period_preserves_running_mission(self) -> None:
         self._ready()

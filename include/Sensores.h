@@ -38,3 +38,7 @@ float obtenerYawIMUDeg();
 bool recentrarYawIMUEnReposo();
 uint32_t cantidadRecentradosYawIMU();
 void resetFiltrosEncoder();
+// Escala de giroscopo por superficie (persistida por el HMI). Se multiplica por
+// GYRO_Z_SCALE_FACTOR en la integracion de rumbo.
+void establecerEscalaGiro(float escala);
+float obtenerEscalaGiro();

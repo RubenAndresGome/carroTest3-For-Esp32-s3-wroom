@@ -159,6 +159,7 @@ void procesarComandos() {
             case CMD_SET_CALIBRATION:
                 icrXCm = cmd.icrXCm;
                 icrYCm = cmd.icrYCm;
+                establecerEscalaGiro(cmd.gyroScale);
                 if (!aplicarCalibracionInyectada(cmd.pwmPositivo8, cmd.pwmNegativo8, cmd.polaridadPositiva, cmd.polaridadNegativa, cmd.seq))
                     encolarEvento(EVT_REJECTED, cmd.seq, "cal_injection_failed");
                 break;

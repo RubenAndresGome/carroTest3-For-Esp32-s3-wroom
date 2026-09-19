@@ -2,6 +2,7 @@
 #include "Comandos.h"
 #include "Config.h"
 #include "ControlRuta.h"
+#include "ControlAngular.h"
 #include "ControlCalibracion.h"
 #include "ControlSeguridad.h"
 #include "Debug.h"
@@ -366,6 +367,7 @@ int pwmBusquedaGiro = 0;
 int pwmBoostFrenado = 0;
 uint32_t inicioPulsoFinoGiroMs = 0;
 bool pulsoFinoGiroEncendido = false;
+uint8_t pulsosFinosGiro = 0;
 uint32_t inicioFrenoToleranciaMs = 0;
 uint32_t ultimoJerkMs = 0;
 bool jerkActivo = false;
@@ -373,6 +375,8 @@ ControlSeguridad::EstadoVigilanciaDivergenciaGiro vigilanciaDivergenciaGiro;
 int ultimoSignoErrorGiro = 0;
 
 void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
+  // Giro y calibracion sostienen 247/255; por encima solo rafagas acotadas.
+  establecerLimiteContinuoPwm(PWM_TURN_CONTINUO_LIMIT);
   reiniciarControlRumbo();
   PoseGlobal.iniciarMedicionTraslacionGiro();
   const SensorSnapshot s = sensar();
@@ -381,7 +385,7 @@ void iniciarBaseGiro(float objetivoDeg, Fase retorno) {
   giroEnTol = false; movGiroConfirmado=false; watchdogGiroArmado=false;
   intentoGiro=1; inicioIntentoGiroMs=millis(); inicioGiroTotalMs=millis();
   estableGiroDesdeMs=0; pausaReintentoGiroCal=false;
-  inicioPulsoFinoGiroMs=millis(); pulsoFinoGiroEncendido=false;
+  inicioPulsoFinoGiroMs=millis(); pulsoFinoGiroEncendido=false; pulsosFinosGiro=0;
   inicioFrenoToleranciaMs=0; ultimoJerkMs=0; jerkActivo=false;
   ticksLadoGiroAnt[0]=ticksLadoGiroAnt[1]=0;
   ultimoPulsoLadoGiroMs[0]=ultimoPulsoLadoGiroMs[1]=millis();
@@ -568,7 +572,13 @@ void controlarGiro() {
   }
 
   // --- latch de tolerancia y freno dinámico activo por MPU ---
-  const float tolGiro = (fase == Fase::CAL_RETORNO) ? TOLERANCIA_CALIBRACION_DEG : TOLERANCIA_GIRO_DEG;
+  // Tolerancia estricta de 1.0 grado. Fallback a 1.5 grados tras varios
+  // micro-pulsos si el giroscopo esta en reposo absoluto: evita bloquear el
+  // paso por ruido del MPU o backlash mecanico.
+  const float tolGiro = (fase == Fase::CAL_RETORNO)
+      ? TOLERANCIA_CALIBRACION_DEG
+      : (pulsosFinosGiro >= TURN_PULSOS_FALLBACK ? TOLERANCIA_GIRO_FALLBACK_DEG
+                                                 : TOLERANCIA_GIRO_DEG);
   if (errorAbs <= tolGiro) {
     pwmGiroAct = 0;
     signoGiroApl = 0;
@@ -694,6 +704,7 @@ void controlarGiro() {
         } else {
           // Fin del ciclo completo de reposo (200 ms OFF totales) -> Iniciar nuevo pulso ON
           pulsoFinoGiroEncendido = true;
+          if (pulsosFinosGiro < 255) ++pulsosFinosGiro;
           inicioPulsoFinoGiroMs = ahora;
           if (detectadoSinMovimiento) {
             pwmBoostFrenado = min(PWM_TURN_MAX_LIMIT - minimo,
@@ -864,6 +875,8 @@ void resetConfEncoders() {
 }
 
 void iniciarAvance(bool conservar) {
+  // Avance recto sostenido estrictamente a 242/255; por encima solo rafagas.
+  establecerLimiteContinuoPwm(PWM_SAFE_HARD_LIMIT);
   const SensorSnapshot s = sensar();
   if (!conservar) { distAcumuladaCm = 0.0f; intentosRecup = 0; }
   // Anclaje de trayectoria: si el paso persigue un objetivo espacial absoluto,
@@ -1160,18 +1173,35 @@ bool controlarAvance() {
   // menores se absorben en continuo para evitar el ciclo avance/giro.
   // En los últimos 15 cm de aproximación final, se inhibe el pivote en el lugar para que
   // el lazo continuo PID guíe suavemente al robot hasta el punto meta sin interrupciones.
-  if (fabsf(err) > ERROR_RUMBO_RECUPERAR_DEG && restante > 15.0f) {
+  // Lazo angular graduado (ControlAngular): A) diferencial suave sin detener;
+  // B) diferencial fuerte con retencion; C) pausa + pivote + reanudar conteo;
+  // D) cierre final sin pivote. El pivote solo se autoriza tras la histeresis.
+  if (fabsf(err) > UMBRAL_ANGULAR_TRANSITORIO_DEG) {
     if (!inicioErrorRumboMs) inicioErrorRumboMs = millis();
-    if (millis() - inicioErrorRumboMs >= ERROR_RUMBO_RECUPERAR_MS) {
-      frenarMotores();
-      distAcumuladaCm = distMedida;
-      if (intentosRecup >= INTENTOS_RECUPERACION_MAX) { fallo("heading_no_recovery"); return false; }
-      ++intentosRecup;
-      iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
-      return false;
-    }
   } else {
     inicioErrorRumboMs = 0;
+  }
+  const uint32_t msEnError = inicioErrorRumboMs ? (millis() - inicioErrorRumboMs) : 0;
+  const ControlAngular::DecisionAngular angular = ControlAngular::evaluarLazoAngular(
+      err, restante, msEnError, UMBRAL_ANGULAR_CONTINUO_DEG,
+      UMBRAL_ANGULAR_TRANSITORIO_DEG, DISTANCIA_CIERRE_ANGULAR_CM,
+      TIEMPO_SOSTENIDO_RECUPERACION_MS);
+  pasoModoAngular = static_cast<uint8_t>(angular.modo);
+  pasoModulacionIzq = angular.modLadoIzq;
+  pasoModulacionDer = angular.modLadoDer;
+  if (angular.solicitarPivote) {
+    frenarMotores();
+    distAcumuladaCm = distMedida;
+    if (intentosRecup >= INTENTOS_RECUPERACION_MAX) {
+      // Sin fallo enclavado: parada suave con diagnostico explicito para el
+      // operador en vez de heading_no_recovery.
+      registrarMotivoFinalizacion("heading_recovery_exhausted");
+      fin(EVT_COMPLETED, "heading_recovery_exhausted_soft");
+      return false;
+    }
+    ++intentosRecup;
+    iniciarBaseGiro(normalizar360(rumboObjetivoDeg), Fase::GIRO_RECUPERACION);
+    return false;
   }
 
   // --- PID de rumbo con integral acotada y anti-windup ---
@@ -1267,10 +1297,15 @@ bool controlarAvance() {
   // Compensacion derecha + direccionamiento diferencial simetrico (preserva empuje neto hacia adelante)
   // Compensacion adaptativa por lado: corrige la asimetria de los reductores
   // TT. El HMI la calibra y persiste por tipo de piso.
-  const int baseIzq = constrain(aproximar(base * perfilCompensacion.getLadoIzq()),
-                                VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
-  int baseDer = constrain(aproximar(base * perfilCompensacion.getLadoDer()),
-                          VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  // La modulacion del lazo angular se aplica sobre el crucero antes del PID:
+  // en modo B el lado interno retiene par y el externo empuja para reorientar
+  // sin detener el avance.
+  const int baseIzq = constrain(
+      aproximar(base * perfilCompensacion.getLadoIzq() * angular.modLadoIzq),
+      VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
+  int baseDer = constrain(
+      aproximar(base * perfilCompensacion.getLadoDer() * angular.modLadoDer),
+      VELOCIDAD_MINIMA_DIFERENCIAL, PWM_MAX);
   int redL = 0, redR = 0;
   int boostL = 0, boostR = 0;
   if (ctrlRumbo != 0.0f) {
@@ -1308,6 +1343,7 @@ bool controlarAvance() {
 
 // ============== PASO (orquestacion: giro_inicial -> avance -> giro_final -> completado) ==============
 void iniciarAsentamientoFinal(float distanciaAntesDeFrenarCm) {
+  establecerLimiteContinuoPwm(PWM_SAFE_HARD_LIMIT);
   frenarMotoresActivo();
   const SensorSnapshot s = sensar();
   copiarBase(ticksBaseAsentamiento, s);
@@ -1465,9 +1501,11 @@ void controlarPausaPreGiro() {
       fabsf(s.gyro_z_filtrado_rad_s) >= 0.02f) {
     return;
   }
+  // Verificacion estricta: no se libera la recta con rumbo contaminado. Cualquier
+  // desvio superior a 1.0 grado se corrige con un micro-giro antes de avanzar.
   float err = errorAng360(pasoRumboCuerpoDeg, heading360);
   if (fabsf(err) <= TOLERANCIA_CARDINAL_ESTRICTA_DEG) {
-    iniciarPausaPreAvance(false);
+    iniciarAvance(pausaPreAvanceConservar);
   } else {
     iniciarBaseGiro(pasoRumboCuerpoDeg, Fase::GIRO_INICIAL);
   }
@@ -1550,6 +1588,8 @@ DiagnosticoCalibracion obtenerDiagnosticoCalibracion() {
 
 bool iniciarCalibracion(int seq) {
   if (estadoActual != DESARMADO && estadoActual != LISTO) return false;
+  // La calibracion explora torque hasta 247/255 sostenido (rafagas a 255).
+  establecerLimiteContinuoPwm(PWM_TURN_CONTINUO_LIMIT);
   const SensorSnapshot s = sensar();
   if (!s.mpu_present || !s.mpu_calibrated || s.mpu_stale) return false;
   seqActivo = seq; robotCalibrado = false;

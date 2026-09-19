@@ -155,13 +155,58 @@ static bool aplicarLadoUnico(int pinFwd, int pinRev, int vel) {
 static bool enFrenoActivo = false;
 static uint32_t inicioFrenoActivoMs = 0;
 
-// Suma la zona muerta de arranque a la magnitud solicitada conservando el
-// signo y sin exceder el limite de giro.
+// Zona muerta como PISO dinamico de arranque (logica pura testeable en
+// ControlCompensacion.h): nunca suma sobre el crucero.
 static int aplicarDeadband(int vel, int deadband) {
-  if (vel == 0 || deadband <= 0) return vel;
-  if (vel > 0) return min(PWM_TURN_MAX_LIMIT, vel + deadband);
-  return max(-PWM_TURN_MAX_LIMIT, vel - deadband);
+  return ControlCompensacion::aplicarPisoDeadband(vel, deadband,
+                                                  PWM_DEADBAND_UMBRAL_CRUCERO);
 }
+
+// Limitador de rafagas al 100%: autoriza PWM por encima del limite continuo
+// solo durante PWM_BURST_MAX_MS y luego se repliega hasta que la solicitud
+// baje del limite (evita oscilar rafaga/limite). Nueva rafaga exige
+// PWM_BURST_COOLDOWN_MS de enfriamiento.
+struct LimitadorRafaga {
+  uint32_t inicioRafagaMs = 0;
+  uint32_t ultimaRafagaMs = 0;
+  bool replegado = false;
+
+  int actualizar(int pwm, uint32_t ahora, int limiteContinuo) {
+    const int mag = abs(pwm);
+    const int signo = pwm > 0 ? 1 : -1;
+    if (limiteContinuo <= 0 || mag <= limiteContinuo) {
+      inicioRafagaMs = 0;
+      replegado = false;
+      return pwm;
+    }
+    if (replegado) return signo * limiteContinuo;
+    if (inicioRafagaMs == 0) {
+      if (ultimaRafagaMs != 0 && ahora - ultimaRafagaMs < PWM_BURST_COOLDOWN_MS) {
+        return signo * limiteContinuo;
+      }
+      inicioRafagaMs = ahora;
+      return pwm;
+    }
+    if (ahora - inicioRafagaMs >= PWM_BURST_MAX_MS) {
+      replegado = true;
+      ultimaRafagaMs = ahora;
+      return signo * limiteContinuo;
+    }
+    return pwm;
+  }
+
+  void reiniciar() { *this = LimitadorRafaga(); }
+};
+
+static LimitadorRafaga limitadorRafagaL;
+static LimitadorRafaga limitadorRafagaR;
+static int limiteContinuoActual = PWM_SAFE_HARD_LIMIT;
+
+void establecerLimiteContinuoPwm(int limite) {
+  limiteContinuoActual = constrain(limite, 0, PWM_TURN_MAX_LIMIT);
+}
+
+int limiteContinuoPwm() { return limiteContinuoActual; }
 
 bool aplicarVelocidades(int velIzq, int velDer) {
   // Preflight completo: si el mapa o la inicialización son inválidos, no se
@@ -203,6 +248,9 @@ bool aplicarVelocidades(int velIzq, int velDer) {
       static_cast<int>(perfilCompensacion.getDeadbandIzq8() * PWM_SCALE_8_TO_10));
   pwm_solicitado_R = aplicarDeadband(pwm_solicitado_R,
       static_cast<int>(perfilCompensacion.getDeadbandDer8() * PWM_SCALE_8_TO_10));
+  // Rafaga acotada al 100% con replegue automatico al limite continuo.
+  pwm_solicitado_L = limitadorRafagaL.actualizar(pwm_solicitado_L, ahora, limiteContinuoActual);
+  pwm_solicitado_R = limitadorRafagaR.actualizar(pwm_solicitado_R, ahora, limiteContinuoActual);
   pwm_aplicado_L = interlockL.actualizar(pwm_solicitado_L, ahora);
   pwm_aplicado_R = interlockR.actualizar(pwm_solicitado_R, ahora);
 
@@ -227,6 +275,8 @@ void frenarMotores() {
   const uint32_t ahora = millis();
   interlockL.detener(ahora);
   interlockR.detener(ahora);
+  limitadorRafagaL.reiniciar();
+  limitadorRafagaR.reiniciar();
   enFrenoActivo = false;
   apagarCanalesPWM();
   pwm_aplicado_L = 0;

@@ -1312,6 +1312,13 @@ class RobotService:
                 has_mission = self._mission_id is not None
             if has_mission:
                 self.stop_mission("calibration_completed")
+        # Parada suave por agotar la recuperacion angular: no es un exito, pero
+        # tampoco enclava FALLO. Se bloquea la mision con causa explicita.
+        if kind in {"completed", "already_done"} and "heading_recovery_exhausted" in detail_str:
+            with self._lock:
+                has_mission = self._mission_id is not None and not self._mission_blocked
+            if has_mission:
+                self._block_mission("heading_recovery_exhausted")
         if any(k in detail_str for k in ("estop", "e-stop", "emergencia")):
             with self._lock:
                 has_mission = self._mission_id is not None
@@ -1684,6 +1691,7 @@ class RobotService:
             "cand_neg": surface["negative_polarity"],
             "icr_x_cm": float(surface["icr_x_cm"] or 0.0),
             "icr_y_cm": float(surface["icr_y_cm"] or 0.0),
+            "gyro_scale": float(surface["gyro_scale"] or 1.0),
         })
         # El perfil adaptativo por lado viaja aparte para no acoplar el
         # contrato de torque con la compensacion.

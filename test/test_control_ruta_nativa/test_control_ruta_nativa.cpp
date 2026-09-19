@@ -8,6 +8,7 @@
 #include "ControlInicializacionPCNT.h"
 #include "ControlConexion.h"
 #include "ControlCompensacion.h"
+#include "ControlAngular.h"
 
 extern "C" void setUp() {}
 extern "C" void tearDown() {}
@@ -885,6 +886,70 @@ void test_perfil_compensacion_getters_y_promedio() {
   TEST_ASSERT_EQUAL_UINT8(2, media.getCantidad());
 }
 
+void test_icr_proyeccion_global_cuatro_cuadrantes() {
+  constexpr float kPi = 3.14159265358979323846f;
+  // ICR (x=2, y=3), dTheta=0.5 -> desplazamiento body (-1.5, 1.0).
+  // theta=0: global = body.
+  const auto g0 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, 0.0f);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, g0.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, g0.dyCm);
+  // theta=90: avance frontal del cuerpo -> +X global.
+  const auto g90 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, kPi / 2);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, g90.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, g90.dyCm);
+  // theta=180: signos invertidos.
+  const auto g180 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, kPi);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, g180.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, g180.dyCm);
+  // theta=270.
+  const auto g270 = ControlRuta::corregirTraslacionParasitaGlobal(2.0f, 3.0f, 0.5f, 3.0f * kPi / 2);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.0f, g270.dxCm);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -1.5f, g270.dyCm);
+}
+
+void test_control_angular_modos_a_b_c_d() {
+  using ControlAngular::ModoRecuperacion;
+  const auto modo = [](const ControlAngular::DecisionAngular& d) {
+    return static_cast<uint8_t>(d.modo);
+  };
+  // Modo A: error 2 grados -> diferencial suave, frena el lado derecho.
+  const auto a = ControlAngular::evaluarLazoAngular(2.0f, 50.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::CONTINUO_SUAVE), modo(a));
+  TEST_ASSERT_TRUE(a.modLadoDer < a.modLadoIzq);
+  TEST_ASSERT_FALSE(a.solicitarPivote);
+  // Modo A: error negativo -> frena el lado izquierdo.
+  const auto aNeg = ControlAngular::evaluarLazoAngular(-2.0f, 50.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_TRUE(aNeg.modLadoIzq < aNeg.modLadoDer);
+  // Modo B: error 8 grados -> retencion fuerte del lado interno.
+  const auto b = ControlAngular::evaluarLazoAngular(8.0f, 50.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::FRENADO_TRANSITORIO), modo(b));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.55f, b.modLadoDer);
+  TEST_ASSERT_FALSE(b.solicitarPivote);
+  // Modo C: error 15 grados antes de la histeresis -> B sin pivote.
+  const auto c1 = ControlAngular::evaluarLazoAngular(15.0f, 50.0f, 100, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_FALSE(c1.solicitarPivote);
+  // Tras la histeresis -> C con pausa y pivote.
+  const auto c2 = ControlAngular::evaluarLazoAngular(15.0f, 50.0f, 300, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_TRUE(c2.solicitarPivote);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::PAUSA_PIVOTE), modo(c2));
+  // Modo D: resta <= 15 cm -> cierre final sin pivote.
+  const auto d = ControlAngular::evaluarLazoAngular(2.0f, 10.0f, 0, 5.0f, 12.0f, 15.0f, 300);
+  TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(ModoRecuperacion::CIERRE_FINAL), modo(d));
+  TEST_ASSERT_FALSE(d.solicitarPivote);
+}
+
+void test_deadband_piso_no_infla_crucero() {
+  // A 200 (>= umbral 180) el piso no altera el valor.
+  TEST_ASSERT_EQUAL_INT(200, ControlCompensacion::aplicarPisoDeadband(200, 20, 180));
+  TEST_ASSERT_EQUAL_INT(-200, ControlCompensacion::aplicarPisoDeadband(-200, 20, 180));
+  // Por debajo del crucero el piso solo eleva si la deadband es mayor.
+  TEST_ASSERT_EQUAL_INT(30, ControlCompensacion::aplicarPisoDeadband(30, 20, 180));
+  TEST_ASSERT_EQUAL_INT(45, ControlCompensacion::aplicarPisoDeadband(45, 20, 180));
+  TEST_ASSERT_EQUAL_INT(-20, ControlCompensacion::aplicarPisoDeadband(-10, 20, 180));
+  // Cero se respeta (freno).
+  TEST_ASSERT_EQUAL_INT(0, ControlCompensacion::aplicarPisoDeadband(0, 20, 180));
+}
+
 void test_correccion_traslacion_parasita_icr() {
   // Con ICR en (0,0) no hay correccion.
   const auto nulo = ControlRuta::corregirTraslacionParasita(0.0f, 0.0f, 1.0f);
@@ -972,5 +1037,8 @@ int main(int, char**) {
   RUN_TEST(test_media_encoders_saludables_sin_cota_por_lado);
   RUN_TEST(test_perfil_compensacion_getters_y_promedio);
   RUN_TEST(test_correccion_traslacion_parasita_icr);
+  RUN_TEST(test_icr_proyeccion_global_cuatro_cuadrantes);
+  RUN_TEST(test_control_angular_modos_a_b_c_d);
+  RUN_TEST(test_deadband_piso_no_infla_crucero);
   return UNITY_END();
 }

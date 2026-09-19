@@ -160,6 +160,48 @@ sequenceDiagram
     M-->>M: trim por lado + zona muerta
 ```
 
+## Lazo angular graduado durante el avance
+
+El avance no detiene el robot por desvíos moderados: la decisión pura
+(`ControlAngular::evaluarLazoAngular`) elige entre corrección en caliente,
+retención diferencial fuerte, pausa con pivote (congelando y reanudando el
+conteo) y cierre final sin pivote.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CONTINUO_SUAVE
+    CONTINUO_SUAVE --> FRENADO_TRANSITORIO : |err| > 5°
+    FRENADO_TRANSITORIO --> CONTINUO_SUAVE : |err| <= 5°
+    FRENADO_TRANSITORIO --> PAUSA_PIVOTE : |err| > 12° sostenido 300 ms
+    PAUSA_PIVOTE --> CONTINUO_SUAVE : alineado <= 1.0°
+    CONTINUO_SUAVE --> CIERRE_FINAL : restante <= 15 cm
+    FRENADO_TRANSITORIO --> CIERRE_FINAL : restante <= 15 cm
+    CIERRE_FINAL --> [*]
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Cinematica (controlarAvance)
+    participant S as Sensores (MPU)
+    participant P as PoseEstimator
+    participant M as Motores
+    Note over C: |err| > 12° sostenido 300 ms
+    C->>M: frenarMotores()
+    C->>C: distAcumuladaCm = distMedida
+    C->>C: iniciarBaseGiro(rumbo, GIRO_RECUPERACION)
+    loop Micro-pulsos (TURN_PULSE_ON_MS = 70 ms)
+        C->>M: pulso firme (rafaga <= 80 ms)
+        C->>M: frenarMotoresActivo() Back-EMF 60 ms
+        C->>M: reposo mecanico 100 ms
+        S->>C: gyro_z <= 0.02 rad/s
+        C->>P: aplicarCorreccionICR(dTheta, icrX, icrY, theta)
+        P->>P: proyeccion global trigonometrica
+    end
+    Note over C: alineado (|err| <= 1.0°)
+    C->>C: iniciarAvance(conservar=true)
+    C->>M: aplicarVelocidades(pwmL, pwmR)
+```
+
 ## Exportaciones
 
 - [Fuente PlantUML combinada](plantuml/vistas_especializadas.puml)

@@ -73,8 +73,10 @@ void PoseEstimator::iniciarMedicionTraslacionGiro() {
 
 void PoseEstimator::aplicarCorreccionICR(float deltaThetaRad, float xIcrCm, float yIcrCm) {
     if (deltaThetaRad == 0.0f) return;
+    // El desplazamiento parasito nace en el marco del chasis; debe rotarse al
+    // marco global con el rumbo actual antes de acumularlo en la pose.
     const ControlRuta::CorreccionICR correccion =
-        ControlRuta::corregirTraslacionParasita(xIcrCm, yIcrCm, deltaThetaRad);
+        ControlRuta::corregirTraslacionParasitaGlobal(xIcrCm, yIcrCm, deltaThetaRad, theta_rad);
     x_global += correccion.dxCm;
     y_global += correccion.dyCm;
 }

@@ -14,6 +14,9 @@ static bool mpu_inicializado = false;
 static bool mpu_calibrado = false;
 static float anguloZ_acum = 0.0f;
 static float gyro_z_offset_rad_s = 0.0f;
+// Escala de giroscopo por superficie (HMI). Se multiplica por la calibracion
+// base GYRO_Z_SCALE_FACTOR. 1.0 = sin correccion adicional.
+static float escalaGiroRuntime = 1.0f;
 static unsigned long tiempoAnteriorIMU = 0;
 static int64_t tiempoAnteriorIMU_us = 0;
 static unsigned long ultimaLecturaIMU = 0;
@@ -156,6 +159,15 @@ void setup_Sensores() {
         anguloZ_acum = 0.0f;
         Serial.println("MPU6050 inicializado correctamente.");
     }
+}
+
+void establecerEscalaGiro(float escala) {
+    if (!isfinite(escala) || escala <= 0.0f) return;
+    escalaGiroRuntime = constrain(escala, 0.5f, 2.0f);
+}
+
+float obtenerEscalaGiro() {
+    return escalaGiroRuntime;
 }
 
 bool pcntInicializados() {
@@ -324,7 +336,8 @@ static void leerGiroscopio(SensorSnapshot &snap) {
     // y después se transforma al marco canónico del robot. No se corrige sólo la gráfica: control,
     // odometría y telemetría consumen todos el mismo signo y escala normalizados.
     const float velocidadZ =
-        (g.gyro.z - gyro_z_offset_rad_s) * MPU_YAW_POLARITY * GYRO_Z_SCALE_FACTOR;
+        (g.gyro.z - gyro_z_offset_rad_s) * MPU_YAW_POLARITY *
+        GYRO_Z_SCALE_FACTOR * escalaGiroRuntime;
     portENTER_CRITICAL(&muxOrientacionIMU);
     float velocidadFiltrada = filtroGyroZ.agregar(velocidadZ);
     if (fabsf(velocidadFiltrada) < IMU_GYRO_DEADBAND_RAD_S) velocidadFiltrada = 0.0f;

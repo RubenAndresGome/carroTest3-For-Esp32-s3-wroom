@@ -69,6 +69,7 @@ struct ComandoRed {
     int polaridadNegativa;
     float icrXCm;
     float icrYCm;
+    float gyroScale;
 };
 
 extern QueueHandle_t colaComandos;

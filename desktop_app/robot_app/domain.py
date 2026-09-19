@@ -140,6 +140,8 @@ def validate_command_payload(name: str, payload: Mapping[str, Any] | None) -> di
         for field in ("icr_x_cm", "icr_y_cm"):
             if field in source and source[field] is not None:
                 res[field] = _finite_number(source[field], field, -30.0, 30.0)
+        if "gyro_scale" in source and source["gyro_scale"] is not None:
+            res["gyro_scale"] = _finite_number(source["gyro_scale"], "gyro_scale", 0.5, 2.0)
         return res
     return {}
 

@@ -160,6 +160,11 @@ static void parsearMensaje(const uint8_t* data, size_t len) {
     }
     c.icrXCm = constrain(c.icrXCm, -ICR_LIMITE_CM, ICR_LIMITE_CM);
     c.icrYCm = constrain(c.icrYCm, -ICR_LIMITE_CM, ICR_LIMITE_CM);
+    c.gyroScale = 1.0f;
+    if (!doc["gyro_scale"].isNull() && !leerFloatFinito(doc["gyro_scale"], c.gyroScale)) {
+      responderRechazado(seq, "cal_gyro_scale_invalid"); return;
+    }
+    c.gyroScale = constrain(c.gyroScale, 0.5f, 2.0f);
   }
   else if (strcmp(cmd,"step")==0) {
     c.tipo=CMD_STEP;
@@ -540,6 +545,10 @@ static void enviarTelemetria() {
   control["deadband_right_8bit"] = perfilCompensacion.getDeadbandDer8();
   control["icr_x_cm"] = icrXCm;
   control["icr_y_cm"] = icrYCm;
+  control["gyro_scale_runtime"] = obtenerEscalaGiro();
+  control["angular_mode"] = pasoModoAngular;
+  control["angular_mod_left"] = pasoModulacionIzq;
+  control["angular_mod_right"] = pasoModulacionDer;
   control["heading_brake_side"] = pasoLadoFrenoRumbo;
   doc["cal"] = robotCalibrado;
   doc["calibrated"] = robotCalibrado;
