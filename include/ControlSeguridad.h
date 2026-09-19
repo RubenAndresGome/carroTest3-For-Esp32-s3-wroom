@@ -110,9 +110,9 @@ inline float promedioConfiableLado(const int64_t valores[4],
   if (confiable[primero] && confiable[segundo]) {
     const float v1 = static_cast<float>(valores[primero]);
     const float v2 = static_cast<float>(valores[segundo]);
-    // Si ambos avanzan pero difieren significativamente (>50%) con magnitudes apreciables (>10 ticks),
-    // el valor menor representa el rodamiento real sobre el suelo sin patinaje ni ruido electrico.
-    if (v1 > 10.0f && v2 > 10.0f && fabsf(v1 - v2) / fminf(v1, v2) > 0.50f) {
+    // Si ambos avanzan pero difieren apreciablemente (>20%) con magnitudes > 8 ticks,
+    // el valor menor representa el rodamiento real sobre el suelo sin patinaje ni wheel spin.
+    if (v1 > 8.0f && v2 > 8.0f && fabsf(v1 - v2) / fminf(v1, v2) > 0.20f) {
       return fminf(v1, v2);
     }
     return (v1 + v2) * 0.5f;
@@ -157,6 +157,23 @@ inline PromediosLado promediosConfiableAcotados(const int64_t valores[4],
                                                resultado.izquierdo, desacuerdoMaximo);
   }
   return resultado;
+}
+
+// Estimador de avance balanceado bilateralmente: pondera equitativamente ambos
+// lados del chasis (50% izquierdo, 50% derecho) incluso si un lado tiene un encoder
+// excluido por hardware o fallo de canal, integrando el rechazo de patinaje.
+inline float estimarAvanceBilateralConfiable(const int64_t valores[4],
+                                            const bool confiable[4],
+                                            float desacuerdoMaximo) {
+  const PromediosLado promedios = promediosConfiableAcotados(valores, confiable, desacuerdoMaximo);
+  const bool ladoIzqValido = confiable[0] || confiable[2];
+  const bool ladoDerValido = confiable[1] || confiable[3];
+  if (ladoIzqValido && ladoDerValido) {
+    return (promedios.izquierdo + promedios.derecho) * 0.5f;
+  }
+  if (ladoIzqValido) return promedios.izquierdo;
+  if (ladoDerValido) return promedios.derecho;
+  return -1.0f;
 }
 
 // Media aritmetica total de los canales marcados como confiables, sin

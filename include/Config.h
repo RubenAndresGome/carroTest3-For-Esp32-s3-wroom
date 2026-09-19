@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7.04";
+constexpr char FIRMWARE_VERSION[] = "robot-s3-v3.7.05";
 constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
@@ -115,22 +115,22 @@ constexpr int PWM_CRUCERO_100 = PWM_SAFE_HARD_LIMIT;                        // 9
 
 // --- PARÁMETROS DE AVANCE RECTO (DRIVE) ---
 constexpr int VELOCIDAD_BASE_RECTO = PWM_CRUCERO_85; // Crucero nominal 85% PWM para evitar atascos y pérdida de tracción
-constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(200 * PWM_SCALE_8_TO_10);
-constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(175 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_APROXIMACION = static_cast<int>(195 * PWM_SCALE_8_TO_10);
+constexpr int VELOCIDAD_MINIMA_RECTO = static_cast<int>(170 * PWM_SCALE_8_TO_10);
 // La reversa no entra directamente a crucero: después del interlock se rampa
 // desde el torque mínimo para que el PID confirme yaw antes de potencia plena.
 constexpr uint32_t RAMPA_REVERSA_MS = 900;
-// Dentro del cierre se reduce el torque sin debilitar el arranque de crucero.
-constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(180 * PWM_SCALE_8_TO_10);
+// Dentro del cierre se reduce el torque al piso mínimo para no embalar el chasis sobre azulejo.
+constexpr int VELOCIDAD_PRECISION_RECTO = static_cast<int>(170 * PWM_SCALE_8_TO_10);
 // Piso inferior para reducción diferencial en avance recto (garantiza tracción continua de ruedas internas sin bloqueo)
 constexpr int VELOCIDAD_MINIMA_DIFERENCIAL = static_cast<int>(165 * PWM_SCALE_8_TO_10);
 constexpr float TOLERANCIA_DISTANCIA_CM = 1.0f;
-constexpr float DISTANCIA_APROXIMACION_CM = 15.0f;          // Zona de desaceleración acotada para sostener 85% de crucero hasta 85 cm
-constexpr float DISTANCIA_APROXIMACION_REVERSA_CM = 18.0f;
+constexpr float DISTANCIA_APROXIMACION_CM = 15.0f;          // Zona de desaceleración acotada para sostener crucero
+constexpr float DISTANCIA_APROXIMACION_REVERSA_CM = 22.0f;  // Mayor distancia para frenado suave de reversa con peso en popa
 constexpr float DISTANCIA_MICRO_PULSOS_CM = 3.0f;
-constexpr uint32_t APPROACH_PULSE_ON_MS = 250;
+constexpr uint32_t APPROACH_PULSE_ON_MS = 120;             // Micro-pulso acotado (120 ms) para avance fino de ~5-8 mm sin embalar
 constexpr uint32_t APPROACH_PULSE_OFF_MS = 120;
-constexpr int APPROACH_PULSE_PWM = static_cast<int>(180 * PWM_SCALE_8_TO_10);
+constexpr int APPROACH_PULSE_PWM = static_cast<int>(170 * PWM_SCALE_8_TO_10);
 constexpr uint32_t DURACION_FRENO_ACTIVO_MS = 300; // Pulso activo seguro en DRV8833 (IN1=1, IN2=1) antes de reposo LOW
 
 // --- DIMENSIONES FÍSICAS DEL CHASIS 4WD ---
@@ -139,9 +139,9 @@ constexpr float CHASSIS_WIDTH_CM = 17.0f;
 constexpr float CHASSIS_HALF_LENGTH_CM = 14.0f;
 
 // Modelo de avance por inercia ajustado con telemetría real (arrastre real medio ~1.2 cm por reducción TT).
-constexpr float FRENO_RESIDUAL_BASE_CM = 0.3f;
+constexpr float FRENO_RESIDUAL_BASE_CM = 0.5f;
 constexpr float FRENO_RESIDUAL_POR_PWM_CM = 0.001f;
-constexpr float FRENO_RESIDUAL_MAX_CM = 1.0f;
+constexpr float FRENO_RESIDUAL_MAX_CM = 1.2f;
 constexpr uint32_t ASENTAMIENTO_MIN_MS = 250;
 constexpr uint32_t ASENTAMIENTO_SIN_PULSOS_MS = 300;
 constexpr uint32_t ASENTAMIENTO_MAX_MS = 1500;

@@ -862,9 +862,10 @@ float promedioLado(const int64_t v[4], bool izq) {
   return ControlSeguridad::promedioConfiableLado(v, encoderConfiableGlobal, izq);
 }
 float estimarTicksAvance(const int64_t v[4]) {
-  // Media aritmetica total de encoders saludables: sin distincion de lado y sin
-  // la regla de minimos que sesgaba a la baja con un encoder sub-lector.
-  return ControlSeguridad::mediaEncodersSaludables(v, encoderConfiableGlobal);
+  // Estimador de avance bilateral balanceado: pondera 50% lado izquierdo y 50%
+  // lado derecho con rechazo activo de patinaje (wheel spin) en azulejo.
+  return ControlSeguridad::estimarAvanceBilateralConfiable(
+      v, encoderConfiableGlobal, DESACUERDO_MAXIMO_PAR);
 }
 void resetConfEncoders() {
   for (int i = 0; i < 4; ++i) {
@@ -878,13 +879,16 @@ void iniciarAvance(bool conservar) {
   // Avance recto sostenido estrictamente a 242/255; por encima solo rafagas.
   establecerLimiteContinuoPwm(PWM_SAFE_HARD_LIMIT);
   const SensorSnapshot s = sensar();
-  if (!conservar) { distAcumuladaCm = 0.0f; intentosRecup = 0; }
-  // Invarianza de marco local (ControlRuta.h:121): la directriz del tramo se
-  // ancla siempre en la pose real del robot al iniciar el avance para que el
-  // desvío lateral en t=0 sea exactamente cero y no se herede error residual de
-  // pasos anteriores ("efecto cangrejo"). El endpoint se valida al final.
-  pasoOrigenTramoXCm = PoseGlobal.getX();
-  pasoOrigenTramoYCm = PoseGlobal.getY();
+  if (!conservar) {
+    distAcumuladaCm = 0.0f;
+    intentosRecup = 0;
+    // Invarianza de marco local (ControlRuta.h:121): la directriz del tramo se
+    // ancla en la pose real del robot al iniciar el avance por primera vez.
+    // Al reanudar tras recuperacion (conservar=true), se preserva el origen original
+    // para no reiniciar el calculo del error longitudinal a mitad de camino.
+    pasoOrigenTramoXCm = PoseGlobal.getX();
+    pasoOrigenTramoYCm = PoseGlobal.getY();
+  }
   reiniciarControlRumbo();
   pasoEnReversa = direccionTraslacion < 0;
   // Una recuperación o reevaluación debe preservar los canales que ya fueron

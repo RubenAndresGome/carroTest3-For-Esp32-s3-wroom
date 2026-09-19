@@ -854,6 +854,21 @@ void test_media_encoders_saludables_sin_cota_por_lado() {
                            ControlSeguridad::mediaEncodersSaludables(ticks, ninguno));
 }
 
+void test_estimar_avance_bilateral_con_rechazo_patinaje() {
+  // Caso real sesion #15824: FR desconectado (0 ticks, excluido).
+  // FL patina a 218 ticks (+23%), BL mide 177 ticks (rodamiento real con traccion trasera).
+  // BR mide 187 ticks.
+  const int64_t ticksAzulejo[4] = {218, 0, 177, 187};
+  const bool confiable[4] = {true, false, true, true};
+  // Con el umbral de 20%, FL (218) y BL (177) difieren (218-177)/177 = 23.1% > 20%.
+  // Se rechaza el patinaje y se selecciona el menor (177 ticks para el lado izquierdo).
+  // Lado derecho (FR excluido, BR=187) -> 187 ticks.
+  // Estimador bilateral balanceado: (177 + 187) / 2 = 182 ticks.
+  const float estimado = ControlSeguridad::estimarAvanceBilateralConfiable(
+      ticksAzulejo, confiable, 0.40f);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 182.0f, estimado);
+}
+
 void test_perfil_compensacion_getters_y_promedio() {
   ControlCompensacion::Perfil perfil;
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, perfil.getLadoIzq());
@@ -1035,6 +1050,7 @@ int main(int, char**) {
   RUN_TEST(test_escala_odometria_suelo_calibrada);
   RUN_TEST(test_fuente_unica_no_infla_distancia_en_modo_degradado);
   RUN_TEST(test_media_encoders_saludables_sin_cota_por_lado);
+  RUN_TEST(test_estimar_avance_bilateral_con_rechazo_patinaje);
   RUN_TEST(test_perfil_compensacion_getters_y_promedio);
   RUN_TEST(test_correccion_traslacion_parasita_icr);
   RUN_TEST(test_icr_proyeccion_global_cuatro_cuadrantes);
