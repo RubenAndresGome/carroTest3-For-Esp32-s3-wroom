@@ -2,12 +2,12 @@ import "./styles.css";
 import mermaid from "mermaid";
 import cytoscape from "cytoscape";
 import Chart from "chart.js/auto";
-import { createIcons, Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X } from "lucide";
+import { createIcons, Activity, AlertTriangle, BookOpen, Boxes, Braces, Calculator, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X } from "lucide";
 import catalog from "../../catalogo_funciones.json";
 import sqliteSummary from "../../datos_sqlite_documentales.json";
-import { archifyMaps, archifyTabMap, calibrationDetails, diagrams, evidence, findings, glossary, manuals } from "./content.js";
+import { archifyMaps, archifyTabMap, calibrationDetails, diagrams, evidence, findings, glossary, manuals, mathematicalModels } from "./content.js";
 
-const iconSet = { Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X };
+const iconSet = { Activity, AlertTriangle, BookOpen, Boxes, Braces, Calculator, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X };
 const app = document.querySelector("#app");
 
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
@@ -19,6 +19,7 @@ const severityClass = (severity) => ["Crítica", "Alta", "Pendiente"].includes(s
 const navItems = [
   ["resumen", "activity", "Estado actual"],
   ["arquitectura", "boxes", "Arquitectura"],
+  ["modelos", "calculator", "Modelos matemáticos"],
   ["calibracion", "circuit-board", "Calibración y MPU"],
   ["uml", "git-branch", "UML y grafos"],
   ["funciones", "braces", "Funciones"],
@@ -121,6 +122,197 @@ app.innerHTML = `
                 </div>
               </article>
             `).join("")}
+          </div>
+        </div>
+      </section>
+
+      <section id="modelos" class="section">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="eyebrow">Fundamentos físicos y cinemática</p>
+            <h2 class="section-title">Modelos Matemáticos y Leyes de Control Aplicadas</h2>
+          </div>
+          <a href="../../docs_markdowns/modelos_matematicos_simplificados.md" target="_blank" rel="noopener" class="route-link text-xs"><i data-lucide="book-open"></i> Ver Markdown analítico</a>
+        </div>
+        <p class="section-copy">Formulación analítica, odometría en espacio de estado, filtrado estadístico robusto de encoders, lazo cerrado PD de rumbo, compensación ICR y frenado activo predictivo por inercia ejecutados a 100 Hz en el súper-ciclo del ESP32-S3.</p>
+
+        <!-- Bloque 1: Convención y Odometría -->
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <!-- Card Geometría y Convenciones -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Plano Coordenado 2D</p>
+                <span class="badge badge-low">Geometría 4WD</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Convención de Coordenadas y Escala de Pulsos</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">El chasis acrílico 4WD se modela con convención cardinal/aeronáutica inercial, con 40 PPR leídos por hardware PCNT:</p>
+
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-4 font-mono text-xs leading-6 text-cyan">
+                <div><strong class="text-mint">Eje +Y:</strong> Frente del chasis (Yaw &theta; = 0.0&deg;)</div>
+                <div><strong class="text-mint">Eje +X:</strong> Flanco derecho (Yaw &theta; = +90.0&deg;, dextrógiro)</div>
+                <div><strong class="text-mint">Escala lineal:</strong> C_tick = (&pi; &middot; D_rueda) / PPR = (3.1416 &middot; 6.80 cm) / 40 &approx; <strong class="text-mint">0.534 cm/pulso</strong></div>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-mint/20 bg-mint/5 p-3 text-xs text-slate-300">
+              <strong class="text-mint">Simetría Invertida:</strong> <code>PWM_FORWARD_POLARITY = -1</code> compensa mecánicamente los reductores TT enfrentados 180&deg; para traslación pura sobre +Y.
+            </div>
+          </article>
+
+          <!-- Card Cinemática Directa 4WD -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Espacio de Estado</p>
+                <span class="badge badge-low">PoseGlobal (X, Y, &theta;)</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Cinemática Directa y Odometría 2D</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">Implementado en <code>PoseEstimator.cpp</code> consumiendo deltas cada 10 ms síncronamente en Core 1:</p>
+
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-4 font-mono text-xs leading-6 text-cyan">
+                <div><span class="text-slate-500">// Desplazamiento por lado y avance del centro:</span><br>
+                &Delta;s_L = &Delta;ticks_L &middot; C_tick, &nbsp; &Delta;s_R = &Delta;ticks_R &middot; C_tick<br>
+                <strong class="text-mint">&Delta;s</strong> = (&Delta;s_L + &Delta;s_R) / 2.0</div>
+                <div><span class="text-slate-500">// Actualización inercial de coordenadas:</span><br>
+                <strong class="text-mint">X_k</strong> = X_{k-1} + &Delta;s &middot; sin(&theta;_k)<br>
+                <strong class="text-mint">Y_k</strong> = Y_{k-1} + &Delta;s &middot; cos(&theta;_k)</div>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-cyan/20 bg-cyan/5 p-3 text-xs text-slate-300">
+              <strong class="text-cyan">Autoridad Angular IMU:</strong> &theta; se integra exclusivamente del giróscopo MPU6050 a 100 Hz. Se suprime el cálculo (&Delta;s_R - &Delta;s_L) / W para evitar errores por patinaje.
+            </div>
+          </article>
+        </div>
+
+        <!-- Bloque 2: Filtrado Robusto y Lazo PD de Rumbo -->
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <!-- Card Filtrado Robusto -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Tolerancia a Fallos</p>
+                <span class="badge badge-low">ControlSeguridad.h</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Estimación Robusta de Ticks (Outlier Rejection)</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">Elimina el sesgo de avance si un encoder pierde pulsos por vibración o suciedad:</p>
+
+              <div class="mt-4 space-y-3">
+                ${mathematicalModels.robustFilter.map((f) => `
+                  <div class="rounded-lg border border-line bg-white/[.02] p-3">
+                    <p class="font-mono text-xs font-semibold text-mint">${esc(f.step)}</p>
+                    <p class="mt-1 text-xs text-slate-400">${esc(f.detail)}</p>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </article>
+
+          <!-- Card Control PD de Rumbo y Trayectoria -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Lazo Cerrado Lineal</p>
+                <span class="badge badge-low">Cinematica.cpp</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Seguimiento de Trayectoria y Lazo PD</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">Regula desvío lateral y rumbo en tiempo real sin detener el avance:</p>
+
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-4 font-mono text-xs leading-6 text-cyan">
+                <div><span class="text-slate-500">// Errores respecto a la directriz (Invarianza local):</span><br>
+                e_long = D_plan - (&Delta;X&middot;sin &theta;_obj + &Delta;Y&middot;cos &theta;_obj)<br>
+                e_lat = &Delta;X&middot;cos &theta;_obj - &Delta;Y&middot;sin &theta;_obj</div>
+                <div><span class="text-slate-500">// Corrección lateral y lazo PD de rumbo:</span><br>
+                &theta;_corr = sat(-e_lat &middot; 0.8&deg;/cm, -15&deg;, +15&deg;)<br>
+                <strong class="text-mint">PWM_corr</strong> = sat(e_&theta; &middot; 4.0 - &omega;_z &middot; 12.0, -45, +45)</div>
+                <div><span class="text-slate-500">// Modulación diferencial a los puentes H:</span><br>
+                PWM_L = PWM_base &mp; PWM_corr, &nbsp; PWM_R = PWM_base &pm; PWM_corr</div>
+              </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-amber/20 bg-amber/5 p-3 text-xs text-slate-300">
+              <strong class="text-amber">Amortiguamiento Derivativo (Kd=12.0):</strong> Utiliza la velocidad angular real &omega;_z del MPU6050 para evitar sacudidas y eliminar sobrepasos.
+            </div>
+          </article>
+        </div>
+
+        <!-- Bloque 3: Giro Híbrido, Frenado Activo e ICR -->
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <!-- Card Frenado Activo Predictivo -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Dinámica de Rotación</p>
+                <span class="badge badge-low">Back-EMF DRV8833</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Frenado Activo Predictivo por Inercia</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">Calcula la distancia requerida para disipar la energía cinética rotacional:</p>
+
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-4 font-mono text-xs leading-6 text-cyan">
+                <div><strong class="text-mint">&Delta;&theta;_freno</strong> = &omega;_z&sup2; / (2 &middot; &alpha;_frenado)<br>
+                <span class="text-slate-500">&alpha;_frenado = 2400.0 &deg;/s&sup2; (freno dinámico IN1=1, IN2=1)</span></div>
+                <div><span class="text-slate-500">// Disipación exacta:</span><br>
+                Si |e_&theta;| &le; &Delta;&theta;_freno &rarr; <strong class="text-mint">frenarMotoresActivo()</strong> inmediato</div>
+              </div>
+
+              <div class="mt-4 space-y-2">
+                ${mathematicalModels.predictiveBrake.zones.map((z) => `
+                  <div class="rounded-lg border border-line bg-white/[.02] p-2.5 text-xs">
+                    <strong class="text-mint">${esc(z.zone)}:</strong> <span class="text-slate-400">${esc(z.desc)}</span>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </article>
+
+          <!-- Card ICR y Desplazamiento Parásito -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Geometría de Contacto</p>
+                <span class="badge badge-low">Cinemática ICR</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Compensación de Traslación Parásita</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">En chasis 4WD rígidos hiperestáticos, el centro instantáneo de rotación (ICR) difiere del centro geométrico:</p>
+
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-4 font-mono text-xs leading-6 text-cyan">
+                <div><span class="text-slate-500">// Vector en el marco del chasis:</span><br>
+                &Delta;x_chasis = -y_ICR &middot; &Delta;&theta;_rad<br>
+                &Delta;y_chasis = &nbsp;x_ICR &middot; &Delta;&theta;_rad</div>
+                <div><span class="text-slate-500">// Rotación al marco inercial global:</span><br>
+                &Delta;X_parásito = &Delta;x_chasis&middot;cos &theta; + &Delta;y_chasis&middot;sin &theta;<br>
+                &Delta;Y_parásito = -&Delta;x_chasis&middot;sin &theta; + &Delta;y_chasis&middot;cos &theta;</div>
+              </div>
+
+              <p class="mt-3 text-xs leading-5 text-slate-400">${esc(mathematicalModels.icrCompensation.purpose)}</p>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-mint/20 bg-mint/5 p-3 text-xs text-slate-300">
+              <strong class="text-mint">Aislamiento de Odometría:</strong> Durante el giro pivote puro, la acumulación lineal de encoders se desactiva para no integrar resbalamiento.
+            </div>
+          </article>
+        </div>
+
+        <!-- Bloque 4: Tabla de Límites de Potencia y Protecciones DRV8833 -->
+        <div class="mt-8">
+          <p class="eyebrow">Envolvente de Operación</p>
+          <h3 class="text-2xl font-semibold text-white">Límites Dinámicos y Protecciones Eléctricas del DRV8833</h3>
+          <div class="table-wrap mt-4 overflow-x-auto">
+            <table>
+              <thead>
+                <tr><th>Parámetro / Guarda</th><th>Valor Límite</th><th>Propósito Físico y Mecatrónico</th></tr>
+              </thead>
+              <tbody>
+                ${mathematicalModels.protections.map((p) => `
+                  <tr>
+                    <td class="font-semibold text-white">${esc(p.limit)}</td>
+                    <td class="font-mono text-xs text-mint">${esc(p.value)}</td>
+                    <td class="text-xs text-slate-400">${esc(p.desc)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -469,6 +661,11 @@ const searchIndex = [
   ...findings.map((item) => ({ section: "resumen", title: `${item.id} · ${item.title}`, text: item.detail })),
   ...manuals.map((item) => ({ section: "manual", title: item.title, text: item.steps.join(" ") })),
   ...glossary.map(([title, text]) => ({ section: "glosario", title, text })),
+  { section: "modelos", title: "Modelos Matemáticos y Cinemática 4WD", text: "odometria cinematica diferencial pose C_tick pulsos escala 0.534 cm MPU6050 autoridad angular" },
+  { section: "modelos", title: "Estimación Robusta de Ticks de Avance", text: "mediana 4 canales outlier rejection descarte de anomalias promedio coherente tolerancia a fallos" },
+  { section: "modelos", title: "Control PD de Rumbo y Seguimiento de Trayectoria", text: "Kp 4.0 Kd 12.0 Klat error longitudinal lateral invarianza local modulacion diferencial" },
+  { section: "modelos", title: "Frenado Activo Predictivo por Inercia", text: "Back-EMF DRV8833 desaceleracion inercial 2400 deg/s2 micro-pulsos finos delta_theta_freno" },
+  { section: "modelos", title: "Compensación ICR y Desplazamiento Parásito", text: "Centro Instantaneo de Rotacion ICR matriz de rotacion traslacion parasita pivote" },
   { section: "calibracion", title: "Cálculo del Yaw e Integración Angular MPU6050", text: "gyro_corregido offset_z polaridad promedio movil 8 muestras deadband 0.005 rad/s integracion discreta" },
   { section: "calibracion", title: "Dogma Canónico de Calibración (5 Fases)", text: "CAL_CUENTA_REGRESIVA CAL_A CAL_VALIDAR_25 CAL_B CAL_RETORNO torque rampa 140 247" },
   { section: "calibracion", title: "Encoders PCNT y Monitoreo Sensorial", text: "40 PPR filtro 1023 ciclos APB bateria VMOT watchdog stall 2.5s clear_fault calibration_surfaces" },

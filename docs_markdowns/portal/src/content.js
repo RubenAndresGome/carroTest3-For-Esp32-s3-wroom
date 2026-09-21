@@ -563,3 +563,58 @@ export const calibrationDetails = {
   ],
 };
 
+export const mathematicalModels = {
+  geometry: {
+    title: "Convención de Coordenadas y Geometría 4WD",
+    frame: "+Y: Frente (Yaw θ = 0°), +X: Derecha (Yaw θ = +90°, dextrógiro)",
+    wheelDiameter: "6.80 cm",
+    ppr: "40 PPR (PCNT por hardware)",
+    tickScale: "0.534 cm/pulso (C_tick = π·D / PPR)",
+  },
+  odometry: [
+    { label: "Desplazamiento por lado", formula: "Δs_L = Δticks_L · C_tick,   Δs_R = Δticks_R · C_tick" },
+    { label: "Avance del centro del chasis", formula: "Δs = (Δs_L + Δs_R) / 2" },
+    { label: "Integración de pose global (2D)", formula: "X_k = X_{k-1} + Δs · sin(θ_k)\nY_k = Y_{k-1} + Δs · cos(θ_k)" },
+    { label: "Autoridad angular", note: "La orientación θ proviene exclusivamente de la IMU MPU6050 a 100 Hz, evitando el sesgo acumulativo por derrape típico en chasis 4WD." },
+  ],
+  robustFilter: [
+    { step: "1. Mediana de 4 Canales", detail: "Calcula la mediana de {FL, FR, BL, BR} mediante ordenamiento en inserción puro, tolerando encoders desconectados." },
+    { step: "2. Detección de Outlier", detail: "Descarta el canal i si: |Δticks_i - med| / max(1, |med|) > 0.25 y |Δticks_i - med| ≥ 5 ticks." },
+    { step: "3. Promedio Coherente", detail: "Δticks_efectivo = (Σ Δticks_coherentes) / N_coherentes. Previene sobre-recorrido por sub-lectura o saltos de pulsos." },
+  ],
+  headingControl: {
+    trajectoryErrors: "e_long = D_plan - (ΔX·sin θ_obj + ΔY·cos θ_obj)\ne_lat = ΔX·cos θ_obj - ΔY·sin θ_obj",
+    lateralCorr: "θ_corr = sat(-e_lat · K_lat, -θ_max, +θ_max)",
+    pdFormula: "PWM_corr = sat(e_θ · K_p - ω_z · K_d, -PWM_max, +PWM_max)",
+    gains: [
+      { param: "K_p (Proporcional)", val: "4.0", desc: "Alineación angular enérgica hacia la directriz de avance." },
+      { param: "K_d (Derivativo)", val: "12.0", desc: "Amortiguamiento por giroscopio (ω_z) para disipar oscilaciones y latigazos." },
+      { param: "K_lat (Lateral)", val: "0.8 °/cm", desc: "Reorientación continua hacia la línea directriz del tramo." },
+    ],
+    modulation: "PWM_L = PWM_base - PWM_corr\nPWM_R = PWM_base + PWM_corr",
+  },
+  predictiveBrake: {
+    formula: "Δθ_freno = ω_z² / (2 · α_frenado)",
+    decelRate: "α_frenado = 2400 °/s² (Back-EMF con DRV8833: IN1=1, IN2=1)",
+    rule: "Si |e_θ| ≤ Δθ_freno y el vehículo gira hacia la meta → frenarMotoresActivo() inmediato.",
+    zones: [
+      { zone: "Zona de Potencia (|e_θ| > 15°)", desc: "Rampa adaptativa de par (140 a 247/255) para vencer estricción de reductoras TT." },
+      { zone: "Zona de Desaceleración (4° ≤ |e_θ| ≤ 15°)", desc: "Repliegue lineal proporcional hacia el piso calibrado: PWM(e_θ) = PWM_min + (PWM_max - PWM_min)·(|e_θ|/15°)." },
+      { zone: "Micro-Pulsos Finitos (|e_θ| < 4°)", desc: "Pulsos de torque suave de 45 ms + freno dinámico 60 ms + reposo 100 ms para asentar en ±0.8° exactos." },
+    ],
+  },
+  icrCompensation: {
+    bodyFormula: "Δx_chasis = -y_ICR · Δθ_rad\nΔy_chasis =  x_ICR · Δθ_rad",
+    globalFormula: "ΔX_parásito =  Δx_chasis·cos θ + Δy_chasis·sin θ\nΔY_parásito = -Δx_chasis·sin θ + Δy_chasis·cos θ",
+    purpose: "Compensa el desplazamiento espurio del centro de masa durante giros de radio cero provocado por asimetría de peso y rozamiento.",
+  },
+  protections: [
+    { limit: "PWM Continuo Crucero", value: "242 / 255 (~95%)", desc: "Protección térmica obligatoria de etapas H-Bridge en DRV8833." },
+    { limit: "PWM Continuo Giros", value: "247 / 255 (~97%)", desc: "Reserva de par para vencer fricción estática en suelo rugoso." },
+    { limit: "Ráfagas al 100%", value: "≤ 80 ms", desc: "Exclusivo para transitorios breves y desenclavamiento." },
+    { limit: "Tiempo Muerto Universal", value: "250 ms", desc: "Extinción de corrientes parásitas y prevención de conducción cruzada." },
+    { limit: "Watchdog Avance", value: "450 ms", desc: "Corte preventivo inmediato si se pierde la retroalimentación de ticks." },
+    { limit: "Watchdog Giro", value: "2.5 s", desc: "Detección de rotor bloqueado tras alcanzar el par calibrado." },
+  ],
+};
+
