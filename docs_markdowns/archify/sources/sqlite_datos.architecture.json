@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de Datos y Persistencia SQLite",
+    "output": "sqlite_datos.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "vista-relacional", "label": "Modelo Relacional", "focus": ["sessions", "commands", "events", "telemetry", "surfaces", "settings"], "note": "Estructura de tablas y claves foráneas en robot.sqlite3." },
+      { "id": "flujo-inyeccion", "label": "Inyección y Telemetría", "focus": ["backend", "surfaces", "gateway", "esp32", "telemetry"], "note": "Carga de perfiles de calibración e ingesta de telemetría a 100 Hz." },
+      { "id": "seguridad-wal", "label": "Modo WAL y Transacciones", "focus": ["sessions", "backend", "settings"], "note": "Integridad con WAL y checkpoints automáticos." }
+    ]
+  },
+  "components": [
+    { "id": "backend", "type": "backend", "label": "RobotService", "sublabel": "Python / SQLite API", "pos": [40, 110], "size": [150, 56], "tag": "transaccional" },
+    { "id": "sessions", "type": "database", "label": "sessions", "sublabel": "ID, inicio, fin, firmware", "pos": [260, 110], "size": [150, 56], "tag": "PK: id" },
+    { "id": "commands", "type": "database", "label": "commands", "sublabel": "ID, seq, tipo, payload", "pos": [500, 110], "size": [150, 56], "tag": "FK: session_id" },
+    { "id": "events", "type": "database", "label": "events", "sublabel": "ID, seq, severidad, tipo", "pos": [740, 110], "size": [150, 56], "tag": "FK: session_id" },
+    { "id": "telemetry", "type": "database", "label": "telemetry_samples", "sublabel": "yaw, X, Y, PWM L/R, ticks", "pos": [740, 260], "size": [160, 56], "tag": "100 Hz / FK" },
+    { "id": "surfaces", "type": "database", "label": "calibration_surfaces", "sublabel": "PWM +/-, trim, ICR, gyro", "pos": [260, 260], "size": [170, 56], "tag": "Inyección" },
+    { "id": "settings", "type": "database", "label": "settings", "sublabel": "clave, valor_json", "pos": [500, 260], "size": [150, 56], "tag": "Configuración" },
+    { "id": "gateway", "type": "messagebus", "label": "RobotGateway", "sublabel": "WebSocket v3", "pos": [40, 260], "size": [150, 56] },
+    { "id": "esp32", "type": "security", "label": "ESP32-S3", "sublabel": "SPIFFS / NVS", "pos": [40, 400], "size": [150, 56], "tag": "torque_history" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Base de Datos Canónica (robot.sqlite3 - Modo WAL)", "wraps": ["sessions", "commands", "events", "telemetry", "surfaces", "settings"] },
+    { "kind": "security-group", "label": "Capa de Inyección y Sincronización Remota", "wraps": ["backend", "gateway", "esp32"] }
+  ],
+  "connections": [
+    { "id": "b-sess", "from": "backend", "to": "sessions", "label": "crea sesión", "variant": "emphasis" },
+    { "id": "s-cmd", "from": "sessions", "to": "commands", "label": "1:N comandos" },
+    { "id": "s-evt", "from": "commands", "to": "events", "label": "1:N eventos" },
+    { "id": "s-telem", "from": "events", "to": "telemetry", "label": "1:N muestras", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "b-surf", "from": "sessions", "to": "surfaces", "label": "perfil activo", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "b-sett", "from": "commands", "to": "settings", "label": "ajustes", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "gw-b", "from": "backend", "to": "gateway", "label": "cmd v3", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "gw-esp", "from": "gateway", "to": "esp32", "label": "set_calibration", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "esp-telem", "from": "esp32", "to": "telemetry", "label": "muestras síncronas", "variant": "emphasis", "fromSide": "right", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Perfiles de Calibración Inyectables",
+      "items": [
+        "calibration_surfaces desacopla la calibración física de la operación",
+        "Permite inyectar torque (pwm_pos, pwm_neg), compensación (trim_izq/der), ICR y gyro_scale sin mover el robot"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Trazabilidad Forense Completa",
+      "items": [
+        "Cada comando ejecutado se asocia a su sesión y eventos resultantes",
+        "Las muestras de telemetría registran ángulo yaw, pose global y PWM aplicado a 100 Hz"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Integridad y Concurrencia",
+      "items": [
+        "Modo WAL activo para lecturas concurrentes sin bloquear escrituras de telemetría",
+        "Extracción canónica mediante script consultar_db.py vía ADB o local"
+      ]
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import Chart from "chart.js/auto";
 import { createIcons, Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X } from "lucide";
 import catalog from "../../catalogo_funciones.json";
 import sqliteSummary from "../../datos_sqlite_documentales.json";
-import { archifyMaps, diagrams, evidence, findings, glossary, manuals } from "./content.js";
+import { archifyMaps, archifyTabMap, calibrationDetails, diagrams, evidence, findings, glossary, manuals } from "./content.js";
 
 const iconSet = { Activity, AlertTriangle, BookOpen, Boxes, Braces, CircuitBoard, Database, Download, Film, GitBranch, Maximize2, Menu, Printer, Route, Search, ShieldCheck, X };
 const app = document.querySelector("#app");
@@ -19,6 +19,7 @@ const severityClass = (severity) => ["Crítica", "Alta", "Pendiente"].includes(s
 const navItems = [
   ["resumen", "activity", "Estado actual"],
   ["arquitectura", "boxes", "Arquitectura"],
+  ["calibracion", "circuit-board", "Calibración y MPU"],
   ["uml", "git-branch", "UML y grafos"],
   ["funciones", "braces", "Funciones"],
   ["api", "database", "Interfaces"],
@@ -101,7 +102,7 @@ app.innerHTML = `
               <p class="eyebrow">Modelos interactivos tipados</p>
               <h3 class="text-2xl font-semibold text-white">Mapas Arquitectónicos del Sistema (Archify)</h3>
             </div>
-            <span class="rounded-full border border-mint/40 bg-mint/10 px-3 py-1 font-mono text-xs text-mint">6 Mapas Tipados</span>
+            <span class="rounded-full border border-mint/40 bg-mint/10 px-3 py-1 font-mono text-xs text-mint">9 Mapas Tipados</span>
           </div>
           <p class="mt-2 text-sm text-slate-400">Diagramas interactivos de alta fidelidad compilados con Archify para exploración vectorial determinista, pan, zoom e inspección de dependencias.</p>
           <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -124,11 +125,125 @@ app.innerHTML = `
         </div>
       </section>
 
+      <section id="calibracion" class="section">
+        <p class="eyebrow">Lazo cerrado e integración sensorial</p>
+        <h2 class="section-title">Sistema de Calibración, Cinemática y Sensores</h2>
+        <p class="section-copy">El MPU6050 constituye la autoridad angular exclusiva del robot, complementado por encoders PCNT de 40 PPR con filtro por hardware de 1023 ciclos. La rutina de calibración es un dogma inmutable de 5 fases para garantizar estabilidad de rumbo, detección de atascos y retorno a origen.</p>
+        
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <!-- Card de Cinemática de Yaw y Fórmulas -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <p class="eyebrow">Cálculo Discreto de Rumbo</p>
+                <span class="badge badge-low">100 Hz Súper-ciclo</span>
+              </div>
+              <h3 class="mt-2 text-xl font-semibold text-white">Ecuaciones de Estimación del Yaw</h3>
+              <p class="mt-3 text-sm leading-6 text-slate-400">Implementado en <code>Sensores.cpp</code> y consumido síncronamente por <code>PoseEstimator.cpp</code> y <code>Cinematica.cpp</code> en Core 1.</p>
+              
+              <div class="mt-4 space-y-3 rounded-xl border border-line bg-black/40 p-4 font-mono text-xs leading-6 text-cyan">
+                <div>
+                  <span class="text-slate-500">// 1. Corrección de polaridad y sesgo de cero:</span><br />
+                  <strong class="text-mint">gyro_corregido</strong> = (gyro_z - offset_z) * polaridad <span class="text-slate-500">(polaridad = -1.0)</span>
+                </div>
+                <div>
+                  <span class="text-slate-500">// 2. Filtro promedio móvil de 8 muestras y zona muerta:</span><br />
+                  if (|gyro_filtrado| &lt; 0.005 rad/s) &rarr; <strong class="text-mint">gyro_filtrado</strong> = 0.0
+                </div>
+                <div>
+                  <span class="text-slate-500">// 3. Integración discreta síncrona (&Delta;t = 10 ms):</span><br />
+                  &Delta;yaw_rad = gyro_filtrado * &Delta;t<br />
+                  yaw_rad = yaw_rad_prev + &Delta;yaw_rad<br />
+                  <strong class="text-mint">yaw_deg</strong> = yaw_rad * (180.0 / &pi;)
+                </div>
+              </div>
+            </div>
+            
+            <div class="mt-4 rounded-lg border border-mint/20 bg-mint/5 p-3 text-xs text-slate-300">
+              <strong class="text-mint">Polaridad -1.0:</strong> Compensa el montaje físico invertido del MPU6050 en el chasis para que el ángulo crezca en sentido dextrógiro hacia el eje +X (90° = Este).
+            </div>
+          </article>
+
+          <!-- Parámetros del MPU6050 -->
+          <article class="card">
+            <div class="flex items-center justify-between">
+              <p class="eyebrow">Hardware Inercial</p>
+              <span class="badge badge-low">I2C Core 1</span>
+            </div>
+            <h3 class="mt-2 text-xl font-semibold text-white">Configuración del Sensor MPU6050</h3>
+            <div class="table-wrap mt-4 max-h-80 overflow-y-auto">
+              <table>
+                <thead>
+                  <tr><th>Parámetro</th><th>Valor / Registro</th><th>Propósito</th></tr>
+                </thead>
+                <tbody>
+                  ${calibrationDetails.mpuConfig.map((item) => `
+                    <tr>
+                      <td class="font-semibold text-white">${esc(item.param)}</td>
+                      <td class="font-mono text-xs text-mint">${esc(item.value)}</td>
+                      <td class="text-xs text-slate-400">${esc(item.note)}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <!-- Fases del Dogma Canónico de Calibración -->
+        <div class="mt-8">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p class="eyebrow">Secuencia Inmutable</p>
+              <h3 class="text-2xl font-semibold text-white">Dogma Canónico de Calibración (5 Fases)</h3>
+            </div>
+            <a href="./archify/calibracion_dogma.html" target="_blank" rel="noopener" class="route-link text-xs"><i data-lucide="maximize-2"></i> Abrir secuencia completa en Archify</a>
+          </div>
+          <p class="mt-2 text-sm text-slate-400">Ejecutada al recibir el comando <code>calibrate</code>. Cualquier interrupción del socket WebSocket transiciona inmediatamente a <code>cal_connection_lost</code> con parada segura.</p>
+          
+          <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            ${calibrationDetails.phases.map((phase) => `
+              <article class="card flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="badge badge-low">${phase.tag}</span>
+                    <span class="font-mono text-xs text-slate-500">${phase.id}</span>
+                  </div>
+                  <h4 class="mt-3 text-base font-semibold text-white">${phase.name}</h4>
+                  <p class="mt-2 text-xs leading-6 text-slate-400">${phase.desc}</p>
+                </div>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+
+        <!-- Subsistemas de Detección, Protección y Persistencia -->
+        <div class="mt-8">
+          <p class="eyebrow">Robustez Operativa</p>
+          <h3 class="text-2xl font-semibold text-white">Diagnóstico, Protección Eléctrica y Persistencia</h3>
+          <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            ${calibrationDetails.subsystems.map((sub) => `
+              <article class="card">
+                <div class="flex items-center gap-3">
+                  <i data-lucide="${sub.icon}" class="h-5 w-5 text-mint shrink-0"></i>
+                  <h4 class="text-base font-semibold text-white">${sub.title}</h4>
+                </div>
+                <p class="mt-3 text-xs leading-6 text-slate-400">${sub.desc}</p>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+      </section>
+
       <section id="uml" class="section">
         <p class="eyebrow">Comportamiento coordinado</p><h2 class="section-title">UML navegable y grafo de dependencias</h2>
         <p class="section-copy">Selecciona un flujo para ver la secuencia real. Debajo, el grafo interactivo muestra las dependencias principales entre carpetas.</p>
         <div id="diagram-tabs" class="no-print mt-6 flex flex-wrap gap-2">
           ${Object.entries({ mission: "Misión", calibration: "Calibración", returnHome: "Ockham", reconnect: "Corte de red", robotReboot: "Reinicio ESP32", pythonRestart: "Reinicio Python", close: "Cierre", states: "Estados", database: "SQLite", android: "Android", safety: "Seguridad", validation: "Validación" }).map(([key, label], index) => `<button data-diagram="${key}" class="diagram-tab rounded-full border px-4 py-2 text-sm ${index === 0 ? "border-mint bg-mint/10 text-mint" : "border-line text-slate-400"}">${label}</button>`).join("")}
+        </div>
+        <div class="no-print mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-black/20 p-3">
+          <span class="text-xs text-slate-400">Inspección vectorial de alta fidelidad:</span>
+          <a id="active-archify-btn" href="./archify/mision_navegacion.html" target="_blank" rel="noopener" class="route-link text-xs"><i data-lucide="maximize-2"></i> <span id="active-archify-title">Abrir mapa interactivo Archify (Misión)</span></a>
         </div>
         <div id="dynamic-diagram" class="diagram mermaid">${diagrams.mission}</div>
         <div class="no-print mt-7 flex flex-wrap items-center gap-3"><label class="text-sm text-slate-400">Subsistema <select id="graph-folder" class="filter ml-2">${Object.keys(catalog.stats.by_folder).map((folder) => `<option>${folder}</option>`).join("")}</select></label><button id="graph-fullscreen" class="route-link"><i data-lucide="maximize-2"></i> Pantalla completa</button><span id="graph-count" class="font-mono text-xs text-slate-500"></span></div>
@@ -214,12 +329,12 @@ app.innerHTML = `
 createIcons({ icons: iconSet, attrs: { width: 18, height: 18, "aria-hidden": "true" } });
 
 mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict", flowchart: { htmlLabels: true, curve: "basis" }, sequence: { useMaxWidth: false } });
-const mermaidRenderTasks = [];
-for (const node of document.querySelectorAll(".mermaid")) {
-  mermaidRenderTasks.push(mermaid.run({ nodes: [node] }).catch((error) => {
-    node.innerHTML = `<p class="p-4 text-sm text-red-700">No se pudo renderizar este diagrama: ${esc(error.message)}</p>`;
-  }));
-}
+const mermaidNodes = Array.from(document.querySelectorAll(".mermaid"));
+const mermaidRenderTasks = [
+  mermaid.run({ nodes: mermaidNodes }).catch((error) => {
+    console.error("Error en renderizado inicial de Mermaid:", error);
+  })
+];
 
 const chartLabels = Object.keys(catalog.stats.by_folder);
 new Chart(document.querySelector("#coverage-chart"), {
@@ -310,10 +425,34 @@ renderFunctions();
 document.querySelectorAll(".diagram-tab").forEach((button) => button.addEventListener("click", async () => {
   document.querySelectorAll(".diagram-tab").forEach((item) => item.className = "diagram-tab rounded-full border border-line px-4 py-2 text-sm text-slate-400");
   button.className = "diagram-tab rounded-full border border-mint bg-mint/10 px-4 py-2 text-sm text-mint";
+  const diagramKey = button.dataset.diagram;
+  
+  // Actualizar enlace directo al mapa Archify correspondiente
+  const archifyMeta = archifyTabMap[diagramKey];
+  const archifyBtn = document.querySelector("#active-archify-btn");
+  const archifyTitle = document.querySelector("#active-archify-title");
+  if (archifyBtn && archifyMeta) {
+    archifyBtn.href = `./${archifyMeta.file}`;
+    if (archifyTitle) archifyTitle.textContent = `Abrir mapa interactivo Archify (${button.textContent.trim()})`;
+  }
+
   const target = document.querySelector("#dynamic-diagram");
   target.removeAttribute("data-processed");
-  target.innerHTML = diagrams[button.dataset.diagram];
-  await mermaid.run({ nodes: [target] });
+  target.innerHTML = diagrams[diagramKey];
+  try {
+    await mermaid.run({ nodes: [target] });
+  } catch (err) {
+    console.warn("Fallo cargando Mermaid dinámico:", err);
+    target.innerHTML = `
+      <div class="p-6 text-center">
+        <p class="text-sm text-slate-300">Este diagrama está disponible en alta resolución vectorial interactiva:</p>
+        <a href="./${archifyMeta?.file || 'archify/sistema_contexto.html'}" target="_blank" rel="noopener" class="mt-3 inline-flex route-link text-xs">
+          <i data-lucide="maximize-2"></i> Abrir mapa interactivo Archify (${button.textContent.trim()})
+        </a>
+      </div>
+    `;
+    createIcons({ icons: iconSet, attrs: { width: 16, height: 16, "aria-hidden": "true" } });
+  }
 }));
 
 const navToggle = document.querySelector("#nav-toggle");
@@ -330,6 +469,9 @@ const searchIndex = [
   ...findings.map((item) => ({ section: "resumen", title: `${item.id} · ${item.title}`, text: item.detail })),
   ...manuals.map((item) => ({ section: "manual", title: item.title, text: item.steps.join(" ") })),
   ...glossary.map(([title, text]) => ({ section: "glosario", title, text })),
+  { section: "calibracion", title: "Cálculo del Yaw e Integración Angular MPU6050", text: "gyro_corregido offset_z polaridad promedio movil 8 muestras deadband 0.005 rad/s integracion discreta" },
+  { section: "calibracion", title: "Dogma Canónico de Calibración (5 Fases)", text: "CAL_CUENTA_REGRESIVA CAL_A CAL_VALIDAR_25 CAL_B CAL_RETORNO torque rampa 140 247" },
+  { section: "calibracion", title: "Encoders PCNT y Monitoreo Sensorial", text: "40 PPR filtro 1023 ciclos APB bateria VMOT watchdog stall 2.5s clear_fault calibration_surfaces" },
 ];
 globalSearch.addEventListener("input", () => {
   const term = globalSearch.value.trim().toLocaleLowerCase("es");

@@ -22,6 +22,9 @@ const diagrams = [
   { file: "mision_navegacion.workflow.json", type: "workflow", out: "mision_navegacion.html", title: "Navegación Ortogonal y Retorno Ockham" },
   { file: "fsm_ciclo_vida.lifecycle.json", type: "lifecycle", out: "fsm_ciclo_vida.html", title: "Ciclo de Vida y Estados del Robot (FSM)" },
   { file: "seguridad_electrica.architecture.json", type: "architecture", out: "seguridad_electrica.html", title: "Protección Eléctrica DRV8833 y Leyes de Potencia" },
+  { file: "sqlite_datos.architecture.json", type: "architecture", out: "sqlite_datos.html", title: "Esquema de Datos SQLite y Persistencia" },
+  { file: "android_arquitectura.architecture.json", type: "architecture", out: "android_arquitectura.html", title: "Arquitectura Android y Puente Chaquopy" },
+  { file: "validacion_puertas.workflow.json", type: "workflow", out: "validacion_puertas.html", title: "Puertas de Calidad y Validación Integral" },
 ];
 
 mkdirSync(exportedDir, { recursive: true });

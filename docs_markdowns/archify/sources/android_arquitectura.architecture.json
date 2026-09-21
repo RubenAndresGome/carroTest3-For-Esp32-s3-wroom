@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura Operativa Android y Servicio Chaquopy",
+    "output": "android_arquitectura.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "flujo-ui", "label": "Ciclo de Vida y WebView", "focus": ["user_touch", "main_activity", "webview_hmi", "flask_server"], "note": "Interacción táctil y presentación de HMI local." },
+      { "id": "servicio-python", "label": "Servicio en Primer Plano y Chaquopy", "focus": ["main_activity", "backend_service", "chaquopy", "flask_server", "esp32_robot"], "note": "Ejecución del backend Python desacoplada de la actividad." },
+      { "id": "cierre-seguro", "label": "Cierre Seguro y Bridge", "focus": ["webview_hmi", "robothost_bridge", "notif_stop", "backend_service"], "note": "safe_to_close y detención coordinada de procesos." }
+    ]
+  },
+  "components": [
+    { "id": "user_touch", "type": "external", "label": "Operador Tablet", "sublabel": "Pantalla Táctil", "pos": [40, 110], "size": [140, 56] },
+    { "id": "main_activity", "type": "frontend", "label": "MainActivity", "sublabel": "Kotlin / Lifecycle", "pos": [260, 110], "size": [140, 56], "tag": "Nativo" },
+    { "id": "webview_hmi", "type": "frontend", "label": "WebView Local", "sublabel": "HMI Canónica HTML5", "pos": [500, 110], "size": [150, 56], "tag": "Token" },
+    { "id": "robothost_bridge", "type": "security", "label": "RobotHost Bridge", "sublabel": "JS Interface (@JavascriptInterface)", "pos": [740, 110], "size": [160, 56] },
+    { "id": "backend_service", "type": "backend", "label": "RobotBackendService", "sublabel": "Foreground Service", "pos": [260, 260], "size": [160, 56], "tag": "Sticky" },
+    { "id": "chaquopy", "type": "backend", "label": "Chaquopy Engine", "sublabel": "Python 3.11 Embebido", "pos": [500, 260], "size": [150, 56], "tag": "Conda" },
+    { "id": "flask_server", "type": "backend", "label": "Flask + Waitress", "sublabel": "127.0.0.1:5000", "pos": [740, 260], "size": [150, 56], "tag": "REST/SSE" },
+    { "id": "notif_stop", "type": "security", "label": "Notificación Android", "sublabel": "Botón Detener Seguro", "pos": [30, 260], "size": [170, 56] },
+    { "id": "esp32_robot", "type": "cloud", "label": "ESP32-S3 Robot", "sublabel": "AP: 192.168.4.1", "pos": [740, 400], "size": [150, 56], "tag": "WebSocket" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Aplicación Android (android_app - Propietario Único de Socket)", "wraps": ["main_activity", "webview_hmi", "robothost_bridge", "backend_service", "chaquopy", "flask_server", "notif_stop"] },
+    { "kind": "security-group", "label": "Robot Físico Remoto", "wraps": ["esp32_robot"] }
+  ],
+  "connections": [
+    { "id": "u-act", "from": "user_touch", "to": "main_activity", "label": "táctil / inicio", "variant": "emphasis" },
+    { "id": "act-web", "from": "main_activity", "to": "webview_hmi", "label": "carga vista", "variant": "emphasis" },
+    { "id": "web-brg", "from": "webview_hmi", "to": "robothost_bridge", "label": "safe_to_close" },
+    { "id": "act-svc", "from": "main_activity", "to": "backend_service", "label": "inicia servicio", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "svc-chaq", "from": "backend_service", "to": "chaquopy", "label": "mobile_entry.py" },
+    { "id": "chaq-flk", "from": "chaquopy", "to": "flask_server", "label": "lanza runtime" },
+    { "id": "flk-web", "from": "flask_server", "to": "webview_hmi", "label": "HTTP + SSE", "fromSide": "top", "toSide": "bottom", "labelDy": -24 },
+    { "id": "flk-esp", "from": "flask_server", "to": "esp32_robot", "label": "WebSocket v3", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "not-svc", "from": "notif_stop", "to": "backend_service", "label": "cierre seguro", "variant": "security", "labelDy": 52 }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Propietario Único de WebSocket",
+      "items": [
+        "En la tablet Android, el servicio Chaquopy asume el control exclusivo del WebSocket hacia el ESP32",
+        "Regla canónica de AGENTS.md: nunca ejecutar Windows y Android al mismo tiempo"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Cierre Coordinado e Invariable",
+      "items": [
+        "El cierre desde la barra de notificación o la app ejecuta /app/close",
+        "Detiene motores, espera safe_to_close del puente RobotHost y luego invoca finishAndRemoveTask()"
+      ]
+    }
+  ]
+}

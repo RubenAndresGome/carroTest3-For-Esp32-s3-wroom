@@ -419,5 +419,113 @@ export const archifyMaps = [
     type: "Architecture",
     description: "Techos de PWM (242/247), ráfagas kickstart (80 ms), zonas muertas y tiempo muerto universal (250 ms).",
   },
+  {
+    id: "sqlite_datos",
+    title: "Esquema SQLite y Persistencia",
+    file: "archify/sqlite_datos.html",
+    type: "Architecture",
+    description: "Base relacional de sesiones, comandos, eventos, telemetría y perfiles de fricción de superficies.",
+  },
+  {
+    id: "android_arquitectura",
+    title: "Arquitectura Android y Chaquopy",
+    file: "archify/android_arquitectura.html",
+    type: "Architecture",
+    description: "Contenedor nativo APK con Foreground Service, puente Chaquopy Python, servidor Waitress y WebView HMI.",
+  },
+  {
+    id: "validacion_puertas",
+    title: "Puertas de Calidad y Validación",
+    file: "archify/validacion_puertas.html",
+    type: "Workflow",
+    description: "Pipeline de validación multifacética: PlatformIO, Pytest, Vite HMI, Chaquopy APK y Catálogo documental.",
+  },
 ];
+
+export const archifyTabMap = {
+  mission: { file: "archify/mision_navegacion.html", title: "Misión y Navegación Ortogonal (Workflow)" },
+  calibration: { file: "archify/calibracion_dogma.html", title: "Dogma Canónico de Calibración (Sequence)" },
+  returnHome: { file: "archify/mision_navegacion.html", title: "Retorno Ockham Seguro (Workflow)" },
+  reconnect: { file: "archify/fsm_ciclo_vida.html", title: "Recuperación de Red y FSM (Lifecycle)" },
+  robotReboot: { file: "archify/fsm_ciclo_vida.html", title: "Reinicio ESP32 y Reconciliación (Lifecycle)" },
+  pythonRestart: { file: "archify/fsm_ciclo_vida.html", title: "Reinicio Python y Sesión (Lifecycle)" },
+  close: { file: "archify/fsm_ciclo_vida.html", title: "Cierre Seguro y Parada (Lifecycle)" },
+  states: { file: "archify/fsm_ciclo_vida.html", title: "Ciclo de Vida y Estados del Robot (Lifecycle)" },
+  database: { file: "archify/sqlite_datos.html", title: "Esquema SQLite y Persistencia (Architecture)" },
+  android: { file: "archify/android_arquitectura.html", title: "Arquitectura Android y Puente Chaquopy (Architecture)" },
+  safety: { file: "archify/seguridad_electrica.html", title: "Protección Eléctrica DRV8833 (Architecture)" },
+  validation: { file: "archify/validacion_puertas.html", title: "Puertas de Calidad y Validación (Workflow)" },
+};
+
+export const calibrationDetails = {
+  mpuConfig: [
+    { param: "Interfaz I2C", value: "GPIO 8 (SDA) / GPIO 9 (SCL)", note: "Bus I2C síncrono en Core 1 a 400 kHz." },
+    { param: "Escala Acelerómetro", value: "±8 g", note: "Rango dinámico para detección de impactos y sacudidas." },
+    { param: "Escala Giroscopio", value: "±500 °/s", note: "Sensibilidad de 65.5 LSB/(°/s) para giros rápidos y micro-pulsos." },
+    { param: "Filtro Digital Pasa-Bajos (DLPF)", value: "21 Hz", note: "Atenúa ruidos mecánicos de reductores TT y motorreductores." },
+    { param: "Tara y Offset Z", value: "256 muestras en reposo", note: "Calcula el sesgo estático (bias) con el chasis inmóvil." },
+    { param: "Polaridad Angular", value: "-1.0 (invertida)", note: "Compensa el montaje físico invertido del chip MPU respecto a la convención canónica (+Y = 0°, dextrógiro)." },
+    { param: "Filtro Promedio Móvil", value: "Ventana de 8 muestras", note: "Suavizado digital síncrono ejecutado en cada muestra del súper-ciclo a 100 Hz." },
+    { param: "Zona Muerta (Deadband)", value: "|gyro| < 0.005 rad/s → 0", note: "Elimina integración espuria y deriva angular parásita en reposo." },
+  ],
+  phases: [
+    {
+      id: "fase1",
+      name: "1. CAL_CUENTA_REGRESIVA (5.0 s)",
+      desc: "Reposo absoluto en suelo. Permite estabilización térmica, elimina transitorios de encendido y calcula la tara del giróscopo MPU6050 (offset Z) con 256 lecturas.",
+      tag: "Estabilización",
+    },
+    {
+      id: "fase2",
+      name: "2. CAL_A: Búsqueda Torque Polaridad Positiva",
+      desc: "Rampa adaptativa de PWM desde 140 hasta 247/255 (2/255 cada 20 ms). Requiere ticks bilaterales en encoders PCNT y confirmación sostenida de gyro_z >= 0.12 rad/s durante 100 ms. Si el giro inicial resulta negativo, invierte candidatoCal con pausa de 750 ms hasta validar sentido dextrógiro.",
+      tag: "Torque Positivo",
+    },
+    {
+      id: "fase3",
+      name: "3. CAL_VALIDAR_25: Giro y Asentamiento",
+      desc: "Pivote fino hasta alcanzar yawInicio + 25° (±2.5°) con reposo de asentamiento de 600 ms para registrar la respuesta inercial y fricción estática del terreno.",
+      tag: "Validación +25°",
+    },
+    {
+      id: "fase4",
+      name: "4. CAL_PAUSA & CAL_B: Torque Polaridad Opuesta",
+      desc: "Reposo de 2.5 s y búsqueda de par mínimo en sentido opuesto. Valida movimiento bilateral y comprueba que candidatoGiroPos != candidatoGiroNeg.",
+      tag: "Torque Negativo",
+    },
+    {
+      id: "fase5",
+      name: "5. CAL_PAUSA_RETORNO & CAL_RETORNO: Vuelta a Cero",
+      desc: "Reposo de 2.5 s y retorno cerrado hacia el yawInicioCalDeg original. Al estabilizarse, resetea la odometría de PoseGlobal (X=0, Y=0) y el yaw del IMU, transicionando a estado LISTO.",
+      tag: "Retorno y Cero",
+    },
+  ],
+  subsystems: [
+    {
+      title: "Encoders y Periférico PCNT",
+      icon: "activity",
+      desc: "Resolución efectiva de 40 PPR (reducción 2:1 por software sobre disco de 20 ranuras). El ESP32 utiliza el periférico de hardware PCNT con filtro de desparasitado configurado en 1023 ciclos de reloj APB (~12.8 µs), descartando rebotes y ruido electromagnético de los motores.",
+    },
+    {
+      title: "Sensor de Actividad y Monitor de Batería",
+      icon: "circuit-board",
+      desc: "Supervisión continua de la fuente de alimentación lógica y de potencia VMOT. Previene caídas bruscas de tensión (brownout) durante picos de par y bloquea comandos de avance si la tensión de celda cae por debajo de los umbrales seguros.",
+    },
+    {
+      title: "Detección de Atascos (Stalls) y Watchdogs",
+      icon: "alert-triangle",
+      desc: "En giros autónomos, el watchdog de 2.5 s por lado se arma únicamente tras alcanzar el par calibrado. En traslación recta, el corte actúa a 450 ms ante falta de ticks o deriva angular. En caso de atasco, se produce parada segura inmediata (PWM 0/0) y transición al estado FALLO con error cal_stall_left/right.",
+    },
+    {
+      title: "Rearme de Fallos (clear_fault)",
+      icon: "shield-check",
+      desc: "El comando clear_fault permite restablecer la máquina de estados. Si el robot conserva su calibración en memoria, retorna directamente a LISTO; si la calibración fue invalidada o ocurrió un reinicio, pasa a DESARMADO exigiendo una nueva calibración.",
+    },
+    {
+      title: "Persistencia SQLite e Inyección de Par",
+      icon: "database",
+      desc: "La tabla calibration_surfaces en robot.sqlite3 almacena los pares calibrados por tipo de superficie (madera, baldosa, alfombra). Permite reinyectar el par óptimo directamente al firmware vía JSON v3 sin necesidad de forzar una nueva calibración física en cada arranque.",
+    },
+  ],
+};
 

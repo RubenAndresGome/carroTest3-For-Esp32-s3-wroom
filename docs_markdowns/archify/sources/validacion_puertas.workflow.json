@@ -1,0 +1,81 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Puertas de Calidad y Validación Integral",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "flujo-completo",
+        "label": "Pipeline Integral",
+        "focus": ["fuente", "check_fw", "staging_fw", "py_unit", "vite_build", "gradle_apk", "portal_chk", "puerta_ok"],
+        "note": "Validación multifacética: firmware modular, backend Python, HMI Vite, Android y catálogo documental."
+      },
+      {
+        "id": "puerta-firmware",
+        "label": "Puertas Embebidas",
+        "focus": ["fuente", "check_fw", "staging_fw", "puerta_ok"],
+        "note": "PlatformIO, límites de PWM (242/247), stack RTOS y polaridad DRV8833."
+      },
+      {
+        "id": "puerta-portal",
+        "label": "Documentación y Portal",
+        "focus": ["fuente", "vite_build", "portal_chk", "puerta_ok"],
+        "note": "Universal Ctags, verificación de SHA-256 de videos y compilación Archify."
+      }
+    ],
+    "output": "validacion_puertas.html"
+  },
+  "lanes": [
+    { "id": "dev", "label": "Fuentes Modulares" },
+    { "id": "ci_firmware", "label": "Firmware ESP32-S3" },
+    { "id": "ci_software", "label": "Software & HMI" },
+    { "id": "ci_qa", "label": "Puerta Integral de Release" }
+  ],
+  "phases": [
+    { "id": "fase_fuente", "label": "1. Código y Staging", "fromCol": 0, "toCol": 1 },
+    { "id": "fase_pruebas", "label": "2. Validación Especializada", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "fase_puerta", "label": "3. Aprobación y Portal", "fromCol": 4, "toCol": 4, "variant": "dashed" }
+  ],
+  "mainPath": ["fuente", "staging_fw", "check_fw", "puerta_ok"],
+  "nodes": [
+    { "id": "fuente", "lane": "dev", "col": 0, "type": "frontend", "label": "Código Fuente", "sublabel": "src/ include/ app/", "width": 132 },
+    { "id": "staging_fw", "lane": "ci_firmware", "col": 1, "type": "backend", "label": "Staging Ensayos", "sublabel": "archive/firmware_tests", "tag": "scripts", "width": 132 },
+    { "id": "check_fw", "lane": "ci_firmware", "col": 2, "type": "security", "label": "PlatformIO", "sublabel": "pio run ESP32-S3", "tag": "100 Hz", "width": 132 },
+    { "id": "py_unit", "lane": "ci_software", "col": 2, "type": "backend", "label": "Pytest Suite", "sublabel": "tests/ desktop_app", "tag": "Python 3.11", "width": 132 },
+    { "id": "vite_build", "lane": "ci_software", "col": 3, "type": "frontend", "label": "Vite & HMI", "sublabel": "index.html + tokens", "tag": "ESM", "width": 132 },
+    { "id": "gradle_apk", "lane": "ci_software", "col": 1, "type": "external", "label": "Gradle Android", "sublabel": "APK arm64 + Chaquopy", "tag": "Android 13+", "width": 132 },
+    { "id": "portal_chk", "lane": "dev", "col": 3, "type": "database", "label": "Portal Documental", "sublabel": "validate-content.mjs", "tag": "Archify", "width": 132 },
+    { "id": "puerta_ok", "lane": "ci_qa", "col": 4, "type": "security", "label": "Puerta Integral", "sublabel": "Aprobado para Operación", "tag": "Release", "width": 132 }
+  ],
+  "edges": [
+    { "id": "e-f-staging", "from": "fuente", "to": "staging_fw" },
+    { "id": "e-f-gradle", "from": "fuente", "to": "gradle_apk" },
+    { "id": "e-staging-check", "from": "staging_fw", "to": "check_fw" },
+    { "id": "e-f-py", "from": "fuente", "to": "py_unit" },
+    { "id": "e-py-vite", "from": "py_unit", "to": "vite_build" },
+    { "id": "e-f-portal", "from": "fuente", "to": "portal_chk" },
+    { "id": "e-check-puerta", "from": "check_fw", "to": "puerta_ok", "label": "binario ok", "variant": "security" },
+    { "id": "e-vite-puerta", "from": "vite_build", "to": "puerta_ok", "label": "hmi ok" },
+    { "id": "e-portal-puerta", "from": "portal_chk", "to": "puerta_ok", "label": "docs ok" },
+    { "id": "e-gradle-puerta", "from": "gradle_apk", "to": "puerta_ok", "label": "apk ok", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Verificación Integral Continua",
+      "items": [
+        "El firmware se valida contra límites duros: PWM <= 242/255 crucero y <= 247/255 giro",
+        "El backend Python garantiza la integridad transaccional de sesiones y SQLite"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Documentación Viva",
+      "items": [
+        "validate-content.mjs comprueba SHA-256 de videos, fotogramas y diagramas Mermaid",
+        "Archify compila mapas interactivos con exploración vectorial determinista"
+      ]
+    }
+  ]
+}

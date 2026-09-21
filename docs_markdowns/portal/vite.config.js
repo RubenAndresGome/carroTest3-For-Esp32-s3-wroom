@@ -14,7 +14,7 @@ export default defineConfig({
     emptyOutDir: false,
     sourcemap: false,
     // El portal incluye Mermaid en el bundle; no depende de un CDN en Pages.
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2500,
     rollupOptions: {
       input: {
         index: resolve(import.meta.dirname, "index.html"),
@@ -23,6 +23,17 @@ export default defineConfig({
         manual: resolve(import.meta.dirname, "manual.html"),
         datos: resolve(import.meta.dirname, "datos.html"),
         evidencia: resolve(import.meta.dirname, "evidencia.html"),
+      },
+      output: {
+        chunkFileNames: (chunkInfo) => {
+          const sanitized = chunkInfo.name.replace(/^_+/, "");
+          return `assets/${sanitized}-[hash].js`;
+        },
+        assetFileNames: (assetInfo) => {
+          const rawName = assetInfo.name || "asset";
+          const sanitized = rawName.replace(/^_+/, "");
+          return `assets/${sanitized}-[hash][extname]`;
+        },
       },
     },
   },
