@@ -360,6 +360,7 @@ export const glossary = [
 export const evidence = [
   {
     title: "Servidor y robot",
+    subtitle: "Milestone Base · Sesión 108",
     src: "videos/servidor_y_robot_ruta_ortogonal.mp4",
     duration: "03:43",
     hash: "239F02EE…1626A",
@@ -368,11 +369,44 @@ export const evidence = [
   },
   {
     title: "Ruta Y+100, Y+50, X+190, X−190",
+    subtitle: "Milestone Base · Navegación Ortogonal",
     src: "videos/ruta_ortogonal_y100_y50_x190_xmenos190.mp4",
     duration: "01:28",
     hash: "D10C633E…A30D3",
     thumbnail: "fotogramas/miniatura_ruta_ortogonal.webp",
     frames: makeFrames("ruta_ortogonal", 88.533333, ["Inicio", "Tramo Y+100", "Tramo Y+50", "Giro y X+190", "X−190", "Corte final"]),
+  },
+  {
+    title: "Ruta Ortogonal (Ida y Retorno)",
+    subtitle: "Versión Producto Operativo R1 (producto_operativo_R1_0.0.0)",
+    src: "videos/RutaOrtogonal_ligero.mp4",
+    duration: "01:10",
+    hash: "6E6D6523…5459BE9C",
+    thumbnail: "fotogramas/miniatura_ruta_ortogonal_r1.webp",
+    frames: makeFrames("ruta_ortogonal_r1", 69.636233, [
+      "Inicio y calibración",
+      "Avance ortogonal Y+",
+      "Giro ortogonal 90°",
+      "Avance tramo lateral",
+      "Retorno inverso a origen",
+      "Cierre de ciclo y parada",
+    ]),
+  },
+  {
+    title: "Control Remoto - Pruebas de Movimiento",
+    subtitle: "Versión Producto Operativo R1 (producto_operativo_R1_0.0.0)",
+    src: "videos/SistemaControlRemotoTestingMovement_ligero.mp4",
+    duration: "00:46",
+    hash: "8209F4BC…EDAB4178E",
+    thumbnail: "fotogramas/miniatura_control_remoto_r1.webp",
+    frames: makeFrames("control_remoto_r1", 45.827298, [
+      "Conexión HMI",
+      "Avance manual joystick",
+      "Giro en eje y pivote",
+      "Control de velocidad",
+      "Maniobra reversa",
+      "Parada segura y verificación",
+    ]),
   },
 ];
 

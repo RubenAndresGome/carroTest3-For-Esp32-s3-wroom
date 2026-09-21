@@ -84,6 +84,8 @@ assert(manuals.length >= 5 && manuals.every((manual) => manual.steps.length >= 5
 const expectedVideos = new Map([
   ["videos/servidor_y_robot_ruta_ortogonal.mp4", "239F02EED4B207913C1A642247727B0A4E833B351D8C1DAEB0CF037DCC01626A"],
   ["videos/ruta_ortogonal_y100_y50_x190_xmenos190.mp4", "D10C633E054D7566FC8933140226CBAEDFD8AE19D791A6E1347EB685F69A30D3"],
+  ["videos/RutaOrtogonal_ligero.mp4", "6E6D6523341D0747C4678FDA89E36D64EBC2FC8934616949C7052CD25459BE9C"],
+  ["videos/SistemaControlRemotoTestingMovement_ligero.mp4", "8209F4BCD91BD6CD94C1AE8BA917156E339783B85BE81B9BECB7EBFEDAB4178E"],
 ]);
 
 for (const item of evidence) {

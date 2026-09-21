@@ -11,15 +11,19 @@ ausencia de reinicios.
 |---|---|
 | [`servidor_y_robot_ruta_ortogonal.mp4`](videos/servidor_y_robot_ruta_ortogonal.mp4) | `239F02EED4B207913C1A642247727B0A4E833B351D8C1DAEB0CF037DCC01626A` |
 | [`ruta_ortogonal_y100_y50_x190_xmenos190.mp4`](videos/ruta_ortogonal_y100_y50_x190_xmenos190.mp4) | `D10C633E054D7566FC8933140226CBAEDFD8AE19D791A6E1347EB685F69A30D3` |
+| [`RutaOrtogonal_ligero.mp4`](videos/RutaOrtogonal_ligero.mp4) (Producto Operativo R1) | `6E6D6523341D0747C4678FDA89E36D64EBC2FC8934616949C7052CD25459BE9C` |
+| [`SistemaControlRemotoTestingMovement_ligero.mp4`](videos/SistemaControlRemotoTestingMovement_ligero.mp4) (Producto Operativo R1) | `8209F4BCD91BD6CD94C1AE8BA917156E339783B85BE81B9BECB7EBFEDAB4178E` |
 
 Los MP4 están normalizados, sin metadatos personales del dispositivo,
 recomprimidos a H.264/AAC, 15 fps y la resolución vertical suministrada. Git
 LFS los gestiona mediante `.gitattributes`. Las copias de `Downloads` no se
 duplican en el repositorio.
 
-Para trazabilidad, los archivos fuente externos tenían SHA-256
-`64A6D1FF5640824B51B0A30742CC9F79A37EBB0F81F4CFD062C7C7395CAF92E3`
-y `969514D1F85BCF7136F1E52ECE054F79A52C2C7CC3839B9AEF2CD1A0787A7508`.
+Para trazabilidad, los archivos fuente externos tenían SHA-256:
+- `servidor_y_robot`: `64A6D1FF5640824B51B0A30742CC9F79A37EBB0F81F4CFD062C7C7395CAF92E3`
+- `ruta_ortogonal`: `969514D1F85BCF7136F1E52ECE054F79A52C2C7CC3839B9AEF2CD1A0787A7508`
+- `RutaOrtogonalSystemGoAndReturn.mp4` (176.48 MB, fuente de `RutaOrtogonal_ligero.mp4` 5.52 MB, -96.7%): `DA74B92D3FFF77D3F889A4E7A4EB57B81E8893FD47AE7283E858FEA4BCA4055B`
+- `SistemaControlRemotoTestingMovement.mp4` (116.18 MB, fuente de `SistemaControlRemotoTestingMovement_ligero.mp4` 9.09 MB, -92.2%): `B7058CBC352CE63DBC4CDC70765131E980BEEDBBE8D5E6CB6016A5125AF1CF7F`
 
 ## Lectura guiada: servidor y robot
 
