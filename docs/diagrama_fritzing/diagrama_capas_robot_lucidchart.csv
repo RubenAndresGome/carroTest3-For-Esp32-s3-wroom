@@ -1,0 +1,65 @@
+Id,Name,Shape Library,Page ID,Contained By,Line Source,Line Destination,Source Arrow,Destination Arrow,Text Area 1
+C1,Contenedor Capa 1,containers,1,,,None,None,"1. Capa de Acondicionamiento Físico y Potencia (TXS0108E, Tierra Común, Desacoplamiento)"
+C2,Contenedor Capa 2,containers,1,,,None,None,"2. Capa de Firmware Determinista y Tiempo Real (Core 1 a 100 Hz, PCNT, LEDC)"
+C3,Contenedor Capa 3,containers,1,,,None,None,"3. Capa de Fusión Sensorial y Estimación de Pose (MPU6050, Encoders, Filtros, ICR)"
+C4,Contenedor Capa 4,containers,1,,,None,None,"4. Capa de Comunicación y Transporte Telemático (Core 0, WebSocket, JSON robot-s3-steps-v3)"
+C5,Contenedor Capa 5,containers,1,,,None,None,"5. Capa de Supervisión y Lógica de Misión (Python/Flask, SQLite WAL, HMI Multiplataforma)"
+N101,Bloque,flowchart,1,C1,,,None,None,"Conversor Bidireccional de Nivel TXS0108E
+(3.3V ESP32-S3 ↔ 5V Encoders LM393)"
+N102,Bloque,flowchart,1,C1,,,None,None,"Plano de Masa y Tierra Común Unificada
+(GND Lógica y Potencia en Topología Estrella)"
+N103,Bloque,flowchart,1,C1,,,None,None,"Desacoplamiento y Supresión Back-EMF
+(Cerámicos 0.1 µF en Motores + Electrolíticos ≥100 µF en VMOT)"
+N104,Bloque,flowchart,1,C1,,,None,None,"Doble Puente H DRV8833 y Baterías Li-Ion 18650
+(Control 4 Motores TT con Reductora 180°)"
+N201,Bloque,flowchart,1,C2,,,None,None,"Súper-Ciclo Síncrono a 100 Hz (loop nativo Core 1)
+(Período T = 10,000 µs sin colas intermedias)"
+N202,Bloque,flowchart,1,C2,,,None,None,"Módulo Hardware PCNT (4 Canales Encoders)
+(Filtro Digital APB de 1023 ciclos, 0% CPU)"
+N203,Bloque,flowchart,1,C2,,,None,None,"Generador PWM LEDC a 5 kHz (10 Bits: 0..1023)
+(Límites: Crucero 242/255, Ráfaga 80 ms)"
+N204,Bloque,flowchart,1,C2,,,None,None,"Leyes de Control y Seguridad Eléctrica
+(PID Rumbo, Giro Híbrido 3 Zonas, Interlock 250 ms)"
+N301,Bloque,flowchart,1,C3,,,None,None,"Sensor MEMS MPU6050 (I²C 400 kHz, ±500 °/s)
+(Calibración Dogma: 5.0 s reposo, 256 muestras)"
+N302,Bloque,flowchart,1,C3,,,None,None,"Encoders Ópticos Ranurados LM393
+(40 ticks/rev en flancos PCNT, 0.5261 cm/tick)"
+N303,Bloque,flowchart,1,C3,,,None,None,"Filtro Estadístico de Mediana y Salud Sensorial
+(Descarte de atípicos y detección de stall/falla)"
+N304,Bloque,flowchart,1,C3,,,None,None,"Cinemática Skid-Steer y Estimación de Pose (X, Y, θ)
+(Compensación de Centro Instantáneo ICR)"
+N401,Bloque,flowchart,1,C4,,,None,None,"Pila Wi-Fi 2.4 GHz (ESP32 Core 0 AP / STA)
+(Aislamiento completo de tráfico de red del Core 1)"
+N402,Bloque,flowchart,1,C4,,,None,None,"Servidor WebSocket Asíncrono (Puerto 81)
+(ESPAsyncWebServer + AsyncTCP full-duplex)"
+N403,Bloque,flowchart,1,C4,,,None,None,"Protocolo Estructurado robot-s3-steps-v3
+(Tramas JSON ≤ 7168 Bytes, Comandos y Telemetría)"
+N404,Bloque,flowchart,1,C4,,,None,None,"Watchdog de Conexión de Enlace (1500 ms)
+(Freno seguro safe_stop ante pérdida de socket)"
+N501,Bloque,flowchart,1,C5,,,None,None,"Backend Canónico Python (Flask / Waitress)
+(Propietario único del WebSocket hacia robot)"
+N502,Bloque,flowchart,1,C5,,,None,None,"Planificador de Misión y Rutas Ortogonales
+(Despacho secuencial de steps y giros en el sitio)"
+N503,Bloque,flowchart,1,C5,,,None,None,"Base de Datos Forense SQLite (Modo WAL)
+(Sincronización forense 100 Hz y extracción ADB)"
+N504,Bloque,flowchart,1,C5,,,None,None,"HMI Multiplataforma (Web UI & Android Chaquopy)
+(Dashboard Chart.js, Plano Cartesiano y Joystick)"
+,Line,,1,,N504,N501,None,Arrow,"Interacción de usuario y telemetría"
+,Line,,1,,N501,N502,None,Arrow,"Consignas de misión"
+,Line,,1,,N501,N503,None,Arrow,"Persistencia transaccional WAL"
+,Line,,1,,N501,N402,Arrow,Arrow,"Enlace WebSocket TCP (JSON estructurado)"
+,Line,,1,,N402,N403,Arrow,Arrow,"Payload JSON bidireccional"
+,Line,,1,,N403,N201,None,Arrow,"Comandos de misión (Core 0 → Core 1)"
+,Line,,1,,N201,N403,None,Arrow,"Telemetría de estado a 100 Hz (Core 1 → Core 0)"
+,Line,,1,,N201,N204,None,Arrow,"Ejecución determinista cada 10,000 µs"
+,Line,,1,,N204,N304,Arrow,Arrow,"Realimentación de pose y consignas"
+,Line,,1,,N301,N304,None,Arrow,"Rumbo angular e integración Yaw"
+,Line,,1,,N302,N303,None,Arrow,"Pulsos de encoder"
+,Line,,1,,N303,N304,None,Arrow,"Distancia filtrada bilateral"
+,Line,,1,,N202,N302,Arrow,None,"Conteo hardware PCNT"
+,Line,,1,,N204,N203,None,Arrow,"Leyes de control PID / Freno Back-EMF"
+,Line,,1,,N203,N104,None,Arrow,"Señales PWM LEDC (5 kHz, 10 bits)"
+,Line,,1,,N101,N202,None,Arrow,"Pulsos ópticos adaptados 3.3V"
+,Line,,1,,N104,N101,None,Arrow,"Ruedas ranuradas TT a sensores LM393"
+,Line,,1,,N103,N104,None,Arrow,"Filtrado transitorios y Back-EMF"
+,Line,,1,,N102,N104,None,None,"Retorno masa común unificada"

@@ -1,0 +1,702 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Fritzing (https://fritzing.org/) -->
+<netlist date="Wed Sep 30 14:01:35 2026" sketch="IntentDiagramRobotS3.fzz">
+ <net>
+  <connector id="connector40" name="Pin 41">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector19" name="OE">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector17" name="B8">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855168550" label="V12" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855167140" label="V11" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855164120" label="V6" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855163520" label="V5" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855162930" label="V4" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855161770" label="V3" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855155060" label="V2" title="Power"/>
+  </connector>
+  <connector id="connector4" name="pin 4">
+   <part id="855129650" label="EncoderDerFrontalLm395" title="CK-07"/>
+  </connector>
+  <connector id="connector4" name="pin 4">
+   <part id="855128890" label="EncoderIzqFrontalLm393" title="CK-07"/>
+  </connector>
+  <connector id="connector4" name="pin 4">
+   <part id="855129670" label="EncoderDerInferiorLm396" title="CK-07"/>
+  </connector>
+  <connector id="connector20" name="Pin 21">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector4" name="pin 4">
+   <part id="855129090" label="EncoderIzqInferiorLm394" title="CK-07"/>
+  </connector>
+  <connector id="connector9" name="VCCB">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="V+">
+   <part id="855167800" label="PowerBank" title="DC Power"/>
+  </connector>
+  <connector id="connector0" name="leg0">
+   <part id="855167820" label="Switch de baterias 7.7V1" title="Pushbutton"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="V-">
+   <part id="855167800" label="PowerBank" title="DC Power"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855168160" label="Ground8" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855155330" label="Ground1" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855161530" label="Ground2" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855162920" label="Ground3" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855163510" label="Ground4" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855164110" label="Ground5" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855164910" label="Ground6" title="Ground"/>
+  </connector>
+  <connector id="connector0" name="GND">
+   <part id="855165550" label="Ground7" title="Ground"/>
+  </connector>
+  <connector id="connector3" name="pin 3">
+   <part id="855129670" label="EncoderDerInferiorLm396" title="CK-07"/>
+  </connector>
+  <connector id="connector3" name="pin 3">
+   <part id="855128890" label="EncoderIzqFrontalLm393" title="CK-07"/>
+  </connector>
+  <connector id="connector1" name="-">
+   <part id="854112570" label="C4" title="Capacitor Polarized"/>
+  </connector>
+  <connector id="connector3" name="pin 3">
+   <part id="855129090" label="EncoderIzqInferiorLm394" title="CK-07"/>
+  </connector>
+  <connector id="connector3" name="pin 3">
+   <part id="855129650" label="EncoderDerFrontalLm395" title="CK-07"/>
+  </connector>
+  <connector id="connector18" name="GND">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector2" name="pin3">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="leg0">
+   <part id="855166500" label="." title="Pushbutton"/>
+  </connector>
+  <connector id="connector0" name="V-">
+   <part id="855166330" label="V10" title="DC Power"/>
+  </connector>
+  <connector id="connector0" name="V-">
+   <part id="855166300" label="7.7" title="DC Power"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="V+">
+   <part id="855166330" label="V10" title="DC Power"/>
+  </connector>
+  <connector id="connector1" name="V+">
+   <part id="855166300" label="7.7" title="DC Power"/>
+  </connector>
+  <connector id="connector0" name="leg0">
+   <part id="855166470" label="Switch de baterias 7.7V" title="Pushbutton"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="V+">
+   <part id="855165870" label="V8" title="Power"/>
+  </connector>
+  <connector id="connector0" name="V+">
+   <part id="855165250" label="V7" title="Power"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector11" name="Pin 12">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector3" name="SDA">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector2" name="SCL">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+  <connector id="connector14" name="Pin 15">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="GND">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+  <connector id="connector22" name="Pin 23">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector21" name="Pin 22">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector43" name="Pin 44">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector23" name="Pin 24">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="VCC">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+  <connector id="connector0" name="Pin 1">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector1" name="Pin 2">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="pin1">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector10" name="Pin 11">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="pin2">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector9" name="Pin 10">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector4" name="pin5">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector8" name="Pin 9">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector7" name="Pin 8">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector5" name="pin6">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="pin2">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector6" name="Pin 7">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="pin1">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector5" name="Pin 6">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector4" name="pin5">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector4" name="Pin 5">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector5" name="pin6">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector3" name="Pin 4">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="V+">
+   <part id="855155000" label="V1" title="Power"/>
+  </connector>
+  <connector id="connector28" name="VCCA">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector27" name="A1">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector18" name="Pin 19">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector26" name="A2">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector17" name="Pin 18">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector15" name="Pin 16">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+  <connector id="connector22" name="A6">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector23" name="A5">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector16" name="Pin 17">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector10" name="B1">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector2" name="pin 2">
+   <part id="855129670" label="EncoderDerInferiorLm396" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector11" name="B2">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+  <connector id="connector2" name="pin 2">
+   <part id="855129650" label="EncoderDerFrontalLm395" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector2" name="pin 2">
+   <part id="855129090" label="EncoderIzqInferiorLm394" title="CK-07"/>
+  </connector>
+  <connector id="connector15" name="B6">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector2" name="pin 2">
+   <part id="855128890" label="EncoderIzqFrontalLm393" title="CK-07"/>
+  </connector>
+  <connector id="connector14" name="B5">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="-">
+   <part id="854108370" label="C1" title="Capacitor Polarized"/>
+  </connector>
+  <connector id="connector2" name="pin3">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="0">
+   <part id="854112610" label="C5" title="Ceramic Capacitor"/>
+  </connector>
+  <connector id="connector9" name="pin10">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector1" name="pin 2">
+   <part id="854112590" label="MotorDerechoTrasero" title="gear-motor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="1">
+   <part id="854111780" label="C3" title="Ceramic Capacitor"/>
+  </connector>
+  <connector id="connector8" name="pin9">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector0" name="pin 1">
+   <part id="854111770" label="MotorIzquierdoFrontal" title="gear-motor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="1">
+   <part id="854112620" label="C6" title="Ceramic Capacitor"/>
+  </connector>
+  <connector id="connector8" name="pin9">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector0" name="pin 1">
+   <part id="854112600" label="MotorDerechoFrontal" title="gear-motor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector7" name="pin8">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector1" name="pin 2">
+   <part id="854111770" label="MotorIzquierdoFrontal" title="gear-motor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector7" name="pin8">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector1" name="pin 2">
+   <part id="854112600" label="MotorDerechoFrontal" title="gear-motor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="0">
+   <part id="854111200" label="C2" title="Ceramic Capacitor"/>
+  </connector>
+  <connector id="connector9" name="pin10">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector1" name="pin 2">
+   <part id="854109810" label="MotorIzquierdoTrasero" title="gear-motor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="1">
+   <part id="854111200" label="C2" title="Ceramic Capacitor"/>
+  </connector>
+  <connector id="connector0" name="pin 1">
+   <part id="854109810" label="MotorIzquierdoTrasero" title="gear-motor"/>
+  </connector>
+  <connector id="connector10" name="pin11">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="1">
+   <part id="854112610" label="C5" title="Ceramic Capacitor"/>
+  </connector>
+  <connector id="connector0" name="pin 1">
+   <part id="854112590" label="MotorDerechoTrasero" title="gear-motor"/>
+  </connector>
+  <connector id="connector10" name="pin11">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector3" name="pin4">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector3" name="pin4">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+  <connector id="connector0" name="+">
+   <part id="854112570" label="C4" title="Capacitor Polarized"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="leg1">
+   <part id="855167820" label="Switch de baterias 7.7V1" title="Pushbutton"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="leg1">
+   <part id="855166500" label="." title="Pushbutton"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="leg1">
+   <part id="855166470" label="Switch de baterias 7.7V" title="Pushbutton"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector5" name="XCL">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="AD0">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector7" name="INT">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector4" name="XDA">
+   <part id="855151730" label="MPU6050" title="InvenSense MPU6050"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector2" name="Pin 3">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector33" name="Pin 34">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector41" name="Pin 42">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector34" name="Pin 35">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector38" name="Pin 39">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector30" name="Pin 31">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector19" name="Pin 20">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector24" name="Pin 25">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector28" name="Pin 29">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector32" name="Pin 33">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector31" name="Pin 32">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector37" name="Pin 38">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector29" name="Pin 30">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector13" name="Pin 14">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector35" name="Pin 36">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector26" name="Pin 27">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector12" name="Pin 13">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector27" name="Pin 28">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector42" name="Pin 43">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector39" name="Pin 40">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector36" name="Pin 37">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector25" name="Pin 26">
+   <part id="855151670" label="A1" title="ESP32-S3-WROOM-1-N16R8 dev board"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector16" name="B7">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector24" name="A4">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector20" name="A8">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector13" name="B4">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector12" name="B3">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector21" name="A7">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector25" name="A3">
+   <part id="855151380" label="Componente1" title="TXB0108 8-channel Bi-directional Logic Level Converter"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="0">
+   <part id="854111780" label="C3" title="Ceramic Capacitor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="0">
+   <part id="854112620" label="C6" title="Ceramic Capacitor"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector11" name="pin12">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="pin7">
+   <part id="854108450" label="ControladorIzquierdo" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector11" name="pin12">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="pin7">
+   <part id="854112580" label="ControladorDerecho" title="DRV8833 Motor Driver Board (MJKDZ)"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector0" name="+">
+   <part id="854108370" label="C1" title="Capacitor Polarized"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector5" name="pin 5">
+   <part id="855128890" label="EncoderIzqFrontalLm393" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="pin 6">
+   <part id="855128890" label="EncoderIzqFrontalLm393" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="pin 1">
+   <part id="855128890" label="EncoderIzqFrontalLm393" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector5" name="pin 5">
+   <part id="855129090" label="EncoderIzqInferiorLm394" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="pin 6">
+   <part id="855129090" label="EncoderIzqInferiorLm394" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="pin 1">
+   <part id="855129090" label="EncoderIzqInferiorLm394" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector5" name="pin 5">
+   <part id="855129650" label="EncoderDerFrontalLm395" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="pin 6">
+   <part id="855129650" label="EncoderDerFrontalLm395" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="pin 1">
+   <part id="855129650" label="EncoderDerFrontalLm395" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector5" name="pin 5">
+   <part id="855129670" label="EncoderDerInferiorLm396" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector6" name="pin 6">
+   <part id="855129670" label="EncoderDerInferiorLm396" title="CK-07"/>
+  </connector>
+ </net>
+ <net>
+  <connector id="connector1" name="pin 1">
+   <part id="855129670" label="EncoderDerInferiorLm396" title="CK-07"/>
+  </connector>
+ </net>
+</netlist>

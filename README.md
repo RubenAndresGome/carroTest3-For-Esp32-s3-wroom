@@ -5,6 +5,7 @@ Este repositorio agrupa la pila completa del carro diferencial:
 - Firmware en ESP32-S3 en [src/](src/) e [include/](include/)
 - Backend + HMI canónico en [desktop_app/](desktop_app/)
 - APK Android que empaqueta el mismo backend en [android_app/](android_app/)
+- Guía de reproducibilidad técnica y experimental en [REPRODUCIBLE.md](REPRODUCIBLE.md)
 - Documentación técnica y protocolos en [docs/](docs/)
 - Ensayos físicos y prototipos históricos en [archive/](archive/)
 
@@ -38,6 +39,7 @@ La base del diseño es la siguiente:
 ├── archive/                   Ensayos aprobados y prototipos legacy
 ├── lib/                       Bibliotecas de terceros del firmware
 ├── platformio.ini             Configuración de PlatformIO para ESP32-S3
+├── REPRODUCIBLE.md            Comandos pio, lib_deps fijadas, ADB y esquema Fritzing
 ├── INICIAR_ROBOT.bat          Entrada principal en Windows
 └── README.md                  Documentación principal del proyecto
 ```
@@ -116,6 +118,15 @@ entorno Python y, en ejecuciones posteriores, abre el panel principal. También
 puedes construir el ejecutable autónomo en [desktop_app/](desktop_app/).
 
 Para la Galaxy Tab, consulta [android_app/README.md](android_app/README.md).
+
+## Reproducibilidad y Esquema de Hardware Fritzing
+
+Para clonar, compilar, flashear y reproducir los resultados experimentales sin ambigüedades:
+- **[Guía Oficial de Reproducibilidad (REPRODUCIBLE.md)](REPRODUCIBLE.md)**: Commit hash evaluado, directiva de última versión en `main`, comandos PlatformIO (`pio`), librerías fijadas (`lib_deps`), scripts de telemetría ADB y arquitectura embebida de tiempo real.
+- **Descargas del Esquemático Fritzing y Planos:**
+  - 🌐 **[Descargar archivo nativo Fritzing (`IntentDiagramRobotS3.fzz`) desde GitHub Pages](https://rubenandresgome.github.io/carroTest3-For-Esp32-s3-wroom/diagrama_fritzing/IntentDiagramRobotS3.fzz)**
+  - 📄 **[Plano Esquemático en PDF](https://rubenandresgome.github.io/carroTest3-For-Esp32-s3-wroom/diagrama_fritzing/IntentDiagramRobotS3_esquematico.pdf)** | 📐 **[Vectorial SVG](https://rubenandresgome.github.io/carroTest3-For-Esp32-s3-wroom/diagrama_fritzing/IntentDiagramRobotS3_esquematico.svg)** | 🖼️ **[Imagen PNG](https://rubenandresgome.github.io/carroTest3-For-Esp32-s3-wroom/diagrama_fritzing/IntentDiagramRobotS3_esquematico.png)**
+  - 📖 **[Esquema Completo de Conexiones Físicas de Taller](docs_markdowns/diagrama_fritzing/ESQUEMA_CONEXIONES_ESP32S3.md)** (tabla de 15 GPIOs, etapa de potencia DRV8833 y conversores LM393).
 
 ## Documentación adicional
 

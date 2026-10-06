@@ -1,0 +1,154 @@
+%% Diagrama de Capas de la Arquitectura del Robot Móvil 4WD ESP32-S3
+%% Compatible con Lucidchart (Insertar > Marcado > Mermaid)
+
+flowchart TB
+    %% =========================================================================
+    %% CAPA 5: SUPERVISIÓN Y LÓGICA DE MISIÓN
+    %% =========================================================================
+    subgraph CAPA5["<b>CAPA 5: SUPERVISIÓN Y LÓGICA DE MISIÓN (HMI MULTIPLATAFORMA)</b>"]
+        direction TB
+        subgraph C5_UI["Frontend e Interfaz de Usuario (HMI)"]
+            UI1["Panel Cartesiano XY en Tiempo Real<br/>(Trayectoria, Pose y Orientación Cardinal)"]
+            UI2["Controles de Operación<br/>(Misión por Waypoints, Joystick Virtual, Consola)"]
+            UI3["Dashboard Telemático y Diagnóstico<br/>(Chart.js, Velocidades, RPM, Batería, Estado)"]
+        end
+        subgraph C5_BACKEND["Backend Canónico en Python (Windows Desktop / Android Chaquopy)"]
+            B1["Servidor Web Local<br/>(Flask + Waitress WSGI Server)"]
+            B2["Cliente WebSocket Canónico Exclusivo<br/>(Propietario único de conexión al ESP32)"]
+            B3["Planificador de Misión y Secuenciador<br/>(Rutas Ortogonales, Despacho de Comandos)"]
+            B4[("Base de Datos Forense SQLite<br/>(Modo WAL + Sync Normal a 100 Hz)")]
+        end
+        subgraph C5_ANDROID["Entorno Móvil Tablet"]
+            AND1["App Android (Kotlin + Chaquopy)<br/>(Ejecuta backend Python idéntico en dispositivo)"]
+            AND2["Depuración y Extracción ADB<br/>(adb pull robot.sqlite3, telemetría forense)"]
+        end
+    end
+
+    %% =========================================================================
+    %% CAPA 4: COMUNICACIÓN Y TRANSPORTE TELEMÁTICO
+    %% =========================================================================
+    subgraph CAPA4["<b>CAPA 4: COMUNICACIÓN Y TRANSPORTE TELEMÁTICO (ESP32-S3 CORE 0)</b>"]
+        direction TB
+        subgraph C4_NET["Infraestructura de Red Inalámbrica"]
+            NET1["Pila Wi-Fi 2.4 GHz<br/>(Modo Access Point AP / Station STA)"]
+            NET2["Servidor WebSocket Asíncrono (Puerto 81)<br/>(ESPAsyncWebServer + AsyncTCP en Core 0)"]
+        end
+        subgraph C4_PROTO["Protocolo Estructurado robot-s3-steps-v3"]
+            P1["Deserializador / Validador de Comandos<br/>(step, turn, manual, set_calibration, emergency_stop)"]
+            P2["Serializador de Telemetría a 100 Hz<br/>(ArduinoJson, Buffer hasta 7168 Bytes)"]
+            P3["Watchdog de Enlace Socket (1500 ms)<br/>(Parada segura automática ante desconexión)"]
+        end
+    end
+
+    %% =========================================================================
+    %% CAPA 3: FUSIÓN SENSORIAL Y ESTIMACIÓN DE POSE
+    %% =========================================================================
+    subgraph CAPA3["<b>CAPA 3: FUSIÓN SENSORIAL Y ESTIMACIÓN DE POSE</b>"]
+        direction TB
+        subgraph C3_IMU["Orientación Angular e Inercial (IMU)"]
+            IMU1["Sensor MEMS MPU6050 (I²C a 400 kHz)<br/>(GPIO8 SDA, GPIO9 SCL, Rango ±500 °/s, 65.5 LSB/°/s)"]
+            IMU2["Dogma Canónico de Calibración de Reposo<br/>(5.0 s estático, 256 muestras, cálculo de gyro_z_offset)"]
+            IMU3["Autoridad Angular Única de Rumbo<br/>(Integración trapezoidal yaw, corrección de deriva)"]
+        end
+        subgraph C3_ENC["Odometría Lineal Bilateral (Encoders)"]
+            ENC1["Encoders Ópticos Ranurados LM393<br/>(Resolución 40 ticks/rev en flancos PCNT, 0.5261 cm/tick)"]
+            ENC2["Filtro Estadístico de Mediana y Salud<br/>(Detección de atascamiento y aislamiento de canal anómalo)"]
+            ENC3["Desplazamiento Lineal Promediado<br/>(Diferencial izquierdo/derecho en milímetros)"]
+        end
+        subgraph C3_KIN["Cinemática y Odometría 4WD Skid-Steering"]
+            KIN1["Estimador de Pose Cartesiana (X, Y, θ)<br/>(Proyección trigonométrica local a marco global)"]
+            KIN2["Compensación Cinemática ICR<br/>(Centro Instantáneo de Rotación y deslizamiento)"]
+        end
+    end
+
+    %% =========================================================================
+    %% CAPA 2: FIRMWARE DETERMINISTA Y TIEMPO REAL
+    %% =========================================================================
+    subgraph CAPA2["<b>CAPA 2: FIRMWARE DETERMINISTA Y TIEMPO REAL (ESP32-S3 CORE 1)</b>"]
+        direction TB
+        subgraph C2_LOOP["Súper-Ciclo Síncrono a 100 Hz"]
+            SC1["Lazo de Control Determinista (T = 10,000 µs)<br/>(loop nativo en Core 1, sin colas ni mutex bloqueantes)"]
+            SC2["Adquisición Síncrona Atómica de Muestra<br/>(Encoders PCNT + Giróscopo MPU en la misma muestra)"]
+        end
+        subgraph C2_HW["Periféricos Hardware Dedicados del ESP32-S3"]
+            HW_PCNT["Módulo Hardware PCNT (4 Canales)<br/>(Filtro digital APB de 1023 ciclos, 0% carga en CPU)"]
+            HW_LEDC["Generador PWM LEDC (5 kHz, 10 Bits)<br/>(Resolución 0..1023, mapeo a DRV8833 con escala segura)"]
+        end
+        subgraph C2_CTRL["Leyes de Control y Seguridad Eléctrica"]
+            CTRL1["Controlador PID de Rumbo a 10 Bits<br/>(Kp ≈ 40.12, Ki ≈ 7.22, Kd ≈ 72.21 con anti-windup)"]
+            CTRL2["Controlador de Giro Híbrido en 3 Zonas<br/>(Macro-giro rampa, Freno activo predictivo Back-EMF 60 ms, Pulsos 45 ms)"]
+            CTRL3["Interlock Universal de Tiempo Muerto (250 ms)<br/>(Protección contra conducción cruzada/shoot-through al invertir giro)"]
+            CTRL4["Límites de Potencia y Watchdogs Críticos<br/>(Crucero máx 242/255, ráfagas 80 ms, Watchdog avance 450 ms, giro 2.5 s)"]
+        end
+    end
+
+    %% =========================================================================
+    %% CAPA 1: ACONDICIONAMIENTO FÍSICO Y POTENCIA
+    %% =========================================================================
+    subgraph CAPA1["<b>CAPA 1: ACONDICIONAMIENTO FÍSICO Y POTENCIA (HARDWARE & ELECTRICIDAD)</b>"]
+        direction TB
+        subgraph C1_LEVEL["Traducción de Nivel y Conectividad"]
+            TXS["Conversor Bidireccional de Nivel TXS0108E<br/>(3.3V dominio ESP32-S3 ↔ 5V dominio encoders LM393)"]
+            GND_BUS["Plano de Masa y Tierra Común Unificada<br/>(GND lógica y potencia unificadas en topología estrella sin bucles)"]
+        end
+        subgraph C1_FILTER["Desacoplamiento y Supresión Electromagnética"]
+            CAP1["Capacitores Cerámicos 0.1 µF en Bornes de Motores<br/>(Supresión de chispas de conmutación y transitorios Back-EMF)"]
+            CAP2["Capacitores Electrolíticos ≥ 100 µF en Riel VMOT-GND<br/>(Estabilización de rizado y absorción de picos de corriente inductiva)"]
+            FUSE["Fusibles / Polyfuses Térmicos (1.5 A)<br/>(Protección de sobrecorriente por motor y driver)"]
+        end
+        subgraph C1_POWER["Etapa de Potencia y Actuadores"]
+            BAT["Baterías Li-Ion 18650 (2S, 7.4V - 8.4V)<br/>(Alimentación principal con Step-Down Buck DC-DC 5V/3.3V)"]
+            DRV["Doble Puente H DRV8833<br/>(Control independiente de 4 motores TT, pull-downs en entradas)"]
+            MOT["4 Motores TT con Reductores (Chasis 4WD)<br/>(Cuerpos enfrentados 180°, Ruedas 66 mm de goma maciza)"]
+        end
+    end
+
+    %% =========================================================================
+    %% INTERCONEXIONES ENTRE CAPAS
+    %% =========================================================================
+    UI1 & UI2 & UI3 <--> B1 & B2 & B3
+    B4 <--> B3
+    AND1 <--> B1 & B2
+    AND2 -. Extracción SQLite .-> B4
+
+    B2 <== "Tramas JSON WebSocket / TCP (robot-s3-steps-v3)" ==> NET2
+    NET2 <--> P1 & P2
+    P3 -. Alerta Parada .-> P1
+
+    P1 == "Consignas de Misión (distancia / ángulo / manual)" ==> SC1
+    SC2 == "Telemetría de Estado (pose, ticks, gyro, error)" ==> P2
+
+    SC1 <--> CTRL1 & CTRL2
+    CTRL1 & CTRL2 --> CTRL3 --> CTRL4
+    SC2 <--> KIN1 & KIN2
+    KIN1 & KIN2 <--> IMU3 & ENC3
+
+    IMU1 --> IMU2 --> IMU3
+    ENC1 --> ENC2 --> ENC3
+
+    HW_PCNT == "Pulsos Contados por Hardware" ==> ENC1
+    CTRL4 == "Duty Cycle PWM" ==> HW_LEDC
+
+    HW_LEDC == "PWM FL/FR/BL/BR (GPIO 4, 5, 6, 7, 15, 16, 17, 18)" ==> DRV
+    TXS == "GPIO 10, 11, 12, 13 (A1..A4)" ==> HW_PCNT
+    IMU1 == "Bus I²C (GPIO 8 SDA, GPIO 9 SCL)" ==> SC2
+
+    DRV ==> MOT
+    MOT -. Retroalimentación Óptica Ranurada .-> TXS
+    BAT ==> DRV & CAP2 & FUSE
+    GND_BUS --- TXS & DRV & BAT & CAP1 & CAP2
+
+    %% =========================================================================
+    %% ESTILOS VISUALES
+    %% =========================================================================
+    classDef capa5Style fill:#EFF6FF,stroke:#2563EB,stroke-width:2px,color:#1E3A8A;
+    classDef capa4Style fill:#F0FDF4,stroke:#16A34A,stroke-width:2px,color:#14532D;
+    classDef capa3Style fill:#FEFCE8,stroke:#CA8A04,stroke-width:2px,color:#713F12;
+    classDef capa2Style fill:#FFF7ED,stroke:#EA580C,stroke-width:2px,color:#7C2D12;
+    classDef capa1Style fill:#FAF5FF,stroke:#9333EA,stroke-width:2px,color:#581C87;
+
+    class CAPA5 capa5Style;
+    class CAPA4 capa4Style;
+    class CAPA3 capa3Style;
+    class CAPA2 capa2Style;
+    class CAPA1 capa1Style;

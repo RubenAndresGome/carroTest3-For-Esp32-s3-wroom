@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1480" width="1200" height="1480">
+  <defs>
+    <style>
+      .title { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 800; fill: #0F172A; }
+      .subtitle { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 500; fill: #475569; }
+      .layer-title { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 700; font-size: 16px; }
+      .layer-sub { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 500; font-size: 12px; }
+      .card-title { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 700; font-size: 13px; }
+      .card-text { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 400; font-size: 11px; fill: #334155; line-height: 1.4; }
+      .badge { font-family: 'Segoe UI', Consolas, monospace; font-weight: 600; font-size: 10px; }
+      .bus-label { font-family: 'Segoe UI', Montserrat, sans-serif; font-weight: 700; font-size: 11px; }
+    </style>
+    
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <!-- Sombras -->
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+    <filter id="layerShadow" x="-2%" y="-2%" width="104%" height="106%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.05"/>
+    </filter>
+
+    <!-- Marcadores de flechas -->
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#2563EB" />
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#16A34A" />
+    </marker>
+    <marker id="arrowAmber" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#D97706" />
+    </marker>
+    <marker id="arrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#EA580C" />
+    </marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 0 0 L 8 4 L 0 8 z" fill="#9333EA" />
+    </marker>
+  </defs>
+
+  <!-- Fondo General -->
+  <rect width="1200" height="1480" fill="#F8FAFC" />
+
+  <!-- Cabecera del Diagrama -->
+  <rect x="40" y="24" width="1120" height="84" rx="12" fill="url(#headerGrad)" filter="url(#cardShadow)"/>
+  <text x="70" y="60" class="title" font-size="24" fill="#FFFFFF">ARQUITECTURA MODULAR POR CAPAS: ROBOT MÓVIL 4WD ESP32-S3</text>
+  <text x="70" y="86" class="subtitle" font-size="13" fill="#94A3B8">Memoria Técnica Canónica • Fusión Sensorial MPU6050 + Encoders PCNT • Súper-Ciclo 100 Hz • Protocolo robot-s3-steps-v3 • HMI Multiplataforma</text>
+
+  <!-- =========================================================================
+       CAPA 5: SUPERVISIÓN Y LÓGICA DE MISIÓN
+       ========================================================================= -->
+  <g id="capa5" transform="translate(40, 130)">
+    <rect width="1120" height="230" rx="14" fill="#FFFFFF" stroke="#93C5FD" stroke-width="2" filter="url(#layerShadow)"/>
+    <rect width="1120" height="38" rx="14" fill="#EFF6FF" />
+    <rect y="26" width="1120" height="12" fill="#EFF6FF" />
+    <circle cx="28" cy="19" r="10" fill="#2563EB" />
+    <text x="24" y="23" font-family="Montserrat, sans-serif" font-weight="800" font-size="12" fill="#FFFFFF">5</text>
+    <text x="48" y="24" class="layer-title" fill="#1E3A8A">CAPA DE SUPERVISIÓN Y LÓGICA DE MISIÓN</text>
+    <text x="430" y="24" class="layer-sub" fill="#3B82F6">(Python 3.11/3.13, Flask, Waitress, SQLite WAL, Chaquopy Android, HMI Web)</text>
+
+    <!-- Tarjeta 5.1: Frontend HMI -->
+    <rect x="20" y="52" width="255" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="20" y="52" width="255" height="28" rx="8" fill="#DBEAFE"/>
+    <rect x="20" y="72" width="255" height="8" fill="#DBEAFE"/>
+    <text x="30" y="70" class="card-title" fill="#1E40AF">🖥️ Frontend &amp; HMI Multiplataforma</text>
+    <text x="32" y="98" class="card-text">• Dashboard en TypeScript, Vite y Tailwind</text>
+    <text x="32" y="116" class="card-text">• Plano Cartesiano XY en tiempo real</text>
+    <text x="32" y="134" class="card-text">• Joystick táctil + Secuenciador Waypoints</text>
+    <text x="32" y="152" class="card-text">• Telemetría gráfica viva con Chart.js</text>
+    <text x="32" y="172" class="badge" fill="#2563EB">[UI / UX Reactiva en Móvil y PC]</text>
+
+    <!-- Tarjeta 5.2: Backend Python -->
+    <rect x="295" y="52" width="265" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="295" y="52" width="265" height="28" rx="8" fill="#DBEAFE"/>
+    <rect x="295" y="72" width="265" height="8" fill="#DBEAFE"/>
+    <text x="305" y="70" class="card-title" fill="#1E40AF">🐍 Backend Canónico Python</text>
+    <text x="307" y="98" class="card-text">• Servidor Flask + WSGI Waitress</text>
+    <text x="307" y="116" class="card-text">• Propietario único del WebSocket a ESP32</text>
+    <text x="307" y="134" class="card-text">• Planificador de rutas ortogonales</text>
+    <text x="307" y="152" class="card-text">• Despacho atómico de comandos step/turn</text>
+    <text x="307" y="172" class="badge" fill="#2563EB">[Windows Desktop / Android Tablet]</text>
+
+    <!-- Tarjeta 5.3: Persistencia Forense SQLite -->
+    <rect x="580" y="52" width="250" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="580" y="52" width="250" height="28" rx="8" fill="#DBEAFE"/>
+    <rect x="580" y="72" width="250" height="8" fill="#DBEAFE"/>
+    <text x="590" y="70" class="card-title" fill="#1E40AF">🗄️ Persistencia Forense SQLite</text>
+    <text x="592" y="98" class="card-text">• Modo Write-Ahead Logging (WAL)</text>
+    <text x="592" y="116" class="card-text">• PRAGMA synchronous = NORMAL</text>
+    <text x="592" y="134" class="card-text">• Logging de pose a 100 Hz sin retardo</text>
+    <text x="592" y="152" class="card-text">• Tablas de telemetría, accuracy y eventos</text>
+    <text x="592" y="172" class="badge" fill="#2563EB">[13,930 Muestras Registradas]</text>
+
+    <!-- Tarjeta 5.4: Android Chaquopy & ADB -->
+    <rect x="850" y="52" width="250" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="850" y="52" width="250" height="28" rx="8" fill="#DBEAFE"/>
+    <rect x="850" y="72" width="250" height="8" fill="#DBEAFE"/>
+    <text x="860" y="70" class="card-title" fill="#1E40AF">📱 Android Chaquopy &amp; ADB</text>
+    <text x="862" y="98" class="card-text">• Empaquetado nativo Python en Android</text>
+    <text x="862" y="116" class="card-text">• Soberanía operativa en tablet de campo</text>
+    <text x="862" y="134" class="card-text">• Extracción automatizada: adb pull</text>
+    <text x="862" y="152" class="card-text">• Auditoría CLI: python consultar_db.py</text>
+    <text x="862" y="172" class="badge" fill="#2563EB">[Paridad 100% Windows / Android]</text>
+  </g>
+
+  <!-- Bus de Interconexión Capa 5 <-> Capa 4 -->
+  <g transform="translate(40, 360)">
+    <line x1="300" y1="5" x2="300" y2="35" stroke="#2563EB" stroke-width="2.5" stroke-dasharray="4,3" marker-end="url(#arrowBlue)" marker-start="url(#arrowBlue)"/>
+    <line x1="750" y1="5" x2="750" y2="35" stroke="#16A34A" stroke-width="2.5" stroke-dasharray="4,3" marker-end="url(#arrowGreen)" marker-start="url(#arrowGreen)"/>
+    <rect x="350" y="10" width="350" height="20" rx="4" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1"/>
+    <text x="365" y="24" class="bus-label" fill="#1D4ED8">⇄ ENLACE WEBSOCKET TCP / WI-FI 2.4 GHz (Puerto 81)</text>
+  </g>
+
+  <!-- =========================================================================
+       CAPA 4: COMUNICACIÓN Y TRANSPORTE TELEMÁTICO
+       ========================================================================= -->
+  <g id="capa4" transform="translate(40, 400)">
+    <rect width="1120" height="200" rx="14" fill="#FFFFFF" stroke="#86EFAC" stroke-width="2" filter="url(#layerShadow)"/>
+    <rect width="1120" height="38" rx="14" fill="#F0FDF4" />
+    <rect y="26" width="1120" height="12" fill="#F0FDF4" />
+    <circle cx="28" cy="19" r="10" fill="#16A34A" />
+    <text x="24" y="23" font-family="Montserrat, sans-serif" font-weight="800" font-size="12" fill="#FFFFFF">4</text>
+    <text x="48" y="24" class="layer-title" fill="#14532D">CAPA DE COMUNICACIÓN Y TRANSPORTE TELEMÁTICO</text>
+    <text x="475" y="24" class="layer-sub" fill="#16A34A">(ESP32-S3 Core 0, ESPAsyncWebServer, AsyncTCP, ArduinoJson, Protocolo robot-s3-steps-v3)</text>
+
+    <!-- Tarjeta 4.1: Wi-Fi Stack Core 0 -->
+    <rect x="20" y="52" width="345" height="130" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="20" y="52" width="345" height="28" rx="8" fill="#DCFCE7"/>
+    <rect x="20" y="72" width="345" height="8" fill="#DCFCE7"/>
+    <text x="30" y="70" class="card-title" fill="#166534">📶 Infraestructura Wi-Fi en Core 0</text>
+    <text x="32" y="98" class="card-text">• Modo Access Point (AP) y Station (STA)</text>
+    <text x="32" y="116" class="card-text">• Pila de red aislada 100% del lazo motriz en Core 1</text>
+    <text x="32" y="134" class="card-text">• Cero interrupciones de tráfico sobre odometría</text>
+    <text x="32" y="154" class="badge" fill="#16A34A">[Task_Web Asíncrona en Núcleo 0]</text>
+
+    <!-- Tarjeta 4.2: Servidor WebSocket -->
+    <rect x="385" y="52" width="350" height="130" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="385" y="52" width="350" height="28" rx="8" fill="#DCFCE7"/>
+    <rect x="385" y="72" width="350" height="8" fill="#DCFCE7"/>
+    <text x="395" y="70" class="card-title" fill="#166534">⚡ Servidor WebSocket Full-Duplex</text>
+    <text x="397" y="98" class="card-text">• ESPAsyncWebServer + AsyncTCP en puerto 81</text>
+    <text x="397" y="116" class="card-text">• Serialización JSON optimizada (ArduinoJson)</text>
+    <text x="397" y="134" class="card-text">• Tramas de comando y estado hasta 7168 Bytes</text>
+    <text x="397" y="154" class="badge" fill="#16A34A">[Streaming Bidireccional de Pose a 100 Hz]</text>
+
+    <!-- Tarjeta 4.3: Protocolo y Watchdog de Red -->
+    <rect x="755" y="52" width="345" height="130" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="755" y="52" width="345" height="28" rx="8" fill="#DCFCE7"/>
+    <rect x="755" y="72" width="345" height="8" fill="#DCFCE7"/>
+    <text x="765" y="70" class="card-title" fill="#166534">🛡️ Protocolo robot-s3-steps-v3 &amp; Watchdog</text>
+    <text x="767" y="98" class="card-text">• Comandos: step, turn, manual, calibrate, E-STOP</text>
+    <text x="767" y="116" class="card-text">• Watchdog de enlace: corte seguro tras 1500 ms</text>
+    <text x="767" y="134" class="card-text">• Rechazo estricto de tramas con parámetros inválidos</text>
+    <text x="767" y="154" class="badge" fill="#16A34A">[Confiabilidad: 100% Manual, 79.7% Autónomo]</text>
+  </g>
+
+  <!-- Bus de Interconexión Capa 4 <-> Capa 3/2 -->
+  <g transform="translate(40, 600)">
+    <line x1="300" y1="5" x2="300" y2="35" stroke="#16A34A" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+    <line x1="850" y1="35" x2="850" y2="5" stroke="#D97706" stroke-width="2.5" marker-end="url(#arrowAmber)"/>
+    <rect x="360" y="10" width="440" height="20" rx="4" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1"/>
+    <text x="375" y="24" class="bus-label" fill="#15803D">↓ CONSIGNAS DE RUTA / ↑ TELEMETRÍA ATÓMICA SIN BLOQUEOS</text>
+  </g>
+
+  <!-- =========================================================================
+       CAPA 3: FUSIÓN SENSORIAL Y ESTIMACIÓN DE POSE
+       ========================================================================= -->
+  <g id="capa3" transform="translate(40, 640)">
+    <rect width="1120" height="210" rx="14" fill="#FFFFFF" stroke="#FDE047" stroke-width="2" filter="url(#layerShadow)"/>
+    <rect width="1120" height="38" rx="14" fill="#FEFCE8" />
+    <rect y="26" width="1120" height="12" fill="#FEFCE8" />
+    <circle cx="28" cy="19" r="10" fill="#CA8A04" />
+    <text x="24" y="23" font-family="Montserrat, sans-serif" font-weight="800" font-size="12" fill="#FFFFFF">3</text>
+    <text x="48" y="24" class="layer-title" fill="#713F12">CAPA DE FUSIÓN SENSORIAL Y ESTIMACIÓN DE POSE</text>
+    <text x="445" y="24" class="layer-sub" fill="#A16207">(MPU6050 I²C, Encoders LM393 PCNT, Filtro Mediana, Cinemática 4WD Skid-Steering, ICR)</text>
+
+    <!-- Tarjeta 3.1: IMU MPU6050 -->
+    <rect x="20" y="52" width="265" height="142" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="20" y="52" width="265" height="28" rx="8" fill="#FEF08A"/>
+    <rect x="20" y="72" width="265" height="8" fill="#FEF08A"/>
+    <text x="30" y="70" class="card-title" fill="#854D0E">🧭 Sensor Inercial MEMS MPU6050</text>
+    <text x="32" y="96" class="card-text">• Bus I²C a 400 kHz (GPIO8 SDA, GPIO9 SCL)</text>
+    <text x="32" y="112" class="card-text">• Giróscopo Z: Escala canónica ±500 °/s</text>
+    <text x="32" y="128" class="card-text">• Resolución angular: 65.5 LSB/(°/s)</text>
+    <text x="32" y="144" class="card-text">• Calibración: 5.0 s reposo, 256 muestras</text>
+    <text x="32" y="162" class="badge" fill="#CA8A04">[Autoridad Angular Única de Rumbo]</text>
+
+    <!-- Tarjeta 3.2: Encoders Ópticos LM393 -->
+    <rect x="305" y="52" width="265" height="142" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="305" y="52" width="265" height="28" rx="8" fill="#FEF08A"/>
+    <rect x="305" y="72" width="265" height="8" fill="#FEF08A"/>
+    <text x="315" y="70" class="card-title" fill="#854D0E">⚙️ Encoders Ópticos Ranurados LM393</text>
+    <text x="317" y="96" class="card-text">• 4 sensores en ruedas de 20 ranuras</text>
+    <text x="317" y="112" class="card-text">• Conteo de ambos flancos: 40 ticks/rev</text>
+    <text x="317" y="128" class="card-text">• Escala lineal: 0.5261 cm/tick (190 t/m)</text>
+    <text x="317" y="144" class="card-text">• Adquisición por hardware vía PCNT</text>
+    <text x="317" y="162" class="badge" fill="#CA8A04">[Odometría Lineal Bilateral]</text>
+
+    <!-- Tarjeta 3.3: Filtros y Salud Sensorial -->
+    <rect x="590" y="52" width="245" height="142" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="590" y="52" width="245" height="28" rx="8" fill="#FEF08A"/>
+    <rect x="590" y="72" width="245" height="8" fill="#FEF08A"/>
+    <text x="600" y="70" class="card-title" fill="#854D0E">🔍 Filtros y Salud Sensorial</text>
+    <text x="602" y="96" class="card-text">• Filtro promedio móvil (8 muestras)</text>
+    <text x="602" y="112" class="card-text">• Filtro de mediana para rechazo de atípicos</text>
+    <text x="602" y="128" class="card-text">• Aislamiento automático de canal averiado</text>
+    <text x="602" y="144" class="card-text">• Detección cruzada de stall (ticks vs gyro)</text>
+    <text x="602" y="162" class="badge" fill="#CA8A04">[Protección Sensorial Tolerante a Fallos]</text>
+
+    <!-- Tarjeta 3.4: Cinemática 4WD Skid-Steering -->
+    <rect x="855" y="52" width="245" height="142" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="855" y="52" width="245" height="28" rx="8" fill="#FEF08A"/>
+    <rect x="855" y="72" width="245" height="8" fill="#FEF08A"/>
+    <text x="865" y="70" class="card-title" fill="#854D0E">📐 Cinemática Skid-Steer e ICR</text>
+    <text x="867" y="96" class="card-text">• Integración de pose local a cartesiana</text>
+    <text x="867" y="112" class="card-text">• Modelo ICR (Centro Instantáneo Rotación)</text>
+    <text x="867" y="128" class="card-text">• Derivación de error lateral y longitudinal</text>
+    <text x="867" y="144" class="card-text">• Rumbo final: -0.04° ± 0.89° (93.5% ≤1.5°)</text>
+    <text x="867" y="162" class="badge" fill="#CA8A04">[Fusión Cinemática Determinista]</text>
+  </g>
+
+  <!-- Bus de Interconexión Capa 3 <-> Capa 2 -->
+  <g transform="translate(40, 850)">
+    <line x1="250" y1="5" x2="250" y2="35" stroke="#D97706" stroke-width="2.5" marker-end="url(#arrowOrange)"/>
+    <line x1="850" y1="35" x2="850" y2="5" stroke="#EA580C" stroke-width="2.5" marker-end="url(#arrowAmber)"/>
+    <rect x="310" y="10" width="500" height="20" rx="4" fill="#FEFCE8" stroke="#FDE047" stroke-width="1"/>
+    <text x="325" y="24" class="bus-label" fill="#B45309">↓ SENSADO INERCIAL Y ODOMÉTRICO / ↑ CONTROL DE LAZO CERRADO</text>
+  </g>
+
+  <!-- =========================================================================
+       CAPA 2: FIRMWARE DETERMINISTA Y TIEMPO REAL
+       ========================================================================= -->
+  <g id="capa2" transform="translate(40, 890)">
+    <rect width="1120" height="230" rx="14" fill="#FFFFFF" stroke="#FDBA74" stroke-width="2" filter="url(#layerShadow)"/>
+    <rect width="1120" height="38" rx="14" fill="#FFF7ED" />
+    <rect y="26" width="1120" height="12" fill="#FFF7ED" />
+    <circle cx="28" cy="19" r="10" fill="#EA580C" />
+    <text x="24" y="23" font-family="Montserrat, sans-serif" font-weight="800" font-size="12" fill="#FFFFFF">2</text>
+    <text x="48" y="24" class="layer-title" fill="#7C2D12">CAPA DE FIRMWARE DETERMINISTA Y TIEMPO REAL</text>
+    <text x="440" y="24" class="layer-sub" fill="#C2410C">(ESP32-S3 Core 1, Súper-Ciclo 100 Hz, Periféricos PCNT &amp; LEDC, PID 10-Bit, Seguridad)</text>
+
+    <!-- Tarjeta 2.1: Súper-Ciclo 100 Hz -->
+    <rect x="20" y="52" width="265" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="20" y="52" width="265" height="28" rx="8" fill="#FFEDD5"/>
+    <rect x="20" y="72" width="265" height="8" fill="#FFEDD5"/>
+    <text x="30" y="70" class="card-title" fill="#9A3412">⏱️ Súper-Ciclo Síncrono a 100 Hz</text>
+    <text x="32" y="98" class="card-text">• loop() nativo en Core 1 a 240 MHz</text>
+    <text x="32" y="116" class="card-text">• Período exacto: T = 10,000 µs (Jitter &lt; 14 µs)</text>
+    <text x="32" y="134" class="card-text">• Sin tareas intermedias ni colas bloqueantes</text>
+    <text x="32" y="152" class="card-text">• Sensado, pose, PID y PWM en misma muestra</text>
+    <text x="32" y="172" class="badge" fill="#EA580C">[Determinismo Hard Real-Time]</text>
+
+    <!-- Tarjeta 2.2: Periférico PCNT -->
+    <rect x="305" y="52" width="265" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="305" y="52" width="265" height="28" rx="8" fill="#FFEDD5"/>
+    <rect x="305" y="72" width="265" height="8" fill="#FFEDD5"/>
+    <text x="315" y="70" class="card-title" fill="#9A3412">📟 Hardware PCNT (Pulse Counter)</text>
+    <text x="317" y="98" class="card-text">• 4 unidades hardware (GPIO 10, 11, 12, 13)</text>
+    <text x="317" y="116" class="card-text">• Filtro digital APB de 1023 ciclos de reloj</text>
+    <text x="317" y="134" class="card-text">• Erradica tormentas de interrupciones GPIO</text>
+    <text x="317" y="152" class="card-text">• 0% sobrecarga de CPU en conteo de pulsos</text>
+    <text x="317" y="172" class="badge" fill="#EA580C">[Conteo Puro por Silicio]</text>
+
+    <!-- Tarjeta 2.3: Modulación LEDC PWM -->
+    <rect x="590" y="52" width="245" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="590" y="52" width="245" height="28" rx="8" fill="#FFEDD5"/>
+    <rect x="590" y="72" width="245" height="8" fill="#FFEDD5"/>
+    <text x="600" y="70" class="card-title" fill="#9A3412">⚡ Modulación LEDC PWM (10 Bits)</text>
+    <text x="602" y="98" class="card-text">• Frecuencia 5 kHz (libre de silbido audible)</text>
+    <text x="602" y="116" class="card-text">• Resolución 10 bits: rango nativo 0..1023</text>
+    <text x="602" y="134" class="card-text">• Techo de avance sostenido: 242/255 (95%)</text>
+    <text x="602" y="152" class="card-text">• Ráfagas al 100%: máx 80 ms con cooldown</text>
+    <text x="602" y="172" class="badge" fill="#EA580C">[Piso Dinámico de Zona Muerta]</text>
+
+    <!-- Tarjeta 2.4: Control y Seguridad DRV8833 -->
+    <rect x="855" y="52" width="245" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="855" y="52" width="245" height="28" rx="8" fill="#FFEDD5"/>
+    <rect x="855" y="72" width="245" height="8" fill="#FFEDD5"/>
+    <text x="865" y="70" class="card-title" fill="#9A3412">🛡️ Control &amp; Seguridad Eléctrica</text>
+    <text x="867" y="98" class="card-text">• PID Rumbo: Kp≈40.12, Ki≈7.22, Kd≈72.21</text>
+    <text x="867" y="116" class="card-text">• Giro en 3 zonas: Rampa + Freno + Pulsos</text>
+    <text x="867" y="134" class="card-text">• Freno dinámico Back-EMF activo de 60 ms</text>
+    <text x="867" y="152" class="card-text">• Interlock universal de 250 ms al invertir</text>
+    <text x="867" y="172" class="badge" fill="#EA580C">[Anti Shoot-Through Hardware]</text>
+  </g>
+
+  <!-- Bus de Interconexión Capa 2 <-> Capa 1 -->
+  <g transform="translate(40, 1120)">
+    <line x1="250" y1="5" x2="250" y2="35" stroke="#EA580C" stroke-width="2.5" marker-end="url(#arrowPurple)"/>
+    <line x1="850" y1="35" x2="850" y2="5" stroke="#9333EA" stroke-width="2.5" marker-end="url(#arrowOrange)"/>
+    <rect x="310" y="10" width="500" height="20" rx="4" fill="#FAF5FF" stroke="#E9D5FF" stroke-width="1"/>
+    <text x="325" y="24" class="bus-label" fill="#7E22CE">↓ SEÑALES PWM DRV8833 / ↑ RETROALIMENTACIÓN ÓPTICA TXS0108E</text>
+  </g>
+
+  <!-- =========================================================================
+       CAPA 1: ACONDICIONAMIENTO FÍSICO Y POTENCIA
+       ========================================================================= -->
+  <g id="capa1" transform="translate(40, 1160)">
+    <rect width="1120" height="230" rx="14" fill="#FFFFFF" stroke="#D8B4FE" stroke-width="2" filter="url(#layerShadow)"/>
+    <rect width="1120" height="38" rx="14" fill="#FAF5FF" />
+    <rect y="26" width="1120" height="12" fill="#FAF5FF" />
+    <circle cx="28" cy="19" r="10" fill="#9333EA" />
+    <text x="24" y="23" font-family="Montserrat, sans-serif" font-weight="800" font-size="12" fill="#FFFFFF">1</text>
+    <text x="48" y="24" class="layer-title" fill="#581C87">CAPA DE ACONDICIONAMIENTO FÍSICO Y POTENCIA</text>
+    <text x="445" y="24" class="layer-sub" fill="#7E22CE">(TXS0108E, DRV8833, Tierra Común, Supresión Back-EMF, Li-Ion 18650, Chasis 4WD TT)</text>
+
+    <!-- Tarjeta 1.1: Conversor TXS0108E -->
+    <rect x="20" y="52" width="265" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="20" y="52" width="265" height="28" rx="8" fill="#F3E8FF"/>
+    <rect x="20" y="72" width="265" height="8" fill="#F3E8FF"/>
+    <text x="30" y="70" class="card-title" fill="#6B21A8">🔄 Conversor de Nivel TXS0108E</text>
+    <text x="32" y="98" class="card-text">• Traducción bidireccional de nivel lógico</text>
+    <text x="32" y="116" class="card-text">• Puerto A: 3.3V hacia pines PCNT ESP32-S3</text>
+    <text x="32" y="134" class="card-text">• Puerto B: 5.0V hacia encoders LM393</text>
+    <text x="32" y="152" class="card-text">• Previene daño por sobretensión en GPIOs</text>
+    <text x="32" y="172" class="badge" fill="#9333EA">[Aislamiento Lógico Seguro]</text>
+
+    <!-- Tarjeta 1.2: Tierra Común y Desacoplamiento -->
+    <rect x="305" y="52" width="265" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="305" y="52" width="265" height="28" rx="8" fill="#F3E8FF"/>
+    <rect x="305" y="72" width="265" height="8" fill="#F3E8FF"/>
+    <text x="315" y="70" class="card-title" fill="#6B21A8">⚡ Tierra Común y Desacoplamiento</text>
+    <text x="317" y="98" class="card-text">• GND lógica y potencia en topología estrella</text>
+    <text x="317" y="116" class="card-text">• Evita bucles de masa y caídas de tensión</text>
+    <text x="317" y="134" class="card-text">• Capacitores 0.1 µF cerámicos en motores</text>
+    <text x="317" y="152" class="card-text">• Capacitores ≥100 µF en bornes VMOT-GND</text>
+    <text x="317" y="172" class="badge" fill="#9333EA">[Supresión de Ruidos EMI / Back-EMF]</text>
+
+    <!-- Tarjeta 1.3: Drivers DRV8833 y Potencia -->
+    <rect x="590" y="52" width="245" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="590" y="52" width="245" height="28" rx="8" fill="#F3E8FF"/>
+    <rect x="590" y="72" width="245" height="8" fill="#F3E8FF"/>
+    <text x="600" y="70" class="card-title" fill="#6B21A8">🔋 Doble Driver DRV8833 &amp; Baterías</text>
+    <text x="602" y="98" class="card-text">• 2 módulos puente H DRV8833 (FL/BL, FR/BR)</text>
+    <text x="602" y="116" class="card-text">• Pull-downs de seguridad en entradas PWM</text>
+    <text x="602" y="134" class="card-text">• Baterías 2S Li-Ion 18650 (7.4V - 8.4V)</text>
+    <text x="602" y="152" class="card-text">• Fusibles térmicos de 1.5 A por canal</text>
+    <text x="602" y="172" class="badge" fill="#9333EA">[Protección Térmica y de Corriente]</text>
+
+    <!-- Tarjeta 1.4: Chasis 4WD y Motores TT -->
+    <rect x="855" y="52" width="245" height="160" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="855" y="52" width="245" height="28" rx="8" fill="#F3E8FF"/>
+    <rect x="855" y="72" width="245" height="8" fill="#F3E8FF"/>
+    <text x="865" y="70" class="card-title" fill="#6B21A8">🚜 Chasis 4WD y Reductores TT</text>
+    <text x="867" y="98" class="card-text">• 4 motores DC con caja reductora 1:48</text>
+    <text x="867" y="116" class="card-text">• Montaje enfrentado 180° (FL/FR vs BL/BR)</text>
+    <text x="867" y="134" class="card-text">• Polaridad compensada (PWM_FORWARD = -1)</text>
+    <text x="867" y="152" class="card-text">• Ruedas de 66 mm de goma maciza</text>
+    <text x="867" y="172" class="badge" fill="#9333EA">[Espejado Mecánico y Tracción 4WD]</text>
+  </g>
+
+  <!-- Pie del Diagrama -->
+  <g transform="translate(40, 1410)">
+    <rect width="1120" height="40" rx="8" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1"/>
+    <text x="30" y="25" font-family="Segoe UI, Montserrat, sans-serif" font-size="11" font-weight="600" fill="#475569">
+      Diagrama de Arquitectura de 5 Capas • ITESS Residencia Profesional 2026 • Autor: Rubén Andrés Gómez Molina • Asesor: Alejandro Tapia Muñoz
+    </text>
+    <text x="960" y="25" font-family="Segoe UI, Montserrat, sans-serif" font-size="11" font-weight="700" fill="#2563EB">
+      Compatible con Lucidchart
+    </text>
+  </g>
+</svg>
