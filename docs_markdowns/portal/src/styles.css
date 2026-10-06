@@ -26,9 +26,13 @@ body::before {
 }
 
 .shell { @apply mx-auto grid min-h-screen max-w-[1800px] lg:grid-cols-[280px_1fr]; }
-.sidebar { @apply border-b border-line bg-[#081523]/95 p-5 backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r; }
-.nav-link { @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-mint; }
-.nav-link.active { @apply bg-mint/10 text-mint; }
+.sidebar { @apply border-b border-line bg-[#081523]/95 p-5 backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r; }
+.nav-group { @apply mt-5 first:mt-2; }
+.nav-group-title { @apply px-3 mb-1.5 text-[10px] font-mono uppercase tracking-[.22em] text-slate-500 font-semibold; }
+.nav-link { @apply flex items-start gap-2.5 rounded-xl px-3 py-1.5 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-mint; }
+.nav-link.active { @apply bg-mint/10 text-mint border-l-2 border-mint rounded-l-none pl-2.5; }
+.nav-link.active .nav-label { @apply text-white font-semibold; }
+.nav-link.active .nav-sub { @apply text-mint/80; }
 .content { @apply min-w-0 px-4 py-8 sm:px-8 lg:px-12 lg:py-12; }
 .section { @apply scroll-mt-8 border-b border-line/70 py-14 first:pt-0; }
 .eyebrow { @apply mb-3 font-mono text-xs uppercase tracking-[.22em] text-mint; }

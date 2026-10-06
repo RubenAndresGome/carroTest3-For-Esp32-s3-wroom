@@ -16,19 +16,40 @@ const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&":
 const assetPath = (path) => `./${path}`;
 const repoPath = (path) => `../../${path}`;
 const severityClass = (severity) => ["Crítica", "Alta", "Pendiente"].includes(severity) ? "badge-high" : severity === "Media" ? "badge-medium" : "badge-low";
-const navItems = [
-  ["resumen", "activity", "Estado actual"],
-  ["arquitectura", "boxes", "Arquitectura"],
-  ["modelos", "calculator", "Modelos matemáticos"],
-  ["calibracion", "circuit-board", "Calibración y MPU"],
-  ["uml", "git-branch", "UML y grafos"],
-  ["funciones", "braces", "Funciones"],
-  ["api", "database", "Interfaces"],
-  ["datos", "activity", "Datos SQLite"],
-  ["manual", "book-open", "Manual de uso"],
-  ["glosario", "braces", "Glosario"],
-  ["seguridad", "shield-check", "Seguridad"],
-  ["evidencia", "film", "Evidencia"],
+const navGroups = [
+  {
+    category: "Auditoría & Sistema",
+    items: [
+      { id: "resumen", icon: "activity", label: "Estado actual", subtitle: "Dictamen y 13 hallazgos" },
+      { id: "evidencia", icon: "film", label: "Evidencia audiovisual", subtitle: "Demostraciones en video" },
+    ],
+  },
+  {
+    category: "Control Embebido & Hardware",
+    items: [
+      { id: "arquitectura", icon: "boxes", label: "Arquitectura", subtitle: "FreeRTOS Core 0/1 (100 Hz)" },
+      { id: "modelos", icon: "calculator", label: "Modelos matemáticos", subtitle: "Cinemática 4WD, pose e ICR" },
+      { id: "calibracion", icon: "circuit-board", label: "Calibración y MPU", subtitle: "Dogma 5 fases y MPU6050" },
+      { id: "seguridad", icon: "shield-check", label: "Seguridad y límites", subtitle: "Protección DRV8833 y E-STOP" },
+    ],
+  },
+  {
+    category: "Ingeniería de Software & Datos",
+    items: [
+      { id: "uml", icon: "git-branch", label: "UML y grafos", subtitle: "Diagramas C4 y estados" },
+      { id: "funciones", icon: "braces", label: "Funciones", subtitle: "Catálogo de 878 símbolos" },
+      { id: "api", icon: "database", label: "Interfaces", subtitle: "WebSocket JSON v3 y HTTP" },
+      { id: "datos", icon: "activity", label: "Datos SQLite", subtitle: "13,930 muestras forenses" },
+    ],
+  },
+  {
+    category: "Operación & Recursos",
+    items: [
+      { id: "manual", icon: "book-open", label: "Manual de uso", subtitle: "Operación HMI y tablet" },
+      { id: "reproducible", icon: "download", label: "Reproducibilidad & CAD", subtitle: "Comandos pio y descarga .fzz" },
+      { id: "glosario", icon: "braces", label: "Glosario técnico", subtitle: "Terminología y acrónimos" },
+    ],
+  },
 ];
 
 app.innerHTML = `
@@ -44,8 +65,23 @@ app.innerHTML = `
       <p class="mt-4 text-xs leading-5 text-slate-500">Auditoría, UML, evidencia y operación de la arquitectura <span class="text-slate-300">robot-s3-steps-v3</span>.</p>
       <label class="relative mt-5 block"><span class="sr-only">Buscar en todo el portal</span><i data-lucide="search" class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500"></i><input id="global-search" class="filter w-full pl-10" type="search" placeholder="Buscar en todo…"></label>
       <div id="global-results" class="mt-2 hidden max-h-52 overflow-y-auto rounded-lg border border-line bg-ink p-2 text-xs"></div>
-      <nav id="nav" class="mt-7 hidden space-y-1 lg:block">
-        ${navItems.map(([id, icon, label]) => `<a class="nav-link" href="#${id}"><i data-lucide="${icon}"></i><span>${label}</span></a>`).join("")}
+      <nav id="nav" class="mt-6 hidden space-y-4 lg:block">
+        ${navGroups.map((group) => `
+          <div class="nav-group">
+            <p class="nav-group-title">${group.category}</p>
+            <div class="mt-1 space-y-0.5">
+              ${group.items.map((item) => `
+                <a class="nav-link group" href="#${item.id}">
+                  <i data-lucide="${item.icon}" class="mt-0.5 shrink-0 text-slate-400 group-hover:text-mint"></i>
+                  <div class="min-w-0">
+                    <span class="nav-label block truncate font-medium text-slate-200 group-hover:text-white">${item.label}</span>
+                    <span class="nav-sub block truncate text-[11px] leading-4 text-slate-500 group-hover:text-slate-400">${item.subtitle}</span>
+                  </div>
+                </a>
+              `).join("")}
+            </div>
+          </div>
+        `).join("")}
       </nav>
       <div class="mt-8 rounded-xl border border-line bg-white/[.025] p-4 text-xs text-slate-500">
         <p class="font-mono uppercase tracking-wide text-cyan">Corte documental</p>
@@ -483,7 +519,98 @@ app.innerHTML = `
         <p class="eyebrow">Procedimientos operativos</p><h2 class="section-title">Manual de uso</h2>
         <p class="section-copy">Secuencias concebidas para ejecución supervisada. Ninguna instrucción autoriza operar en suelo antes de la prueba eléctrica.</p>
         <div class="mt-8 grid gap-6 lg:grid-cols-2">
-          ${manuals.map((manual) => `<article class="card"><h3 class="text-xl font-semibold text-white">${manual.title}</h3><ol class="mt-6">${manual.steps.map((step, index) => `<li class="manual-step"><span class="font-mono text-xs text-mint">${String(index + 1).padStart(2, "0")}</span><p class="mt-1 leading-6 text-slate-300">${step}</p></li>`).join("")}</ol></article>`).join("")}
+          ${manuals.map((manual) => `<article class="card"><h3 class="xl font-semibold text-white">${manual.title}</h3><ol class="mt-6">${manual.steps.map((step, index) => `<li class="manual-step"><span class="font-mono text-xs text-mint">${String(index + 1).padStart(2, "0")}</span><p class="mt-1 leading-6 text-slate-300">${step}</p></li>`).join("")}</ol></article>`).join("")}
+        </div>
+      </section>
+
+      <section id="reproducible" class="section">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="eyebrow">Evaluación técnica · Hardware y CAD</p>
+            <h2 class="section-title">Guía de Reproducibilidad y Esquema Fritzing</h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="./diagrama_fritzing/IntentDiagramRobotS3.fzz" download="IntentDiagramRobotS3.fzz" class="route-link text-xs border-mint/40 text-mint hover:bg-mint/10">
+              <i data-lucide="download"></i> Descargar Fritzing (.fzz)
+            </a>
+            <a href="../../REPRODUCIBLE.md" target="_blank" rel="noopener" class="route-link text-xs">
+              <i data-lucide="book-open"></i> Ver REPRODUCIBLE.md
+            </a>
+          </div>
+        </div>
+        <p class="section-copy">Especificación técnica unívoca para clonar, compilar, flashear y verificar los lazos de control de tiempo real en el ESP32-S3. Descarga del diseño circuital en Fritzing, planos vectoriales y comandos reproducibles de PlatformIO.</p>
+
+        <div class="mt-8 grid gap-6 lg:grid-cols-3">
+          <!-- Card Fritzing y Circuito -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="badge badge-low">CAD Fritzing</span>
+                <span class="font-mono text-xs text-slate-500">110 KB</span>
+              </div>
+              <h3 class="mt-3 text-lg font-semibold text-white">Esquemático Nativo y Planos</h3>
+              <p class="mt-2 text-xs leading-5 text-slate-400">Circuito consolidado con 15 GPIOs, reguladores independientes, desacoplo Back-EMF y aislamiento de rieles 7.7V y 5V.</p>
+              <div class="mt-4 space-y-1.5 text-xs">
+                <a href="./diagrama_fritzing/IntentDiagramRobotS3_esquematico.pdf" target="_blank" rel="noopener" class="flex items-center gap-2 text-cyan hover:underline">
+                  <i data-lucide="film" class="h-3.5 w-3.5 shrink-0"></i> Plano de impresión (PDF)
+                </a>
+                <a href="./diagrama_fritzing/IntentDiagramRobotS3_esquematico.svg" target="_blank" rel="noopener" class="flex items-center gap-2 text-cyan hover:underline">
+                  <i data-lucide="git-branch" class="h-3.5 w-3.5 shrink-0"></i> Esquemático vectorial (SVG)
+                </a>
+                <a href="./diagrama_fritzing/IntentDiagramRobotS3_esquematico.png" target="_blank" rel="noopener" class="flex items-center gap-2 text-cyan hover:underline">
+                  <i data-lucide="maximize-2" class="h-3.5 w-3.5 shrink-0"></i> Imagen de alta resolución (PNG)
+                </a>
+                <a href="./diagrama_fritzing/IntentDiagramRobotS3_netlist.xml" target="_blank" rel="noopener" class="flex items-center gap-2 text-cyan hover:underline">
+                  <i data-lucide="braces" class="h-3.5 w-3.5 shrink-0"></i> Lista de redes Netlist (XML)
+                </a>
+              </div>
+            </div>
+            <div class="mt-5">
+              <a href="./diagrama_fritzing/IntentDiagramRobotS3.fzz" download="IntentDiagramRobotS3.fzz" class="route-link w-full text-xs text-center justify-center font-medium bg-mint/10 border-mint/30 text-mint hover:bg-mint/20">
+                <i data-lucide="download"></i> Descargar IntentDiagramRobotS3.fzz
+              </a>
+            </div>
+          </article>
+
+          <!-- Card PlatformIO -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="badge badge-low">PlatformIO CLI</span>
+                <span class="font-mono text-xs text-slate-500">Core 6.2.0</span>
+              </div>
+              <h3 class="mt-3 text-lg font-semibold text-white">Compilación y Tests Embebidos</h3>
+              <p class="mt-2 text-xs leading-5 text-slate-400">Firmware modular en ESP32-S3 (240 MHz, Dual-Core). Suite de pruebas unitarias nativas en host sin hardware:</p>
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-3 font-mono text-[11px] leading-5 text-cyan">
+                <div><span class="text-slate-500"># Compilar firmware:</span><br>pio run -e esp32-s3-devkitc-1</div>
+                <div><span class="text-slate-500"># Ejecutar 74 tests unitarios:</span><br>pio test -e pruebas_control_ruta_nativas</div>
+                <div><span class="text-slate-500"># Flashear USB (VMOT off):</span><br>pio run -e esp32-s3-devkitc-1 -t upload</div>
+              </div>
+            </div>
+            <div class="mt-4 rounded-lg border border-mint/20 bg-mint/5 p-2.5 text-[11px] text-slate-300">
+              <strong class="text-mint">74/74 Unit Tests:</strong> Pruebas matemáticas, cinemática 4WD, ICR y lazos de seguridad superados en 1.94 s.
+            </div>
+          </article>
+
+          <!-- Card Extracción Forense ADB -->
+          <article class="card flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="badge badge-low">ADB Forense</span>
+                <span class="font-mono text-xs text-slate-500">SQLite 100 Hz</span>
+              </div>
+              <h3 class="mt-3 text-lg font-semibold text-white">Extracción y Auditoría de Datos</h3>
+              <p class="mt-2 text-xs leading-5 text-slate-400">Extracción de la base de datos de telemetría de la tablet Samsung mediante Android Debug Bridge:</p>
+              <div class="mt-4 space-y-2 rounded-xl border border-line bg-black/40 p-3 font-mono text-[11px] leading-5 text-cyan">
+                <div><span class="text-slate-500"># Windows PowerShell:</span><br>android_app\extraer_db_tablet.ps1</div>
+                <div><span class="text-slate-500"># Linux / macOS Bash:</span><br>bash scripts/pull_telemetry.sh</div>
+                <div><span class="text-slate-500"># Análisis cuantitativo (95% CI):</span><br>python tools/analyze_telemetry.py</div>
+              </div>
+            </div>
+            <div class="mt-4 rounded-lg border border-cyan/20 bg-cyan/5 p-2.5 text-[11px] text-slate-300">
+              <strong class="text-cyan">13,930 Muestras:</strong> Registro íntegro de pose X/Y, yaw de giróscopo MPU6050 y comandos en <code>tmp_db/robot.sqlite3</code>.
+            </div>
+          </article>
         </div>
       </section>
 
@@ -669,6 +796,8 @@ const searchIndex = [
   { section: "calibracion", title: "Cálculo del Yaw e Integración Angular MPU6050", text: "gyro_corregido offset_z polaridad promedio movil 8 muestras deadband 0.005 rad/s integracion discreta" },
   { section: "calibracion", title: "Dogma Canónico de Calibración (5 Fases)", text: "CAL_CUENTA_REGRESIVA CAL_A CAL_VALIDAR_25 CAL_B CAL_RETORNO torque rampa 140 247" },
   { section: "calibracion", title: "Encoders PCNT y Monitoreo Sensorial", text: "40 PPR filtro 1023 ciclos APB bateria VMOT watchdog stall 2.5s clear_fault calibration_surfaces" },
+  { section: "reproducible", title: "Guía de Reproducibilidad y PlatformIO", text: "pio run build test upload spiffs lib_deps FreeRTOS core 0 1 ESP32-S3 74 tests unitarios" },
+  { section: "reproducible", title: "Esquema de Conexiones Fritzing (.fzz)", text: "Fritzing IntentDiagramRobotS3.fzz esquematico pinout 15 GPIOs TXS0108E DRV8833 MPU6050 netlist" },
 ];
 globalSearch.addEventListener("input", () => {
   const term = globalSearch.value.trim().toLocaleLowerCase("es");
