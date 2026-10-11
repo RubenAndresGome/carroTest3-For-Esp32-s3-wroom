@@ -6,7 +6,9 @@ constexpr char ROBOT_ID_PREFIX[] = "ESP32S3";
 constexpr char PROTOCOL_NAME[] = "robot-s3-steps-v3";
 constexpr uint32_t MANUAL_LEASE_MS = 300;
 constexpr uint32_t MANUAL_FIRST_FRAME_GRACE_MS = 500;
-constexpr uint32_t MANUAL_STALL_TIMEOUT_MS = 450;
+// Watchdog de stall manual: 2.5 s para absorber tiempo muerto de inversión (250 ms),
+// rampas manuales del operador y zona muerta sin falsos disparos de stall.
+constexpr uint32_t MANUAL_STALL_TIMEOUT_MS = 2500;
 
 // WiFi
 extern const char* ssid_AP;

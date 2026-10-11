@@ -1,0 +1,69 @@
+/* ============================================
+           1. VARIABLES DE DISENO
+           ============================================ */
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #111820;
+            --bg-card: #161d27;
+            --bg-card-hover: #1c2533;
+            --bg-input: #0d1219;
+            --border: #243040;
+            --border-light: #2d3d50;
+            --text-primary: #d8e2ec;
+            --text-secondary: #aab9c8;
+            --text-muted: #8fa3b7;
+            --accent: #00e676;
+            --accent-dim: rgba(0,230,118,0.12);
+            --accent-glow: rgba(0,230,118,0.35);
+            --warn: #ffab00;
+            --warn-dim: rgba(255,171,0,0.12);
+            --error: #ff1744;
+            --error-dim: rgba(255,23,68,0.12);
+            --info: #00b0ff;
+            --info-dim: rgba(0,176,255,0.12);
+            --reverse: #ff6d00;
+            --reverse-dim: rgba(255,109,0,0.12);
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --font-mono: 'SF Mono','Fira Code','Cascadia Code', Consolas, monospace;
+            --glass-surface: rgba(18, 27, 39, 0.78);
+            --glass-surface-strong: rgba(22, 32, 46, 0.92);
+            --glass-border: rgba(151, 176, 202, 0.2);
+            --glass-highlight: rgba(255, 255, 255, 0.055);
+            --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.28);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --touch-target-min: 44px;
+            --touch-target-critical: 48px;
+            --font-size-min: 12px;
+            --font-size-operational: 14px;
+            /* Alturas de elementos fijos */
+            --header-h: 52px;
+            --tabbar-h: 48px;
+            --fsm-h: auto;
+        }
+
+        /* ============================================
+           2. RESET & BASE
+           ============================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        [hidden] { display:none !important; }
+        html {
+            font-size: 14px;
+            touch-action: manipulation;
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            min-height: 100dvh;
+            background-image:
+                radial-gradient(circle at 18% 2%, rgba(0,230,118,0.09) 0%, transparent 28%),
+                radial-gradient(circle at 88% 12%, rgba(0,176,255,0.075) 0%, transparent 32%),
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+            background-attachment: fixed;
+            line-height: 1.5;
+        }

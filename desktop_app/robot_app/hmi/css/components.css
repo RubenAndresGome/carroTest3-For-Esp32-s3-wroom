@@ -1,0 +1,282 @@
+/* ============================================
+           5. BOTONES
+           ============================================ */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 6px 12px; border: 1px solid var(--glass-border); border-radius: 9px;
+            background: linear-gradient(180deg, rgba(48,63,82,.72), rgba(27,37,51,.82));
+            color: var(--text-primary); font-family: var(--font-ui);
+            font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:hover { background: linear-gradient(180deg, rgba(62,79,101,.82), rgba(34,46,62,.9)); border-color: rgba(170,194,219,.35); box-shadow: 0 7px 18px rgba(0,0,0,.18); }
+        .btn:active { transform: scale(0.97); }
+        .btn-accent { background: linear-gradient(135deg, #00a967, #007f69); border-color: rgba(80,255,181,.48); color: #fff; box-shadow: 0 8px 22px rgba(0,185,112,.2); }
+        .btn-accent:hover { background: linear-gradient(135deg, #00c477, #00947a); }
+        .btn-reverse { background: var(--reverse-dim); border-color: rgba(255,109,0,0.3); color: var(--reverse); }
+        .btn-reverse:hover { background: rgba(255,109,0,0.2); }
+        .btn-stop { background: var(--warn-dim); border-color: rgba(255,171,0,0.3); color: var(--warn); }
+        .btn-stop:hover { background: rgba(255,171,0,0.2); }
+        .btn-estop {
+            background: #b00032; border: 2px solid #e75170; color: #fff;
+            font-weight: 800; font-size: 10px; padding: 4px 12px;
+            letter-spacing: 1.5px; text-transform: uppercase; border-radius: var(--radius);
+            animation: estop-glow 2s ease-in-out infinite; flex-shrink: 0;
+        }
+        .btn-estop:hover { background: #97002b; }
+        .btn-sm { padding: 4px 8px; font-size: 10px; }
+        .btn-flash { animation: cmd-flash 0.25s ease-out; }
+
+        /* ============================================
+           6. TARJETAS
+           ============================================ */
+        .card {
+            background: linear-gradient(145deg, rgba(28,40,56,.82), rgba(15,23,34,.74));
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
+            box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-elevated);
+            backdrop-filter: blur(12px) saturate(120%);
+            -webkit-backdrop-filter: blur(12px) saturate(120%);
+        }
+        .card-title {
+            font-size: 9px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1.2px; color: var(--text-secondary);
+            margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+        }
+
+        /* ============================================
+           7. SLIDERS PWM
+           ============================================ */
+        .pwm-group { margin-bottom: 10px; }
+        .pwm-group:last-child { margin-bottom: 0; }
+        .pwm-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .pwm-label span:first-child { font-size: 11px; font-weight: 500; }
+        .pwm-val {
+            font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+            color: var(--accent); min-width: 24px; text-align: right;
+        }
+        .pwm-val.rev { color: var(--reverse); }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+            background: var(--border); border-radius: 3px; outline: none; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: var(--accent); border: 2px solid var(--bg-card);
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px; height: 16px; border-radius: 50%;
+            background: var(--accent); border: 2px solid var(--bg-card); cursor: pointer;
+        }
+        input[type="range"].slider-reverse::-webkit-slider-thumb {
+            background: var(--reverse); box-shadow: 0 0 6px rgba(255,109,0,0.4);
+        }
+        .pwm-direction { display: flex; gap: 3px; margin-top: 4px; }
+        .dir-btn {
+            flex: 1; padding: 3px 0; font-size: 9px; text-align: center;
+            border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-family: var(--font-ui); transition: all 0.15s;
+        }
+        .dir-btn.active-fwd { background: var(--accent-dim); border-color: rgba(0,230,118,0.4); color: var(--accent); }
+        .dir-btn.active-rev { background: var(--reverse-dim); border-color: rgba(255,109,0,0.4); color: var(--reverse); }
+        .dir-btn.active-stop { background: var(--border); color: var(--text-primary); }
+
+        /* ============================================
+           8. COMANDOS DE MOVIMIENTO
+           ============================================ */
+        .cmd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+        .cmd-grid .btn { width: 100%; }
+        .drive-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; align-items: stretch; }
+        .drive-pad .btn { min-height: 42px; padding: 5px 3px; flex-direction: column; gap: 1px; font-size: 10px; }
+        .drive-pad .drive-icon { font-size: 15px; line-height: 1; }
+        .drive-forward { grid-column: 2; }
+        .drive-left { grid-column: 1; grid-row: 2; }
+        .drive-stop { grid-column: 2; grid-row: 2; }
+        .drive-right { grid-column: 3; grid-row: 2; }
+        .drive-reverse { grid-column: 2; grid-row: 3; }
+        .reset-pose { width: 100%; margin-top: 7px; }
+        .cmd-input-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: end; }
+        .cmd-input-group { flex: 1; }
+        .cmd-input-group label {
+            display: block; font-size: 9px; color: var(--text-secondary);
+            margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .cmd-input-group input[type="number"], .cmd-input-group input[type="text"], .cmd-input-group select {
+            width: 100%; padding: 5px 6px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;
+        }
+        .cmd-input-group input[type="number"]:focus, .cmd-input-group input[type="text"]:focus, .cmd-input-group select:focus { border-color: var(--accent); }
+        .signed-number-control { display: flex; gap: 5px; align-items: stretch; }
+        .cmd-input-group .signed-number-control input[type="number"] { flex: 1 1 auto; min-width: 0; width: auto; }
+        .sign-toggle {
+            flex: 0 0 34px; min-width: 34px; padding: 0; border: 1px solid var(--border-light);
+            border-radius: var(--radius-sm); background: var(--bg-input); color: var(--accent);
+            font-family: var(--font-mono); font-size: 17px; font-weight: 800; cursor: pointer;
+        }
+        .sign-toggle:active { transform: translateY(1px); background: var(--accent-dim); }
+
+        /* ============================================
+           9. MOTOR SVG
+           ============================================ */
+        .motor-container { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .motor-svg {
+            width: 150px; height: 150px;
+            filter: drop-shadow(0 0 0px transparent); transition: filter 0.5s;
+        }
+        .motor-svg.active-green { filter: drop-shadow(0 0 10px var(--accent-glow)); }
+        .motor-svg.active-orange { filter: drop-shadow(0 0 10px rgba(255,109,0,0.4)); }
+        .motor-svg.active-red { filter: drop-shadow(0 0 10px rgba(255,23,68,0.4)); }
+        .motor-outer-ring { fill: none; stroke: var(--border); stroke-width: 2; }
+        .motor-inner-ring { fill: none; stroke: var(--border); stroke-width: 0.5; stroke-dasharray: 3 5; }
+        .tick-major { stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; }
+        .tick-minor { stroke: var(--border); stroke-width: 1; stroke-linecap: round; }
+        .rotor-arm { stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; transition: stroke 0.3s; }
+        .rotor-arm-sec { stroke: var(--text-muted); stroke-width: 1.5; stroke-linecap: round; opacity: 0.5; transition: stroke 0.3s; }
+        .rotor-tip { fill: var(--accent); transition: fill 0.3s; }
+        .motor-hub { fill: var(--bg-card); stroke: var(--border-light); stroke-width: 1.5; }
+        .motor-hub-center { fill: var(--text-muted); transition: fill 0.3s; }
+        .state-reverse .rotor-arm { stroke: var(--reverse); }
+        .state-reverse .rotor-tip { fill: var(--reverse); }
+        .state-reverse .rotor-arm-sec { stroke: var(--reverse); }
+        .state-error .rotor-arm { stroke: var(--error); }
+        .state-error .rotor-tip { fill: var(--error); }
+        .state-error .motor-hub-center { fill: var(--error); }
+        .motor-name { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); }
+        .motor-rpm { font-family: var(--font-mono); font-size: 13px; font-weight: 700; display: block; margin-top: 1px; }
+        .motor-state-label { font-size: 9px; font-weight: 600; padding: 1px 7px; border-radius: 8px; display: inline-block; margin-top: 2px; }
+        .msl-idle { background: var(--border); color: var(--text-secondary); }
+        .msl-forward { background: var(--accent-dim); color: var(--accent); }
+        .msl-reverse { background: var(--reverse-dim); color: var(--reverse); }
+        .msl-error { background: var(--error-dim); color: var(--error); }
+        .motors-pair { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+        .motor-divider { width: 1px; height: 130px; background: var(--border); }
+
+        /* ============================================
+           10. TELEMETRIA
+           ============================================ */
+        .telem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .telem-item {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 6px 8px;
+        }
+        .telem-item.full { grid-column: 1 / -1; }
+        .telem-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 1px; }
+        .telem-value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+        .telem-value.state-val { font-size: 10px; padding: 1px 6px; border-radius: 3px; display: inline-block; }
+        .tv-idle { background: var(--border); color: var(--text-secondary); }
+        .tv-advancing { background: var(--accent-dim); color: var(--accent); }
+        .tv-turning { background: var(--info-dim); color: var(--info); }
+        .tv-braking { background: var(--warn-dim); color: var(--warn); }
+        .tv-reverse { background: var(--reverse-dim); color: var(--reverse); }
+        .tv-fault { background:rgba(255,171,0,.12); color:#ffd479; }
+        .tv-estop { background: var(--error-dim); color: var(--error); animation: blink-estop 0.8s infinite; }
+        .tv-calibrating { background: var(--info-dim); color: var(--info); }
+        .tv-init { background: var(--border); color: var(--text-muted); }
+
+        /* ============================================
+           11. MAPA DE POSICION (BETA S3)
+           ============================================ */
+        .pos-map-container {
+            position: relative; width: 100%; aspect-ratio: 1; max-height: 200px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); overflow: hidden;
+        }
+        .pos-map { width: 100%; height: 100%; }
+        .pos-map .grid-line { stroke: var(--border); stroke-width: 0.5; }
+        .pos-map .axis-line { stroke: var(--border-light); stroke-width: 1; }
+        .pos-map .trail-line { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0.25; stroke-linecap: round; stroke-linejoin: round; }
+        .pos-map .pos-dot { fill: var(--accent); transition: cx 0.15s, cy 0.15s; }
+        .pos-map .origin-mark { fill: var(--text-muted); }
+        .pos-coords { display: flex; gap: 10px; margin-top: 4px; font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+        .pos-coords span { color: var(--text-primary); font-weight: 600; }
+
+        /* ============================================
+           12. MAQUINA DE ESTADOS
+           ============================================ */
+        .fsm-panel {
+            margin: 10px 12px 0;
+            padding: 10px 12px;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            background: var(--glass-surface);
+            box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 26px rgba(0,0,0,.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .fsm-flow {
+            display: flex; align-items: center; gap: 5px;
+            justify-content: center; flex-wrap: nowrap; min-width: fit-content;
+        }
+        .fsm-node {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 10px; font-size: 9px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.7px; border: 1px solid var(--glass-border); border-radius: 999px;
+            background: rgba(50,65,83,.62); color: var(--text-secondary); white-space: nowrap; transition: all 0.3s;
+        }
+        .fsm-node::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .55; box-shadow: 0 0 0 3px rgba(255,255,255,.025); }
+        .fsm-node.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); box-shadow: 0 0 10px var(--accent-glow); }
+        .fsm-node.active-reverse { border-color: var(--reverse); color: var(--reverse); background: var(--reverse-dim); box-shadow: 0 0 10px rgba(255,109,0,0.3); }
+        .fsm-node.active-fault { border-color:var(--warn); color:#ffd479; background:var(--warn-dim); box-shadow:0 0 12px rgba(255,171,0,.34); }
+        .fsm-node.active-estop { border-color: var(--error); color: #fff; background: var(--error); box-shadow: 0 0 14px rgba(255,23,68,0.5); animation: blink-estop 0.8s infinite; }
+        .fsm-arrow { position: relative; width: 22px; height: 1px; padding: 0; background: var(--border-light); color: transparent; user-select: none; }
+        .fsm-arrow::after { content: ''; position: absolute; right: -1px; top: -3px; width: 6px; height: 6px; border-top: 1px solid var(--text-muted); border-right: 1px solid var(--text-muted); transform: rotate(45deg); }
+        .fsm-sep { width: 12px; }
+
+        /* ============================================
+           13. SISTEMA DE LOGS
+           ============================================ */
+        .log-panel {
+            margin: 8px 12px 12px; padding: 0; flex-shrink: 0; overflow: hidden;
+            border: 1px solid var(--glass-border); border-radius: var(--radius);
+            background: var(--glass-surface); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-elevated);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .log-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; margin: 0; border-bottom: 1px solid var(--glass-border); flex-wrap: wrap; }
+        .log-toolbar-main, .log-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .log-filters { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--glass-border); border-radius: 10px; background: rgba(5,10,16,.6); }
+        .log-filter-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 5px 8px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.35px; border: 1px solid transparent; border-radius: 7px;
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-family: var(--font-ui); transition: all 0.15s;
+        }
+        .log-filter-btn .ui-icon { width: 14px; height: 14px; }
+        .log-filter-btn.active { color: var(--text-primary); border-color: var(--border-light); background: var(--bg-card); }
+        .log-filter-btn.lf-info.active { color: var(--accent); border-color: rgba(0,230,118,0.4); background: var(--accent-dim); }
+        .log-filter-btn.lf-warn.active { color: var(--warn); border-color: rgba(255,171,0,0.4); background: var(--warn-dim); }
+        .log-filter-btn.lf-error.active { color: var(--error); border-color: rgba(255,23,68,0.4); background: var(--error-dim); }
+        .log-filter-btn.lf-cmd.active { color: var(--info); border-color: rgba(0,176,255,0.4); background: var(--info-dim); }
+        .log-count { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; min-height: 30px; padding: 0 7px; border: 1px solid rgba(0,176,255,.34); border-radius: 999px; background: var(--info-dim); color: #8fdcff; font: 700 11px var(--font-mono); }
+        .log-retention { display: inline-flex; align-items: center; gap: 6px; }
+        .log-select { min-width: 138px; padding: 6px 30px 6px 9px; border: 1px solid var(--glass-border); border-radius: 9px; background: rgba(10,16,24,.8); color: var(--text-primary); font: 11px var(--font-ui); }
+        .btn-log-danger { background: rgba(255,23,68,.08); color: #ff8da5; border-color: rgba(255,75,112,.42); }
+        .btn-log-danger:hover { background: rgba(255,23,68,.16); border-color: rgba(255,92,124,.68); }
+        .ui-icon { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .log-container {
+            background: rgba(5,9,14,.82); border: 0; border-radius: 0;
+            height: 144px; overflow-y: auto; font-family: var(--font-mono); font-size: 11px; line-height: 1.55;
+            scrollbar-color: #36475c transparent; scrollbar-width: thin;
+        }
+        .log-container::-webkit-scrollbar { width: 8px; }
+        .log-container::-webkit-scrollbar-track { background: transparent; }
+        .log-container::-webkit-scrollbar-thumb { background: #36475c; border: 2px solid transparent; background-clip: padding-box; border-radius: 999px; }
+        .log-entry { display: grid; grid-template-columns: max-content max-content minmax(0,1fr); align-items: start; gap: 8px; padding: 5px 10px; border-left: 3px solid transparent; border-bottom: 1px solid rgba(151,176,202,.055); animation: log-in 0.2s ease-out; }
+        .log-entry:hover { background: rgba(255,255,255,0.035); }
+        .log-entry.log-info { border-left-color: var(--accent); }
+        .log-entry.log-warn { border-left-color: var(--warn); background: rgba(255,171,0,0.03); }
+        .log-entry.log-error { border-left-color: var(--error); background: rgba(255,23,68,0.05); }
+        .log-entry.log-cmd { border-left-color: var(--info); }
+        .log-time { color: #8295a8; white-space: nowrap; }
+        .log-level { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-width: 56px; padding: 1px 6px; border: 1px solid currentColor; border-radius: 5px; font-weight: 800; font-size: 9px; line-height: 1.5; letter-spacing: .4px; }
+        .log-level.ll-info { color: var(--accent); }
+        .log-level.ll-warn { color: var(--warn); }
+        .log-level.ll-error { color: var(--error); }
+        .log-level.ll-cmd { color: var(--info); }
+        .log-msg { color: #dce6ef; overflow-wrap: anywhere; }
+        .log-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 11px; font-family: var(--font-ui); }

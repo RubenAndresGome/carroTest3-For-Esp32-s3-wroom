@@ -1,0 +1,162 @@
+<div class="tab-content active" id="tab-conexion" role="tabpanel" aria-labelledby="tab-control-conexion">
+        <div class="connection-layout">
+            <aside class="connection-stack">
+                <section class="card calibration-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="card-title" style="margin-bottom: 0;">Gestión de Superficies y Calibración</div>
+                        <span class="badge" style="background: rgba(0, 176, 255, 0.12); color: var(--info); border: 1px solid rgba(0, 176, 255, 0.35); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">📶 Wi-Fi 8s Grace</span>
+                    </div>
+
+                    <!-- ESTADO RESUMEN / COMPACTO -->
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                        <div class="calibration-state" id="calibration-state" role="status" aria-live="polite" style="margin: 0; font-size: 11px;">ESPERANDO CONEXIÓN</div>
+                        <span id="surface-active-info" style="font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">· Perfil: —</span>
+                    </div>
+                    <div class="calibration-cause" id="calibration-cause" role="alert"></div>
+
+                    <!-- 1. SELECCIÓN DE SUPERFICIE GUARDADA (USO INMEDIATO <50ms) -->
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px;">
+                        <select id="select-surface" style="flex: 1 1 180px; padding: 7px 10px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-mono); font-size: 11px;">
+                            <option value="">Cargando superficies...</option>
+                        </select>
+                        <button type="button" class="btn btn-accent" id="btn-apply-surface" style="flex: 0 0 auto; min-height: var(--touch-target-min); padding: 7px 12px; font-weight: 700; font-size: 11px;">
+                            ⚡ Aplicar
+                        </button>
+                    </div>
+
+                    <!-- 2. REGISTRO AUTOMÁTICO DE NUEVA SUPERFICIE (SOLO NOMBRE + CALIBRAR) -->
+                    <div style="background: rgba(0, 230, 118, 0.04); border: 1px solid rgba(0, 230, 118, 0.2); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+                        <div style="font-size: 9px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                            Nueva Superficie / Medición Física
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px;">
+                            <input type="text" id="surface-auto-name" placeholder="Nombre del piso (ej. Terraza, Sala...)" style="flex: 1 1 160px; padding: 6px 10px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 11px;">
+                            <button type="button" class="btn" id="btn-save-current-as-surface" title="Guardar calibración actual sin volver a mover el robot" style="flex: 0 0 auto; font-size: 10px; padding: 6px 10px;">
+                                💾 Guardar Actual
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-accent" id="btn-calibrate" style="width: 100%; min-height: var(--touch-target-min); font-size: 11px; font-weight: 700; justify-content: center;">
+                            <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>
+                            <span id="btn-calibrate-label">🎯 Calibrar físicamente (Giro ±25°)</span>
+                        </button>
+                    </div>
+
+                    <!-- BOTONES DE COMPRESIÓN / HERRAMIENTAS AVANZADAS -->
+                    <div style="display: flex; gap: 6px; margin-bottom: 4px;">
+                        <button type="button" class="btn btn-sm" id="btn-toggle-surface-manager" style="flex: 1; padding: 4px 6px; font-size: 9px; border-color: var(--border);">
+                            🛠 Modo Experto (PWM)
+                        </button>
+                        <button type="button" class="btn btn-sm" id="btn-toggle-cal-diagnostics" style="flex: 1; padding: 4px 6px; font-size: 9px; border-color: var(--border);">
+                            📐 Diagnóstico MPU/PCNT
+                        </button>
+                    </div>
+
+                    <!-- SUBPANEL COLAPSABLE 1: EDICIÓN MANUAL AVANZADA DE PWM / BORRAR -->
+                    <div id="surface-manager-form" style="display: none; margin-top: 8px; margin-bottom: 8px; padding: 10px; background: rgba(0, 176, 255, 0.04); border: 1px solid var(--border); border-radius: 8px;">
+                        <div style="font-weight: 700; font-size: 9px; color: var(--info); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Ajuste Manual Forzado (Modo Experto)</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label for="surface-name" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Nombre</label>
+                                <input type="text" id="surface-name" placeholder="Nombre en SQLite" style="width: 100%; padding: 4px 6px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 10px;">
+                            </div>
+                            <div>
+                                <label for="surface-desc" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Descripción</label>
+                                <input type="text" id="surface-desc" placeholder="Opcional" style="width: 100%; padding: 4px 6px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 10px;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px;">
+                            <div>
+                                <label for="surface-pwm-pos" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">PWM +</label>
+                                <input type="number" id="surface-pwm-pos" min="140" max="247" value="155" style="width: 100%; padding: 4px 2px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 10px; text-align: center;">
+                            </div>
+                            <div>
+                                <label for="surface-pwm-neg" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">PWM −</label>
+                                <input type="number" id="surface-pwm-neg" min="140" max="247" value="155" style="width: 100%; padding: 4px 2px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 10px; text-align: center;">
+                            </div>
+                            <div>
+                                <label for="surface-cand-pos" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Pol +</label>
+                                <select id="surface-cand-pos" style="width: 100%; padding: 4px 1px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 9px; text-align: center;">
+                                    <option value="1">+1</option>
+                                    <option value="-1">-1</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="surface-cand-neg" style="display: block; font-size: 8px; color: var(--text-secondary); margin-bottom: 2px;">Pol −</label>
+                                <select id="surface-cand-neg" style="width: 100%; padding: 4px 1px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 9px; text-align: center;">
+                                    <option value="-1">-1</option>
+                                    <option value="1">+1</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="btn" id="btn-capture-surface" style="flex: 1 1 90px; font-size: 9px; padding: 5px;">📥 Capturar</button>
+                            <button type="button" class="btn btn-accent" id="btn-save-surface" style="flex: 1 1 100px; font-size: 9px; padding: 5px;">💾 Guardar Forzado</button>
+                            <button type="button" class="btn btn-stop" id="btn-delete-surface" style="flex: 0 0 auto; font-size: 9px; padding: 5px 8px;">🗑 Borrar</button>
+                        </div>
+                    </div>
+
+                    <!-- SUBPANEL COLAPSABLE 2: CALIBRACIÓN FÍSICA Y DIAGNÓSTICOS EN VIVO -->
+                    <div id="cal-physical-panel" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);">
+                        <div class="calibration-note" id="calibration-detail">La calibración mantiene el MPU como autoridad para detectar el giro y exige evidencia PCNT bilateral equilibrada antes de validar el pivote. Frena temprano ante movimiento unilateral o asimétrico, reposa 2.5 s y vuelve al yaw inicial. La calibración moverá el robot.</div>
+                        <div class="calibration-diagnostics" id="calibration-diagnostics" aria-label="Diagnóstico de calibración en vivo">
+                            <div class="cal-diag-summary">
+                                <span>Fase <strong id="cal-diag-phase">—</strong></span>
+                                <span>Rampa <strong id="cal-diag-ramp">—</strong></span>
+                                <span>PWM <strong id="cal-diag-pwm">—</strong></span>
+                                <span>Intento <strong id="cal-diag-attempt">—</strong></span>
+                                <span>Memoria torque <strong id="cal-diag-history">—</strong></span>
+                                <span>PCNT <strong id="cal-diag-pcnt">—</strong></span>
+                            </div>
+                            <div class="cal-diag-wheels">
+                                <div class="cal-diag-wheel" id="cal-diag-fl" data-status="unknown"><strong>FL</strong><span id="cal-diag-delta-fl">Δ —</span><span id="cal-diag-status-fl">sin datos</span></div>
+                                <div class="cal-diag-wheel" id="cal-diag-fr" data-status="unknown"><strong>FR</strong><span id="cal-diag-delta-fr">Δ —</span><span id="cal-diag-status-fr">sin datos</span></div>
+                                <div class="cal-diag-wheel" id="cal-diag-bl" data-status="unknown"><strong>BL</strong><span id="cal-diag-delta-bl">Δ —</span><span id="cal-diag-status-bl">sin datos</span></div>
+                                <div class="cal-diag-wheel" id="cal-diag-br" data-status="unknown"><strong>BR</strong><span id="cal-diag-delta-br">Δ —</span><span id="cal-diag-status-br">sin datos</span></div>
+                            </div>
+                            <div class="cal-diag-sides" id="cal-diag-sides">MPU principal · pivote bilateral pendiente</div>
+                        </div>
+                        <div class="calibration-actions" style="margin-top: 8px;">
+                            <button type="button" class="btn btn-rearm" id="btn-clear-fault" hidden disabled><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 8v5M12 17h.01"/></svg><span id="btn-clear-fault-label">Rearmar sistema</span></button>
+                            <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg><span id="self-test-state">Autoevaluación lógica</span></button>
+                        </div>
+                    </div>
+                </section>
+                <section class="card">
+                    <div class="card-title">Enlace HMI → ESP32</div>
+                    <div class="cmd-input-group">
+                        <label for="robot-host">Dirección del carrito</label>
+                        <input type="text" id="robot-host" value="192.168.4.1" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="connection-state-line"><span class="conn-dot" id="connection-panel-dot"></span><strong id="connection-panel-state">DESCONECTADO</strong></div>
+                    <div class="calibration-note" id="connection-panel-detail">Selecciona ROBOT_S3_LOCAL en el Wi‑Fi del dispositivo antes de conectar.</div>
+                    <div class="connection-actions">
+                        <button class="btn btn-accent" id="btn-connect"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 12a4 4 0 0 1 4-4h4a4 4 0 0 1 0 8h-2"/><path d="M16 12a4 4 0 0 1-4 4H8a4 4 0 0 1 0-8h2"/></svg>Conectar</button>
+                        <button class="btn" id="btn-reconnect"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 9A7 7 0 0 1 18 6l2 2M17.9 15A7 7 0 0 1 6 18l-2-2"/></svg>Reconectar</button>
+                        <button class="btn btn-reverse" id="btn-disconnect"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>Desconectar</button>
+                    </div>
+                    <div class="retention-note">Selecciona manualmente la red Wi‑Fi en Windows o Android. SSID esperado: <strong>ROBOT_S3_LOCAL</strong>. La aplicación administra únicamente el WebSocket y no cambia de red al iniciar.</div>
+                </section>
+                <section class="card">
+                    <div class="card-title">Identidad permanente</div>
+                    <div class="connection-identity">
+                        <div class="identity-value"><small>Robot ID (eFuse/MAC)</small><strong id="robot-id">—</strong></div>
+                        <div class="identity-value"><small>Firmware</small><strong id="firmware-version">—</strong></div>
+                        <div class="identity-value"><small>Protocolo</small><strong id="protocol-version">—</strong></div>
+                        <div class="identity-value"><small>Sesión SQLite</small><strong id="active-session">—</strong></div>
+                    </div>
+                    <div class="retention-note">Retención de pruebas: permanente. No se borran sesiones automáticamente. Muestreo de telemetría: 5 Hz.</div>
+                </section>
+            </aside>
+            <section class="card">
+                <div class="card-title">Historial de sesiones y exportaciones</div>
+                <div class="session-table-wrap" tabindex="0" role="region" aria-label="Historial de sesiones desplazable">
+                    <table class="session-table">
+                        <thead><tr><th>ID</th><th>Día local</th><th>Inicio UTC</th><th>Fin UTC</th><th>Robot</th><th>Muestras</th><th>Motivo</th><th>Exportar</th></tr></thead>
+                        <tbody id="session-history"><tr><td colspan="8" class="session-empty">Sin sesiones registradas</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- TAB 2: MAPA CHART.JS (Original UI Logic) -->

@@ -1,0 +1,30 @@
+<div class="tab-content" id="tab-mapa" role="tabpanel" aria-labelledby="tab-control-mapa">
+        <div class="nav-layout">
+            <aside class="card nav-control-card">
+                <div class="card-title">Coordenadas de destino</div>
+                <form id="chart-form" class="nav-form">
+                    <div class="cmd-input-group"><label for="chart-x">Coordenada X</label><div class="signed-number-control"><input type="number" inputmode="decimal" id="chart-x" step="0.1" required><button type="button" class="sign-toggle" data-toggle-sign="chart-x" aria-label="Cambiar signo de coordenada X">&plusmn;</button></div></div>
+                    <div class="cmd-input-group"><label for="chart-y">Coordenada Y</label><div class="signed-number-control"><input type="number" inputmode="decimal" id="chart-y" step="0.1" required><button type="button" class="sign-toggle" data-toggle-sign="chart-y" aria-label="Cambiar signo de coordenada Y">&plusmn;</button></div></div>
+                    <div class="nav-actions">
+                        <button type="submit" class="btn btn-accent" id="btn-chart-move">Mover robot</button>
+                        <button type="button" class="btn btn-reverse" id="btn-chart-reset">Reiniciar trayectoria</button>
+                        <button type="button" class="btn" id="btn-chart-zoom">Restablecer zoom</button>
+                    </div>
+                </form>
+                <div class="gyro-status" style="margin-top:10px">Control por coordenadas X / Y</div>
+            </aside>
+            <section class="card nav-chart-card" aria-label="Mapa de trayectoria">
+                <div class="nav-status-card">
+                    <div class="nav-distance" id="chart-distanceLabel">Distancia recorrida: <strong>0.00 cm</strong></div>
+                    <div class="nav-chip">X: <span id="chart-status-x">0.0</span></div>
+                    <div class="nav-chip">Y: <span id="chart-status-y">0.0</span></div>
+                    <div class="nav-chip">Ángulo: <span id="chart-status-angle">0.0°</span></div>
+                    <div class="nav-chip">Estado: <span id="chart-status-state">INIT</span></div>
+                    <div class="nav-progress"><div id="chart-progressBar" class="nav-progress-fill"></div></div>
+                </div>
+                <div class="nav-canvas-wrap"><canvas id="robotChart"></canvas></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- TAB 2: TESTING CONFIG -->

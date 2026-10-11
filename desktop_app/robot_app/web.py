@@ -35,14 +35,43 @@ def _require_token(function: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+CARDS_ORDER = [
+    "header.html",
+    "tab_conexion.html",
+    "tab_mapa.html",
+    "tab_testing.html",
+    "tab_touch.html",
+    "tab_rutas.html",
+    "footer_panels.html",
+]
+
+
+def _get_hmi_html() -> str:
+    try:
+        from .hmi.compilar_hmi import compile_hmi
+        return compile_hmi()
+    except Exception:
+        return (HMI_ROOT / "index.html").read_text(encoding="utf-8")
+
+
 @web.get("/")
 def index() -> Response:
-    html = (HMI_ROOT / "index.html").read_text(encoding="utf-8")
-    nonce = g.csp_nonce
+    html = _get_hmi_html()
     html = html.replace('<meta name="app-token" content="">', f'<meta name="app-token" content="{current_app.extensions["app_token"]}">')
+    nonce = g.csp_nonce
     html = html.replace("<style>", f'<style nonce="{nonce}">', 1)
     html = html.replace("    <script>\n", f'    <script nonce="{nonce}">\n', 1)
     return Response(html, mimetype="text/html")
+
+
+@web.get("/css/<path:filename>")
+def css_asset(filename: str) -> Response:
+    return send_from_directory(HMI_ROOT / "css", filename, mimetype="text/css")
+
+
+@web.get("/js/<path:filename>")
+def js_asset(filename: str) -> Response:
+    return send_from_directory(HMI_ROOT / "js", filename, mimetype="application/javascript")
 
 
 @web.get("/<path:filename>")

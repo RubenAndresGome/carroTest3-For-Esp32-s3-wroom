@@ -1,0 +1,179 @@
+<div class="tab-content" id="tab-testing" role="tabpanel" aria-labelledby="tab-control-testing">
+        <div class="testing-grid">
+            <aside class="col-controls">
+                <div class="card">
+                    <div class="card-title">PWM Manual</div>
+                    <div class="pwm-group">
+                        <div class="pwm-label"><span>Motor Izquierdo</span><span class="pwm-val" id="pwm-left-val">0</span></div>
+                        <input type="range" id="pwm-left" min="0" max="230" value="0" aria-label="PWM motor izquierdo">
+                        <div class="pwm-direction">
+                            <button class="dir-btn active-stop" data-motor="left" data-dir="stop">STOP</button>
+                            <button class="dir-btn" data-motor="left" data-dir="fwd">FWD</button>
+                            <button class="dir-btn" data-motor="left" data-dir="rev">REV</button>
+                        </div>
+                    </div>
+                    <div class="pwm-group">
+                        <div class="pwm-label"><span>Motor Derecho</span><span class="pwm-val" id="pwm-right-val">0</span></div>
+                        <input type="range" id="pwm-right" min="0" max="230" value="0" aria-label="PWM motor derecho">
+                        <div class="pwm-direction">
+                            <button class="dir-btn active-stop" data-motor="right" data-dir="stop">STOP</button>
+                            <button class="dir-btn" data-motor="right" data-dir="fwd">FWD</button>
+                            <button class="dir-btn" data-motor="right" data-dir="rev">REV</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-accent btn-sm" id="btn-apply-pwm" style="width:100%">Aplicar PWM</button>
+                    <div class="cmd-input-group" style="margin-top:8px">
+                        <label for="test-duration">Duraci&oacute;n (ms):</label>
+                        <input type="number" id="test-duration" value="500" min="100" max="1500" step="100">
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Control Movimiento S3</div>
+                    <div class="cmd-input-row">
+                        <div class="cmd-input-group"><label for="cmd-dist">Dist (cm)</label><input type="number" id="cmd-dist" value="50" min="1" max="999"></div>
+                        <div class="cmd-input-group"><label for="cmd-angle">Ang (deg)</label><input type="number" id="cmd-angle" value="90" min="1" max="360"></div>
+                    </div>
+                    <div class="cmd-input-group" style="margin:8px 0">
+                        <label for="turn-mode">Método de giro (solo Testing)</label>
+                        <select id="turn-mode">
+                            <option value="auto">Automático — pivot continuo</option>
+                            <option value="pivot">Pivot continuo</option>
+                        </select>
+                    </div>
+                    <div class="drive-pad">
+                        <button class="btn btn-accent drive-forward" data-cmd="avance"><span class="drive-icon">&uarr;</span>Avanzar</button>
+                        <button class="btn drive-left" data-cmd="giro-izq"><span class="drive-icon">&larr;</span>Izquierda</button>
+                        <button class="btn btn-stop drive-stop" data-cmd="parada">Parar</button>
+                        <button class="btn drive-right" data-cmd="giro-der"><span class="drive-icon">&rarr;</span>Derecha</button>
+                        <button class="btn btn-reverse drive-reverse" data-cmd="retroceso"><span class="drive-icon">&darr;</span>Reversa</button>
+                    </div>
+                    <button class="btn btn-sm reset-pose" data-cmd="reset">Reset de posici&oacute;n</button>
+                </div>
+            </aside>
+
+            <section class="col-motors" aria-label="Vista de prueba de sensores ESP32-S3">
+                <div class="testing-stage-title">Vista de prueba de sensores S3</div>
+                <div class="robot-blueprint">
+                    <svg class="robot-wiring" viewBox="0 0 600 600" preserveAspectRatio="none" aria-hidden="true">
+                        <path class="chassis-line" d="M110 20 H490 L565 96 V218 L530 262 V338 L565 382 V504 L490 580 H110 L35 504 V382 L70 338 V262 L35 218 V96 Z"/>
+                        <path class="wire-line" d="M115 120 H210 V185 H300 M485 120 H390 V185 H300 M115 480 H210 V415 H300 M485 480 H390 V415 H300"/>
+                    </svg>
+
+                    <div class="motor-station motor-fl" data-wheel="fl">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-fl">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-fl"></g>
+                            <g id="rotor-fl" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Superior Izq</span>
+                        <div class="motor-data"><strong id="rpm-fl">0 RPM</strong><span id="pwm-fl">PWM: 0</span><span id="pulses-fl">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-fl">DETENIDO</span>
+                    </div>
+
+                    <div class="motor-station motor-fr" data-wheel="fr">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-fr">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-fr"></g>
+                            <g id="rotor-fr" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Superior Der</span>
+                        <div class="motor-data"><strong id="rpm-fr">0 RPM</strong><span id="pwm-fr">PWM: 0</span><span id="pulses-fr">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-fr">DETENIDO</span>
+                    </div>
+
+                    <div class="robot-core">
+                        <div>
+                            <div class="esp32-board" aria-label="ESP32-S3 WROOM DevKit"><span class="esp32-chip">ESP32</span></div>
+                            <div class="esp32-caption">ESP32-S3 WROOM DevKit</div>
+                        </div>
+                        <div class="gyro-card">
+                            <div class="card-title">MPU 6050 · Giroscopio</div>
+                            <div class="gyro-dial" id="gyro-dial">
+                                <span class="gyro-west">W</span><span class="gyro-east">E</span>
+                                <div class="gyro-needle"></div><div class="gyro-center"></div>
+                            </div>
+                            <div class="gyro-readout">
+                                <div>&Aacute;ngulo actual Z: <span class="gyro-angle" id="gyro-angle">0.0&deg;</span></div>
+                                <div class="gyro-axes">X: <span id="gyro-x">0.0&deg;</span> &nbsp; Y: <span id="gyro-y">0.0&deg;</span></div>
+                                <div class="gyro-status" id="gyro-status">Estado giroscopio: estable</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="motor-station motor-bl" data-wheel="bl">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-bl">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-bl"></g>
+                            <g id="rotor-bl" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Inferior Izq</span>
+                        <div class="motor-data"><strong id="rpm-bl">0 RPM</strong><span id="pwm-bl">PWM: 0</span><span id="pulses-bl">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-bl">DETENIDO</span>
+                    </div>
+
+                    <div class="motor-station motor-br" data-wheel="br">
+                        <svg viewBox="0 0 200 200" class="motor-svg" id="svg-br">
+                            <circle cx="100" cy="100" r="90" class="motor-outer-ring"/><circle cx="100" cy="100" r="76" class="motor-inner-ring"/><g id="ticks-br"></g>
+                            <g id="rotor-br" class="motor-rotor"><line x1="100" y1="100" x2="100" y2="24" class="rotor-arm"/><circle cx="100" cy="24" r="6" class="rotor-tip"/><line x1="100" y1="100" x2="165" y2="137" class="rotor-arm-sec"/><line x1="100" y1="100" x2="35" y2="137" class="rotor-arm-sec"/></g>
+                            <circle cx="100" cy="100" r="12" class="motor-hub"/><circle cx="100" cy="100" r="4" class="motor-hub-center"/>
+                        </svg>
+                        <span class="motor-name">Inferior Der</span>
+                        <div class="motor-data"><strong id="rpm-br">0 RPM</strong><span id="pwm-br">PWM: 0</span><span id="pulses-br">Pulsos: 0</span></div>
+                        <span class="motor-state-label msl-idle" id="msl-br">DETENIDO</span>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="col-telemetry" tabindex="0" aria-label="Telemetría y estado desplazables">
+                <div class="card">
+                    <div class="card-title">Telemetria (Live)</div>
+                    <div class="telem-grid">
+                        <div class="telem-item full"><div class="telem-label">Estado FSM</div><div class="telem-value state-val tv-idle" id="telem-state">IDLE</div></div>
+                        <div class="telem-item"><div class="telem-label">Distancia Total</div><div class="telem-value" id="telem-dist">0.0 cm</div></div>
+                        <div class="telem-item"><div class="telem-label">Angulo (Z)</div><div class="telem-value" id="telem-angle">0.0°</div></div>
+                        <div class="telem-item"><div class="telem-label">Enc Izq</div><div class="telem-value" id="telem-enc-l">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">Enc Der</div><div class="telem-value" id="telem-enc-r">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">PWM Izq</div><div class="telem-value" id="telem-pwm-l" style="color:var(--accent)">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">PWM Der</div><div class="telem-value" id="telem-pwm-r" style="color:var(--accent)">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">Orient Rads</div><div class="telem-value" id="telem-orient">0.00 rad</div></div>
+                        <div class="telem-item"><div class="telem-label">Clientes</div><div class="telem-value" id="telem-clients">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">Control de giro</div><div class="telem-value" id="telem-turn-attempt">0 / 1</div></div>
+                        <div class="telem-item"><div class="telem-label">Pausa segura</div><div class="telem-value" id="telem-retry-pause">0 ms</div></div>
+                        <div class="telem-item full"><div class="telem-label">Heading / yaw MPU continuo</div><div class="telem-value" id="telem-yaw-model">0.0° / 0.0°</div></div>
+                        <div class="telem-item full"><div class="telem-label">Control angular</div><div class="telem-value" id="telem-turn-control">OFF</div></div>
+                        <div class="telem-item full"><div class="telem-label">Stall FL/FR/BL/BR</div><div class="telem-value" id="telem-stall">0 / 0 / 0 / 0 ms</div></div>
+                        <div class="telem-item full"><div class="telem-label">Interlock L/R</div><div class="telem-value" id="telem-interlock">OFF / OFF</div></div>
+                        <div class="telem-item full"><div class="telem-label">Salud FL/FR/BL/BR · política de giro</div><div class="telem-value" id="telem-cal-pulse">unknown/unknown/unknown/unknown · pivot continuo</div></div>
+                        <div class="telem-item full"><div class="telem-label">Control síncrono · Web Core 0 / Super-ciclo Core 1</div><div class="telem-value" id="telem-rtos">sin muestras</div></div>
+                        <div class="telem-item full"><div class="telem-label">Último resultado / causa</div><div class="telem-value" id="telem-last-stop">ninguno</div></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Posicion S3 (Beta)</div>
+                    <div class="pos-map-container">
+                        <svg id="pos-map" class="pos-map" viewBox="-300 -300 600 600" preserveAspectRatio="xMidYMid meet">
+                            <line x1="-300" y1="-200" x2="300" y2="-200" class="grid-line"/>
+                            <line x1="-300" y1="-100" x2="300" y2="-100" class="grid-line"/>
+                            <line x1="-300" y1="0" x2="300" y2="0" class="axis-line"/>
+                            <line x1="-300" y1="100" x2="300" y2="100" class="grid-line"/>
+                            <line x1="-300" y1="200" x2="300" y2="200" class="grid-line"/>
+                            <line x1="-200" y1="-300" x2="-200" y2="300" class="grid-line"/>
+                            <line x1="-100" y1="-300" x2="-100" y2="300" class="grid-line"/>
+                            <line x1="0" y1="-300" x2="0" y2="300" class="axis-line"/>
+                            <line x1="100" y1="-300" x2="100" y2="300" class="grid-line"/>
+                            <line x1="200" y1="-300" x2="200" y2="300" class="grid-line"/>
+                            <text x="290" y="-8" fill="var(--text-muted)" font-size="11" font-family="var(--font-mono)">X</text>
+                            <text x="6" y="-286" fill="var(--text-muted)" font-size="11" font-family="var(--font-mono)">Y</text>
+                            <polyline id="pos-trail" class="trail-line" points=""/>
+                            <circle cx="0" cy="0" r="3" class="origin-mark"/>
+                            <circle id="pos-dot" class="pos-dot" cx="0" cy="0" r="7"/>
+                            <line id="pos-heading" x1="0" y1="0" x2="0" y2="-25" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <div class="pos-coords">X: <span id="pos-x">0.0</span> cm &nbsp; Y: <span id="pos-y">0.0</span> cm</div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- TAB 3: CONTROL TOUCH -->

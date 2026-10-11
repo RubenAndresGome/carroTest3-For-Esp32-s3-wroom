@@ -1,0 +1,52 @@
+<section class="fsm-panel" aria-label="Máquina de estados del robot" tabindex="0">
+        <div class="fsm-flow" id="fsm-flow">
+            <div class="fsm-node active" data-state="INIT" aria-current="step">INIT</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="IDLE">IDLE</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="GIRANDO">GIRANDO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="ESPERANDO">ESPERANDO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="AVANZANDO">AVANZANDO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="TERMINADO">TERMINADO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="FALLO">FALLO</div>
+            <div class="fsm-arrow" aria-hidden="true"></div>
+            <div class="fsm-node" data-state="ESTOP">ESTOP</div>
+        </div>
+    </section>
+
+    <!-- LOGS -->
+    <section class="log-panel" aria-label="Logs">
+        <div class="log-toolbar">
+            <div class="log-toolbar-main">
+                <div class="log-filters" role="group" aria-label="Filtrar registros por nivel">
+                    <button class="log-filter-btn lf-info active" data-filter="info" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Info</button>
+                    <button class="log-filter-btn lf-warn active" data-filter="warn" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17h.01"/></svg>Warn</button>
+                    <button class="log-filter-btn lf-error active" data-filter="error" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>Error</button>
+                    <button class="log-filter-btn lf-cmd active" data-filter="cmd" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Cmd</button>
+                </div>
+                <span class="log-count" id="log-count" aria-label="0 registros">0</span>
+            </div>
+            <div class="log-actions" aria-label="Acciones de registros">
+                <button class="btn btn-sm" id="btn-download-log"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 19h16"/></svg>Exportar TXT</button>
+                <button class="btn btn-sm" id="btn-clear-log"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Limpiar UI</button>
+                <div class="log-retention">
+                    <select class="log-select" id="select-purge-days" aria-label="Antigüedad de registros a eliminar">
+                        <option value="1">Más de 24h</option>
+                        <option value="7" selected>Más de 7 días</option>
+                        <option value="30">Más de 30 días</option>
+                        <option value="0">Todos los registros</option>
+                    </select>
+                    <button class="btn btn-sm btn-log-danger" id="btn-purge-db-logs"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3M19 5v5"/><path d="M16 16l5 5M21 16l-5 5"/></svg>Limpiar BD<span class="sr-only">, requiere confirmación</span></button>
+                </div>
+            </div>
+        </div>
+        <div class="log-container" id="log-container" role="log" aria-live="polite" aria-label="Visor de registros técnicos" tabindex="0">
+            <div class="log-empty" id="log-empty">Esperando eventos...</div>
+        </div>
+    </section>
+
+    <!-- JAVASCRIPT -->

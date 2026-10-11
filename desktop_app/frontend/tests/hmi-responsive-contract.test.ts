@@ -1,9 +1,36 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const hmiPath = fileURLToPath(new URL("../../robot_app/hmi/index.html", import.meta.url));
-const html = readFileSync(hmiPath, "utf8");
+const hmiDir = fileURLToPath(new URL("../../robot_app/hmi", import.meta.url));
+const hmiPath = join(hmiDir, "index.html");
+
+function loadCompleteHmi(): string {
+  let content = readFileSync(hmiPath, "utf8");
+  const cardsDir = join(hmiDir, "cards");
+  const cssDir = join(hmiDir, "css");
+  const jsDir = join(hmiDir, "js");
+
+  if (existsSync(cardsDir)) {
+    const cardFiles = readdirSync(cardsDir).filter(f => f.endsWith(".html"));
+    const cardsHtml = cardFiles.map(f => readFileSync(join(cardsDir, f), "utf8")).join("\n");
+    content = content.replace("<!-- <!-- INCLUDE_CARDS --> -->", cardsHtml);
+  }
+  if (existsSync(cssDir)) {
+    const cssFiles = readdirSync(cssDir).filter(f => f.endsWith(".css"));
+    const allCss = cssFiles.map(f => readFileSync(join(cssDir, f), "utf8")).join("\n");
+    content = content.replace("/* <!-- INCLUDE_CSS --> */", allCss);
+  }
+  if (existsSync(jsDir)) {
+    const jsFiles = readdirSync(jsDir).filter(f => f.endsWith(".js"));
+    const allJs = jsFiles.map(f => readFileSync(join(jsDir, f), "utf8")).join("\n");
+    content = content.replace("/* <!-- INCLUDE_JS --> */", allJs);
+  }
+  return content;
+}
+
+const html = loadCompleteHmi();
 
 function occurrences(pattern: RegExp): number {
   return html.match(pattern)?.length ?? 0;

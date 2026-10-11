@@ -1,0 +1,140 @@
+/* ============================================
+           14. MODO TOUCH — CONTROL DONA
+           ============================================ */
+        .touch-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 270px;
+            gap: 0;
+            min-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 120px);
+        }
+        .touch-joystick-area {
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; border-right: 1px solid var(--border);
+            background: radial-gradient(circle at center, rgba(0,230,118,.045), transparent 54%);
+            min-height: 540px;
+            touch-action: none;
+        }
+        .joystick-wrapper {
+            position: relative; width: min(72vh, 560px, 92%); aspect-ratio: 1;
+            user-select: none; -webkit-user-select: none;
+            touch-action: none;
+            filter: drop-shadow(0 12px 30px rgba(0,0,0,.35));
+        }
+        .joystick-svg { width: 100%; height: 100%; }
+        .joy-donut-shell { fill: rgba(17,24,32,.92); stroke: var(--border-light); stroke-width: 1.2; }
+        .joy-donut-hole { fill: rgba(10,14,20,.96); stroke: var(--border); stroke-width: 1; }
+        .joy-track { fill: none; stroke: var(--border); stroke-width: 14; opacity: .9; }
+        .joy-boundary { fill: none; stroke: var(--border-light); stroke-width: 1; }
+        .joy-boundary-active { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0; transition: opacity 0.2s; }
+        .joystick-wrapper.active .joy-boundary-active { opacity: .72; }
+        .joy-crosshair { stroke: var(--border); stroke-width: .45; stroke-dasharray: 3 7; }
+        .joy-deadzone { fill: none; stroke: var(--border); stroke-width: .65; }
+        .joy-dir-line { stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; opacity: .75; filter: drop-shadow(0 0 4px var(--accent-glow)); }
+        .joy-thumb-outer {
+            fill: rgba(0,230,118,.06); stroke: var(--accent); stroke-width: 1; opacity: 0; transition: opacity .2s;
+        }
+        .joystick-wrapper.active .joy-thumb-outer { opacity: 1; }
+        .joy-thumb {
+            fill: var(--accent); stroke: #a7ffd1; stroke-width: 1;
+            cursor: grab; transition: stroke .2s, fill .2s; filter: drop-shadow(0 0 7px var(--accent-glow));
+        }
+        .joy-thumb:active { cursor: grabbing; }
+        .joystick-wrapper.active .joy-thumb { fill: #58f4a3; }
+        .joy-center-dot { fill: var(--accent); filter: drop-shadow(0 0 5px var(--accent-glow)); }
+        .joy-label {
+            font-family: var(--font-ui); font-size: 7px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1.2px; fill: var(--text-secondary);
+        }
+        .joy-speed-arc { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; opacity: .9; filter: drop-shadow(0 0 6px var(--accent-glow)); }
+        .donut-kicker { font-family: var(--font-ui); font-size: 7px; fill: var(--text-secondary); letter-spacing: .7px; }
+        .donut-value { font-family: var(--font-mono); font-size: 23px; font-weight: 700; fill: var(--text-primary); }
+        .donut-unit { font-size: 8px; fill: var(--text-secondary); }
+        .donut-direction { font-family: var(--font-mono); font-size: 8px; fill: var(--accent); letter-spacing: .8px; }
+
+        .touch-side {
+            padding: 10px; overflow-y: auto; max-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 120px);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .motor-bars-svg { width: 100%; height: 185px; }
+        .bar-bg { fill: var(--bg-input); stroke: var(--border); stroke-width: 1; }
+        .bar-fill-fwd { fill: var(--accent); opacity: 0.8; }
+        .bar-fill-rev { fill: var(--reverse); opacity: 0.8; }
+        .bar-center-line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+        .bar-label { font-family: var(--font-ui); font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; fill: var(--text-secondary); }
+        .bar-value { font-family: var(--font-mono); font-size: 11px; font-weight: 700; fill: var(--text-primary); }
+        .bar-dir-label { font-family: var(--font-ui); font-size: 7px; fill: var(--text-muted); text-transform: uppercase; }
+        .joy-info { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .joy-info-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 6px; text-align: center; }
+        .joy-info-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); }
+        .joy-info-value { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .touch-cmd-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
+        .touch-cmd-grid .btn { width: 100%; padding: 8px 4px; font-size: 10px; font-weight: 700; }
+        .touch-capability { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); background: var(--bg-secondary); font-size: 10px; }
+        .touch-capability.ready { color: var(--accent); border-color: rgba(0,230,118,.35); background: var(--accent-dim); }
+        .touch-capability.blocked { color: var(--warn); border-color: rgba(255,171,0,.35); background: var(--warn-dim); }
+        .touch-recording-card { margin-top:12px; }
+        .touch-recording-preview { width:100%; height:220px; display:block; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-primary); }
+        .touch-recording-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; }
+        .touch-recording-actions label { flex:1 1 280px; color:var(--text-secondary); font-size:10px; }
+        .encoder-list { display: grid; gap: 5px; }
+        .encoder-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); }
+        .encoder-wheel { position: relative; width: 30px; height: 30px; border: 1px solid var(--text-muted); border-radius: 50%; }
+        .encoder-wheel::before { content: ''; position: absolute; inset: 6px; border: 1px dashed var(--text-secondary); border-radius: 50%; }
+        .encoder-arrow { position: absolute; top: -7px; left: -3px; color: var(--text-secondary); font-size: 13px; transform-origin: 18px 22px; }
+        .encoder-row[data-dir="rev"] .encoder-arrow { transform: rotate(180deg); color: var(--reverse); }
+        .encoder-row[data-dir="fwd"] .encoder-arrow { color: var(--accent); }
+        .encoder-name { font-size: 9px; color: var(--text-secondary); }
+        .encoder-pulses { font: 8px var(--font-mono); color: var(--text-muted); }
+        .encoder-speed { font: 700 15px var(--font-mono); color: var(--text-primary); white-space: nowrap; }
+        .encoder-speed small { font-size: 8px; color: var(--text-secondary); }
+        .encoder-list.stale .encoder-row { opacity: .48; }
+
+        /* --- Mapa de navegación unificado --- */
+        .nav-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 10px; margin: 12px auto; padding: 0 12px; max-width: 1280px; }
+        .nav-control-card, .nav-chart-card { margin: 0; }
+        .nav-control-card { align-self: start; }
+        .nav-form { display: grid; gap: 10px; }
+        .nav-actions { display: grid; gap: 6px; margin-top: 4px; }
+        .nav-actions .btn { width: 100%; min-height: 34px; }
+        .nav-status-card { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+        .nav-distance { margin-right: auto; font-size: 12px; color: var(--text-secondary); }
+        .nav-distance strong { color: var(--text-primary); font-family: var(--font-mono); }
+        .nav-chip { padding: 4px 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); font: 10px var(--font-mono); color: var(--text-secondary); }
+        .nav-chip span { color: var(--text-primary); }
+        .nav-progress { width: 100%; height: 7px; overflow: hidden; border-radius: 5px; border: 1px solid var(--border); background: var(--bg-input); }
+        .nav-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg,var(--info),var(--accent)); transition: width .3s; }
+        .nav-canvas-wrap { position: relative; width: 100%; min-height: 480px; height: 58vh; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(180deg,rgba(17,24,32,.96),rgba(10,14,20,.98)); }
+
+        /* --- Tablas técnicas para Rutas Ockham --- */
+        .route-content { margin: 12px auto; max-width: 1280px; padding: 16px; }
+        .route-tables-grid { display: grid; grid-template-columns: minmax(320px,.8fr) minmax(440px,1.2fr); gap: 12px; margin-top: 12px; min-width: 0; }
+        .route-tables-grid > * { min-width: 0; }
+        .data-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-input); }
+        .data-table-title { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .data-table th { padding: 7px 8px; text-align: left; color: var(--text-muted); font-size: 8px; text-transform: uppercase; letter-spacing: .6px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .data-table td { padding: 7px 8px; border-bottom: 1px solid rgba(36,48,64,.7); color: var(--text-secondary); font-family: var(--font-mono); }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover { background: rgba(255,255,255,.025); }
+        .route-step-current td { color: var(--accent); background: var(--accent-dim); }
+        .route-step-done td { color: var(--text-muted); }
+        .route-status { display: inline-block; padding: 2px 6px; border-radius: 9px; border: 1px solid var(--border); font: 7px var(--font-ui); letter-spacing: .5px; text-transform: uppercase; }
+        .route-status.current { color: var(--accent); border-color: rgba(0,230,118,.35); }
+        .route-status.done { color: var(--text-muted); }
+        .route-status.pending { color: var(--info); border-color: rgba(0,176,255,.3); }
+
+        @media (max-width: 900px) {
+            .nav-layout { grid-template-columns: 1fr; }
+            .nav-form { grid-template-columns: 1fr 1fr; }
+            .nav-actions { grid-column: 1 / -1; grid-template-columns: repeat(3,1fr); }
+            .route-tables-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+            .touch-joystick-area { min-height: 390px; padding: 12px; }
+            .joystick-wrapper { width: min(360px,96%); }
+            .nav-form { grid-template-columns: 1fr; }
+            .nav-actions { grid-column: auto; grid-template-columns: 1fr; }
+            .nav-canvas-wrap { min-height: 360px; height: 48vh; }
+            .route-content { padding: 10px; }
+            .data-table { min-width: 420px; }
+        }

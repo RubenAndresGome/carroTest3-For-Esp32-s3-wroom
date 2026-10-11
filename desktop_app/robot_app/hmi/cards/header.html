@@ -1,0 +1,34 @@
+<!-- HEADER -->
+    <header class="app-header">
+        <div class="header-brand">
+            <div class="brand-icon"></div>
+            <div>
+                <div class="brand-title">Robot S3 BETA</div>
+                <div class="brand-sub">HMI Dual</div>
+                    </div>
+            </div>
+        <div class="header-center">
+            <span class="route-running-badge" id="route-running-badge">RUTA EN EJECUCIÓN</span>
+            <div class="conn-status">
+                <div class="conn-dot" id="conn-dot"></div>
+                <span id="conn-text">Conectando...</span>
+            </div>
+            <span class="demo-badge" id="demo-badge">DEMO</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-stop btn-sm" id="btn-close-app" aria-label="Cerrar aplicación de forma segura"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>Cerrar aplicación</button>
+            <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>E-STOP</button>
+        </div>
+    </header>
+
+    <!-- TAB BAR -->
+    <nav class="tab-bar" role="tablist">
+        <button id="tab-control-conexion" class="tab-btn active" data-tab="conexion" role="tab" aria-controls="tab-conexion" aria-selected="true" tabindex="0"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 12a4 4 0 0 1 4-4h3"/><path d="M16 8l-2-2"/><path d="M16 8l-2 2"/><path d="M16 12a4 4 0 0 1-4 4H9"/><path d="M8 16l2-2"/><path d="M8 16l2 2"/></svg>Conexión</button>
+        <button id="tab-control-mapa" class="tab-btn" data-tab="mapa" role="tab" aria-controls="tab-mapa" aria-selected="false" tabindex="-1"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6l5-2 8 3 5-2v13l-5 2-8-3-5 2z"/><path d="M8 4v13M16 7v13"/></svg>Mapa de Navegación</button>
+        <button id="tab-control-testing" class="tab-btn" data-tab="testing" role="tab" aria-controls="tab-testing" aria-selected="false" tabindex="-1"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 14h8"/></svg>Testing S3</button>
+        <button id="tab-control-touch" class="tab-btn unavailable" data-tab="touch" role="tab" aria-controls="tab-touch" aria-selected="false" aria-disabled="true" aria-describedby="touch-unavailable-help" tabindex="-1" title="No disponible en robot-s3-steps-v3. Usa Testing S3 para control manual seguro."><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 18h4"/><path d="M4 4l16 16"/></svg>Control Touch (no disponible)</button>
+        <button id="tab-control-rutas" class="tab-btn" data-tab="rutas" role="tab" aria-controls="tab-rutas" aria-selected="false" tabindex="-1"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h3a3 3 0 0 0 3-3v-6a3 3 0 0 1 3-3"/></svg>Rutas (Ockham)</button>
+    </nav>
+    <span id="touch-unavailable-help" class="sr-only">Control Touch está deshabilitado porque robot-s3-steps-v3 no lo admite. Usa Testing S3 como alternativa de control manual seguro.</span>
+
+    <!-- TAB 1: CONEXIÓN Y SESIONES LOCALES -->
