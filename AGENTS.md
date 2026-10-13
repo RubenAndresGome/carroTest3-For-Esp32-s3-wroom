@@ -6,6 +6,16 @@
   propietario del WebSocket hacia el ESP32; `android_app/` empaqueta esa misma
   fuente y asume la propiedad única cuando se opera desde la tablet. No ejecutar
   ambos controladores contra el robot al mismo tiempo.
+  - `desktop_app/robot_app/hmi/`: HMI modular canónico. Se compone de un esqueleto
+    ligero `index.html` (24 líneas), tarjetas HTML independientes en `cards/`
+    (7 componentes: `header.html`, `tab_conexion.html`, `tab_mapa.html`,
+    `tab_testing.html`, `tab_touch.html`, `tab_rutas.html`, `footer_panels.html`),
+    estilos en `css/` (5 hojas: `theme.css`, `layout.css`, `components.css`,
+    `touch.css`, `responsive.css`) y lógica en `js/` (8 módulos: `config.js`,
+    `ws_control.js`, `calibration.js`, `telemetry.js`, `route_manager.js`,
+    `tab_manager.js`, `touch.js`, `main.js`). `web.py` sirve estáticos `/css/`
+    y `/js/`, y ensambla dinámicamente en memoria con CSP nonce y `app-token`.
+    `compilar_hmi.py` provee utilidades CLI y validación `--check`.
 - `src/` e `include/` contienen el firmware modular actual. Los ensayos físicos
   aprobados están deshabilitados en `archive/firmware_tests/` y se compilan
   únicamente mediante su script de staging.
@@ -33,9 +43,18 @@
 - Zona muerta de arranque: actúa como **piso dinámico** solo por debajo de `PWM_DEADBAND_UMBRAL_CRUCERO` (180/255); nunca se suma sobre crucero, para no violar el límite de 242/255.
 - Tiempo muerto universal de 250 ms en `Motores.cpp:aplicarVelocidades()` al
   invertir sentido de giro. Aplica a joystick, giro autónomo y calibración.
-- Los giros arrancan con rampa suave de 2/255 cada 20 ms desde cero. El watchdog
-  de 2.5 s por lado se arma sólo después de alcanzar el torque calibrado; el
-  avance conserva su corte de 450 ms.
+- Los giros autónomos arrancan con rampa suave de 2/255 cada 20 ms desde cero y arman
+  el watchdog de 2.5 s por lado solo tras alcanzar el torque calibrado.
+- El avance autónomo conserva su corte de supervisión de 450 ms. En control manual
+  por joystick (`cmd: "manual"` / Modo Touch), rige `MANUAL_STALL_TIMEOUT_MS = 2500 ms`
+  en `include/Config.h`, permitiendo que el tiempo muerto de inversión (250 ms),
+  las transiciones de zona muerta y las modulaciones suaves de crucero no disparen
+  falsos positivos de bloqueo (`stall_avance_left/right`) ni lleven al robot a `FALLO`.
+- **Modo Touch y Joystick (Pointer Events)**: Opera mediante `PointerEvent`
+  con `setPointerCapture(e.pointerId)` y `touch-action: none;` en los contenedores del
+  joystick. Los escuchadores de arrastre y liberación residen en `window` para que si
+  el dedo o cursor sale de la cruz interactiva no se trabe el estado de arrastre, y
+  al soltarse se emite un corte de PWM inmediato (`{ left: 0, right: 0 }`) en `Touch.end()`.
 - **Dogma Canónico de Calibración**: La calibración usa el MPU como autoridad angular única.
   La rutina de calibración (`calibrate`) es dogma inmutable del sistema:
   1. Cuenta regresiva y reposo de 5.0 s para estabilizar el filtro del giróscopo MPU6050.
@@ -81,6 +100,13 @@ IZQUIERDA │        (ESP32-S3 / Baterías)      │ DERECHA (+X, Yaw = 90°)
     - Encoders (TXS0108E): FL (GPIO11, verde, B5->A5), FR (GPIO10, blanco, B6->A6), BL (GPIO12, negro, B2->A2), BR (GPIO13, rojo, B1->A1).
     - IMU MPU6050: SDA=GPIO8, SCL=GPIO9.
 - Todos los giros autónomos usan un único pivot dinámico. `AUTO`, `PIVOT` y los nombres de arco heredados se resuelven al mismo controlador; la aproximación fina (<5°) utiliza micro-pulsos intermitentes de exactitud (`TURN_PULSE_ON_MS` / `TURN_PULSE_OFF_MS`) para evaluar la inercia e integración del IMU y evitar sobrepasos. El movimiento se valida con `fabsf(gyro_z)` y deltas de encoder. Mientras no se confirme movimiento en macro-giros, el torque escala en rampa adaptativa sin exceder 247/255 (~97%). Un atasco físico de lado, pérdida de IMU, E-STOP o protección eléctrica produce parada segura.
+- **Misiones Ockham (Retorno Seguro a Origen)**: Desanda los waypoints en orden inverso
+  ($W_N \to \dots \to W_0$) mediante rotación y avance frontal (`drive_mode: 'forward'`) para
+  máxima tracción 4WD y autoridad del giróscopo MPU6050. Incluye simulación previa en HMI
+  (`#route-ockham-confirm-box`), etapa de reposo (settling) de 500 ms tras cada tramo para evaluar
+  y registrar puntos de exactitud (errores longitudinal, lateral y angular) en SQLite, y reposicionamiento
+  ortogonal dinámico (realigning) con micro-giros si el desvío angular supera 1.5° o el error lateral
+  acumulado supera 2.5 cm. Trunca automáticamente bucles previos que pasen por el origen (0,0).
 - Stacks: Web 8192 y súper-ciclo de control 8192 bytes. El firmware publica el
   mínimo libre medido y el motivo de reinicio; menos de 1024 bytes es fallo de
   aceptación aunque no haya ocurrido un reset.
@@ -112,6 +138,31 @@ operativa obligatoria durante carga y reinicio.
 4. Medir corriente de arranque y de rotor bloqueado por motor.
 5. Solo después de verificar corrientes <1 A sostenidos, operar en suelo.
 6. No se afirmará seguridad eléctrica sin esta prueba física.
+
+## Validación y pruebas canónicas
+
+Antes de integrar cambios o realizar commits, verificar que las suites de pruebas pasen al 100%:
+
+1. **Firmware ESP32-S3 (Compilación PlatformIO)**:
+   ```powershell
+   & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e esp32-s3-devkitc-1
+   ```
+2. **Pruebas Nativas PlatformIO (74 pruebas de cinemática, lazo cerrado y control)**:
+   ```powershell
+   & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" test -e pruebas_control_ruta_nativas
+   ```
+3. **Pruebas Unitarias Backend Python (99 pruebas de API, Gateway, BD y HMI)**:
+   ```powershell
+   $env:PYTHONPATH="desktop_app"; & desktop_app\.test-venv\Scripts\python.exe -m unittest discover desktop_app/tests
+   ```
+4. **Pruebas Frontend Vitest (11 pruebas de contrato responsive, accesibilidad y CSP)**:
+   ```powershell
+   npm --prefix desktop_app/frontend test
+   ```
+5. **Verificación de HMI Modular**:
+   ```powershell
+   & desktop_app\.test-venv\Scripts\python.exe desktop_app/robot_app/hmi/compilar_hmi.py --check
+   ```
 
 ## Convenciones
 
