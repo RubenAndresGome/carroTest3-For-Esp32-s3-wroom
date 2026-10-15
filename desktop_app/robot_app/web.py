@@ -42,6 +42,7 @@ CARDS_ORDER = [
     "tab_testing.html",
     "tab_touch.html",
     "tab_rutas.html",
+    "hud_boost.html",
     "footer_panels.html",
 ]
 
@@ -55,6 +56,8 @@ def _get_hmi_html() -> str:
 
 
 @web.get("/")
+@web.get("/plan")
+@web.get("/boost")
 def index() -> Response:
     html = _get_hmi_html()
     html = html.replace('<meta name="app-token" content="">', f'<meta name="app-token" content="{current_app.extensions["app_token"]}">')
@@ -99,6 +102,8 @@ def robot_config() -> Response | tuple[Response, int]:
             service.set_robot_host(body.get("robot_host"))
         if "experimental_vectorial_routes" in body:
             service.set_vectorial_routes_enabled(body.get("experimental_vectorial_routes"))
+        if "telemetry_recording_mode" in body:
+            service.set_telemetry_recording_mode(body.get("telemetry_recording_mode"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:

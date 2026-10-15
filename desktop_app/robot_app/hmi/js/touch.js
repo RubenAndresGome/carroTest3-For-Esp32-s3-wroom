@@ -56,7 +56,7 @@
             if(!tab)return;
             tab.setAttribute('aria-disabled',enabled?'false':'true');
             tab.classList.toggle('unavailable',!enabled);
-            tab.textContent=enabled?'📱 Control Touch':'📱 Control Touch (no disponible)';
+            tab.innerHTML = `<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 18h4"/>${enabled ? '' : '<path d="M4 4l16 16"/>'}</svg>${enabled ? 'Control Touch' : 'Control Touch (no disponible)'}`;
             tab.title=enabled?'Control manual habilitado por manual_drive_v1.':'No disponible: la telemetría no anuncia manual_drive_v1.';
             if(help)help.textContent=enabled?'Control Touch habilitado por la capacidad manual_drive_v1 anunciada por el robot.':'Control Touch está deshabilitado porque la telemetría no anuncia manual_drive_v1.';
             if(status){status.textContent=enabled?'manual_drive_v1 anunciado: control Touch disponible.':'Esperando telemetría: Touch requiere manual_drive_v1.'; status.classList.toggle('ready',enabled); status.classList.toggle('blocked',!enabled);}
@@ -93,6 +93,7 @@
             if(!['IDLE','MANUAL'].includes(state.estado))return LogSystem.add('WARN',`Joystick bloqueado mientras el robot está en ${state.estado}.`);
             if(e.touches && e.touches.length > 1)return;
             state.joy.active=true; this.wrap.classList.add('active');
+            document.body.classList.add('is-touch-interacting');
             this.move(e);
             this._beginPromise=WSControl.manual('start').then(recording=>{
                 this.recordingId=recording.id;
@@ -108,6 +109,7 @@
                 return recording;
             }).catch(error=>{
                 state.joy.active=false;this._begun=false;this._resetVis();
+                document.body.classList.remove('is-touch-interacting');
                 clearInterval(this._leaseTimer);this._leaseTimer=null;
                 LogSystem.add('ERROR',`No se pudo iniciar Control Touch: ${error.message}`);
                 return null;
@@ -143,6 +145,7 @@
         end(e) {
             const debeDetener = state.joy.active || this._leaseTimer !== null;
             state.joy.active=false; this.wrap.classList.remove('active'); this._resetVis();
+            document.body.classList.remove('is-touch-interacting');
             clearInterval(this._leaseTimer); this._leaseTimer=null;
             this._bars(0,0,'stop','stop');
             document.getElementById('joy-speed-val').textContent='0%';

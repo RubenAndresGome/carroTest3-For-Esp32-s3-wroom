@@ -1,24 +1,4 @@
-<section class="fsm-panel" aria-label="Máquina de estados del robot" tabindex="0">
-        <div class="fsm-flow" id="fsm-flow">
-            <div class="fsm-node active" data-state="INIT" aria-current="step">INIT</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="IDLE">IDLE</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="GIRANDO">GIRANDO</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="ESPERANDO">ESPERANDO</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="AVANZANDO">AVANZANDO</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="TERMINADO">TERMINADO</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="FALLO">FALLO</div>
-            <div class="fsm-arrow" aria-hidden="true"></div>
-            <div class="fsm-node" data-state="ESTOP">ESTOP</div>
-        </div>
-    </section>
-
-    <!-- LOGS -->
+<!-- LOGS -->
     <section class="log-panel" aria-label="Logs">
         <div class="log-toolbar">
             <div class="log-toolbar-main">
@@ -49,4 +29,55 @@
         </div>
     </section>
 
-    <!-- JAVASCRIPT -->
+    <!-- MODAL DE CONFIGURACIÓN GLASSMORPHIC -->
+    <div id="modal-settings" class="settings-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" style="display: none;">
+        <div class="settings-modal-card">
+            <div class="settings-modal-header">
+                <div class="settings-modal-title-wrap">
+                    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span id="settings-modal-title" class="settings-modal-title">Configuración del HMI</span>
+                </div>
+                <button type="button" class="win-btn win-btn-close" id="btn-close-settings" aria-label="Cerrar configuración">✕</button>
+            </div>
+            <div class="settings-modal-body">
+                <div class="settings-field">
+                    <label for="setting-telemetry-mode" class="settings-label">Registro de Telemetría de Sesión (SQLite):</label>
+                    <select id="setting-telemetry-mode" class="settings-select">
+                        <option value="always">Guardar siempre en SQLite (Por defecto)</option>
+                        <option value="error_only">Guardar solo ante error o parada</option>
+                        <option value="disabled">Deshabilitado (No guardar telemetría continua)</option>
+                    </select>
+                    <span class="settings-help">Controla el almacenamiento continuo de paquetes de alta frecuencia en la base de datos de sesión.</span>
+                </div>
+                <div class="settings-field">
+                    <label for="setting-theme" class="settings-label">Tema Visual:</label>
+                    <select id="setting-theme" class="settings-select">
+                        <option value="cyber-dark">Cyber Dark (Neón / Predeterminado)</option>
+                        <option value="high-contrast">Alto Contraste</option>
+                        <option value="light-glass">Light Glass (Vidrio Claro)</option>
+                    </select>
+                    <span class="settings-help">Paleta de colores, contrastes y niveles de translucidez del vidrio.</span>
+                </div>
+                <div class="settings-field">
+                    <label for="setting-language" class="settings-label">Idioma / Language:</label>
+                    <select id="setting-language" class="settings-select">
+                        <option value="es">Español (Canónico)</option>
+                        <option value="en">English</option>
+                    </select>
+                    <span class="settings-help">Idioma para la interfaz y mensajes informativos.</span>
+                </div>
+                <div class="settings-field">
+                    <label for="setting-default-mode" class="settings-label">Modo de Espacio de Trabajo Inicial:</label>
+                    <select id="setting-default-mode" class="settings-select">
+                        <option value="tabs">Pestañas Clásicas</option>
+                        <option value="tiling">Mosaico Dividido</option>
+                        <option value="floating">Ventanas Libres</option>
+                    </select>
+                    <span class="settings-help">Disposición predeterminada al cargar la aplicación.</span>
+                </div>
+            </div>
+            <div class="settings-modal-footer">
+                <button type="button" class="btn btn-sm btn-accent" id="btn-save-settings">Guardar y Aplicar</button>
+            </div>
+        </div>
+    </div>

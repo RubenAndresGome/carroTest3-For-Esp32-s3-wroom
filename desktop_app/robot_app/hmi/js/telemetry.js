@@ -236,8 +236,8 @@
             document.getElementById('route-live-fl').textContent=t.pfl || 0;
             document.getElementById('route-live-fr').textContent=t.pfr || 0;
             document.getElementById('route-live-bl').textContent=t.pbl || 0;
-            document.getElementById('route-live-br').textContent=t.pbr || 0;
             EncoderSpeed.update(t);
+            if (typeof BoostHUD !== 'undefined') BoostHUD.update(t);
         },
         _uiPos() {
             const t = state.telemetria;
@@ -275,3 +275,78 @@
             el.className='telem-value state-val '+({INIT:'tv-init',IDLE:'tv-idle',AVANZANDO:'tv-advancing',GIRANDO:'tv-turning',ESPERANDO:'tv-calibrating',TERMINADO:'tv-init',FALLO:'tv-fault',ESTOP:'tv-estop'}[s]||'tv-idle');
         }
     };
+
+    const BoostHUD = {
+        burstDurationMs: 0,
+        cooldownRemainingMs: 0,
+        lastTime: performance.now(),
+
+        update(t) {
+            const now = performance.now();
+            const dt = Math.min(now - this.lastTime, 200);
+            this.lastTime = now;
+
+            const pwmL = Math.abs(t.pwmL || 0);
+            const pwmR = Math.abs(t.pwmR || 0);
+            const maxPwm = Math.max(pwmL, pwmR);
+            const isBurst = maxPwm > 242;
+
+            if (isBurst) {
+                this.burstDurationMs = Math.min(80, this.burstDurationMs + dt);
+                this.cooldownRemainingMs = 100;
+            } else {
+                this.burstDurationMs = Math.max(0, this.burstDurationMs - dt * 0.6);
+                if (this.cooldownRemainingMs > 0) {
+                    this.cooldownRemainingMs = Math.max(0, this.cooldownRemainingMs - dt);
+                }
+            }
+
+            const burstBar = document.getElementById('boost-burst-bar');
+            const burstTime = document.getElementById('boost-burst-time');
+            const cooldownStatus = document.getElementById('boost-cooldown-status');
+            if (burstBar) {
+                const burstPct = Math.min(100, (this.burstDurationMs / 80) * 100);
+                burstBar.style.width = `${burstPct.toFixed(0)}%`;
+                burstBar.classList.toggle('bursting', isBurst);
+                if (burstTime) burstTime.textContent = `${this.burstDurationMs.toFixed(0)} / 80 ms`;
+                if (cooldownStatus) {
+                    cooldownStatus.textContent = this.cooldownRemainingMs > 0
+                        ? `Cooldown: ${(this.cooldownRemainingMs / 1000).toFixed(1)}s`
+                        : 'Cooldown listo';
+                    cooldownStatus.style.color = this.cooldownRemainingMs > 0 ? 'var(--warn)' : 'var(--accent)';
+                }
+            }
+
+            const diffVal = document.getElementById('boost-diff-val');
+            const leftBar = document.getElementById('boost-left-bar');
+            const rightBar = document.getElementById('boost-right-bar');
+            const leftLabel = document.getElementById('boost-left-label');
+            const rightLabel = document.getElementById('boost-right-label');
+
+            if (diffVal) {
+                const diff = Math.abs(pwmL - pwmR);
+                diffVal.textContent = `Δ ${diff.toFixed(0)} PWM`;
+                if (leftBar) leftBar.style.width = `${Math.min(100, (pwmL / 255) * 100).toFixed(0)}%`;
+                if (rightBar) rightBar.style.width = `${Math.min(100, (pwmR / 255) * 100).toFixed(0)}%`;
+                if (leftLabel) leftLabel.textContent = `L: ${pwmL} PWM`;
+                if (rightLabel) rightLabel.textContent = `R: ${pwmR} PWM`;
+            }
+
+            const p1 = document.getElementById('boost-phase-1');
+            const p2 = document.getElementById('boost-phase-2');
+            const p3 = document.getElementById('boost-phase-3');
+            if (p1 && p2 && p3) {
+                const isTurning = state.estado === 'GIRANDO';
+                const angleZ = Number.isFinite(t.angulo) ? Math.abs(t.angulo) : 0;
+                if (isTurning && isBurst) {
+                    p1.classList.add('active'); p2.classList.remove('active'); p3.classList.remove('active');
+                } else if (isTurning) {
+                    p1.classList.remove('active'); p2.classList.add('active'); p3.classList.remove('active');
+                } else {
+                    p1.classList.remove('active'); p2.classList.remove('active'); p3.classList.add('active');
+                }
+            }
+        }
+    };
+
+    window.BoostHUD = BoostHUD;

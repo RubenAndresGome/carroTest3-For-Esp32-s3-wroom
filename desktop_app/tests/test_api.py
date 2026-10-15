@@ -302,6 +302,43 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(degraded.status_code, 409)
         self.assertIn("modo degradado", degraded.json["error"])
 
+    def test_telemetry_recording_mode_config(self) -> None:
+        cfg = self.client.get("/api/v1/config/robot", headers={"X-App-Token": self.token}).json
+        self.assertEqual(cfg.get("telemetry_recording_mode"), "always")
+
+        updated = self.client.put("/api/v1/config/robot", json={
+            "telemetry_recording_mode": "disabled",
+        }, headers={"X-App-Token": self.token})
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json["telemetry_recording_mode"], "disabled")
+        self.assertEqual(self.service.database.get_setting("telemetry_recording_mode"), "disabled")
+
+        invalid = self.client.put("/api/v1/config/robot", json={
+            "telemetry_recording_mode": "invalid_option",
+        }, headers={"X-App-Token": self.token})
+        self.assertEqual(invalid.status_code, 400)
+
+        from unittest.mock import MagicMock
+        self.service._recorder.submit = MagicMock()
+        self.service._session_id = 123
+        normal_msg = {
+            "evt": "telemetry", "seq": 10, "state": "LISTO", "x_mm": 0, "y_mm": 0, "yaw": 0.0,
+            "pulses": [0, 0, 0, 0], "pwm": [0, 0]
+        }
+        self.service._on_robot_message(normal_msg)
+        self.service._recorder.submit.assert_not_called()
+
+        self.service.set_telemetry_recording_mode("error_only")
+        self.service._on_robot_message(normal_msg)
+        self.service._recorder.submit.assert_not_called()
+
+        error_msg = {
+            "evt": "telemetry", "seq": 11, "state": "FALLO", "x_mm": 0, "y_mm": 0, "yaw": 0.0,
+            "pulses": [0, 0, 0, 0], "pwm": [0, 0]
+        }
+        self.service._on_robot_message(error_msg)
+        self.service._recorder.submit.assert_called_once()
+
     def test_vectorial_revalidates_encoder_health_before_each_segment(self) -> None:
         self.service.set_vectorial_routes_enabled(True)
         self._ready_vectorial()
@@ -525,7 +562,10 @@ class ApiTests(unittest.TestCase):
         # Immediately after step completion, stage is settling
         self.assertEqual(self.service.mission_status()["stage"], "settling")
         # Wait for settling timer to fire
-        time.sleep(0.15)
+        for _ in range(50):
+            if self.service.mission_status()["stage"] == "realigning":
+                break
+            time.sleep(0.01)
         # Threshold exceeded: should be in realigning stage with turn_to queued
         status = self.service.mission_status()
         self.assertEqual(status["stage"], "realigning")
@@ -556,7 +596,10 @@ class ApiTests(unittest.TestCase):
         self.service._on_robot_message({
             "evt": "completed", "seq": mission["active_seq"], "detail": "step_ok",
         })
-        time.sleep(0.15)
+        for _ in range(50):
+            if self.service.mission_status()["current_index"] == 1:
+                break
+            time.sleep(0.01)
         status = self.service.mission_status()
         self.assertNotEqual(status["stage"], "realigning")
         self.assertEqual(status["current_index"], 1)
@@ -1021,6 +1064,16 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(updated["pwm_positive_8bit"], 195)
         self.assertEqual(updated["pwm_negative_8bit"], 200)
 
+    def test_hmi_views_root_plan_and_boost(self) -> None:
+        for path in ("/", "/plan", "/boost"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("text/html", response.content_type)
+            body = response.get_data(as_text=True)
+            self.assertIn(f'<meta name="app-token" content="{self.token}">', body)
+            self.assertIn("<style nonce=", body)
+            self.assertIn("<script nonce=", body)
+            self.assertIn("Robot Autonomo S3", body)
 
 
 if __name__ == "__main__":

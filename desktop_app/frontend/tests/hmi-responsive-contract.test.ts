@@ -166,4 +166,157 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toContain("Vector simplificado");
     expect(html).toContain("Segmentos ≤256");
   });
+
+  it("implementa el modo de ventanas con selector de espacios y catálogo de forks", () => {
+    expect(html).toContain('id="ws-mode-tabs"');
+    expect(html).toContain('id="ws-mode-tiling"');
+    expect(html).toContain('id="ws-mode-floating"');
+    expect(html).toContain('id="ws-btn-add-fork"');
+    expect(html).toContain('id="glass-fork-menu"');
+    expect(html).toContain("const WindowManager = {");
+    expect(html).toContain("const HMI_FORK_REGISTRY = {");
+    expect(html).toContain("renderForkMenu()");
+  });
+
+  it("define tokens de glassmorphism de alto rendimiento y salvaguardas de GPU", () => {
+    for (const token of [
+      "--glass-surface-translucent",
+      "--glass-surface-card",
+      "--glass-surface-dock",
+      "--glass-border-glow-plan",
+      "--glass-border-glow-boost",
+      "--glass-specular-edge",
+      "--glass-blur-safe",
+      "--glass-blur-dock",
+      "--glass-blur-boost",
+    ]) {
+      expect(html).toContain(token);
+    }
+
+    expect(html).toMatch(/\.is-interacting[\s\S]*?backdrop-filter:\s*none\s*!important/);
+    expect(html).toMatch(/body\.is-touch-interacting[\s\S]*?backdrop-filter:\s*none\s*!important/);
+  });
+
+  it("incorpora la barra de bifurcaciones de ruta y superposición A/B", () => {
+    expect(html).toContain('id="btn-fork-route"');
+    expect(html).toContain('id="route-branch-select"');
+    expect(html).toContain('id="btn-compare-branches"');
+    expect(html).toContain('id="btn-delete-branch"');
+    expect(html).toContain('id="route-fork-metrics"');
+    expect(html).toContain("forkCurrentRoute(");
+    expect(html).toContain("switchBranch(");
+    expect(html).toContain("toggleCompareAB(");
+    expect(html).toContain("Ruta Fork [B]");
+  });
+
+  it("incluye instrumentación visual para el HUD cinético y térmico Boost DRV8833", () => {
+    expect(html).toContain('id="tab-boost"');
+    expect(html).toContain('id="boost-burst-bar"');
+    expect(html).toContain('id="boost-burst-time"');
+    expect(html).toContain('id="boost-cooldown-status"');
+    expect(html).toContain('id="boost-diff-val"');
+    expect(html).toContain('id="boost-left-bar"');
+    expect(html).toContain('id="boost-right-bar"');
+    expect(html).toContain('id="boost-phase-1"');
+    expect(html).toContain('id="boost-phase-2"');
+    expect(html).toContain('id="boost-phase-3"');
+    expect(html).toContain("const BoostHUD = {");
+  });
+
+  it("implementa la disposición Master-Detail de 2 columnas en el planeador de rutas", () => {
+    expect(html).toContain("route-planner-layout");
+    expect(html).toContain("route-planner-col-control");
+    expect(html).toContain("route-planner-col-view");
+    expect(html).toContain("route-queue-scroll");
+    expect(html).toContain('id="card-route-queue"');
+    expect(html).toContain('id="route-list"');
+  });
+
+  it("implementa barra de seguridad superior con rearme contextual y recuperación de doble nivel", () => {
+    expect(html).toContain('id="btn-reset-hmi"');
+    expect(html).toContain('id="btn-reboot-robot"');
+    expect(html).toContain('id="btn-clear-fault" hidden disabled');
+    expect(html).toContain('id="btn-estop"');
+    expect(html).toContain("Reset FSM");
+    expect(html).toContain("Reiniciar Robot");
+    expect(html).toContain("Rearmar sistema");
+  });
+
+  it("incorpora el cockpit dedicado de Retorno Ockham con simulación y badges", () => {
+    expect(html).toContain('id="card-route-ockham"');
+    expect(html).toContain('id="ockham-badge-settling"');
+    expect(html).toContain('id="ockham-badge-realigning"');
+    expect(html).toContain('id="ockham-current-stage"');
+    expect(html).toContain('id="ockham-val-lat"');
+    expect(html).toContain('id="ockham-val-ang"');
+    expect(html).toContain('id="ockham-val-long"');
+    expect(html).toContain('id="btn-route-ockham"');
+    expect(html).toContain('id="route-ockham-confirm-box"');
+    expect(html).toContain('id="btn-confirm-ockham"');
+    expect(html).toContain('id="btn-cancel-ockham"');
+    expect(html).toContain("Simulación Ockham");
+  });
+
+  it("incorpora el panel de configuracion glassmorphic, persistencia y boton engranaje", () => {
+    expect(html).toContain('id="btn-open-settings"');
+    expect(html).toContain('id="modal-settings"');
+    expect(html).toContain('id="setting-telemetry-mode"');
+    expect(html).toContain('id="setting-theme"');
+    expect(html).toContain('id="setting-language"');
+    expect(html).toContain('id="setting-default-mode"');
+    expect(html).toContain("const SettingsManager = {");
+    expect(html).toContain("hmi_user_settings");
+  });
+
+  it("expone etiquetas amigables para guardar ruta y crear nueva ruta planificada", () => {
+    expect(html).toContain("Crear nueva ruta planificada");
+    expect(html).toContain("Guardar la Ruta");
+    expect(html).toContain("header-recovery-group");
+  });
+
+  it("habilita el redimensionamiento de mosaicos en workspace-tiling", () => {
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\s*\{[^}]*resize:\s*both/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\s*\{[^}]*overflow:\s*auto/);
+  });
+
+  it("garantiza que las tarjetas críticas no contengan caracteres emoji", () => {
+    const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{26A1}\u{2705}\u{274C}\u{1F6E0}\u{1F4D0}\u{1F4F1}\u{1F500}]/u;
+    for (const card of ["header.html", "tab_conexion.html", "tab_rutas.html", "hud_boost.html", "footer_panels.html"]) {
+      const cardPath = join(hmiDir, "cards", card);
+      if (existsSync(cardPath)) {
+        const cardContent = readFileSync(cardPath, "utf8");
+        expect(emojiRegex.test(cardContent)).toBe(false);
+      }
+    }
+  });
+
+  it("garantiza alternancia de signo (+/-) agregando signo menos solitario en vacio o cero", () => {
+    expect(html).toContain("data-toggle-sign");
+    expect(html).toContain("inputmode=\"decimal\"");
+    expect(html).toContain("val === '' || val === '0' || val === '0.0'");
+    expect(html).toContain("input.value = '-'");
+  });
+
+  it("garantiza soporte de traducciones i18n y cambio dinamico de modo en SettingsManager", () => {
+    expect(html).toContain("translations: {");
+    expect(html).toContain("applyTranslations(");
+    expect(html).toContain("WindowManager.setMode(this.settings.default_mode)");
+    expect(html).toContain("id=\"btn-clear-fault-label\" class=\"btn-text\"");
+  });
+
+  it("preserva dimensiones de mosaico al cambiar entre modos de espacio de trabajo", () => {
+    expect(html).toContain("tilingWidth");
+    expect(html).toContain("tilingHeight");
+    expect(html).toContain("ResizeObserver");
+  });
+
+  it("unifica la gestion de ventanas en la barra superior eliminando el dock inferior y anadiendo tres puntos", () => {
+    expect(html).not.toContain('id="glass-dock"');
+    expect(html).not.toContain('id="dock-items"');
+    expect(html).toContain('id="ws-btn-add-fork"');
+    expect(html).toContain('<span class="ws-label">···</span>');
+    expect(html).toContain(".tab-btn.is-minimized");
+    expect(html).toContain("ensureTaskbarButton(");
+    expect(html).toContain("openWindow(");
+  });
 });

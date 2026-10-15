@@ -35,6 +35,8 @@
             manager.preview.style.display = 'none';
             manager.axisDefaultGroup.hidden = false;
             manager.axisDefault.disabled = false;
+            manager.axisDefault.checked = true;
+            manager.actualizarRestriccionInputs(true);
             manager.angularMeta.hidden = true;
             manager.vectorialSafety.hidden = true;
             manager.modeChip.textContent='RECTANGULAR · FIN 0°';
@@ -75,6 +77,7 @@
             manager.axisDefaultGroup.hidden = true;
             manager.axisDefault.disabled = true;
             manager.rectangularCeroAutomatico = null;
+            manager.actualizarRestriccionInputs(false);
             manager.angularMeta.hidden = false;
             manager.vectorialSafety.hidden = !this.direct;
             manager.angularXLabel.textContent=this.direct?'Proyección matemática X':'Componente X ejecutable';
@@ -160,7 +163,7 @@
     };
 
     const RouteManager = {
-        queue: [], logicalSteps: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, routeStartedAt:0, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null, lockedMode:null, nextLogicalStepId:1, vectorialEnabled:false, lastRobotTelemetry:null,
+        queue: [], logicalSteps: [], telemetryTrail: [], currentOrigin: {x:0, y:0}, isRunning: false, routeStartedAt:0, currentStepIndex: 0, waitingForMovement: false, moveTimeout: null, activeCommandId:null, rectangularCeroAutomatico:null, lockedMode:null, nextLogicalStepId:1, vectorialEnabled:false, lastRobotTelemetry:null, forks: new Map(), activeBranch: 'main', comparingAB: false, nextForkId: 1, mainBranchBackup: null,
         init() {
             this.modeSelect = document.getElementById('route-mode');
             this.input1 = document.getElementById('route-input-1');
@@ -182,7 +185,54 @@
             this.planCanvas = document.getElementById('route-plan-chart');
             this._initCharts();
             
-            this.modeSelect.addEventListener('change', () => { this.updateLabels(); this.updatePreview(); });
+            // Gestión de Nombre de Ruta
+            this.routeNameInput = document.getElementById('route-name-input');
+            const btnRename = document.getElementById('btn-rename-route');
+            const btnSaveName = document.getElementById('btn-save-route-name');
+            this.mainRouteName = localStorage.getItem('hmi_main_route_name') || 'Ruta Planificada Robot_A';
+            if (this.routeNameInput) {
+                this.routeNameInput.value = this.mainRouteName;
+                this.routeNameInput.addEventListener('change', () => this.saveCurrentRouteName());
+                this.routeNameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.saveCurrentRouteName();
+                        this.routeNameInput.blur();
+                    }
+                });
+            }
+            if (btnRename) {
+                btnRename.addEventListener('click', () => {
+                    if (this.routeNameInput) {
+                        this.routeNameInput.focus();
+                        this.routeNameInput.select();
+                    }
+                });
+            }
+            if (btnSaveName) {
+                btnSaveName.addEventListener('click', () => this.saveCurrentRouteName());
+            }
+
+            // Listener para el cambio de Modo de Entrada
+            this.modeSelect.addEventListener('change', (e) => {
+                const modo = e.target.value;
+
+                // NOTA: Si se selecciona el método de entrada Rectangular (X, Y), 
+                // el switch "Eje único" debe estar activo por defecto para proteger el movimiento ortogonal.
+                if (modo === 'rect' || modo === 'RECTANGULAR_XY') {
+                    if (this.axisDefault) {
+                        this.axisDefault.checked = true;
+                    }
+                    this.actualizarRestriccionInputs(true);
+                } else {
+                    if (this.axisDefault) {
+                        this.axisDefault.disabled = false;
+                    }
+                    this.actualizarRestriccionInputs(false);
+                }
+                this.updateLabels();
+                this.updatePreview();
+            });
             this.vectorialToggle.addEventListener('change', async()=>{
                 const requested=this.vectorialToggle.checked;
                 this.vectorialToggle.disabled=true;
@@ -200,9 +250,18 @@
             });
             this.axisDefault.addEventListener('change', () => {
                 this.rectangularCeroAutomatico = null;
+                this.actualizarRestriccionInputs();
             });
-            this.input1.addEventListener('input', () => { this.completarEjeRectangular(this.input1); this.updatePreview(); });
-            this.input2.addEventListener('input', () => { this.completarEjeRectangular(this.input2); this.updatePreview(); });
+            this.input1.addEventListener('input', () => {
+                this.completarEjeRectangular(this.input1);
+                this.actualizarRestriccionInputs();
+                this.updatePreview();
+            });
+            this.input2.addEventListener('input', () => {
+                this.completarEjeRectangular(this.input2);
+                this.actualizarRestriccionInputs();
+                this.updatePreview();
+            });
             document.getElementById('route-form').addEventListener('submit', (e) => {
                 e.preventDefault(); this.addStep();
             });
@@ -215,7 +274,20 @@
             document.getElementById('btn-confirm-ockham').addEventListener('click', () => this.confirmOckhamReturn());
             document.getElementById('btn-cancel-ockham').addEventListener('click', () => this.cancelOckhamReturn());
             document.getElementById('btn-route-clear-memory').addEventListener('click', () => this.clearRobotMemory());
+
+            // Cableado de Fork Toolbar
+            const btnFork = document.getElementById('btn-fork-route');
+            const branchSelect = document.getElementById('route-branch-select');
+            const btnCompare = document.getElementById('btn-compare-branches');
+            const btnDeleteBranch = document.getElementById('btn-delete-branch');
+            if (btnFork) btnFork.addEventListener('click', () => this.forkCurrentRoute());
+            if (branchSelect) branchSelect.addEventListener('change', (e) => this.switchBranch(e.target.value));
+            if (btnCompare) btnCompare.addEventListener('click', () => this.toggleCompareAB());
+            if (btnDeleteBranch) btnDeleteBranch.addEventListener('click', () => this.deleteBranch(this.activeBranch));
+            this._loadForksFromStorage();
+
             this.updateLabels();
+            this.actualizarRestriccionInputs();
         },
         activeMode() {
             return ROUTE_PLANNING_MODES[this.lockedMode || this.modeSelect.value] || ROUTE_PLANNING_MODES.rect;
@@ -303,7 +375,9 @@
                 type:'scatter',
                 data:{ datasets:[
                     { label:'Ruta planificada', data:[{x:0,y:0}], showLine:true, borderColor:this.colors.info, backgroundColor:this.colors.info, borderWidth:2, tension:0, pointRadius:(ctx)=>ctx.dataIndex===0?0:4, pointBackgroundColor:(ctx)=>{ const i=ctx.dataIndex-1; return i<this.currentStepIndex?this.colors.accent:i===this.currentStepIndex&&this.isRunning?this.colors.accent:this.colors.info; } },
-                    { label:'Origen', data:[{x:0,y:0}], pointRadius:5, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse }
+                    { label:'Origen', data:[{x:0,y:0}], pointRadius:5, pointBackgroundColor:this.colors.reverse, pointBorderColor:this.colors.reverse },
+                    { label:'Ruta Fork [B]', data:[], showLine:true, borderColor:'#ff007f', backgroundColor:'#ff007f', borderDash:[6,4], borderWidth:2, pointRadius:4, pointBackgroundColor:'#ff007f' },
+                    { label:'Simulación Ockham', data:[], showLine:true, borderColor:'#f59e0b', backgroundColor:'#f59e0b', borderDash:[5,4], borderWidth:2, pointRadius:4, pointBackgroundColor:'#f59e0b' }
                 ]},
                 options:this._chartOptions(), plugins:[angularOverlayPlugin]
             });
@@ -387,7 +461,7 @@
         completarEjeRectangular(campoEditado) {
             if (this.modeSelect.value !== 'rect' || !this.axisDefault.checked) return;
             const valor = campoEditado.value.trim();
-            if (!valor) {
+            if (!valor || valor === '-') {
                 if (this.rectangularCeroAutomatico === campoEditado.id) this.rectangularCeroAutomatico = null;
                 return;
             }
@@ -396,6 +470,73 @@
             if (!otroCampo.value.trim() || reemplazaCeroAutomatico) {
                 otroCampo.value = '0';
                 this.rectangularCeroAutomatico = otroCampo.id;
+            }
+        },
+        actualizarRestriccionInputs(activar = null) {
+            if (!this.input1 || !this.input2) return;
+            const sign1 = document.getElementById('route-sign-1');
+            const sign2 = document.getElementById('route-sign-2');
+            const isRect = this.modeSelect?.value === 'rect' || this.modeSelect?.value === 'RECTANGULAR_XY';
+            const isLocked = activar === false ? false : (activar === true || (isRect && Boolean(this.axisDefault && this.axisDefault.checked)));
+
+            if (!isLocked) {
+                this.input1.style.opacity = '1';
+                this.input1.style.pointerEvents = '';
+                this.input2.style.opacity = '1';
+                this.input2.style.pointerEvents = '';
+                if (sign1) { sign1.style.opacity = '1'; sign1.style.pointerEvents = ''; }
+                if (sign2) { sign2.style.opacity = '1'; sign2.style.pointerEvents = ''; }
+                return;
+            }
+
+            const val1 = this.input1.value.trim();
+            const val2 = this.input2.value.trim();
+            const num1 = Number.parseFloat(val1);
+            const num2 = Number.parseFloat(val2);
+
+            const hasVal1 = val1 !== '' && val1 !== '-' && Number.isFinite(num1) && Math.abs(num1) > 0.001;
+            const hasVal2 = val2 !== '' && val2 !== '-' && Number.isFinite(num2) && Math.abs(num2) > 0.001;
+
+            if (hasVal1 && !hasVal2) {
+                this.input2.value = '0';
+                this.input2.style.opacity = '0.5';
+                this.input2.style.pointerEvents = 'none';
+                if (sign2) { sign2.style.opacity = '0.5'; sign2.style.pointerEvents = 'none'; }
+                this.input1.style.opacity = '1';
+                this.input1.style.pointerEvents = '';
+                if (sign1) { sign1.style.opacity = '1'; sign1.style.pointerEvents = ''; }
+            } else if (hasVal2 && !hasVal1) {
+                this.input1.value = '0';
+                this.input1.style.opacity = '0.5';
+                this.input1.style.pointerEvents = 'none';
+                if (sign1) { sign1.style.opacity = '0.5'; sign1.style.pointerEvents = 'none'; }
+                this.input2.style.opacity = '1';
+                this.input2.style.pointerEvents = '';
+                if (sign2) { sign2.style.opacity = '1'; sign2.style.pointerEvents = ''; }
+            } else if (!hasVal1 && !hasVal2) {
+                this.input1.style.opacity = '1';
+                this.input1.style.pointerEvents = '';
+                this.input2.style.opacity = '1';
+                this.input2.style.pointerEvents = '';
+                if (sign1) { sign1.style.opacity = '1'; sign1.style.pointerEvents = ''; }
+                if (sign2) { sign2.style.opacity = '1'; sign2.style.pointerEvents = ''; }
+            }
+        },
+        saveCurrentRouteName() {
+            if (!this.routeNameInput) return;
+            const newName = this.routeNameInput.value.trim() || 'Ruta Planificada Robot_A';
+            this.routeNameInput.value = newName;
+            if (this.activeBranch === 'main') {
+                this.mainRouteName = newName;
+                try { localStorage.setItem('hmi_main_route_name', newName); } catch (_) {}
+            } else if (this.forks.has(this.activeBranch)) {
+                const fork = this.forks.get(this.activeBranch);
+                fork.name = newName;
+                this._saveForksToStorage();
+            }
+            this._updateBranchSelector();
+            if (typeof LogSystem !== 'undefined') {
+                LogSystem.add('INFO', `Nombre de ruta activo: '${newName}'.`);
             }
         },
         updatePreview() {
@@ -425,6 +566,8 @@
                 return;
             }
             this.input1.value = ''; this.input2.value = ''; this.rectangularCeroAutomatico = null;
+            this.actualizarRestriccionInputs();
+            this._syncActiveBranch();
             this.updateListUI(); this.updateLabels(); this.updatePreview(); this.autoScale();
         },
         removeLastStep() {
@@ -436,7 +579,9 @@
             if (this.logicalSteps.length === 0) {
                 this.currentOrigin={x:state.telemetria.posX,y:state.telemetria.posY};
             }
+            this._syncActiveBranch();
             this.updateModeLock(); this.updateListUI(); this.updateLabels(); this.updatePreview(); this.autoScale();
+            this.actualizarRestriccionInputs();
             LogSystem.add('INFO',`Paso lógico eliminado: ${removed.description}`);
         },
         appendLimited(x0,y0,x1,y1,label,logicalStepId,component) {
@@ -466,7 +611,8 @@
             const mode=this.activeMode();
             const visualization=mode.buildVisualization(this);
             const dataset=this.planChart.data.datasets[0];
-            dataset.label=visualization.label; dataset.data=visualization.points;
+            dataset.label=visualization.label;
+            dataset.data=this.isOckhamSimulating ? [] : visualization.points;
             const angular=mode instanceof AngularRouteMode;
             dataset.borderColor=this.colors.vector;
             dataset.backgroundColor=this.colors.vector;
@@ -474,6 +620,62 @@
             dataset.pointRadius=angular?(ctx=>ctx.dataIndex===0?0:4):(ctx=>ctx.dataIndex===0?0:4);
             dataset.pointBackgroundColor=angular?this.colors.vector:(ctx=>{const i=ctx.dataIndex-1;return i<this.currentStepIndex?this.colors.accent:i===this.currentStepIndex&&this.isRunning?this.colors.accent:this.colors.info;});
             this.planChart.$angularGeometry=visualization.geometry;
+
+            // Superposición A/B para bifurcaciones
+            const forkDataset = this.planChart.data.datasets[2];
+            if (forkDataset) {
+                if (this.comparingAB && this.forks.size > 0) {
+                    let compareData = null;
+                    if (this.activeBranch !== 'main' && this.mainBranchBackup) {
+                        compareData = this.mainBranchBackup;
+                        forkDataset.label = 'Ruta Base (A)';
+                        forkDataset.borderColor = '#00e5ff';
+                        forkDataset.pointBackgroundColor = '#00e5ff';
+                    } else {
+                        const firstFork = this.forks.values().next().value;
+                        compareData = firstFork;
+                        forkDataset.label = firstFork ? firstFork.name : 'Ruta Fork [B]';
+                        forkDataset.borderColor = '#ff007f';
+                        forkDataset.pointBackgroundColor = '#ff007f';
+                    }
+
+                    if (compareData) {
+                        const forkPoints = [{x:0, y:0}, ...(compareData.queue || []).map(wp => ({
+                            x: wp.x - (compareData.currentOrigin?.x || 0),
+                            y: wp.y - (compareData.currentOrigin?.y || 0)
+                        }))];
+                        forkDataset.data = forkPoints;
+
+                        const calcDist = (q, origin = {x:0, y:0}) => {
+                            let dist = 0;
+                            let prev = origin;
+                            for (let i = 0; i < q.length; i++) {
+                                dist += Math.hypot(q[i].x - prev.x, q[i].y - prev.y);
+                                prev = q[i];
+                            }
+                            return dist;
+                        };
+                        const curDist = calcDist(this.queue, this.currentOrigin);
+                        const forkDist = calcDist(compareData.queue || [], compareData.currentOrigin || {x:0, y:0});
+                        const deltaDist = (forkDist - curDist);
+                        const deltaSteps = (compareData.queue?.length || 0) - this.queue.length;
+
+                        const deltaDistEl = document.getElementById('route-fork-delta-dist');
+                        const deltaStepsEl = document.getElementById('route-fork-delta-steps');
+                        if (deltaDistEl) deltaDistEl.textContent = `Δ Dist: ${deltaDist >= 0 ? '+' : ''}${deltaDist.toFixed(1)} cm`;
+                        if (deltaStepsEl) deltaStepsEl.textContent = `Δ Pasos: ${deltaSteps >= 0 ? '+' : ''}${deltaSteps}`;
+                    } else {
+                        forkDataset.data = [];
+                        const deltaDistEl = document.getElementById('route-fork-delta-dist');
+                        const deltaStepsEl = document.getElementById('route-fork-delta-steps');
+                        if (deltaDistEl) deltaDistEl.textContent = 'Δ Dist: 0.0 cm';
+                        if (deltaStepsEl) deltaStepsEl.textContent = 'Δ Pasos: 0';
+                    }
+                } else {
+                    forkDataset.data = [];
+                }
+            }
+
             const executionPlan=[{x:0,y:0}, ...this.queue.map(wp=>({x:wp.x-this.currentOrigin.x,y:wp.y-this.currentOrigin.y}))];
             if (this.telemChart) {
                 const index=Math.min(this.currentStepIndex, Math.max(0,this.queue.length-1));
@@ -483,12 +685,186 @@
                 this.telemChart.$endpointTolerance=waypoint ? {x:waypoint.x-this.currentOrigin.x,y:waypoint.y-this.currentOrigin.y} : null;
                 this.telemChart.update('none');
             }
+            const ockhamDataset = this.planChart.data.datasets[3];
+            if (ockhamDataset) {
+                if (this.isOckhamSimulating && this.queue.length > 0) {
+                    ockhamDataset.data = [{x:0, y:0}, ...this.queue.map(wp=>({x:wp.x-this.currentOrigin.x, y:wp.y-this.currentOrigin.y}))];
+                } else {
+                    ockhamDataset.data = [];
+                }
+            }
+
             if(angular&&this.logicalSteps.length){
                 const last=this.logicalSteps[this.logicalSteps.length-1];
                 const chain=this.logicalSteps.map(step=>`V${step.number}: L=${step.length.toFixed(2)} cm, θ=${step.theta.toFixed(2)}°, φ=${step.absoluteAngleDeg.toFixed(2)}°, ΔX=${step.dx.toFixed(2)} cm, ΔY=${step.dy.toFixed(2)} cm${step.length===0?' (sólo orientación)':''}`).join(' · ');
                 this.angularSummary.textContent=`${chain} · punto final (${(last.end.x-this.currentOrigin.x).toFixed(2)}, ${(last.end.y-this.currentOrigin.y).toFixed(2)}) cm`;
             }else this.angularSummary.textContent='Sin vectores angulares.';
             this.planChart.update('none');
+        },
+        forkCurrentRoute(name) {
+            if (this.isRunning) return LogSystem.add('WARN', 'No se puede bifurcar mientras la ruta está en ejecución.');
+            const forkKey = `fork-${this.nextForkId++}`;
+            const forkName = name || `Ruta Fork ${this.nextForkId - 1} [B]`;
+
+            // Clonar estado actual de la ruta de forma profunda y segura
+            const branchData = {
+                name: forkName,
+                mode: this.activeMode().key,
+                currentOrigin: { ...this.currentOrigin },
+                logicalSteps: JSON.parse(JSON.stringify(this.logicalSteps)),
+                queue: JSON.parse(JSON.stringify(this.queue)),
+                nextLogicalStepId: this.nextLogicalStepId
+            };
+
+            this.forks.set(forkKey, branchData);
+            this._saveForksToStorage();
+            this._updateBranchSelector();
+            this.switchBranch(forkKey);
+            LogSystem.add('INFO', `Ruta bifurcada exitosamente: '${forkName}'.`);
+        },
+        switchBranch(branchKey) {
+            if (this.isRunning) return LogSystem.add('WARN', 'Ruta en ejecución. Detén antes de cambiar de rama.');
+            if (this.activeBranch === 'main') {
+                this.mainBranchBackup = {
+                    mode: this.activeMode().key,
+                    currentOrigin: { ...this.currentOrigin },
+                    logicalSteps: JSON.parse(JSON.stringify(this.logicalSteps)),
+                    queue: JSON.parse(JSON.stringify(this.queue)),
+                    nextLogicalStepId: this.nextLogicalStepId
+                };
+            } else if (this.forks.has(this.activeBranch)) {
+                this.forks.set(this.activeBranch, {
+                    name: this.forks.get(this.activeBranch).name,
+                    mode: this.activeMode().key,
+                    currentOrigin: { ...this.currentOrigin },
+                    logicalSteps: JSON.parse(JSON.stringify(this.logicalSteps)),
+                    queue: JSON.parse(JSON.stringify(this.queue)),
+                    nextLogicalStepId: this.nextLogicalStepId
+                });
+                this._saveForksToStorage();
+            }
+
+            this.activeBranch = branchKey;
+
+            let targetData = null;
+            if (branchKey === 'main') {
+                targetData = this.mainBranchBackup || { mode: 'rect', currentOrigin: {x:0,y:0}, logicalSteps: [], queue: [], nextLogicalStepId: 1 };
+            } else {
+                targetData = this.forks.get(branchKey);
+            }
+
+            if (!targetData) return;
+
+            this.logicalSteps = JSON.parse(JSON.stringify(targetData.logicalSteps || []));
+            this.queue = JSON.parse(JSON.stringify(targetData.queue || []));
+            this.currentOrigin = { ...(targetData.currentOrigin || {x:0,y:0}) };
+            this.nextLogicalStepId = targetData.nextLogicalStepId || (this.logicalSteps.length + 1);
+            this.currentStepIndex = 0;
+
+            const modeSelect = document.getElementById('route-mode');
+            if (modeSelect && targetData.mode) {
+                modeSelect.value = targetData.mode;
+            }
+
+            const delBtn = document.getElementById('btn-delete-branch');
+            if (delBtn) delBtn.style.display = branchKey === 'main' ? 'none' : 'inline-flex';
+
+            const sel = document.getElementById('route-branch-select');
+            if (sel) sel.value = branchKey;
+
+            if (this.routeNameInput) {
+                this.routeNameInput.value = branchKey === 'main'
+                    ? (this.mainRouteName || 'Ruta Planificada Robot_A')
+                    : (this.forks.get(branchKey)?.name || `Ruta Fork [${branchKey}]`);
+            }
+
+            this.updateModeLock();
+            this.updateListUI();
+            this.updateLabels();
+            this.updatePreview();
+            this.autoScale();
+            this.drawPlan();
+        },
+        deleteBranch(branchKey) {
+            if (branchKey === 'main') return LogSystem.add('WARN', 'La ruta principal (A) no puede ser eliminada.');
+            const name = this.forks.get(branchKey)?.name || branchKey;
+            this.forks.delete(branchKey);
+            this._saveForksToStorage();
+            this._updateBranchSelector();
+            if (this.activeBranch === branchKey) {
+                this.switchBranch('main');
+            } else {
+                this.drawPlan();
+            }
+            LogSystem.add('INFO', `Rama bifurcada '${name}' eliminada.`);
+        },
+        _syncActiveBranch() {
+            if (this.activeBranch !== 'main' && this.forks.has(this.activeBranch)) {
+                this.forks.set(this.activeBranch, {
+                    name: this.forks.get(this.activeBranch).name,
+                    mode: this.activeMode().key,
+                    currentOrigin: { ...this.currentOrigin },
+                    logicalSteps: JSON.parse(JSON.stringify(this.logicalSteps)),
+                    queue: JSON.parse(JSON.stringify(this.queue)),
+                    nextLogicalStepId: this.nextLogicalStepId
+                });
+                this._saveForksToStorage();
+            } else if (this.activeBranch === 'main') {
+                this.mainBranchBackup = {
+                    mode: this.activeMode().key,
+                    currentOrigin: { ...this.currentOrigin },
+                    logicalSteps: JSON.parse(JSON.stringify(this.logicalSteps)),
+                    queue: JSON.parse(JSON.stringify(this.queue)),
+                    nextLogicalStepId: this.nextLogicalStepId
+                };
+            }
+        },
+        toggleCompareAB() {
+            this.comparingAB = !this.comparingAB;
+            const btn = document.getElementById('btn-compare-branches');
+            const metricsWrap = document.getElementById('route-fork-metrics');
+            if (btn) {
+                btn.classList.toggle('active', this.comparingAB);
+                btn.classList.toggle('btn-accent', this.comparingAB);
+            }
+            if (metricsWrap) {
+                metricsWrap.style.display = this.comparingAB ? 'inline-flex' : 'none';
+            }
+            this.drawPlan();
+        },
+        _updateBranchSelector() {
+            const sel = document.getElementById('route-branch-select');
+            if (!sel) return;
+            const baseLabel = this.mainRouteName ? `${this.mainRouteName} (Base A)` : 'Ruta Base (A)';
+            sel.innerHTML = `<option value="main">${baseLabel}</option>`;
+            this.forks.forEach((data, key) => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = data.name;
+                sel.appendChild(opt);
+            });
+            sel.value = this.activeBranch;
+        },
+        _saveForksToStorage() {
+            try {
+                const serializable = {};
+                this.forks.forEach((val, key) => { serializable[key] = val; });
+                localStorage.setItem('hmi_route_forks', JSON.stringify(serializable));
+            } catch (_) {}
+        },
+        _loadForksFromStorage() {
+            try {
+                const raw = localStorage.getItem('hmi_route_forks');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    Object.entries(parsed).forEach(([k, v]) => {
+                        this.forks.set(k, v);
+                        const match = k.match(/fork-(\d+)/);
+                        if (match) this.nextForkId = Math.max(this.nextForkId, parseInt(match[1], 10) + 1);
+                    });
+                    this._updateBranchSelector();
+                }
+            } catch (_) {}
         },
         autoScale() {
             const angular=this.activeMode() instanceof AngularRouteMode;
@@ -555,11 +931,11 @@
                 btn.setAttribute('aria-pressed', isCinema);
                 if (isCinema) {
                     btn.classList.add('btn-stop');
-                    btn.innerHTML = '🗗 Reducir';
+                    btn.innerHTML = 'Reducir';
                     btn.title = 'Salir de modo cine (Esc)';
                 } else {
                     btn.classList.remove('btn-stop');
-                    btn.innerHTML = '⛶ Cine';
+                    btn.innerHTML = 'Cine';
                     btn.title = 'Pantalla completa / Modo cine';
                 }
             }
@@ -567,7 +943,7 @@
                 const previewBtn = document.getElementById('btn-route-preview');
                 if (previewBtn) {
                     previewBtn.setAttribute('aria-pressed', isCinema);
-                    previewBtn.textContent = isCinema ? '✕ Cerrar previsualización' : '👁 Previsualizar';
+                    previewBtn.textContent = isCinema ? 'Cerrar previsualización' : 'Previsualizar';
                     if (isCinema) previewBtn.classList.add('btn-stop');
                     else previewBtn.classList.remove('btn-stop');
                 }
@@ -591,6 +967,22 @@
                 const readiness=this.vectorialReadiness();
                 if(!readiness.ready)return LogSystem.add('ERROR',`Angular vectorial bloqueado: ${readiness.reason}`);
             }
+            const currentName = this.routeNameInput?.value.trim() || this.mainRouteName || 'Ruta Planificada Robot_A';
+            this.saveCurrentRouteName();
+            try {
+                const savedRoutes = JSON.parse(localStorage.getItem('hmi_saved_routes') || '[]');
+                const routeRecord = {
+                    name: currentName,
+                    savedAt: new Date().toISOString(),
+                    steps: this.queue.length,
+                    mode: mode.key,
+                    payload: mode.missionPayload(this)
+                };
+                const existingIdx = savedRoutes.findIndex(r => r.name === currentName);
+                if (existingIdx >= 0) savedRoutes[existingIdx] = routeRecord;
+                else savedRoutes.unshift(routeRecord);
+                localStorage.setItem('hmi_saved_routes', JSON.stringify(savedRoutes.slice(0, 20)));
+            } catch (_) {}
             try {
                 const previous=await WSControl.api('/api/v1/missions');
                 if(previous.blocked){
@@ -601,7 +993,7 @@
                 this.isRunning=true; this.routeStartedAt=Date.now(); this.currentStepIndex=mission.current_index||0;
                 this.activeCommandId=mission.active_command_id; this.waitingForMovement=true;
                 this.clearTelemetryTrail();
-                this.lockTabs(); LogSystem.add('INFO',`Misión ${mission.id} iniciada con ${mission.total_segments} segmentos.`);
+                this.lockTabs(); LogSystem.add('INFO',`Ruta '${currentName}' guardada. Misión ${mission.id} iniciada con ${mission.total_segments} segmentos.`);
                 this.updateListUI(); this.drawPlan();
             } catch(error) {
                 this.isRunning = false;
@@ -623,12 +1015,36 @@
                 safety.style.color='var(--danger)';
                 return this.failRoute(interrupted?'robot_restarted_mid_mission: repetición automática bloqueada':mission.error);
             }
+            const settlingBadge = document.getElementById('ockham-badge-settling');
+            const realigningBadge = document.getElementById('ockham-badge-realigning');
+            const stageLabel = document.getElementById('ockham-current-stage');
+            const chipLat = document.getElementById('ockham-val-lat');
+            const chipAng = document.getElementById('ockham-val-ang');
+            const chipLong = document.getElementById('ockham-val-long');
+
+            if (mission.kind === 'ockham_return' || this.isOckhamSimulating) {
+                if (stageLabel) {
+                    stageLabel.textContent = mission.running
+                        ? `OCKHAM: Tramo ${this.currentStepIndex + 1}/${mission.total_segments || 0} (${String(mission.stage || 'idle').toUpperCase()})`
+                        : (this.isOckhamSimulating ? 'Simulación lista para confirmar' : 'Ockham: Inactivo');
+                }
+                if (settlingBadge) settlingBadge.style.display = (mission.stage === 'settling') ? 'inline-block' : 'none';
+                if (realigningBadge) realigningBadge.style.display = (mission.stage === 'realigning') ? 'inline-block' : 'none';
+            } else {
+                if (stageLabel) stageLabel.textContent = 'Ockham: Inactivo';
+                if (settlingBadge) settlingBadge.style.display = 'none';
+                if (realigningBadge) realigningBadge.style.display = 'none';
+            }
+
             if(mission.accuracy){
                 const acc=mission.accuracy;
                 const elPos=document.getElementById('route-live-acc-pos');
                 const elAng=document.getElementById('route-live-acc-ang');
                 if(elPos) elPos.textContent=`${Number(acc.error_long_cm||0).toFixed(1)} / ${Number(acc.error_lat_cm||0).toFixed(1)} cm`;
                 if(elAng) elAng.textContent=`${Number(acc.error_angular_deg||0).toFixed(1)}° / ${Number(acc.accumulated_lateral_cm||0).toFixed(1)} cm`;
+                if(chipLat) chipLat.textContent=`${Number(acc.error_lat_cm||0).toFixed(1)} cm`;
+                if(chipAng) chipAng.textContent=`${Number(acc.error_angular_deg||0).toFixed(1)}°`;
+                if(chipLong) chipLong.textContent=`${Number(acc.error_long_cm||0).toFixed(1)} cm`;
             }
             if(mission.stage==='settling'){
                 safety.textContent=`Punto de exactitud: evaluando asentamiento y errores (${this.currentStepIndex}/${mission.total_segments||0})...`;
@@ -643,7 +1059,10 @@
             if(this.isRunning&&!mission.running) {
                 this.isRunning=false; this.unlockTabs(); clearTimeout(this.moveTimeout);
                 LogSystem.add('INFO','Ruta completada por el carrito.');
-                if(mission.kind==='ockham_return') LogSystem.add('INFO','Regreso de Ockham y alineación final a 0° completados.');
+                if(mission.kind==='ockham_return') {
+                    LogSystem.add('INFO','Regreso de Ockham y alineación final a 0° completados.');
+                    if (stageLabel) stageLabel.textContent = 'Ockham: Completado';
+                }
             }
             this.renderVectorialSafety();
             this.updateListUI(); this.drawPlan();
@@ -661,6 +1080,7 @@
                 const mission=await WSControl.api('/api/v1/missions',{method:'DELETE'});
                 if(mission.id!==null||mission.blocked)throw new Error('El backend no confirmó el borrado de la misión');
                 this.isRunning = false;
+                this.isOckhamSimulating = false;
                 this.unlockTabs();
                 clearTimeout(this.moveTimeout);
                 this.waitingForMovement = false;
@@ -676,6 +1096,7 @@
                 this.updateListUI();
                 this.updateLabels(); this.updatePreview();
                 this.renderVectorialSafety();
+                this.actualizarRestriccionInputs();
             } catch(error) {
                 LogSystem.add('ERROR',`No se pudo borrar la ruta: ${error.message}`);
             }
@@ -687,6 +1108,7 @@
             try {
                 const result=await WSControl.api('/api/v1/missions/robot-memory',{method:'DELETE'});
                 this.isRunning=false; this.waitingForMovement=false; this.activeCommandId=null;
+                this.isOckhamSimulating = false;
                 this.unlockTabs();
                 LogSystem.add('INFO','Misión y checkpoint de Python eliminados; se solicitó STOP si había un paso activo.');
                 this.currentStepIndex=0; this.updateListUI(); this.drawPlan();
@@ -694,6 +1116,7 @@
         },
         async ockhamReturn() {
             try {
+                this.isOckhamSimulating = true;
                 const preview=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:JSON.stringify({preview:true})});
                 // Conservar el home de la mision como (0,0) del grafico: asi la
                 // traza del retorno se superpone al camino saliente invertido en
@@ -725,12 +1148,15 @@
                     box.style.display='block';
                     info.textContent=`Simulación calculada: ${preview.total_steps} pasos enlazados hacia (0, 0) con retorno optimizado (reversa o avance automático) y supervisión de exactitud. Confirma para arrancar.`;
                 }
+                const stageLabel = document.getElementById('ockham-current-stage');
+                if (stageLabel) stageLabel.textContent = `Simulación Ockham: ${preview.total_steps} tramos listos`;
                 LogSystem.add('INFO',`Simulación de regreso Ockham lista: ${preview.total_steps} pasos enlazados calculados hacia el origen.`);
-            } catch(error) { LogSystem.add('ERROR',`No se pudo simular Ockham: ${error.message}`); }
+            } catch(error) { this.isOckhamSimulating = false; LogSystem.add('ERROR',`No se pudo simular Ockham: ${error.message}`); }
         },
         async confirmOckhamReturn() {
             const box=document.getElementById('route-ockham-confirm-box');
             if(box) box.style.display='none';
+            this.isOckhamSimulating = false;
             try {
                 const mission=await WSControl.api('/api/v1/missions/return-home',{method:'POST',body:JSON.stringify({preview:false})});
                 this.currentStepIndex=mission.current_index||0;
@@ -744,6 +1170,9 @@
         cancelOckhamReturn() {
             const box=document.getElementById('route-ockham-confirm-box');
             if(box) box.style.display='none';
+            this.isOckhamSimulating = false;
+            const stageLabel = document.getElementById('ockham-current-stage');
+            if (stageLabel) stageLabel.textContent = 'Ockham: Inactivo';
             this.queue=[]; this.logicalSteps=[]; this.currentStepIndex=0;
             this.updateListUI(); this.drawPlan();
             LogSystem.add('INFO','Simulación de regreso Ockham cancelada por el operador.');

@@ -4,132 +4,237 @@
                 <div class="card-title">Programador de rutas</div>
                 <span class="route-mode-chip" id="route-mode-chip">RECTANGULAR · FIN 0°</span>
             </div>
-            
-            <form id="route-form" class="route-form">
-                <div class="cmd-input-group">
-                    <label for="route-mode">Modo de Entrada:</label>
-                    <select id="route-mode" style="width: 100%; padding: 5px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                        <option value="rect">Rectangular (X, Y)</option>
-                        <option value="polar">Angular por descomposición (X→Y)</option>
-                        <option value="vectorial">Angular vectorial (directa)</option>
-                    </select>
-                </div>
-                <div class="route-axis-toggle" id="route-axis-default-group" title="Al capturar un eje, completa el otro con 0. Si reemplazas ese 0 automático, el primer eje pasa a 0.">
-                    <input type="checkbox" id="route-axis-default" aria-label="Eje único: completar el otro eje con cero">
-                    <label for="route-axis-default">Eje único</label>
-                </div>
-                <div class="cmd-input-group">
-                    <label id="route-label-1" for="route-input-1">Coordenada Relativa X (+X Derecha):</label>
-                    <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-1" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-1" data-toggle-sign="route-input-1" aria-label="Cambiar signo del primer valor">&plusmn;</button></div>
-                </div>
-                <div class="cmd-input-group">
-                    <label id="route-label-2" for="route-input-2">Coordenada Relativa Y (+Y Frente):</label>
-                    <div class="signed-number-control"><input type="number" inputmode="decimal" id="route-input-2" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-2" data-toggle-sign="route-input-2" aria-label="Cambiar signo del segundo valor">&plusmn;</button></div>
-                </div>
-                <button type="submit" class="btn btn-accent">+ Agregar paso</button>
-                <button type="button" class="btn" id="btn-route-pop">↶ Deshacer</button>
-            </form>
 
-            <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;" aria-live="polite">V1 · L=0.00 cm · θ=0.00° · φ=0.00° · ΔX=0.00 cm · ΔY=0.00 cm</div>
-            <div class="route-metrics" aria-label="Métricas del recorrido"><div class="route-metric"><span class="route-metric-label">Duración</span><strong class="route-metric-value" id="route-metric-duration">0.0 s</strong></div><div class="route-metric"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="route-metric-samples">0</strong></div><div class="route-metric"><span class="route-metric-label">Segmentos ≤256</span><strong class="route-metric-value" id="route-metric-segments">0</strong></div><div class="route-metric"><span class="route-metric-label">Desviación</span><strong class="route-metric-value" id="route-metric-deviation">0.0 cm</strong></div></div>
-            <div class="route-vectorial-safety" id="route-vectorial-safety" hidden>
-                <label class="route-vectorial-toggle" for="route-vectorial-enabled">
-                    <input type="checkbox" id="route-vectorial-enabled">
-                    Habilitar ejecución vectorial
-                    <span class="route-experimental-badge">EXPERIMENTAL</span>
-                </label>
-                <div class="route-vectorial-status" id="route-vectorial-status" aria-live="polite">Esperando telemetría y configuración.</div>
-            </div>
-
-            <div class="route-maps-grid">
-                <div class="route-map-card" id="card-plan-map">
-                    <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-plan-map" title="Salir de Modo Cine (Esc)">🗗 Reducir</button>
-                    <div class="route-map-header">
-                        <span class="route-map-title">Plan Teórico</span>
-                        <button class="btn btn-sm route-cinema" data-card="card-plan-map" title="Pantalla completa / Modo cine">⛶ Cine</button>
+            <!-- CONTENEDOR PRINCIPAL CON SCROLL PERSONALIZADO -->
+            <div class="window-scroll-body">
+                <!-- BARRA FSM STICKY SUPERIOR -->
+                <div class="fsm-sticky-bar fsm-panel" id="fsm-sticky-header">
+                    <div class="fsm-flow" id="fsm-flow">
+                        <div class="fsm-node active" data-state="INIT" aria-current="step">INIT<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="IDLE">IDLE<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="GIRANDO">GIRANDO<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="ESPERANDO">ESPERANDO<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="AVANZANDO">AVANZANDO<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="TERMINADO">TERMINADO<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="FALLO">FALLO<span class="fsm-ping"></span></div>
+                        <div class="fsm-arrow" aria-hidden="true"></div>
+                        <div class="fsm-node" data-state="ESTOP">ESTOP<span class="fsm-ping"></span></div>
                     </div>
-                    <div class="route-angular-meta" id="route-angular-meta" hidden>
-                        <div class="route-angular-legend" role="list" aria-label="Leyenda del modo angular">
-                            <span role="listitem"><i class="route-angular-swatch vector" aria-hidden="true"></i>Hipotenusa / vector</span>
-                            <span role="listitem"><i class="route-angular-swatch component-x" aria-hidden="true"></i><span id="route-angular-x-label">Componente X ejecutable</span></span>
-                            <span role="listitem"><i class="route-angular-swatch component-y" aria-hidden="true"></i><span id="route-angular-y-label">Componente Y ejecutable</span></span>
-                            <span role="listitem"><i class="route-angular-swatch angle" aria-hidden="true"></i>Ángulo relativo</span>
+                    <div class="fsm-checkpoint-meta" id="checkpoint-meta">
+                        <span id="route-mission-safety" class="info-panel-inline">Protección de pasos: IDLE · checkpoint 0/0.</span>
+                    </div>
+                </div>
+
+                <!-- GESTIÓN Y EDICIÓN DEL NOMBRE DE LA RUTA -->
+                <div class="route-name-toolbar">
+                    <span class="route-name-label">Ruta:</span>
+                    <div class="route-name-input-wrap">
+                        <input type="text" id="route-name-input" class="route-name-field" value="Ruta Planificada Robot_A" />
+                        <button type="button" class="btn btn-sm" id="btn-rename-route" title="Renombrar ruta">
+                            <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-sm" id="btn-save-route-name" title="Guardar nombre de ruta">
+                        <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    </button>
+                </div>
+
+                <!-- LAYOUT MASTER-DETAIL DE 2 COLUMNAS (.route-planner-layout) -->
+                <div class="route-planner-layout">
+                    <!-- COLUMNA IZQUIERDA: CONTROL, ACCIONES Y COLA DE PASOS (42%) -->
+                    <div class="route-planner-col-control">
+                        <!-- FORK TOOLBAR: Bifurcación y Comparación A/B -->
+                        <div class="route-fork-toolbar" id="route-fork-toolbar">
+                            <button type="button" class="btn btn-sm btn-accent" id="btn-fork-route" title="Crear rama alternativa de la ruta actual"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg>Crear nueva ruta planificada</button>
+                            <label for="route-branch-select" style="font-size: 10px; font-weight: 600; color: var(--text-secondary);">Rama:</label>
+                            <select id="route-branch-select" class="route-branch-select" aria-label="Seleccionar rama de ruta">
+                                <option value="main">Ruta Base (A)</option>
+                            </select>
+                            <button type="button" class="btn btn-sm" id="btn-compare-branches" title="Superponer ruta base y bifurcada en el mapa"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Comparar A/B</button>
+                            <button type="button" class="btn btn-sm btn-stop" id="btn-delete-branch" title="Eliminar rama bifurcada activa" style="display: none;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar Rama</button>
+                            <div id="route-fork-metrics" class="route-fork-metrics" style="display: none;">
+                                <span id="route-fork-delta-dist">Δ Distancia: 0.0 cm</span>
+                                <span id="route-fork-delta-steps">Δ Pasos: 0</span>
+                            </div>
                         </div>
-                        <div class="route-angular-summary" id="route-angular-summary" aria-live="polite">Sin vectores angulares.</div>
-                    </div>
-                    <div class="route-map-container">
-                        <canvas class="route-chart-canvas" id="route-plan-chart" aria-label="Gráfica rectangular del plan teórico"></canvas>
-                    </div>
-                </div>
-                
-                <div class="route-map-card" id="card-telem-map">
-                    <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-telem-map" title="Salir de Modo Cine (Esc)">🗗 Reducir</button>
-                    <div class="route-map-header">
-                        <span class="route-map-title">Telemetría Real</span>
-                        <button class="btn btn-sm route-cinema" data-card="card-telem-map" title="Pantalla completa / Modo cine">⛶ Cine</button>
-                    </div>
-                    <div class="route-map-container">
-                        <canvas class="route-chart-canvas" id="route-telem-chart" aria-label="Gráfica de telemetría real"></canvas>
-                    </div>
-                </div>
-            </div>
+                        
+                        <!-- FORMULARIO DE CAPTURA RÁPIDA -->
+                        <form id="route-form" class="route-form route-dock-glass">
+                            <div class="cmd-input-group">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <label for="route-mode">Modo de Entrada:</label>
+                                    <div class="route-axis-toggle" id="route-axis-default-group" title="Al capturar un eje, completa el otro con 0. Si reemplazas ese 0 automático, el primer eje pasa a 0.">
+                                        <input type="checkbox" id="route-axis-default" aria-label="Eje único: completar el otro eje con cero" checked>
+                                        <label for="route-axis-default" style="cursor: pointer; font-size: 11px; margin-left: 4px;">Eje único</label>
+                                    </div>
+                                </div>
+                                <select id="route-mode" style="width: 100%; padding: 5px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                                    <option value="rect">Rectangular (X, Y)</option>
+                                    <option value="polar">Angular por descomposición (X→Y)</option>
+                                    <option value="vectorial">Angular vectorial (directa)</option>
+                                </select>
+                            </div>
+                            <div class="cmd-input-group">
+                                <label id="route-label-1" for="route-input-1">Coordenada Relativa X (+X Derecha):</label>
+                                <div class="signed-number-control"><input type="text" inputmode="decimal" id="route-input-1" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-1" data-toggle-sign="route-input-1" aria-label="Cambiar signo del primer valor">&plusmn;</button></div>
+                            </div>
+                            <div class="cmd-input-group">
+                                <label id="route-label-2" for="route-input-2">Coordenada Relativa Y (+Y Frente):</label>
+                                <div class="signed-number-control"><input type="text" inputmode="decimal" id="route-input-2" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-2" data-toggle-sign="route-input-2" aria-label="Cambiar signo del segundo valor">&plusmn;</button></div>
+                            </div>
+                            <button type="submit" class="btn btn-accent"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>+ Agregar paso</button>
+                            <button type="button" class="btn" id="btn-route-pop"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>Deshacer</button>
+                        </form>
 
-            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-accent" id="btn-route-start" data-action="programar">▶ Programar recorrido</button>
-                <button type="button" class="btn" id="btn-route-preview">👁 Previsualizar</button>
-                <button type="button" class="btn btn-stop" id="btn-route-stop">⏹ Detener</button>
-                <button type="button" class="btn" id="btn-route-discard">🗑 Descartar</button>
-                <button type="button" class="btn btn-reverse" id="btn-route-ockham">🏠 Regresar al origen</button>
-                <button type="button" class="btn" id="btn-route-clear-memory">🧹 Borrar misión Python</button>
-            </div>
-            <div id="route-mission-safety" class="info-panel" style="margin-bottom:15px;">
-                Protección de pasos: lista. Cada segmento usa un ID único y no se repite automáticamente tras un reinicio.
-            </div>
+                        <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;" aria-live="polite">V1 · L=0.00 cm · θ=0.00° · φ=0.00° · ΔX=0.00 cm · ΔY=0.00 cm</div>
+                        <div class="route-metrics" aria-label="Métricas del recorrido"><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Duración</span><strong class="route-metric-value" id="route-metric-duration">0.0 s</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="route-metric-samples">0</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Segmentos ≤256</span><strong class="route-metric-value" id="route-metric-segments">0</strong></div><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Desviación</span><strong class="route-metric-value" id="route-metric-deviation">0.0 cm</strong></div></div>
+                        <div class="route-vectorial-safety" id="route-vectorial-safety" hidden>
+                            <label class="route-vectorial-toggle" for="route-vectorial-enabled">
+                                <input type="checkbox" id="route-vectorial-enabled">
+                                Habilitar ejecución vectorial
+                                <span class="route-experimental-badge">EXPERIMENTAL</span>
+                            </label>
+                            <div class="route-vectorial-status" id="route-vectorial-status" aria-live="polite">Esperando telemetría y configuración.</div>
+                        </div>
 
-            <div id="route-ockham-confirm-box" class="info-panel" style="display:none; background: rgba(245, 158, 11, 0.12); border: 1px solid var(--accent, #f59e0b); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
-                <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent, #f59e0b);">
-                    🏠 Simulación de Regreso Ockham
+                        <!-- ACCIONES DE MISIÓN DE IDA -->
+                        <div class="route-actions-wrap">
+                            <button type="button" class="btn btn-success btn-save-route-primary w-full text-slate-950 font-bold shadow-lg shadow-emerald-950/50 hover:bg-emerald-400" id="btn-route-start" data-action="programar" title="Guardar la Ruta en Rutas y programar recorrido"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar la Ruta en "Rutas" / Programar recorrido</button>
+                            <div class="route-secondary-actions-grid">
+                                <button type="button" class="btn btn-outline" id="btn-route-preview"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Previsualizar</button>
+                                <button type="button" class="btn btn-outline btn-warning btn-stop" id="btn-route-stop"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>Detener</button>
+                                <button type="button" class="btn btn-outline btn-ghost" id="btn-route-discard"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Descartar</button>
+                                <button type="button" class="btn btn-outline btn-error btn-danger-outline" id="btn-route-clear-memory"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar misión Python</button>
+                            </div>
+                        </div>
+
+                    <!-- COLA DE WAYPOINTS Y PASOS CON SCROLL INTERNO -->
+                    <section class="card route-queue-card" id="card-route-queue" style="margin-top: 0; padding: 10px;">
+                        <div class="data-table-title" style="margin-bottom: 6px;">Cola de Waypoints y Pasos</div>
+                        <div class="route-queue-scroll">
+                            <table class="data-table">
+                                <thead><tr><th>#</th><th>Paso</th><th>X (cm)</th><th>Y (cm)</th><th>Estado</th></tr></thead>
+                                <tbody id="route-list">
+                                    <tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
-                <div id="route-ockham-sim-info" style="font-size: 0.9em; margin-bottom: 10px;">
-                    Simulación calculada. Revisa los pasos enlazados en el mapa antes de confirmar.
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-accent" id="btn-confirm-ockham">✅ Confirmar Regreso</button>
-                    <button type="button" class="btn btn-stop" id="btn-cancel-ockham">❌ Cancelar</button>
+
+                <!-- COLUMNA DERECHA: MAPAS, COCKPIT OCKHAM Y TELEMETRÍA (58%) -->
+                <div class="route-planner-col-view">
+                    <!-- LIENZOS CARTOGRÁFICOS -->
+                    <div class="route-maps-grid">
+                        <div class="route-map-card" id="card-plan-map">
+                            <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-plan-map" title="Salir de Modo Cine (Esc)">Reducir</button>
+                            <div class="route-map-header">
+                                <span class="route-map-title">Plan Teórico</span>
+                                <button class="btn btn-sm route-cinema" data-card="card-plan-map" title="Pantalla completa / Modo cine">Cine</button>
+                            </div>
+                            <div class="route-angular-meta" id="route-angular-meta" hidden>
+                                <div class="route-angular-legend" role="list" aria-label="Leyenda del modo angular">
+                                    <span role="listitem"><i class="route-angular-swatch vector" aria-hidden="true"></i>Hipotenusa / vector</span>
+                                    <span role="listitem"><i class="route-angular-swatch component-x" aria-hidden="true"></i><span id="route-angular-x-label">Componente X ejecutable</span></span>
+                                    <span role="listitem"><i class="route-angular-swatch component-y" aria-hidden="true"></i><span id="route-angular-y-label">Componente Y ejecutable</span></span>
+                                    <span role="listitem"><i class="route-angular-swatch angle" aria-hidden="true"></i>Ángulo relativo</span>
+                                </div>
+                                <div class="route-angular-summary" id="route-angular-summary" aria-live="polite">Sin vectores angulares.</div>
+                            </div>
+                            <div class="route-map-container">
+                                <canvas class="route-chart-canvas" id="route-plan-chart" aria-label="Gráfica rectangular del plan teórico"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="route-map-card" id="card-telem-map">
+                            <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-telem-map" title="Salir de Modo Cine (Esc)">Reducir</button>
+                            <div class="route-map-header">
+                                <span class="route-map-title">Telemetría Real</span>
+                                <button class="btn btn-sm route-cinema" data-card="card-telem-map" title="Pantalla completa / Modo cine">Cine</button>
+                            </div>
+                            <div class="route-map-container">
+                                <canvas class="route-chart-canvas" id="route-telem-chart" aria-label="Gráfica de telemetría real"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COCKPIT OCKHAM DEDICADO -->
+                    <section class="card route-ockham-cockpit" id="card-route-ockham" style="margin-top: 14px; border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.04); box-shadow: 0 0 12px rgba(245, 158, 11, 0.08); padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24" style="color: var(--accent, #f59e0b);"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                <span class="card-title" style="margin: 0; color: var(--accent, #f59e0b);">Cockpit de Retorno Ockham</span>
+                            </div>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <span class="badge ockham-badge-settling" id="ockham-badge-settling" style="display: none; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">SETTLING 500ms</span>
+                                <span class="badge ockham-badge-realigning" id="ockham-badge-realigning" style="display: none; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">REALINEANDO &gt;1.5°</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-reverse" id="btn-route-ockham" style="font-weight: 700;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Regresar al origen</button>
+                            <span id="ockham-current-stage" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);">Ockham: Inactivo</span>
+                        </div>
+
+                        <!-- CHIPS DE EXACTITUD Y AUDITORÍA VIVA OCKHAM -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 10px;">
+                            <div class="metric-chip-glass" id="ockham-chip-lat" style="padding: 6px 10px;">
+                                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Desvío Lateral (Máx 2.5 cm)</div>
+                                <div id="ockham-val-lat" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--info);">0.0 cm</div>
+                            </div>
+                            <div class="metric-chip-glass" id="ockham-chip-ang" style="padding: 6px 10px;">
+                                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Desvío Angular (Máx 1.5°)</div>
+                                <div id="ockham-val-ang" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--warn);">0.0°</div>
+                            </div>
+                            <div class="metric-chip-glass" id="ockham-chip-long" style="padding: 6px 10px;">
+                                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Error Longitudinal</div>
+                                <div id="ockham-val-long" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text-primary);">0.0 cm</div>
+                            </div>
+                        </div>
+
+                        <div id="route-ockham-confirm-box" class="info-panel" style="display:none; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent, #f59e0b); border-radius: 8px; padding: 12px; margin-bottom: 0;">
+                            <div style="font-weight: 700; margin-bottom: 6px; color: var(--accent, #f59e0b); display: flex; align-items: center; gap: 6px;">
+                                <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                Simulación de Regreso Ockham
+                            </div>
+                            <div id="route-ockham-sim-info" style="font-size: 0.9em; margin-bottom: 10px;">
+                                Simulación calculada. Revisa los pasos enlazados en el mapa antes de confirmar.
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" class="btn btn-accent" id="btn-confirm-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirmar Regreso</button>
+                                <button type="button" class="btn btn-stop" id="btn-cancel-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TELEMETRÍA DE RUTA VIVA -->
+                    <section class="data-table-wrap" id="card-route-live-telemetry" tabindex="0" aria-label="Telemetría de ruta en vivo" style="margin-top: 14px;">
+                        <div class="data-table-title">Telemetría de Ruta (Live)</div>
+                        <table class="data-table">
+                            <thead><tr><th>Dato</th><th>Valor</th><th>Dato</th><th>Valor</th></tr></thead>
+                            <tbody>
+                                <tr><td>X</td><td id="route-live-x">0.0 cm</td><td>Y</td><td id="route-live-y">0.0 cm</td></tr>
+                                <tr><td>Yaw</td><td id="route-live-yaw">0.0°</td><td>Estado</td><td id="route-live-state">INIT</td></tr>
+                                <tr><td>Distancia</td><td id="route-live-dist">0.0 cm</td><td>PWM L / R</td><td id="route-live-pwm">0 / 0</td></tr>
+                                <tr><td>Objetivo / error</td><td id="route-live-error">sin objetivo</td><td>PID P / I / D</td><td id="route-live-control">0 / 0 / 0</td></tr>
+                                <tr><td>Rumbo dinámico / eθ</td><td id="route-live-heading">0.0° / 0.0°</td><td>Encoder / comp.</td><td id="route-live-assist">0.0 / 1.00</td></tr>
+                                <tr><td>Sentido / rumbo</td><td id="route-live-motion">forward · 0°</td><td>Freno / arrastre</td><td id="route-live-brake">0.0 / 0.0 cm</td></tr>
+                                <tr><td>Endpoint / decisión</td><td id="route-live-endpoint">sin corrección</td><td>Corrección / pivote</td><td id="route-live-recovery">—</td></tr>
+                                <tr><td>Arco de giro</td><td id="route-live-arc">0.0 cm</td><td>Traslación X / Y</td><td id="route-live-turn-xy">0.0 / 0.0 cm</td></tr>
+                                <tr><td>Exactitud (Long / Lat)</td><td id="route-live-acc-pos">—</td><td>Exactitud (Yaw / Acum)</td><td id="route-live-acc-ang">—</td></tr>
+                                <tr><td>Sup. Izq.</td><td id="route-live-fl">0</td><td>Sup. Der.</td><td id="route-live-fr">0</td></tr>
+                                <tr><td>Inf. Izq.</td><td id="route-live-bl">0</td><td>Inf. Der.</td><td id="route-live-br">0</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
                 </div>
             </div>
-
-            <div class="route-tables-grid">
-                <section class="data-table-wrap" tabindex="0" aria-label="Telemetría de ruta en vivo">
-                    <div class="data-table-title">Telemetría de Ruta (Live)</div>
-                    <table class="data-table">
-                        <thead><tr><th>Dato</th><th>Valor</th><th>Dato</th><th>Valor</th></tr></thead>
-                        <tbody>
-                            <tr><td>X</td><td id="route-live-x">0.0 cm</td><td>Y</td><td id="route-live-y">0.0 cm</td></tr>
-                            <tr><td>Yaw</td><td id="route-live-yaw">0.0°</td><td>Estado</td><td id="route-live-state">INIT</td></tr>
-                            <tr><td>Distancia</td><td id="route-live-dist">0.0 cm</td><td>PWM L / R</td><td id="route-live-pwm">0 / 0</td></tr>
-                            <tr><td>Objetivo / error</td><td id="route-live-error">sin objetivo</td><td>PID P / I / D</td><td id="route-live-control">0 / 0 / 0</td></tr>
-                            <tr><td>Rumbo dinámico / eθ</td><td id="route-live-heading">0.0° / 0.0°</td><td>Encoder / comp.</td><td id="route-live-assist">0.0 / 1.00</td></tr>
-                            <tr><td>Sentido / rumbo</td><td id="route-live-motion">forward · 0°</td><td>Freno / arrastre</td><td id="route-live-brake">0.0 / 0.0 cm</td></tr>
-                            <tr><td>Endpoint / decisión</td><td id="route-live-endpoint">sin corrección</td><td>Corrección / pivote</td><td id="route-live-recovery">—</td></tr>
-                            <tr><td>Arco de giro</td><td id="route-live-arc">0.0 cm</td><td>Traslación X / Y</td><td id="route-live-turn-xy">0.0 / 0.0 cm</td></tr>
-                            <tr><td>Exactitud (Long / Lat)</td><td id="route-live-acc-pos">—</td><td>Exactitud (Yaw / Acum)</td><td id="route-live-acc-ang">—</td></tr>
-                            <tr><td>Sup. Izq.</td><td id="route-live-fl">0</td><td>Sup. Der.</td><td id="route-live-fr">0</td></tr>
-                            <tr><td>Inf. Izq.</td><td id="route-live-bl">0</td><td>Inf. Der.</td><td id="route-live-br">0</td></tr>
-                        </tbody>
-                    </table>
-                </section>
-                <section class="data-table-wrap" tabindex="0" aria-label="Cola de waypoints absolutos">
-                    <div class="data-table-title">Cola de Waypoints y Pasos</div>
-                    <table class="data-table">
-                        <thead><tr><th>#</th><th>Paso</th><th>X (cm)</th><th>Y (cm)</th><th>Estado</th></tr></thead>
-                        <tbody id="route-list">
-                            <tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>
-                        </tbody>
-                    </table>
-                </section>
             </div>
         </div>
     </div>
-
-    <!-- FSM -->

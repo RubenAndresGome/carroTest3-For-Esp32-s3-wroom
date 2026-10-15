@@ -386,7 +386,7 @@ const Calibration = {
                 toggleBtn.addEventListener('click', () => {
                     const isHidden = form.style.display === 'none' || !form.style.display;
                     form.style.display = isHidden ? 'block' : 'none';
-                    toggleBtn.textContent = isHidden ? '✕ Cerrar Editor' : '🛠 Modo Experto (PWM)';
+                    toggleBtn.textContent = isHidden ? '✕ Cerrar Editor' : 'Modo Experto (PWM)';
                 });
             }
 
@@ -396,7 +396,7 @@ const Calibration = {
                 toggleCalBtn.addEventListener('click', () => {
                     const isHidden = calPanel.style.display === 'none' || !calPanel.style.display;
                     calPanel.style.display = isHidden ? 'block' : 'none';
-                    toggleCalBtn.textContent = isHidden ? '✕ Ocultar Diagnósticos' : '📐 Diagnóstico MPU/PCNT';
+                    toggleCalBtn.textContent = isHidden ? '✕ Ocultar Diagnósticos' : 'Diagnóstico MPU/PCNT';
                 });
             }
 
@@ -406,8 +406,8 @@ const Calibration = {
                 autoNameInput.addEventListener('input', () => {
                     const val = autoNameInput.value.trim();
                     calibrateLabel.textContent = val 
-                        ? `🎯 Calibrar y Registrar "${val}"`
-                        : '🎯 Calibrar físicamente (Giro ±25°)';
+                        ? `Calibrar y Registrar "${val}"`
+                        : 'Calibrar físicamente (Giro ±25°)';
                 });
             }
 
@@ -578,7 +578,7 @@ const Calibration = {
                 LogSystem.add('INFO', `Superficie "${saved.name}" registrada en SQLite (PWM: ${pwmPos}/${pwmNeg}).`);
                 if (autoNameInput) autoNameInput.value = '';
                 const calibrateLabel = document.getElementById('btn-calibrate-label');
-                if (calibrateLabel) calibrateLabel.textContent = '🎯 Calibrar físicamente (Giro ±25°)';
+                if (calibrateLabel) calibrateLabel.textContent = 'Calibrar físicamente (Giro ±25°)';
                 await this.loadSurfaces(saved.id);
             } catch (err) {
                 LogSystem.add('ERROR', `Error guardando superficie: ${err.message}`);
@@ -613,7 +613,7 @@ const Calibration = {
                 const autoNameInput = document.getElementById('surface-auto-name');
                 if (autoNameInput) autoNameInput.value = '';
                 const calibrateLabel = document.getElementById('btn-calibrate-label');
-                if (calibrateLabel) calibrateLabel.textContent = '🎯 Calibrar físicamente (Giro ±25°)';
+                if (calibrateLabel) calibrateLabel.textContent = 'Calibrar físicamente (Giro ±25°)';
                 await this.loadSurfaces(saved.id);
             } catch (err) {
                 LogSystem.add('ERROR', `Error registrando calibración automática en SQLite: ${err.message}`);

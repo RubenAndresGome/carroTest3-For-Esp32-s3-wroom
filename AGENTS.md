@@ -8,14 +8,15 @@
   ambos controladores contra el robot al mismo tiempo.
   - `desktop_app/robot_app/hmi/`: HMI modular canónico. Se compone de un esqueleto
     ligero `index.html` (24 líneas), tarjetas HTML independientes en `cards/`
-    (7 componentes: `header.html`, `tab_conexion.html`, `tab_mapa.html`,
-    `tab_testing.html`, `tab_touch.html`, `tab_rutas.html`, `footer_panels.html`),
-    estilos en `css/` (5 hojas: `theme.css`, `layout.css`, `components.css`,
-    `touch.css`, `responsive.css`) y lógica en `js/` (8 módulos: `config.js`,
-    `ws_control.js`, `calibration.js`, `telemetry.js`, `route_manager.js`,
-    `tab_manager.js`, `touch.js`, `main.js`). `web.py` sirve estáticos `/css/`
-    y `/js/`, y ensambla dinámicamente en memoria con CSP nonce y `app-token`.
-    `compilar_hmi.py` provee utilidades CLI y validación `--check`.
+    (8 componentes: `header.html`, `tab_conexion.html`, `tab_mapa.html`,
+    `tab_testing.html`, `tab_touch.html`, `tab_rutas.html`, `hud_boost.html`,
+    `footer_panels.html`), estilos en `css/` (5 hojas: `theme.css`, `layout.css`,
+    `components.css`, `touch.css`, `responsive.css`) y lógica en `js/`
+    (10 módulos: `config.js`, `ws_control.js`, `calibration.js`, `telemetry.js`,
+    `fork_registry.js`, `window_manager.js`, `route_manager.js`, `tab_manager.js`,
+    `touch.js`, `main.js`). `web.py` sirve estáticos `/css/` y `/js/`, y ensambla
+    dinámicamente en memoria con CSP nonce y `app-token`. `compilar_hmi.py` provee
+    utilidades CLI y validación `--check`.
 - `src/` e `include/` contienen el firmware modular actual. Los ensayos físicos
   aprobados están deshabilitados en `archive/firmware_tests/` y se compilan
   únicamente mediante su script de staging.
@@ -151,11 +152,11 @@ Antes de integrar cambios o realizar commits, verificar que las suites de prueba
    ```powershell
    & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" test -e pruebas_control_ruta_nativas
    ```
-3. **Pruebas Unitarias Backend Python (99 pruebas de API, Gateway, BD y HMI)**:
+3. **Pruebas Unitarias Backend Python (101 pruebas de API, Gateway, BD y HMI)**:
    ```powershell
    $env:PYTHONPATH="desktop_app"; & desktop_app\.test-venv\Scripts\python.exe -m unittest discover desktop_app/tests
    ```
-4. **Pruebas Frontend Vitest (11 pruebas de contrato responsive, accesibilidad y CSP)**:
+4. **Pruebas Frontend Vitest (26 pruebas de contrato responsive, accesibilidad, FSM y CSP)**:
    ```powershell
    npm --prefix desktop_app/frontend test
    ```

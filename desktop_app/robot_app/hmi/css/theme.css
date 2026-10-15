@@ -30,6 +30,24 @@
             --glass-border: rgba(151, 176, 202, 0.2);
             --glass-highlight: rgba(255, 255, 255, 0.055);
             --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.28);
+
+            /* Superficies Glass Graduadas */
+            --glass-surface-translucent: rgba(18, 27, 39, 0.72);
+            --glass-surface-card: rgba(22, 32, 46, 0.82);
+            --glass-surface-dock: rgba(10, 16, 24, 0.88);
+            --glass-surface-interacting: rgba(22, 32, 46, 0.95);
+
+            /* Bordes y Reflejos */
+            --glass-border-subtle: rgba(151, 176, 202, 0.18);
+            --glass-border-glow-plan: rgba(0, 230, 118, 0.45);
+            --glass-border-glow-boost: rgba(255, 171, 0, 0.50);
+            --glass-specular-edge: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+            /* Desenfoques de Alto Rendimiento */
+            --glass-blur-safe: 8px;
+            --glass-blur-dock: 12px;
+            --glass-blur-boost: 10px;
+
             --radius: 12px;
             --radius-sm: 8px;
             --touch-target-min: 44px;
@@ -66,4 +84,55 @@
             background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
             background-attachment: fixed;
             line-height: 1.5;
+        }
+
+        /* Temas Alternativos Dinámicos */
+        :root[data-theme="high-contrast"], body.theme-high-contrast {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #121212;
+            --bg-card-hover: #1f1f1f;
+            --bg-input: #050505;
+            --border: #64748b;
+            --border-light: #94a3b8;
+            --text-primary: #ffffff;
+            --text-secondary: #e2e8f0;
+            --text-muted: #cbd5e1;
+            --accent: #00ff7f;
+            --accent-dim: rgba(0, 255, 127, 0.2);
+            --glass-surface: rgba(18, 18, 18, 0.95);
+            --glass-surface-card: rgba(18, 18, 18, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.35);
+            --glass-border-subtle: rgba(255, 255, 255, 0.25);
+        }
+
+        :root[data-theme="light-glass"], body.theme-light-glass {
+            --bg-primary: #e6ecf3;
+            --bg-secondary: #d9e2ec;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f0f4f8;
+            --bg-input: #f8fafc;
+            --border: #bcccdc;
+            --border-light: #9fb3c8;
+            --text-primary: #102a43;
+            --text-secondary: #243b53;
+            --text-muted: #486581;
+            --accent: #00a854;
+            --accent-dim: rgba(0, 168, 84, 0.15);
+            --accent-glow: rgba(0, 168, 84, 0.35);
+            --glass-surface: rgba(255, 255, 255, 0.85);
+            --glass-surface-card: rgba(255, 255, 255, 0.88);
+            --glass-surface-translucent: rgba(245, 248, 252, 0.82);
+            --glass-surface-dock: rgba(240, 244, 250, 0.92);
+            --glass-border: rgba(160, 180, 205, 0.4);
+            --glass-border-subtle: rgba(160, 180, 205, 0.3);
+            --shadow-elevated: 0 18px 44px rgba(16, 42, 67, 0.15);
+        }
+        body.theme-light-glass {
+            background-color: #e6ecf3;
+            background-image:
+                radial-gradient(circle at 18% 2%, rgba(0,168,84,0.08) 0%, transparent 28%),
+                radial-gradient(circle at 88% 12%, rgba(0,176,255,0.06) 0%, transparent 32%),
+                linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
         }

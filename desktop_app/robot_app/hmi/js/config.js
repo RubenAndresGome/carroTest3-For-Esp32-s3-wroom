@@ -72,6 +72,7 @@
           if (xInput === '' || yInput === '') return;
           const x = parseFloat(xInput);
           const y = parseFloat(yInput);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
           const newPoint = {x: lastPoint.x + x, y: lastPoint.y + y};
           robotChart.data.datasets[0].data.push(newPoint);

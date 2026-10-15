@@ -60,14 +60,18 @@
             top: var(--header-h);
             z-index: 99;
             flex-shrink: 0;
+            overflow-x: auto;
+            align-items: center;
         }
         .tab-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 7px;
-            flex: 1;
-            padding: 0 10px;
+            flex: 1 0 auto;
+            min-width: max-content;
+            padding: 0 12px;
+            height: 100%;
             border: 1px solid var(--glass-border);
             border-radius: 10px;
             background: linear-gradient(180deg, rgba(42,57,75,.74), rgba(23,33,47,.78));
@@ -80,21 +84,693 @@
             cursor: pointer;
             transition: all 0.2s;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            position: relative;
+            user-select: none;
         }
         .tab-btn:hover { color: var(--text-primary); border-color: rgba(170,194,219,.35); background: rgba(48,65,84,.86); }
-        .tab-btn.active {
-            color: #73f5b1; border-color: rgba(0,230,118,.58);
-            background: linear-gradient(180deg, rgba(0,230,118,.18), rgba(0,145,83,.13));
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 18px rgba(0,230,118,.2);
+        
+        /* Estado Activo (Focused): Resplandor Cian / Borde Activo */
+        .tab-btn.active, .tab-btn.is-active {
+            color: #73f5b1; border-color: rgba(0,230,118,.65);
+            background: linear-gradient(180deg, rgba(0,230,118,.20), rgba(0,145,83,.14));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 16px rgba(0,230,118,.25);
         }
-        .tab-bar::-webkit-scrollbar, .session-table-wrap::-webkit-scrollbar,
-        .data-table-wrap::-webkit-scrollbar, .fsm-panel::-webkit-scrollbar { width: 6px; height: 6px; }
-        .tab-bar::-webkit-scrollbar-track, .session-table-wrap::-webkit-scrollbar-track,
-        .data-table-wrap::-webkit-scrollbar-track, .fsm-panel::-webkit-scrollbar-track { background: rgba(5,9,14,.72); }
-        .tab-bar::-webkit-scrollbar-thumb, .session-table-wrap::-webkit-scrollbar-thumb,
-        .data-table-wrap::-webkit-scrollbar-thumb, .fsm-panel::-webkit-scrollbar-thumb { background: #40536a; border-radius: 999px; }
-        .tab-bar, .session-table-wrap, .data-table-wrap, .fsm-panel { scrollbar-width: thin; scrollbar-color: #40536a rgba(5,9,14,.72); }
+        .tab-btn.active::after, .tab-btn.is-active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 15%;
+            right: 15%;
+            height: 2px;
+            background: #00e676;
+            box-shadow: 0 0 8px #00e676;
+            border-radius: 2px;
+        }
+
+        /* Estado Minimizado: Badge / Resplandor Ámbar */
+        .tab-btn.is-minimized {
+            color: #ffc107 !important;
+            border-color: rgba(255,171,0,.65) !important;
+            background: linear-gradient(180deg, rgba(255,171,0,.15), rgba(180,100,0,.09)) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 0 14px rgba(255,171,0,.25) !important;
+            opacity: 0.92;
+        }
+        .tab-btn.is-minimized::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 25%;
+            right: 25%;
+            height: 2px;
+            background: #ffab00;
+            box-shadow: 0 0 6px #ffab00;
+            border-radius: 2px;
+        }
+        .tab-btn.is-minimized::before {
+            content: '—';
+            position: absolute;
+            top: 2px;
+            right: 5px;
+            font-size: 8px;
+            font-weight: 800;
+            color: #ffab00;
+            line-height: 1;
+        }
+
+        /* Botón de cierre para pestañas y ventanas dinámicas */
+        .tab-btn .tab-btn-close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            margin-left: 5px;
+            font-size: 9px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.12);
+            color: var(--text-muted);
+            transition: all 0.15s;
+            line-height: 1;
+        }
+        .tab-btn .tab-btn-close:hover {
+            background: rgba(255,23,68,.8);
+            color: #fff;
+        }
+        /* Scrollbar oscuro y delgado para Windows */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+        .tab-bar, .session-table-wrap, .data-table-wrap, .fsm-panel, .window-scroll-body {
+            scrollbar-width: thin;
+            scrollbar-color: #334155 #0f172a;
+        }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        /* ============================================
+           4b. ESPACIO DE TRABAJO & MODO DE VENTANAS
+           ============================================ */
+        .workspace-mode-selector {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 4px;
+            border: 1px solid var(--glass-border);
+            border-radius: 9px;
+            background: rgba(9, 14, 22, 0.72);
+            flex-shrink: 0;
+        }
+        .btn-ws-mode {
+            padding: 3px 7px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        .btn-ws-mode:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .btn-ws-mode.active {
+            color: var(--accent);
+            border-color: rgba(0, 230, 118, 0.4);
+            background: var(--accent-dim);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        #hmi-workspace {
+            position: relative;
+            width: 100%;
+            min-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 200px);
+        }
+
+        /* Modo Pestañas Clásico */
+        #hmi-workspace.workspace-tabs .tab-content { display: none; }
+        #hmi-workspace.workspace-tabs .tab-content.active { display: block; }
+        #hmi-workspace.workspace-tabs .window-header { display: none; }
+        #hmi-workspace.workspace-tabs .window-resize-handle { display: none; }
+
+        /* Modo Mosaico (Tiling Grid) */
+        #hmi-workspace.workspace-tiling {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 14px;
+            padding: 10px 12px;
+            align-items: start;
+        }
+        #hmi-workspace.workspace-tiling .tab-content {
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            min-height: 400px;
+            min-width: 320px;
+            position: relative !important;
+            transform: none !important;
+            box-sizing: border-box;
+            resize: both;
+            overflow: auto;
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+        }
+        #hmi-workspace.workspace-tiling .window-header { display: flex; cursor: default; }
+        #hmi-workspace.workspace-tiling .window-resize-handle {
+            display: block;
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 18px;
+            height: 18px;
+            cursor: se-resize;
+            z-index: 25;
+            touch-action: none;
+        }
+
+        /* Modo Flotante (Floating Windows) */
+        #hmi-workspace.workspace-floating {
+            position: relative;
+            min-height: 720px;
+            padding: 10px 12px;
+        }
+        #hmi-workspace.workspace-floating .tab-content {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            z-index: 10;
+            margin: 0;
+            min-width: 320px;
+            min-height: 240px;
+            overflow: hidden;
+        }
+        #hmi-workspace.workspace-floating .tab-content.is-minimized {
+            display: none !important;
+        }
+        #hmi-workspace.workspace-floating .tab-content > :not(.window-header):not(.window-resize-handle) {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        #hmi-workspace.workspace-floating .tab-content > .card.route-content {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #hmi-workspace.workspace-floating .tab-content > .card.route-content > .window-scroll-body:not([hidden]) {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        #hmi-workspace.workspace-floating .window-header { display: flex; cursor: grab; }
+        #hmi-workspace.workspace-floating .window-resize-handle { display: block; }
+
+        /* Chrome de Ventana Glassmorphism */
+        .window-frame {
+            background: var(--glass-surface-card);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-elevated), var(--glass-specular-edge);
+            backdrop-filter: blur(var(--glass-blur-safe));
+            -webkit-backdrop-filter: blur(var(--glass-blur-safe));
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.2s;
+        }
+        .window-frame.is-focused {
+            border-color: rgba(0, 230, 118, 0.45);
+            box-shadow: 0 0 20px rgba(0, 230, 118, 0.18), var(--shadow-elevated);
+        }
+        .window-frame.is-maximized {
+            position: fixed !important;
+            top: var(--header-h) !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: calc(100vh - var(--header-h) - 48px) !important;
+            z-index: 999 !important;
+            border-radius: 0 !important;
+        }
+        .window-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            background: rgba(14, 22, 33, 0.88);
+            border-bottom: 1px solid var(--glass-border-subtle);
+            user-select: none;
+            touch-action: none;
+            flex-shrink: 0;
+        }
+        .window-header:active {
+            cursor: grabbing;
+        }
+        .window-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            color: var(--text-primary);
+        }
+        .window-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .win-btn {
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .win-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            border-color: var(--glass-border-subtle);
+        }
+        .win-btn-close:hover {
+            background: var(--error-dim);
+            color: var(--error);
+            border-color: rgba(255, 23, 68, 0.4);
+        }
+        .window-resize-handle {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 16px;
+            height: 16px;
+            cursor: se-resize;
+            touch-action: none;
+            z-index: 20;
+        }
+        .window-resize-handle::after {
+            content: '';
+            position: absolute;
+            right: 4px;
+            bottom: 4px;
+            width: 6px;
+            height: 6px;
+            border-right: 2px solid var(--text-muted);
+            border-bottom: 2px solid var(--text-muted);
+        }
+
+        /* Salvaguarda de rendimiento: desactiva blur pesado durante arrastre/interacción */
+        .is-interacting, .is-interacting *,
+        body.is-dragging-window *,
+        body.is-touch-interacting * {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        .is-interacting {
+            background: var(--glass-surface-interacting) !important;
+            user-select: none;
+        }
+        body.is-dragging-window, body.is-dragging-window *,
+        body.is-touch-interacting, body.is-touch-interacting * {
+            user-select: none !important;
+        }
+
+        /* Menú Catálogo de Forks y Módulos */
+        .glass-fork-menu {
+            position: absolute;
+            top: calc(var(--header-h) + 6px);
+            right: 12px;
+            z-index: 1000;
+            width: 330px;
+            background: var(--glass-surface-card);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), var(--glass-specular-edge);
+            backdrop-filter: blur(var(--glass-blur-safe));
+            -webkit-backdrop-filter: blur(var(--glass-blur-safe));
+            padding: 12px;
+        }
+        .glass-fork-menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-primary);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--glass-border-subtle);
+            margin-bottom: 8px;
+        }
+        .glass-fork-menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid transparent;
+            cursor: pointer;
+            margin-bottom: 6px;
+            transition: all 0.15s;
+        }
+        .glass-fork-menu-item:hover {
+            background: rgba(0, 230, 118, 0.08);
+            border-color: rgba(0, 230, 118, 0.35);
+            transform: translateX(2px);
+        }
+
+        /* Sistema unificado de ventanas en barra superior (Dock inferior removido) */
+
+        /* ============================================
+           4c. PLANEADOR DE RUTAS (Master-Detail 2-Column Grid)
+           ============================================ */
+        .route-planner-layout {
+            display: grid;
+            grid-template-columns: minmax(360px, 42%) 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+        @media (max-width: 1024px) {
+            .route-planner-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        .route-planner-col-control, .route-planner-col-view {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+        }
+        .route-queue-scroll {
+            max-height: 260px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: rgba(0, 0, 0, 0.2);
+            scrollbar-width: thin;
+        }
+        .route-queue-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .route-queue-scroll::-webkit-scrollbar-thumb {
+            background: #40536a;
+            border-radius: 999px;
+        }
+
+        /* Contenedor principal con scroll vertical controlado */
+        .window-scroll-body:not([hidden]),
+        .window-scroll-pane {
+            max-height: calc(100vh - 3.5rem);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 6px;
+        }
+
+        /* Barra de Máquina de Estados Sticky Superior */
+        .fsm-sticky-bar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid rgba(51, 65, 85, 0.8);
+            border-radius: 12px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+        .fsm-sticky-bar .fsm-flow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .fsm-sticky-bar .fsm-node {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--font-mono, monospace);
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            transition: all 0.2s ease;
+        }
+        .fsm-sticky-bar .fsm-node.active {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border-color: #10b981;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+        }
+        .fsm-sticky-bar .fsm-node.active-reverse {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border-color: #0284c7;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+        .fsm-sticky-bar .fsm-node.active-fault {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border-color: #ef4444;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+        }
+        .fsm-sticky-bar .fsm-node.active-estop {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            border-color: #dc2626;
+            box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+            animation: blink-estop 0.8s infinite;
+        }
+        .fsm-ping {
+            display: none;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #34d399;
+            box-shadow: 0 0 6px #34d399;
+            animation: ping-pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        .fsm-node.active .fsm-ping {
+            display: inline-block;
+        }
+        @keyframes ping-pulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.4; }
+            100% { transform: scale(0.9); opacity: 1; }
+        }
+        .fsm-checkpoint-meta {
+            font-size: 11px;
+            font-family: var(--font-mono, monospace);
+            color: #94a3b8;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .fsm-checkpoint-meta .info-panel-inline {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            border: none;
+            color: #cbd5e1;
+        }
+        .fsm-sticky-bar .fsm-arrow {
+            position: relative;
+            width: 14px;
+            height: 1px;
+            background: #475569;
+        }
+        .fsm-sticky-bar .fsm-arrow::after {
+            content: '';
+            position: absolute;
+            right: -1px;
+            top: -3px;
+            width: 5px;
+            height: 5px;
+            border-top: 1px solid #64748b;
+            border-right: 1px solid #64748b;
+            transform: rotate(45deg);
+        }
+
+        /* Barra de Gestión de Nombre de Ruta */
+        .route-name-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            border-radius: 8px;
+            padding: 6px 10px;
+        }
+        .route-name-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+        .route-name-input-wrap {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            max-width: 320px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .route-name-field {
+            flex: 1;
+            height: 28px;
+            padding: 2px 8px;
+            background: transparent;
+            border: none;
+            color: #34d399;
+            font-family: var(--font-mono, monospace);
+            font-size: 12px;
+            font-weight: 600;
+            outline: none;
+        }
+        .route-name-field:focus {
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .route-name-input-wrap .btn,
+        .route-name-toolbar .btn {
+            height: 28px;
+            padding: 0 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .route-name-input-wrap .btn:hover,
+        .route-name-toolbar .btn:hover {
+            background: #334155;
+            border-color: #10b981;
+            color: #34d399;
+        }
+
+        /* Métricas y Botonera */
+        .metric-highlight-green {
+            border: 1px solid rgba(16, 185, 129, 0.5) !important;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+        }
+        .btn-save-route-primary {
+            width: 100%;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 16px;
+            font-size: 13px;
+            border-radius: var(--radius-sm);
+            background: #10b981;
+            color: #020617;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-save-route-primary:hover {
+            background: #34d399;
+            box-shadow: 0 4px 18px rgba(16, 185, 129, 0.5);
+            transform: translateY(-1px);
+        }
+        .route-secondary-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .route-secondary-actions-grid .btn {
+            font-size: 11px;
+            padding: 6px 8px;
+            justify-content: center;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .btn-outline {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(51, 65, 85, 0.7);
+            color: var(--text-primary);
+        }
+        .btn-outline:hover {
+            background: rgba(51, 65, 85, 0.4);
+            border-color: var(--accent);
+        }
+        .btn-success {
+            background: #10b981;
+            color: #020617;
+            font-weight: 700;
+        }
+        .btn-success:hover {
+            background: #34d399;
+        }
+        .btn-outline.btn-warning {
+            color: #f59e0b;
+            border-color: rgba(245, 158, 11, 0.5);
+            background: rgba(245, 158, 11, 0.08);
+        }
+        .btn-outline.btn-warning:hover {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: #f59e0b;
+        }
+        .btn-outline.btn-ghost {
+            color: #94a3b8;
+            border-color: rgba(148, 163, 184, 0.4);
+            background: rgba(148, 163, 184, 0.05);
+        }
+        .btn-outline.btn-ghost:hover {
+            background: rgba(148, 163, 184, 0.15);
+            border-color: #cbd5e1;
+        }
+        .btn-outline.btn-error {
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.08);
+        }
+        .btn-outline.btn-error:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+        }
+        .btn-danger-outline {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+        .btn-danger-outline:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+        }
+

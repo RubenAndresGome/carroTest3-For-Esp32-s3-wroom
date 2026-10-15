@@ -206,6 +206,7 @@ class RobotService:
         self._mission_accumulated_angular_deg: float = 0.0
         self._mission_accuracy: dict[str, Any] = {}
         self._session_id: int | None = None
+        self._telemetry_recording_mode: str = str(database.get_setting("telemetry_recording_mode", "always") or "always")
         self._last_telemetry: TelemetrySnapshot | None = None
         self._telemetry_sequence = 0
         self._last_recorded_at = 0.0
@@ -365,7 +366,18 @@ class RobotService:
             return {
                 "robot_host": self._robot_host,
                 "experimental_vectorial_routes": self._vectorial_routes_enabled,
+                "telemetry_recording_mode": self._telemetry_recording_mode,
             }
+
+    def set_telemetry_recording_mode(self, value: object) -> str:
+        mode = str(value or "always").strip().lower()
+        if mode not in {"always", "error_only", "disabled"}:
+            raise ValueError("telemetry_recording_mode debe ser 'always', 'error_only' o 'disabled'")
+        with self._lock:
+            self._telemetry_recording_mode = mode
+        self.database.set_setting("telemetry_recording_mode", mode)
+        self.events.publish("config", self.robot_config())
+        return mode
 
     def set_vectorial_routes_enabled(self, value: object) -> bool:
         if not isinstance(value, bool):
@@ -1258,18 +1270,27 @@ class RobotService:
             self.events.publish("telemetry", public_snapshot)
             self._expire_stalled_mission()
             if session_id is not None:
-                signature = self.database.telemetry_priority_signature(snapshot)
-                active = snapshot.state.lower() in {"ejecutando", "calibrando", "fallo", "estop"} or any(snapshot.pwm)
-                period = self.ACTIVE_TELEMETRY_PERIOD_S if active else self.IDLE_TELEMETRY_PERIOD_S
-                force = (
-                    session_id != self._last_recorded_session_id
-                    or signature != self._last_recorded_signature
-                )
-                if force or snapshot.received_at - self._last_recorded_at >= period:
-                    self._last_recorded_at = snapshot.received_at
-                    self._last_recorded_session_id = session_id
-                    self._last_recorded_signature = signature
-                    self._recorder.submit(session_id, snapshot)
+                mode = self._telemetry_recording_mode
+                is_error = snapshot.state.lower() in {"fallo", "estop"}
+                should_record = True
+                if mode == "disabled":
+                    should_record = False
+                elif mode == "error_only":
+                    should_record = is_error
+
+                if should_record:
+                    signature = self.database.telemetry_priority_signature(snapshot)
+                    active = snapshot.state.lower() in {"ejecutando", "calibrando", "fallo", "estop"} or any(snapshot.pwm)
+                    period = self.ACTIVE_TELEMETRY_PERIOD_S if active else self.IDLE_TELEMETRY_PERIOD_S
+                    force = (
+                        session_id != self._last_recorded_session_id
+                        or signature != self._last_recorded_signature
+                    )
+                    if force or snapshot.received_at - self._last_recorded_at >= period:
+                        self._last_recorded_at = snapshot.received_at
+                        self._last_recorded_session_id = session_id
+                        self._last_recorded_signature = signature
+                        self._recorder.submit(session_id, snapshot)
             if snapshot.torque_history and isinstance(snapshot.torque_history, dict):
                 count = int(snapshot.torque_history.get("record_count", 0) or 0)
                 if count > 0:
@@ -1454,12 +1475,11 @@ class RobotService:
                 self.database.insert_event(self._session_id, "accuracy_point", Severity.INFO.value, self._mission_accuracy)
 
         if realign_needed and cardinal_target is not None:
+            command = self.send_command("turn_to", {"heading": cardinal_target})
             with self._lock:
                 self._mission_stage = "realigning"
                 self._mission_accumulated_lateral_cm = 0.0
                 self._mission_accumulated_angular_deg = 0.0
-            command = self.send_command("turn_to", {"heading": cardinal_target})
-            with self._lock:
                 self._mission_command_id = command.command_id
                 self._mission_seq = command.seq
                 self._mission_command_started_at = None

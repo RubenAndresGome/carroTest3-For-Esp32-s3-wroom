@@ -4,7 +4,7 @@
                 <section class="card calibration-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div class="card-title" style="margin-bottom: 0;">Gestión de Superficies y Calibración</div>
-                        <span class="badge" style="background: rgba(0, 176, 255, 0.12); color: var(--info); border: 1px solid rgba(0, 176, 255, 0.35); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">📶 Wi-Fi 8s Grace</span>
+                        <span class="badge" style="background: rgba(0, 176, 255, 0.12); color: var(--info); border: 1px solid rgba(0, 176, 255, 0.35); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24" style="width:11px;height:11px;vertical-align:middle;margin-right:3px;"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>Wi-Fi 8s Grace</span>
                     </div>
 
                     <!-- ESTADO RESUMEN / COMPACTO -->
@@ -20,7 +20,7 @@
                             <option value="">Cargando superficies...</option>
                         </select>
                         <button type="button" class="btn btn-accent" id="btn-apply-surface" style="flex: 0 0 auto; min-height: var(--touch-target-min); padding: 7px 12px; font-weight: 700; font-size: 11px;">
-                            ⚡ Aplicar
+                            <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Aplicar
                         </button>
                     </div>
 
@@ -32,22 +32,22 @@
                         <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px;">
                             <input type="text" id="surface-auto-name" placeholder="Nombre del piso (ej. Terraza, Sala...)" style="flex: 1 1 160px; padding: 6px 10px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; font-size: 11px;">
                             <button type="button" class="btn" id="btn-save-current-as-surface" title="Guardar calibración actual sin volver a mover el robot" style="flex: 0 0 auto; font-size: 10px; padding: 6px 10px;">
-                                💾 Guardar Actual
+                                <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar Actual
                             </button>
                         </div>
                         <button type="button" class="btn btn-accent" id="btn-calibrate" style="width: 100%; min-height: var(--touch-target-min); font-size: 11px; font-weight: 700; justify-content: center;">
                             <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>
-                            <span id="btn-calibrate-label">🎯 Calibrar físicamente (Giro ±25°)</span>
+                            <span id="btn-calibrate-label">Calibrar físicamente (Giro ±25°)</span>
                         </button>
                     </div>
 
                     <!-- BOTONES DE COMPRESIÓN / HERRAMIENTAS AVANZADAS -->
                     <div style="display: flex; gap: 6px; margin-bottom: 4px;">
                         <button type="button" class="btn btn-sm" id="btn-toggle-surface-manager" style="flex: 1; padding: 4px 6px; font-size: 9px; border-color: var(--border);">
-                            🛠 Modo Experto (PWM)
+                            Modo Experto (PWM)
                         </button>
                         <button type="button" class="btn btn-sm" id="btn-toggle-cal-diagnostics" style="flex: 1; padding: 4px 6px; font-size: 9px; border-color: var(--border);">
-                            📐 Diagnóstico MPU/PCNT
+                            Diagnóstico MPU/PCNT
                         </button>
                     </div>
 
@@ -89,9 +89,9 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <button type="button" class="btn" id="btn-capture-surface" style="flex: 1 1 90px; font-size: 9px; padding: 5px;">📥 Capturar</button>
-                            <button type="button" class="btn btn-accent" id="btn-save-surface" style="flex: 1 1 100px; font-size: 9px; padding: 5px;">💾 Guardar Forzado</button>
-                            <button type="button" class="btn btn-stop" id="btn-delete-surface" style="flex: 0 0 auto; font-size: 9px; padding: 5px 8px;">🗑 Borrar</button>
+                            <button type="button" class="btn" id="btn-capture-surface" style="flex: 1 1 90px; font-size: 9px; padding: 5px;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Capturar</button>
+                            <button type="button" class="btn btn-accent" id="btn-save-surface" style="flex: 1 1 100px; font-size: 9px; padding: 5px;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar Forzado</button>
+                            <button type="button" class="btn btn-stop" id="btn-delete-surface" style="flex: 0 0 auto; font-size: 9px; padding: 5px 8px;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar</button>
                         </div>
                     </div>
 
@@ -116,7 +116,6 @@
                             <div class="cal-diag-sides" id="cal-diag-sides">MPU principal · pivote bilateral pendiente</div>
                         </div>
                         <div class="calibration-actions" style="margin-top: 8px;">
-                            <button type="button" class="btn btn-rearm" id="btn-clear-fault" hidden disabled><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 8v5M12 17h.01"/></svg><span id="btn-clear-fault-label">Rearmar sistema</span></button>
                             <button type="button" class="btn" id="btn-self-test"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.6-2.9 8-7 10-4.1-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-5"/></svg><span id="self-test-state">Autoevaluación lógica</span></button>
                         </div>
                     </div>

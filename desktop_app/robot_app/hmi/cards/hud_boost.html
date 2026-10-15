@@ -1,0 +1,57 @@
+<div class="tab-content window-widget" id="tab-boost" role="region" aria-label="HUD Cinético y Boost">
+    <div class="card hud-boost-card">
+        <div class="card-title"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>HUD Cinético &amp; Boost (DRV8833)</div>
+        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 12px;">
+            Supervisión térmica y de esfuerzo de tracción 4WD con ventana de ráfagas transitorias (80 ms) y compensación diferencial dinámica.
+        </p>
+
+        <div class="boost-metric-grid">
+            <!-- Ráfaga Térmica DRV8833 -->
+            <div class="metric-chip-glass glow-boost">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--warn);">Ventana Ráfaga (80ms)</span>
+                    <span id="boost-burst-time" style="font-family:var(--font-mono); font-size:11px; font-weight:700;">0 / 80 ms</span>
+                </div>
+                <div class="boost-bar-track">
+                    <div id="boost-burst-bar" class="boost-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px; color:var(--text-muted);">
+                    <span>Límite continuo 242/255</span>
+                    <span id="boost-cooldown-status">Cooldown listo</span>
+                </div>
+            </div>
+
+            <!-- Tacómetro Diferencial de Par -->
+            <div class="metric-chip-glass">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--info);">Reparto Par (L / R)</span>
+                    <span id="boost-diff-val" style="font-family:var(--font-mono); font-size:11px; font-weight:700;">Δ 0 PWM</span>
+                </div>
+                <div class="boost-bar-wrap">
+                    <div class="boost-bar-track" style="margin-bottom:3px;">
+                        <div id="boost-left-bar" class="boost-bar-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="boost-bar-track">
+                        <div id="boost-right-bar" class="boost-bar-fill" style="width: 0%; background:linear-gradient(90deg, #00b0ff, #7c4dff);"></div>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:9px; color:var(--text-muted);">
+                    <span id="boost-left-label">L: 0 PWM</span>
+                    <span id="boost-right-label">R: 0 PWM</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fases de Micro-Pulsos Trifásicos -->
+        <div style="margin-top:10px;">
+            <div style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin-bottom:6px;">
+                Fase de Micro-Pulsos Intermitentes
+            </div>
+            <div class="boost-phases">
+                <div id="boost-phase-1" class="boost-phase-pill">1. Pulso de Par (40ms)</div>
+                <div id="boost-phase-2" class="boost-phase-pill">2. Freno Back-EMF</div>
+                <div id="boost-phase-3" class="boost-phase-pill active">3. Integración MPU (Estable)</div>
+            </div>
+        </div>
+    </div>
+</div>

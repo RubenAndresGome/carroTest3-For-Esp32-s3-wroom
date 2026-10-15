@@ -18,6 +18,8 @@ CSS_DIR = HMI_DIR / "css"
 JS_DIR = HMI_DIR / "js"
 TEMPLATE_FILE = HMI_DIR / "template.html"
 INDEX_FILE = HMI_DIR / "index.html"
+DIST_DIR = HMI_DIR / "dist"
+DIST_FILE = DIST_DIR / "index.html"
 
 CSS_ORDER = [
     "theme.css",
@@ -34,6 +36,7 @@ CARDS_ORDER = [
     "tab_testing.html",
     "tab_touch.html",
     "tab_rutas.html",
+    "hud_boost.html",
     "footer_panels.html",
 ]
 
@@ -42,6 +45,8 @@ JS_ORDER = [
     "ws_control.js",
     "calibration.js",
     "telemetry.js",
+    "fork_registry.js",
+    "window_manager.js",
     "route_manager.js",
     "tab_manager.js",
     "touch.js",
@@ -274,14 +279,41 @@ def main() -> None:
         return
 
     if args.check:
-        compiled = compile_hmi()
-        current = INDEX_FILE.read_text(encoding="utf-8") if INDEX_FILE.exists() else ""
-        if hashlib.sha256(compiled.encode("utf-8")).hexdigest() == hashlib.sha256(current.encode("utf-8")).hexdigest():
-            print("OK: index.html esta sincronizado con las fuentes modulares.")
-            sys.exit(0)
-        else:
-            print("ERROR: index.html no coincide con las fuentes modulares. Ejecuta python compilar_hmi.py para actualizarlo.", file=sys.stderr)
+        if not INDEX_FILE.exists():
+            print("ERROR: index.html esqueleto ligero no existe.", file=sys.stderr)
             sys.exit(1)
+        skeleton = INDEX_FILE.read_text(encoding="utf-8")
+        if "/* <!-- INCLUDE_CSS --> */" not in skeleton or \
+           "<!-- <!-- INCLUDE_CARDS --> -->" not in skeleton or \
+           "/* <!-- INCLUDE_JS --> */" not in skeleton:
+            print("ERROR: index.html no contiene los marcadores de ensamblado modulares.", file=sys.stderr)
+            sys.exit(1)
+
+        missing = []
+        for c in CSS_ORDER:
+            if not (CSS_DIR / c).exists(): missing.append(f"css/{c}")
+        for cd in CARDS_ORDER:
+            if not (CARDS_DIR / cd).exists(): missing.append(f"cards/{cd}")
+        for j in JS_ORDER:
+            if not (JS_DIR / j).exists(): missing.append(f"js/{j}")
+        if missing:
+            print(f"ERROR: Faltan archivos modulares requeridos: {', '.join(missing)}", file=sys.stderr)
+            sys.exit(1)
+
+        try:
+            compiled = compile_hmi()
+        except Exception as e:
+            print(f"ERROR: Fallo al compilar fuentes modulares: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if len(compiled) < 10000:
+            print(f"ERROR: Compilacion sospechosamente pequena ({len(compiled)} bytes).", file=sys.stderr)
+            sys.exit(1)
+
+        DIST_DIR.mkdir(parents=True, exist_ok=True)
+        DIST_FILE.write_text(compiled, encoding="utf-8")
+        print("OK: Fuentes modulares del HMI ensamblan limpiamente y dist/index.html actualizado.")
+        sys.exit(0)
 
     if args.watch:
         import time
@@ -294,8 +326,9 @@ def main() -> None:
                 if current_mtime > last_mtime:
                     last_mtime = current_mtime
                     compiled = compile_hmi()
-                    INDEX_FILE.write_text(compiled, encoding="utf-8")
-                    print(f"[{time.strftime('%H:%M:%S')}] HMI recompilado exitosamente ({len(compiled)} bytes).")
+                    DIST_DIR.mkdir(parents=True, exist_ok=True)
+                    DIST_FILE.write_text(compiled, encoding="utf-8")
+                    print(f"[{time.strftime('%H:%M:%S')}] HMI recompilado exitosamente ({len(compiled)} bytes en dist/index.html).")
                 time.sleep(0.5)
             except KeyboardInterrupt:
                 break
@@ -303,8 +336,9 @@ def main() -> None:
 
     # Compilacion por defecto
     compiled = compile_hmi()
-    INDEX_FILE.write_text(compiled, encoding="utf-8")
-    print(f"[OK] index.html generado exitosamente ({len(compiled)} bytes) desde fuentes modulares.")
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    DIST_FILE.write_text(compiled, encoding="utf-8")
+    print(f"[OK] dist/index.html generado exitosamente ({len(compiled)} bytes) desde fuentes modulares.")
 
 
 if __name__ == "__main__":
