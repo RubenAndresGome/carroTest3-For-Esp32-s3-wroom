@@ -186,56 +186,64 @@
             }
             this._uiTelem(); this._uiPos();
         },
+        _uiGenericReadouts(t, angleZ) {
+            document.getElementById('telem-dist').textContent = `${t.distancia.toFixed(1)} cm`;
+            document.getElementById('telem-angle').textContent = `${t.angulo.toFixed(1)}°`;
+            document.getElementById('telem-orient').textContent = `${t.orientacion.toFixed(2)} rad`;
+            document.getElementById('telem-enc-l').textContent = `F:${t.pfl} B:${t.pbl}`;
+            document.getElementById('telem-enc-r').textContent = `F:${t.pfr} B:${t.pbr}`;
+            document.getElementById('telem-pwm-l').textContent = `${t.pwmL}`;
+            document.getElementById('telem-pwm-r').textContent = `${t.pwmR}`;
+            document.getElementById('telem-clients').textContent = state.connected ? '1' : '0';
+            document.getElementById('pulses-fl').textContent = `Pulsos: ${t.pfl || 0}`;
+            document.getElementById('pulses-fr').textContent = `Pulsos: ${t.pfr || 0}`;
+            document.getElementById('pulses-bl').textContent = `Pulsos: ${t.pbl || 0}`;
+            document.getElementById('pulses-br').textContent = `Pulsos: ${t.pbr || 0}`;
+            document.getElementById('gyro-angle').textContent = `${angleZ.toFixed(1)}°`;
+            document.getElementById('gyro-x').textContent = `${angleZ.toFixed(1)}°`;
+            document.getElementById('gyro-y').textContent = `${(t.orientacion * 180 / Math.PI).toFixed(1)}°`;
+            document.getElementById('gyro-dial').style.setProperty('--gyro-angle', `${angleZ}deg`);
+            document.getElementById('touch-angle-value').textContent = `${angleZ.toFixed(1)}°`;
+            document.getElementById('touch-live-state').textContent = state.estado;
+            document.getElementById('chart-status-x').textContent = t.posX.toFixed(1);
+            document.getElementById('chart-status-y').textContent = t.posY.toFixed(1);
+            document.getElementById('chart-status-angle').textContent = `${angleZ.toFixed(1)}°`;
+            document.getElementById('chart-status-state').textContent = state.estado;
+        },
+
+        _uiRouteReadouts(t, angleZ) {
+            document.getElementById('route-live-x').textContent = `${t.posX.toFixed(1)} cm`;
+            document.getElementById('route-live-y').textContent = `${t.posY.toFixed(1)} cm`;
+            document.getElementById('route-live-yaw').textContent = `${angleZ.toFixed(1)}°`;
+            document.getElementById('route-live-state').textContent = state.estado;
+            document.getElementById('route-live-dist').textContent = `${t.distancia.toFixed(1)} cm`;
+            document.getElementById('route-live-pwm').textContent = `${t.pwmL} / ${t.pwmR}`;
+            const target = t.target || {}, control = t.driveControl || {};
+            document.getElementById('route-live-error').textContent = target.absolute
+                ? `Av ${Number(target.longitudinal_error_cm || 0).toFixed(1)} · L ${Number(target.lateral_error_cm || 0).toFixed(1)} · D ${Number(target.distance_error_cm || 0).toFixed(1)} cm · #${Number(target.endpoint_attempt || 0)}${target.finish_reason ? ` · ${target.finish_reason}` : ''}`
+                : 'paso relativo';
+            document.getElementById('route-live-control').textContent = `${Number(control.p || 0).toFixed(1)} / ${Number(control.i || 0).toFixed(1)} / ${Number(control.d || 0).toFixed(1)}`;
+            document.getElementById('route-live-heading').textContent = `${Number(control.dynamic_heading_deg || 0).toFixed(1)}° / ${Number(control.heading_error_deg || 0).toFixed(1)}°`;
+            document.getElementById('route-live-assist').textContent = `${Number(control.encoder_pwm || 0).toFixed(1)} / ${Number(control.right_compensation || 1).toFixed(2)} · yaw ${control.heading_brake_side || 'none'}`;
+            const motion = t.motion || {};
+            const rampaReversa = motion.reverse_ramp_active ? ` · rampa R ${Number(motion.reverse_ramp_elapsed_ms || 0)} ms` : '';
+            document.getElementById('route-live-motion').textContent = `${motion.effective_mode || motion.requested_mode || 'forward'} · trayecto ${Number(motion.travel_heading_deg || 0).toFixed(1)}° · chasis ${Number(motion.body_heading_deg || 0).toFixed(1)}° · final ${Number(motion.final_heading_deg || 0).toFixed(1)}°${rampaReversa}`;
+            document.getElementById('route-live-brake').textContent = `pred ${Number(motion.brake_prediction_cm || 0).toFixed(1)} · arrastre ${Number(motion.coast_cm || 0).toFixed(1)} cm · asent. ${Number(motion.settle_elapsed_ms || 0)} ms`;
+            const recovery = t.recovery || {};
+            document.getElementById('route-live-endpoint').textContent = `${recovery.decision || 'none'} · error ${Number(recovery.distance_cm || 0).toFixed(1)} / mín ${Number(recovery.min_distance_cm || 0).toFixed(1)} cm`;
+            document.getElementById('route-live-recovery').textContent = recovery.pivot_avoided
+                ? `${recovery.direction || 'reverse'} · sin pivote`
+                : `${recovery.direction || 'forward'} · pivote sólo si hace falta`;
+            document.getElementById('route-live-fl').textContent = t.pfl || 0;
+            document.getElementById('route-live-fr').textContent = t.pfr || 0;
+            document.getElementById('route-live-bl').textContent = t.pbl || 0;
+        },
+
         _uiTelem() {
             const t = state.telemetria;
-            document.getElementById('telem-dist').textContent=`${t.distancia.toFixed(1)} cm`;
-            document.getElementById('telem-angle').textContent=`${t.angulo.toFixed(1)}°`;
-            document.getElementById('telem-orient').textContent=`${t.orientacion.toFixed(2)} rad`;
-            document.getElementById('telem-enc-l').textContent=`F:${t.pfl} B:${t.pbl}`;
-            document.getElementById('telem-enc-r').textContent=`F:${t.pfr} B:${t.pbr}`;
-            document.getElementById('telem-pwm-l').textContent=`${t.pwmL}`;
-            document.getElementById('telem-pwm-r').textContent=`${t.pwmR}`;
-            document.getElementById('telem-clients').textContent=state.connected?'1':'0';
-            document.getElementById('pulses-fl').textContent=`Pulsos: ${t.pfl || 0}`;
-            document.getElementById('pulses-fr').textContent=`Pulsos: ${t.pfr || 0}`;
-            document.getElementById('pulses-bl').textContent=`Pulsos: ${t.pbl || 0}`;
-            document.getElementById('pulses-br').textContent=`Pulsos: ${t.pbr || 0}`;
             const angleZ = Number.isFinite(t.angulo) ? t.angulo : 0;
-            document.getElementById('gyro-angle').textContent=`${angleZ.toFixed(1)}°`;
-            document.getElementById('gyro-x').textContent=`${angleZ.toFixed(1)}°`;
-            document.getElementById('gyro-y').textContent=`${(t.orientacion * 180 / Math.PI).toFixed(1)}°`;
-            document.getElementById('gyro-dial').style.setProperty('--gyro-angle', `${angleZ}deg`);
-            document.getElementById('touch-angle-value').textContent=`${angleZ.toFixed(1)}°`;
-            document.getElementById('touch-live-state').textContent=state.estado;
-            document.getElementById('chart-status-x').textContent=t.posX.toFixed(1);
-            document.getElementById('chart-status-y').textContent=t.posY.toFixed(1);
-            document.getElementById('chart-status-angle').textContent=`${angleZ.toFixed(1)}°`;
-            document.getElementById('chart-status-state').textContent=state.estado;
-            document.getElementById('route-live-x').textContent=`${t.posX.toFixed(1)} cm`;
-            document.getElementById('route-live-y').textContent=`${t.posY.toFixed(1)} cm`;
-            document.getElementById('route-live-yaw').textContent=`${angleZ.toFixed(1)}°`;
-            document.getElementById('route-live-state').textContent=state.estado;
-            document.getElementById('route-live-dist').textContent=`${t.distancia.toFixed(1)} cm`;
-            document.getElementById('route-live-pwm').textContent=`${t.pwmL} / ${t.pwmR}`;
-            const target=t.target||{}, control=t.driveControl||{};
-            document.getElementById('route-live-error').textContent=target.absolute
-                ? `Av ${Number(target.longitudinal_error_cm||0).toFixed(1)} · L ${Number(target.lateral_error_cm||0).toFixed(1)} · D ${Number(target.distance_error_cm||0).toFixed(1)} cm · #${Number(target.endpoint_attempt||0)}${target.finish_reason?` · ${target.finish_reason}`:''}`
-                : 'paso relativo';
-            document.getElementById('route-live-control').textContent=`${Number(control.p||0).toFixed(1)} / ${Number(control.i||0).toFixed(1)} / ${Number(control.d||0).toFixed(1)}`;
-            document.getElementById('route-live-heading').textContent=`${Number(control.dynamic_heading_deg||0).toFixed(1)}° / ${Number(control.heading_error_deg||0).toFixed(1)}°`;
-            document.getElementById('route-live-assist').textContent=`${Number(control.encoder_pwm||0).toFixed(1)} / ${Number(control.right_compensation||1).toFixed(2)} · yaw ${control.heading_brake_side||'none'}`;
-            const motion=t.motion||{};
-            const rampaReversa=motion.reverse_ramp_active?` · rampa R ${Number(motion.reverse_ramp_elapsed_ms||0)} ms`:'';
-            document.getElementById('route-live-motion').textContent=`${motion.effective_mode||motion.requested_mode||'forward'} · trayecto ${Number(motion.travel_heading_deg||0).toFixed(1)}° · chasis ${Number(motion.body_heading_deg||0).toFixed(1)}° · final ${Number(motion.final_heading_deg||0).toFixed(1)}°${rampaReversa}`;
-            document.getElementById('route-live-brake').textContent=`pred ${Number(motion.brake_prediction_cm||0).toFixed(1)} · arrastre ${Number(motion.coast_cm||0).toFixed(1)} cm · asent. ${Number(motion.settle_elapsed_ms||0)} ms`;
-            const recovery=t.recovery||{};
-            document.getElementById('route-live-endpoint').textContent=`${recovery.decision||'none'} · error ${Number(recovery.distance_cm||0).toFixed(1)} / mín ${Number(recovery.min_distance_cm||0).toFixed(1)} cm`;
-            document.getElementById('route-live-recovery').textContent=recovery.pivot_avoided
-                ? `${recovery.direction||'reverse'} · sin pivote`
-                : `${recovery.direction||'forward'} · pivote sólo si hace falta`;
-            document.getElementById('route-live-fl').textContent=t.pfl || 0;
-            document.getElementById('route-live-fr').textContent=t.pfr || 0;
-            document.getElementById('route-live-bl').textContent=t.pbl || 0;
+            this._uiGenericReadouts(t, angleZ);
+            this._uiRouteReadouts(t, angleZ);
             EncoderSpeed.update(t);
             if (typeof BoostHUD !== 'undefined') BoostHUD.update(t);
         },
@@ -281,16 +289,8 @@
         cooldownRemainingMs: 0,
         lastTime: performance.now(),
 
-        update(t) {
-            const now = performance.now();
-            const dt = Math.min(now - this.lastTime, 200);
-            this.lastTime = now;
-
-            const pwmL = Math.abs(t.pwmL || 0);
-            const pwmR = Math.abs(t.pwmR || 0);
-            const maxPwm = Math.max(pwmL, pwmR);
+        _calcBurstTiming(maxPwm, dt) {
             const isBurst = maxPwm > 242;
-
             if (isBurst) {
                 this.burstDurationMs = Math.min(80, this.burstDurationMs + dt);
                 this.cooldownRemainingMs = 100;
@@ -300,23 +300,28 @@
                     this.cooldownRemainingMs = Math.max(0, this.cooldownRemainingMs - dt);
                 }
             }
+            return isBurst;
+        },
 
+        _renderBurstBar(isBurst) {
             const burstBar = document.getElementById('boost-burst-bar');
             const burstTime = document.getElementById('boost-burst-time');
             const cooldownStatus = document.getElementById('boost-cooldown-status');
-            if (burstBar) {
-                const burstPct = Math.min(100, (this.burstDurationMs / 80) * 100);
-                burstBar.style.width = `${burstPct.toFixed(0)}%`;
-                burstBar.classList.toggle('bursting', isBurst);
-                if (burstTime) burstTime.textContent = `${this.burstDurationMs.toFixed(0)} / 80 ms`;
-                if (cooldownStatus) {
-                    cooldownStatus.textContent = this.cooldownRemainingMs > 0
-                        ? `Cooldown: ${(this.cooldownRemainingMs / 1000).toFixed(1)}s`
-                        : 'Cooldown listo';
-                    cooldownStatus.style.color = this.cooldownRemainingMs > 0 ? 'var(--warn)' : 'var(--accent)';
-                }
-            }
+            if (!burstBar) return;
 
+            const burstPct = Math.min(100, (this.burstDurationMs / 80) * 100);
+            burstBar.style.width = `${burstPct.toFixed(0)}%`;
+            burstBar.classList.toggle('bursting', isBurst);
+            if (burstTime) burstTime.textContent = `${this.burstDurationMs.toFixed(0)} / 80 ms`;
+            if (cooldownStatus) {
+                cooldownStatus.textContent = this.cooldownRemainingMs > 0
+                    ? `Cooldown: ${(this.cooldownRemainingMs / 1000).toFixed(1)}s`
+                    : 'Cooldown listo';
+                cooldownStatus.style.color = this.cooldownRemainingMs > 0 ? 'var(--warn)' : 'var(--accent)';
+            }
+        },
+
+        _renderDifferentialBars(pwmL, pwmR) {
             const diffVal = document.getElementById('boost-diff-val');
             const leftBar = document.getElementById('boost-left-bar');
             const rightBar = document.getElementById('boost-right-bar');
@@ -331,13 +336,13 @@
                 if (leftLabel) leftLabel.textContent = `L: ${pwmL} PWM`;
                 if (rightLabel) rightLabel.textContent = `R: ${pwmR} PWM`;
             }
+        },
 
+        _renderPhases(isTurning, isBurst) {
             const p1 = document.getElementById('boost-phase-1');
             const p2 = document.getElementById('boost-phase-2');
             const p3 = document.getElementById('boost-phase-3');
             if (p1 && p2 && p3) {
-                const isTurning = state.estado === 'GIRANDO';
-                const angleZ = Number.isFinite(t.angulo) ? Math.abs(t.angulo) : 0;
                 if (isTurning && isBurst) {
                     p1.classList.add('active'); p2.classList.remove('active'); p3.classList.remove('active');
                 } else if (isTurning) {
@@ -346,6 +351,20 @@
                     p1.classList.remove('active'); p2.classList.remove('active'); p3.classList.add('active');
                 }
             }
+        },
+
+        update(t) {
+            const now = performance.now();
+            const dt = Math.min(now - this.lastTime, 200);
+            this.lastTime = now;
+
+            const pwmL = Math.abs(t.pwmL || 0);
+            const pwmR = Math.abs(t.pwmR || 0);
+            const isBurst = this._calcBurstTiming(Math.max(pwmL, pwmR), dt);
+
+            this._renderBurstBar(isBurst);
+            this._renderDifferentialBars(pwmL, pwmR);
+            this._renderPhases(state.estado === 'GIRANDO', isBurst);
         }
     };
 

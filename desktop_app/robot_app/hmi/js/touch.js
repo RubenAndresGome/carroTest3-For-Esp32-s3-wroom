@@ -6,14 +6,7 @@
         cx:150,cy:150,maxR:108,deadR:18,
         _sendTimer:0, _lastPwmL:0, _lastPwmR:0, _leaseTimer:null, _begun:false,
         _beginPromise:null, recordingId:null, displayedRecordingId:null,
-        init() {
-            this.wrap=document.getElementById('joystick-wrapper');
-            this.svg=document.getElementById('joystick-svg');
-            this.thumb=document.getElementById('joy-thumb');
-            this.dirLine=document.getElementById('joy-dir-line');
-            this.arc=document.getElementById('joy-speed-arc');
-
-            // Soporte universal para Pointer Events (Android WebView, Chrome, Edge)
+        _bindInputEvents() {
             if (window.PointerEvent) {
                 this.wrap.addEventListener('pointerdown', e => {
                     this.start(e);
@@ -33,7 +26,6 @@
                     }
                 });
             } else {
-                // Fallback para dispositivos táctiles legacy
                 this.wrap.addEventListener('touchstart', e => this.start(e), { passive: false });
                 window.addEventListener('touchmove', e => { if (state.joy.active) this.move(e); }, { passive: false });
                 window.addEventListener('touchend', e => { if (state.joy.active) this.end(e); });
@@ -42,11 +34,21 @@
                 window.addEventListener('mousemove', e => { if (state.joy.active) this.move(e); });
                 window.addEventListener('mouseup', e => { if (state.joy.active) this.end(e); });
             }
+        },
 
-            document.getElementById('btn-touch-return').addEventListener('click',()=>this.returnRecording());
-            document.getElementById('btn-touch-delete').addEventListener('click',()=>this.deleteRecording());
-            document.getElementById('touch-open-area-ack').addEventListener('change',e=>{
-                document.getElementById('btn-touch-return').disabled=!this.recordingId||!e.target.checked;
+        init() {
+            this.wrap = document.getElementById('joystick-wrapper');
+            this.svg = document.getElementById('joystick-svg');
+            this.thumb = document.getElementById('joy-thumb');
+            this.dirLine = document.getElementById('joy-dir-line');
+            this.arc = document.getElementById('joy-speed-arc');
+
+            this._bindInputEvents();
+
+            document.getElementById('btn-touch-return').addEventListener('click', () => this.returnRecording());
+            document.getElementById('btn-touch-delete').addEventListener('click', () => this.deleteRecording());
+            document.getElementById('touch-open-area-ack').addEventListener('change', e => {
+                document.getElementById('btn-touch-return').disabled = !this.recordingId || !e.target.checked;
             });
             this.renderRecording(null);
             this.setCapability(false);

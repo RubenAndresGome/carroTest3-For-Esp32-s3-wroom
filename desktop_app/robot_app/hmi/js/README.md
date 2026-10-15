@@ -8,28 +8,39 @@ El sistema implementa una interfaz de estación de control para telemetría en t
 
 ## 1. Principios de Arquitectura y Seguridad
 
-### 1.1 Vanilla Moderno sin Dependencias Pesadas
+### 1.1 Modularidad Estricta ($\le 500$ líneas por módulo)
+Ningún archivo JavaScript excede las 500 líneas (rango estándar 100–495 líneas). Los métodos y funciones cumplen el Principio de Responsabilidad Única (SRP), manteniendo una longitud de entre 15 y 45 líneas, desacoplando la lógica de dominio en módulos especializados.
+
+### 1.2 Vanilla Moderno sin Dependencias Pesadas
 El frontend prescinde deliberadamente de frameworks pesados (React, Vue, Angular) en favor de JavaScript modular nativo (ES6+), renderizado DOM directo y **Chart.js** con plugins de datalabels y zoom para lienzos cartográficos. Esto garantiza arranque instantáneo, latencia mínima en tablets Android e inmunidad ante incompatibilidades de WebViews empotrados.
 
-### 1.2 Política de Seguridad de Contenido (CSP) y Token Local
+### 1.3 Política de Seguridad de Contenido (CSP) y Token Local
 - **CSP Estricto**: `web.py` inyecta un `nonce` criptográfico dinámico por cada petición HTTP. Quedan prohibidos scripts en línea sin nonce, `unsafe-inline` o `unsafe-eval`.
 - **Autenticación `X-App-Token`**: Al iniciarse el servidor backend de Python, se genera un token de aplicación inyectado en `<meta name="app-token">`. Cada petición REST hacia `/api/v1/*` y cada invocación a endpoints críticos (`/api/v1/commands`, `/api/v1/estop`, `/api/v1/manual/*`) debe incluir la cabecera `X-App-Token`.
 - **Propiedad Única de WebSocket**: El navegador **nunca** se conecta directamente por WebSocket al ESP32. En su lugar, el backend en Python (`gateway.py`) es el dueño único del WebSocket hacia el robot (`ws://192.168.4.1/ws`), reenviando la telemetría al navegador mediante **Server-Sent Events (SSE)** en `/api/v1/events` y despachando comandos mediante REST.
 
-### 1.3 Ensamblado Modular y Verificación (`compilar_hmi.py`)
-El archivo maestro `index.html` actúa como esqueleto ligero. El script `compilar_hmi.py` concatena y valida los 10 módulos en el orden estricto de dependencias definido por `JS_ORDER`:
+### 1.4 Ensamblado Modular y Verificación (`compilar_hmi.py`)
+El archivo maestro `index.html` actúa como esqueleto ligero. El script `compilar_hmi.py` concatena y valida los 18 módulos en el orden estricto de dependencias definido por `JS_ORDER`:
 
 ```python
 JS_ORDER = [
     "config.js",
     "ws_control.js",
+    "surface_manager.js",
     "calibration.js",
     "telemetry.js",
     "fork_registry.js",
+    "window_interact.js",
+    "window_layout.js",
     "window_manager.js",
+    "route_modes.js",
+    "route_forks.js",
+    "route_charts.js",
+    "route_ockham.js",
     "route_manager.js",
     "tab_manager.js",
     "touch.js",
+    "settings_manager.js",
     "main.js",
 ]
 ```
@@ -47,17 +58,20 @@ flowchart TD
     WSControl -->|Misión / Odometría Real| RouteManager["RouteManager (route_manager.js)"]
     WSControl -->|Capability manual_drive_v1| Touch["Touch Joystick (touch.js)"]
     
+    Calibration --> SurfaceManager["SurfaceManager (surface_manager.js)"]
     Telemetry --> HUD["HUD Boost & Medidores"]
     Telemetry --> LogSystem["LogSystem (telemetry.js)"]
     Telemetry --> MotorViz["MotorViz (telemetry.js)"]
     
-    Calibration --> CalUI["Panel de Calibración & Superficies"]
-    RouteManager --> RouteCharts["Chart.js: Plan Teórico & Telemetría Real"]
-    RouteManager --> OckhamCockpit["Cockpit Retorno Ockham"]
+    RouteManager --> RouteModes["RouteModes (route_modes.js)"]
+    RouteManager --> RouteForks["RouteForksManager (route_forks.js)"]
+    RouteManager --> RouteCharts["RouteCharts (route_charts.js)"]
+    RouteManager --> RouteOckham["RouteOckhamCockpit (route_ockham.js)"]
     
-    WindowManager["WindowManager (window_manager.js)"] --> Layout["Workspace (Tabs / Mosaico / Flotante)"]
+    WindowManager["WindowManager (window_manager.js)"] --> WindowLayout["WindowLayout (window_layout.js)"]
+    WindowManager --> WindowInteract["WindowInteract (window_interact.js)"]
     TabManager["TabManager (tab_manager.js)"] --> Taskbar["Barra de Tareas Superior"]
-    SettingsManager["SettingsManager (main.js)"] --> AppConfig["Temas, i18n & SQLite"]
+    SettingsManager["SettingsManager (settings_manager.js)"] --> AppConfig["Temas, i18n & SQLite"]
     
     User["Operador Humano"] -->|Interacciones UI| Main["main.js"]
     Main -->|Comandos REST /api/v1/*| WSControl
@@ -66,7 +80,7 @@ flowchart TD
 
 ---
 
-## 3. Catálogo Detallado de los 10 Módulos JavaScript
+## 3. Catálogo Detallado de los 18 Módulos JavaScript
 
 ### 3.1 `config.js` — Constantes de Protocolo, Estado Global y Chart Base
 - **Propósito**: Define los contratos canónicos de firmware y aloja el estado global reactivo de la aplicación.
@@ -74,127 +88,148 @@ flowchart TD
   - `CANONICAL_CONFIG`: Define `PROTOCOL_NAME = 'robot-s3-steps-v3'`, `EXPECTED_FIRMWARE = 'robot-s3-v3.7'`, y el conjunto de comandos autorizados `SUPPORTED_COMMANDS: Set(['calibrate','step','turn_to','stop','estop','clear_fault','set_comp','reset_pose'])`.
   - `CONFIG`: Límites de UI (`MAX_RPM_VISUAL`, `MIN_RPM_VISUAL`, `TRAIL_MAX`, `LOG_MAX`, `JOYSTICK_MAX_RADIUS = 108`, `JOYSTICK_DEAD_ZONE = 18`).
   - `state`: Objeto mutable global que contiene conexión (`connected`), estado FSM de la UI (`estado`), telemetría cruda en memoria, filtros de bitácora, vector de joystick (`joy`) y soporte de conducción manual (`manualDriveSupported`).
-- **Gráfica de Navegación Básica**:
-  - `initChart()` / `robotChart`: Inicializa la gráfica de dispersión de `tab_mapa.html` con plugins de datalabels y zoom panorámico.
-
----
+  - `initChart()` / `robotChart`: Gráfica base de dispersión de `tab_mapa.html`.
 
 ### 3.2 `ws_control.js` — Transporte SSE, API REST y Despacho de Comandos
 - **Propósito**: Capa de red que conecta la interfaz con los servicios REST y la cola de eventos SSE del servidor local de Python.
 - **Objeto**: `WSControl`
-- **Métodos y Responsabilidades**:
-  - `init()` / `connectBackend()`: Abre la conexión `EventSource('/api/v1/events')`, escucha eventos `snapshot`, `telemetry`, `connection`, `session`, `mission`, `robot_event`, y despacha a los manejadores de panel correspondientes.
-  - `api(path, options)`: Wrapper sobre `fetch()` nativo que inyecta automáticamente la cabecera `X-App-Token` y maneja timeouts mediante `AbortController`.
-  - `send(obj)`: Valida el comando contra `CANONICAL_CONFIG.SUPPORTED_COMMANDS` y despacha `POST /api/v1/commands` o `POST /api/v1/estop`.
-  - `manual(path, payload)`: Envía solicitudes de control manual continuo (`/api/v1/manual/drive`, `/api/v1/manual/begin`, `/api/v1/manual/end`).
-  - `applyBackendTelemetry(raw)`: Procesa tramas JSON de alta frecuencia (100 Hz). Extrae pulsos de los 4 encoders, PWM físico de 8 bits por lado, supervisión de stack RTOS de Core 0 y Core 1, jitter de control, diagnóstico de interlock de inversión y motivos de parada (`last_terminal`). Alimenta simultáneamente a `Telemetry`, `RouteManager`, `Calibration` y `ConnectionPanel`.
+- **Responsabilidades**: Conexión SSE `/api/v1/events`, wrappers `api()` con token `X-App-Token`, validación de comandos con `send()`, control manual `manual()`, y despacho de telemetría de 100 Hz con `applyBackendTelemetry(raw)`.
 
----
+### 3.3 `surface_manager.js` — Gestor de Superficies y Perfiles de Fricción
+- **Propósito**: Administra perfiles cinemáticos y de fricción en SQLite vía API REST `/api/v1/calibration/surfaces`.
+- **Objeto**: `SurfaceManager`
+- **Capacidades**: Persistencia y carga de perfiles de superficie (acrílico, madera, alfombra), guardado automático post-calibración con nombre diferido (`pendingAutoSaveName`), y aplicación dinámica de coeficientes de torque (`set_comp`).
 
-### 3.3 `calibration.js` — Dogma Canónico de Calibración MPU6050
-- **Propósito**: Administra el flujo de calibración física del robot, algoritmos de detección de torque, aislamiento de encoders defectuosos y perfiles de compensación de superficie.
-- **Objeto**: `Calibration`
-- **Flujo del Dogma Canónico**:
-  1. Reposo y estabilización del giróscopo MPU6050 (5.0 s).
-  2. Búsqueda de torque positivo (`CAL_A`): Rampa de PWM (140 a 247/255) hasta validar ticks en ambos lados y $\omega_z \ge 0.12\text{ rad/s}$ sostenido por 100 ms.
+### 3.4 `calibration.js` — Dogma Canónico de Calibración MPU6050 y Panel de Conexión
+- **Propósito**: FSM de calibración física del robot con autoridad angular MPU6050 y gestión del panel de conexión.
+- **Objetos**: `Calibration`, `ConnectionPanel`
+- **Dogma Canónico**:
+  1. Reposo y estabilización MPU6050 (5.0 s).
+  2. Búsqueda de torque positivo (`CAL_A`): Rampa de 140 a 247/255 hasta validar ticks bilaterales y $\omega_z \ge 0.12\text{ rad/s}$ sostenido por 100 ms.
   3. Validación de giro a $+25^\circ$ (`CAL_VALIDAR_25`) con reposo de 600 ms.
-  4. Reposo de 2.5 s y búsqueda de torque opuesto (`CAL_B`) validando polaridad contraria.
-  5. Retorno a origen (`CAL_RETORNO`) al yaw original, reseteando odometría $(0,0)$ e IMU.
-- **Gestor de Superficies (`SurfaceManager`)**:
-  - Persiste y carga perfiles de fricción en SQLite (`/api/v1/surfaces`), permitiendo guardar parámetros cinemáticos óptimos para distintas superficies (acrílico, madera, alfombra).
-  - Incluye guardado automático post-calibración y aplicación dinámica de coeficientes (`set_comp`).
+  4. Reposo de 2.5 s y búsqueda de torque opuesto (`CAL_B`) con polaridad inversa.
+  5. Retorno estricto a origen (`CAL_RETORNO`), reseteando odometría $(0,0)$ e IMU.
+- **Panel de Conexión (`ConnectionPanel`)**: Control de conexión/reconexión de host robot y visualización de historial de sesiones SQLite (`/api/v1/sessions`).
 
----
-
-### 3.4 `telemetry.js` — Logs Jerárquicos, Instrumentación y Visualización de Ruedas
+### 3.5 `telemetry.js` — Logs Jerárquicos, Instrumentación y Visualización de Ruedas
 - **Propósito**: Mantiene el historial de eventos del sistema, anima las ruedas 4WD según PWM/dirección y gobierna la instrumentación del chasis.
-- **Componentes**:
-  - `LogSystem`: Bitácora en memoria circular (hasta 500 registros) con filtros activos (INFO, WARN, ERROR, CMD), auto-scroll inteligente, contador dinámico accesible y descarga de reportes en texto plano (`.txt`).
-  - `MotorViz`: Motor de visualización a 60 FPS que calcula la rotación angular de los 4 motores TT (FL, FR, BL, BR) interpolando la velocidad visual según el PWM aplicado y el sentido de giro.
-  - `Telemetry`: Máquina de estados visual superior. Mapea estados de firmware (`listo`, `calibrando`, `ejecutando`, `manual`, `estop`, `fallo`) hacia insignias de color en la UI, actualiza odometría en tiempo real y calcula distancias recorridas.
+- **Componentes**: `LogSystem` (bitácora circular de 500 registros con filtros activos y exportación TXT), `MotorViz` (animación 60 FPS de rotación de ruedas TT interpoladas por PWM), `EncoderSpeed` (medición de frecuencia de pulsos), y `Telemetry` (insignias reactivas de estado FSM y distancias).
 
----
-
-### 3.5 `fork_registry.js` — Arquitectura Extensible de Submódulos y Widgets
-- **Propósito**: Proporciona un registro desacoplado para instanciar ventanas secundarias, widgets flotantes y bifurcaciones de ruta.
+### 3.6 `fork_registry.js` — Registro Extensible de Submódulos y Widgets
+- **Propósito**: Registro desacoplado para instanciación de ventanas secundarias y widgets flotantes.
 - **Objeto**: `HMI_FORK_REGISTRY`
-- **Módulos Integrados**:
-  - `hud_boost`: Widget del HUD Cinético y Boost DRV8833 (`tab-boost`), con acelerómetro, inclinómetro lateral/longitudinal y monitor de corriente/térmico.
-  - `route_fork`: Generador de ventanas clonadas de rutas para planificación y comparación A/B de trayectorias.
-- **API Pública**:
-  - `register(id, definition)`: Registra un nuevo tipo de ventana con metadatos, icono y fábrica de instanciación.
-  - `createInstance(id, options)`: Solicita a `WindowManager` crear o enfocar la ventana asociada.
-  - `list()`: Enumera los módulos disponibles para poblar el menú desplegable de herramientas (`···`).
+- **Submódulos Integrados**: `hud_boost` (HUD Cinético y Boost DRV8833 con acelerómetro e inclinómetro) y `route_fork` (bifurcaciones de rutas para comparación A/B).
 
----
+### 3.7 `window_interact.js` — Interacción Táctil y Redimensión de Ventanas
+- **Propósito**: Gestión táctil y Pointer Events de bajo nivel para ventanas del espacio de trabajo.
+- **Objeto**: `WindowInteract`
+- **Funcionalidades**:
+  - `startDrag`: Arrastre fluido de ventanas flotantes por cabecera con elevación z-index y captura de puntero.
+  - `startResize`: Tirador táctil ergonómico de 28px (`.window-resize-handle`) con soporte en modo flotante y mosaico vertical, ajustando `tilingHeight` y notificando redibujado de charts.
+  - `initTilingObservers`: Observadores `ResizeObserver` para sincronización de dimensiones.
 
-### 3.6 `window_manager.js` — Gestor de Ventanas y Modos de Disposición
-- **Propósito**: Gobierna la experiencia multi-ventana estilo escritorio en el navegador, soportando tres modos de trabajo:
-  1. `tabs`: Pestañas clásicas maximizadas de vista única.
-  2. `tiling`: **Mosaico Vertical** con apilamiento hacia abajo a ancho completo (100%), scroll general en el espacio de trabajo y scroll independiente por tarjeta.
-  3. `floating`: Ventanas flotantes arrastrables con capas z-index y redimensión libre.
-- **Características Clave**:
-  - **Mosaico Vertical Stacking**: En modo mosaico, cada tarjeta ocupa `width: 100%` y una altura vertical acotada (por defecto 520px, ajustable con el tirador táctil). El contenedor `#hmi-workspace` provee scroll vertical general (`overflow-y: auto`), mientras que el interior de cada ventana contiene su propio scroll (`overflow-y: auto`), permitiendo que mapas, consolas y tablas convivan sin colapsar.
-  - **Gestión de Tirador Táctil (`_startResize`)**: Soporte Pointer Events de 28px con `setPointerCapture`. En modo mosaico vertical, ajusta dinámicamente la altura `tilingHeight` preservándola en `state` y `ResizeObserver`.
-  - **Foco y Z-Index (`bringToFront`)**: Eleva la ventana activa por encima de las demás y sincroniza la barra de tareas.
+### 3.8 `window_layout.js` — Máquina de Estados de Disposición del Workspace
+- **Propósito**: Aplica y computa las disposiciones visuales del espacio de trabajo multi-panel.
+- **Objeto**: `WindowLayout`
+- **Modos Implementados**:
+  - `applyTabs`: Vista de pestañas clásica maximizada.
+  - `applyTiling`: **Mosaico Vertical Stacking** al 100% de ancho con scroll general `#hmi-workspace` y scroll independiente por tarjeta.
+  - `applyFloating`: Ventanas flotantes arrastrables con capas z-index.
+  - `renderForkMenu`: Renderizado dinámico del menú de submódulos y widgets (`···`).
 
----
+### 3.9 `window_manager.js` — Orquestador de Ventanas y Barra de Tareas
+- **Propósito**: Fachada principal de gestión de ventanas estilo escritorio.
+- **Objeto**: `WindowManager`
+- **Capacidades**: Registro de paneles (`tab-conexion`, `tab-mapa`, `tab-testing`, `tab-touch`, `tab-rutas`, `tab-boost`), barra de tareas dinámica (`ensureTaskbarButton`), ciclo de vida (`openWindow`, `minimizeWindow`, `restoreWindow`, `maximizeWindow`, `closeWindow`), elevación de z-index (`bringToFront`) y selector de modos (`setMode`).
 
-### 3.7 `route_manager.js` — Planificador Cartográfico y Retorno Ockham
-- **Propósito**: Módulo de alta precisión cartográfica para planificación y ejecución autónoma de waypoints.
-- **Capacidades**:
-  - **Modos de Inserción**: Coordenadas rectangulares cartesianas $(X, Y)$, coordenadas angulares polares (magnitud + ángulo) descompuestas en vectores ejecutables, y vectores relativos.
-  - **Doble Lienzo Cartográfico (Chart.js)**:
-    - *Plan Teórico* (`card-plan-map`): Dispersión con interpolación lineal, flechas de vector y etiquetas de waypoints.
-    - *Telemetría Real* (`card-telem-map`): Trayectoria real del robot en tiempo real según la odometría fusionada de Core 1.
-  - **Modo Cine Desduplicado (`toggleCinema`)**: Permite expandir a pantalla completa tanto el Plan Teórico como la Telemetría Real de forma independiente mediante botones específicos `Cine (Plan)` y `Cine (Telemetría)` con iconos SVG y atajo de teclado `Esc`.
-  - **Cockpit Ockham (Retorno a Origen)**: Genera la ruta de regreso desandando waypoints en orden inverso ($W_N \to \dots \to W_0$). Aplica etapa de reposo (settling de 500 ms) tras cada tramo para evaluar errores de exactitud (longitudinal, lateral y angular) y realineación dinámica si el error angular supera $1.5^\circ$ o el lateral supera $2.5\text{ cm}$.
+### 3.10 `route_modes.js` — Modos Polimórficos de Planificación Cartográfica
+- **Propósito**: Jerarquía de clases para los modos de entrada y descomposición cinemática de trayectorias.
+- **Clases y Exportaciones**:
+  - `RoutePlanningMode`: Clase base abstracta.
+  - `RectangularRouteMode`: Modos cartesianos $(X, Y)$ con avance ortogonal y bloqueo de eje.
+  - `AngularRouteMode`: Modo polar con giro previo y traslación recta.
+  - `AngularDecompositionRouteMode`: Descomposición polar en componentes ortogonales $(\Delta X, \Delta Y)$.
+  - `AngularVectorialRouteMode`: Modo vectorial continuo experimental con validación bilateral de encoders y MPU.
+  - `ROUTE_PLANNING_MODES`: Diccionario de estrategias de planificación.
 
----
+### 3.11 `route_forks.js` — Gestor de Ramificaciones y Rutas A/B
+- **Propósito**: Gestión de múltiples alternativas de rutas (forks), alternancia de ramas y análisis comparativo.
+- **Objeto**: `RouteForksManager`
+- **Capacidades**: Creación de forks clonados (`fork`), conmutación de ramas activas (`switchBranch`), overlay comparativo A/B con cálculo diferencial de longitud y waypoints (`toggleCompareAB`), y persistencia en `localStorage`.
 
-### 3.8 `tab_manager.js` — Navegación de Pestañas y Barra de Tareas
-- **Propósito**: Coordina la selección activa de pestañas superiores y las integra con la barra de tareas.
+### 3.12 `route_charts.js` — Renderizado Cartográfico Dual (Chart.js) y Modo Cine
+- **Propósito**: Renderizado gráfico de trayectorias teóricas y telemetría real en lienzos Chart.js.
+- **Objeto**: `RouteCharts`
+- **Lienzos y Plugins**:
+  - `planChart`: Lienzo de ruta teórica planificada con flechas directivas y etiquetas de paso.
+  - `telemChart`: Lienzo de trayectoria real del robot en tiempo real (100 Hz).
+  - `routeAngularOverlay`: Plugin para proyección visual de arcos angulares y vectores.
+  - `routeEndpointTolerance`: Plugin de visualización de radios de tolerancia en waypoints.
+  - `toggleCinema`: Modo cine a pantalla completa independiente para `Cine (Plan)` y `Cine (Telemetría)`.
+
+### 3.13 `route_ockham.js` — Cockpit de Retorno Seguro a Origen (Navaja de Ockham)
+- **Propósito**: Retorno determinista invirtiendo la secuencia de waypoints ($W_N \to \dots \to W_0$) mediante avance frontal (`forward`).
+- **Objeto**: `RouteOckhamCockpit`
+- **Protocolo Ockham**:
+  - Simulación y confirmación previa en modal `#route-ockham-confirm-box`.
+  - Etapa de reposo (settling de 500 ms) tras cada tramo para evaluar errores de exactitud (longitudinal, lateral y angular).
+  - Realineación dinámica ortogonal si el desvío angular supera $1.5^\circ$ o el lateral supera $2.5\text{ cm}$.
+  - Registro de auditoría de precisión en base de datos SQLite.
+
+### 3.14 `route_manager.js` — Fachada y Orquestación del Programador de Rutas
+- **Propósito**: Coordinador central de la pestaña de rutas.
+- **Objeto**: `RouteManager`
+- **Responsabilidades**: Enlace de controles y formularios de entrada, validación de cuotas (máx. 256 waypoints), bloqueo dinámico de modo, actualización de tabla de recorrido (`updateListUI`), ciclo de vida de misiones (`start`, `stopAndReset`, `clearRobotMemory`, `onMission`), y delegación fluida a `RouteModes`, `RouteCharts`, `RouteForksManager` y `RouteOckhamCockpit`.
+
+### 3.15 `tab_manager.js` — Navegación de Pestañas y Accesibilidad WAI-ARIA
+- **Propósito**: Navegación por teclado y ratón entre pestañas principales.
 - **Objeto**: `TabManager`
-- **Funciones Principales**:
-  - `init()`: Vincula botones de pestaña (`.tab-btn`), gestiona accesibilidad WAI-ARIA (`role="tab"`, `aria-selected`, navegación por teclado con flechas, Home y End).
-  - `switch(id)`: Cambia la pestaña activa, valida condiciones de seguridad (p. ej., bloquear pestañas si el robot no está calibrado o si una ruta está en ejecución activa), sincroniza visibilidad DOM y en modo mosaico ejecuta `scrollIntoView({ behavior: 'smooth', block: 'nearest' })`.
+- **Funcionalidades**: Sincronización WAI-ARIA (`role="tab"`, `aria-selected`, navegación con flechas/Home/End), validación de bloqueo durante ejecución o calibración, y auto-scroll suave (`scrollIntoView`) en modo mosaico.
 
----
-
-### 3.9 `touch.js` — Control Manual Táctil y Joystick Virtual
-- **Propósito**: Conducción manual en tiempo real por joystick virtual mediante Pointer Events, con soporte de leasing de seguridad y grabación de trayectorias.
+### 3.16 `touch.js` — Conducción Manual Táctil y Joystick Virtual
+- **Propósito**: Conducción manual continua por joystick virtual mediante Pointer Events.
 - **Objeto**: `Touch`
-- **Detalles Técnicos**:
-  - **Pointer Events con Captura**: Utiliza `pointerdown`, `pointermove`, `pointerup` con `setPointerCapture` en el contenedor SVG del joystick, garantizando que el arrastre no se pierda si el dedo o puntero sale del círculo.
-  - **Cinemática de Tracción Diferencial**: Convierte la posición $(X, Y)$ del pulgar en componentes de avance y giro, respetando la zona muerta (`JOYSTICK_DEAD_ZONE = 18px`) y escalando PWM con piso dinámico contra el límite de 242/255.
-  - **Corte Inmediato en Parada**: Al soltar el joystick (`Touch.end()`), emite de inmediato PWM en cero `{ left: 0, right: 0 }` y cierra el lease en el backend.
-  - **Grabación y Replay de Trayectoria**: Permite grabar una sesión manual de maniobras y ejecutar un retorno automático reproduciendo los vectores inversos.
+- **Detalles Técnicos**: Captura de puntero (`setPointerCapture`) en SVG interactivo, cinemática diferencial con zona muerta (`JOYSTICK_DEAD_ZONE = 18px`), corte instantáneo a PWM 0 al soltar (`Touch.end()`), leasing de seguridad en backend y grabación/reproducción de maniobras.
+
+### 3.17 `settings_manager.js` — Preferencias de Usuario, Temas e i18n
+- **Propósito**: Centraliza la personalización del entorno HMI.
+- **Objeto**: `SettingsManager`
+- **Capacidades**: Selección de temas (`cyber-dark`, `light-glass`, `high-contrast`), soporte multi-idioma i18n (`es`, `en`) con actualización dinámica del DOM (`applyTranslations`), modo de espacio de trabajo inicial, persistencia en `localStorage` y sincronización bidireccional con SQLite vía `/api/v1/config/user-settings`.
+
+### 3.18 `main.js` — Punto de Entrada y Atajos Globales
+- **Propósito**: Arranque del sistema tras `DOMContentLoaded`.
+- **Funcionalidades**:
+  - `init()`: Inicialización en cascada de todos los módulos.
+  - Alternancia rápida de signo (+/-) en campos numéricos (`[data-toggle-sign]`).
+  - Botón de parada de emergencia global (E-STOP) con parada de motor y cancelación de ruta.
+  - Restablecimiento de FSM (`btn-reset-hmi`) y purga de memoria de misión de Python.
+  - Reinicio seguro de microcontrolador ESP32 (`btn-reboot-robot`) con confirmación modal e interlock seguro.
+  - Enrutamiento por URL y hash (`#/plan`, `#/boost`).
+  - Purga de registros históricos de SQLite por días de retención.
 
 ---
 
-### 3.10 `main.js` — Orquestador de Aplicación y Gestor de Configuración
-- **Propósito**: Punto de entrada (`DOMContentLoaded`), enlace de eventos globales del DOM, persistencia de preferencias y atajos de teclado.
-- **Componentes**:
-  - `SettingsManager`: Gestiona configuraciones de usuario: tema visual (`cyber-dark`, `light-glass`, `high-contrast`), idioma (`es`, `en`), modo de espacio de trabajo por defecto (`tabs`, `tiling`, `floating`) y modo de grabación de telemetría. Persiste en `localStorage` y sincroniza con SQLite en `/api/v1/settings`.
-  - **Atajos de Teclado**: Soporte para parada de emergencia con `Espacio`, salida de modo cine con `Esc` y navegación rápida.
-  - **Enrutamiento por Hash de URL**: Detecta rutas como `#/plan` o `#/boost` al cargar para activar y enfocar automáticamente las ventanas correspondientes.
-  - **Mantenimiento de Base de Datos**: Permite purgar registros antiguos de SQLite por días de antigüedad con confirmación modal de seguridad.
+## 4. Guía de Verificación y Pruebas Canónicas
 
----
+Cualquier cambio a los módulos JavaScript debe verificar el 100% de éxito en las 5 suites canónicas:
 
-## 4. Guía de Verificación y Pruebas
-
-Cualquier modificación a estos módulos JavaScript debe ser verificada ejecutando las suites canónicas:
-
-1. **Ensamblado y Validación Modular**:
+1. **Ensamblado y Validación de HMI Modular**:
    ```powershell
-   desktop_app\.test-venv\Scripts\python.exe desktop_app/robot_app/hmi/compilar_hmi.py --check
+   & desktop_app\.test-venv\Scripts\python.exe desktop_app/robot_app/hmi/compilar_hmi.py --check
    ```
-2. **Suite de Pruebas de Contrato Frontend (Vitest - 27 pruebas)**:
+2. **Suite de Pruebas Frontend (Vitest - 27 pruebas de contrato)**:
    ```powershell
    npm --prefix desktop_app/frontend test
    ```
-3. **Suite de Backend Python (102 pruebas)**:
+3. **Suite Backend Python (101 pruebas unitarias)**:
    ```powershell
    $env:PYTHONPATH="desktop_app"; & desktop_app\.test-venv\Scripts\python.exe -m unittest discover desktop_app/tests
+   ```
+4. **Pruebas Nativas PlatformIO (74 pruebas de cinemática y control)**:
+   ```powershell
+   & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" test -e pruebas_control_ruta_nativas
+   ```
+5. **Compilación de Firmware ESP32-S3 PlatformIO**:
+   ```powershell
+   & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e esp32-s3-devkitc-1
    ```
