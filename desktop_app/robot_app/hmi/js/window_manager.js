@@ -69,7 +69,9 @@ const WindowManager = {
         this._registerPanels();
 
         // Enfoque responsive: forzar tabs si la pantalla es < 768px
-        const savedMode = localStorage.getItem('hmi_workspace_mode') || 'tabs';
+        const savedMode = (typeof SettingsManager !== 'undefined' && SettingsManager.settings && SettingsManager.settings.default_mode)
+            || localStorage.getItem('hmi_workspace_mode')
+            || 'tabs';
         const initialMode = window.innerWidth < 768 ? 'tabs' : savedMode;
         this.setMode(initialMode, true);
 
@@ -219,12 +221,17 @@ const WindowManager = {
             element.insertBefore(header, element.firstChild);
         }
 
-        // Handle de redimensionamiento perimetral
+        // Handle de redimensionamiento perimetral táctil (28x28px)
         let resizeHandle = element.querySelector('.window-resize-handle');
         if (!resizeHandle) {
             resizeHandle = document.createElement('div');
             resizeHandle.className = 'window-resize-handle';
+            resizeHandle.setAttribute('title', 'Arrastrar para redimensionar (táctil / ratón)');
+            resizeHandle.setAttribute('aria-label', 'Redimensionar ventana');
             element.appendChild(resizeHandle);
+        } else {
+            resizeHandle.setAttribute('title', 'Arrastrar para redimensionar (táctil / ratón)');
+            resizeHandle.setAttribute('aria-label', 'Redimensionar ventana');
         }
 
         const isFork = Boolean(options.isFork) || id.startsWith('fork-');
@@ -314,12 +321,7 @@ const WindowManager = {
     },
 
     setMode(mode, silent = false) {
-        if (window.innerWidth < 768 && mode !== 'tabs') {
-            if (!silent && typeof LogSystem !== 'undefined') {
-                LogSystem.add('INFO', 'Espacio multi-panel adaptado a modo pestañas en pantallas compactas.');
-            }
-            mode = 'tabs';
-        }
+        if (!['tabs', 'tiling', 'floating'].includes(mode)) return;
 
         // Preservar dimensiones de mosaico si se sale de modo tiling
         if (this.mode === 'tiling') {
@@ -333,16 +335,37 @@ const WindowManager = {
             });
         }
 
-        this.mode = mode;
+        let effectiveMode = mode;
+        if (window.innerWidth < 768 && mode !== 'tabs') {
+            if (!silent && typeof LogSystem !== 'undefined') {
+                LogSystem.add('INFO', 'Espacio multi-panel adaptado a modo pestañas en pantallas compactas.');
+            }
+            effectiveMode = 'tabs';
+        }
+
+        this.mode = effectiveMode;
         try {
-            localStorage.setItem('hmi_workspace_mode', mode);
+            localStorage.setItem('hmi_workspace_mode', effectiveMode);
         } catch (_) {}
+
+        // Sincronizar selector en Settings si está abierto o se guardan cambios
+        const selMode = document.getElementById('setting-default-mode');
+        if (selMode && selMode.value !== effectiveMode) {
+            selMode.value = effectiveMode;
+        }
+        if (!silent && typeof SettingsManager !== 'undefined' && SettingsManager.settings && SettingsManager.settings.default_mode !== effectiveMode) {
+            SettingsManager.settings.default_mode = effectiveMode;
+            try {
+                localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(SettingsManager.settings));
+            } catch (_) {}
+            SettingsManager.syncBackend();
+        }
 
         // Actualizar botones de selector
         ['tabs', 'tiling', 'floating'].forEach(m => {
             const btn = document.getElementById(`ws-mode-${m}`);
             if (btn) {
-                const isActive = m === mode;
+                const isActive = m === effectiveMode;
                 btn.classList.toggle('active', isActive);
                 btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             }
@@ -373,12 +396,12 @@ const WindowManager = {
                 TabManager.switch(state.activeTab || 'conexion');
             }
         } else if (mode === 'tiling') {
-            // Modo Mosaico: mostrar todas las ventanas base no minimizadas en rejilla
+            // Modo Mosaico Vertical: paneles apilados ocupando el 100% del ancho
             this.windows.forEach(win => {
                 if (win.isMaximized) this.maximizeWindow(win.id);
                 win.el.style.left = '';
                 win.el.style.top = '';
-                win.el.style.width = win.tilingWidth ? `${win.tilingWidth}px` : '';
+                win.el.style.width = '100%';
                 win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '';
                 win.el.style.zIndex = '';
                 if (!win.isCustomWidget && !win.isFork) {
@@ -392,7 +415,7 @@ const WindowManager = {
                 }
             });
         } else if (mode === 'floating') {
-            // Modo Flotante: mostrar únicamente la pestaña activa como ventana principal
+            // Modo Flotante: mostrar únicamente la pestaña activa como ventana principal con scroll vertical universal
             // Mantener ventanas secundarias minimizadas y accesibles desde la barra superior o menú (···)
             const activeTab = (typeof state !== 'undefined' && state.activeTab) ? state.activeTab : 'rutas';
             const activeWinId = activeTab.startsWith('tab-') ? activeTab : `tab-${activeTab}`;
@@ -400,7 +423,7 @@ const WindowManager = {
             this.windows.forEach(win => {
                 if (win.id === activeWinId) {
                     win.isMinimized = false;
-                    win.el.style.display = 'block';
+                    win.el.style.display = 'flex';
                     win.el.classList.remove('is-minimized');
                     this._applyWindowRect(win);
                 } else if (!win.isCustomWidget && !win.isFork) {
@@ -416,7 +439,7 @@ const WindowManager = {
                         btn.tabIndex = -1;
                     }
                 } else if (!win.isMinimized) {
-                    win.el.style.display = 'block';
+                    win.el.style.display = 'flex';
                     this._applyWindowRect(win);
                 }
             });
@@ -478,6 +501,7 @@ const WindowManager = {
         if (!win) return;
         win.isMinimized = true;
         win.el.style.display = 'none';
+        win.el.classList.add('is-minimized');
         win.el.classList.remove('is-focused');
 
         if (this.mode === 'tabs') {
@@ -497,14 +521,17 @@ const WindowManager = {
         const win = this.windows.get(id);
         if (!win) return;
         win.isMinimized = false;
+        win.el.classList.remove('is-minimized');
 
         const cleanId = id.replace(/^tab-/, '');
 
         if (this.mode === 'floating') {
-            win.el.style.display = 'block';
+            win.el.style.display = 'flex';
             this._applyWindowRect(win);
         } else if (this.mode === 'tiling') {
             win.el.style.display = 'flex';
+            win.el.style.width = '100%';
+            win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '';
         } else { // tabs
             win.el.style.display = 'block';
             win.el.classList.add('active');
@@ -526,6 +553,10 @@ const WindowManager = {
         }
 
         this.bringToFront(id);
+
+        if (this.mode === 'tiling') {
+            win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
 
         if (cleanId === 'rutas' && typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) {
             RouteManager.resizeCharts();
@@ -586,7 +617,9 @@ const WindowManager = {
         if (!win || win.isMaximized) return;
 
         // Pointer capture para arrastre fiable fuera de bordes
-        win.headerEl.setPointerCapture(e.pointerId);
+        try {
+            win.headerEl.setPointerCapture(e.pointerId);
+        } catch (_) {}
         this.bringToFront(id);
 
         // Salvaguarda de rendimiento: desactivar desenfoque durante arrastre
@@ -613,16 +646,24 @@ const WindowManager = {
         };
 
         const onUp = (ev) => {
-            if (!this._activeDrag || ev.pointerId !== this._activeDrag.pointerId) return;
-            try { win.headerEl.releasePointerCapture(ev.pointerId); } catch (_) {}
+            if (!this._activeDrag || (ev.pointerId !== undefined && ev.pointerId !== this._activeDrag.pointerId)) return;
+            try { win.headerEl.releasePointerCapture(this._activeDrag.pointerId); } catch (_) {}
             win.el.classList.remove('is-interacting');
             document.body.classList.remove('is-dragging-window');
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onUp);
+            win.headerEl.removeEventListener('lostpointercapture', onUp);
             win.headerEl.removeEventListener('pointermove', onMove);
             win.headerEl.removeEventListener('pointerup', onUp);
             win.headerEl.removeEventListener('pointercancel', onUp);
             this._activeDrag = null;
         };
 
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+        win.headerEl.addEventListener('lostpointercapture', onUp);
         win.headerEl.addEventListener('pointermove', onMove);
         win.headerEl.addEventListener('pointerup', onUp);
         win.headerEl.addEventListener('pointercancel', onUp);
@@ -636,7 +677,13 @@ const WindowManager = {
         const handle = win.el.querySelector('.window-resize-handle');
         if (!handle) return;
 
-        handle.setPointerCapture(e.pointerId);
+        e.stopPropagation();
+        if (e.cancelable) e.preventDefault();
+
+        try {
+            handle.setPointerCapture(e.pointerId);
+        } catch (_) {}
+
         win.el.classList.add('is-interacting');
         document.body.classList.add('is-dragging-window');
         this.bringToFront(id);
@@ -654,27 +701,34 @@ const WindowManager = {
             if (!this._activeResize || ev.pointerId !== this._activeResize.pointerId) return;
             const dw = ev.clientX - this._activeResize.startX;
             const dh = ev.clientY - this._activeResize.startY;
-            win.rect.width = Math.max(300, this._activeResize.startW + dw);
-            win.rect.height = Math.max(240, this._activeResize.startH + dh);
-            win.el.style.width = `${win.rect.width}px`;
-            win.el.style.height = `${win.rect.height}px`;
             if (this.mode === 'tiling') {
+                win.rect.width = Math.max(360, this._activeResize.startW + dw);
+                win.el.style.width = `${win.rect.width}px`;
+                win.el.style.height = '100%';
                 win.tilingWidth = win.rect.width;
-                win.tilingHeight = win.rect.height;
+            } else {
+                win.rect.width = Math.max(320, this._activeResize.startW + dw);
+                win.rect.height = Math.max(240, this._activeResize.startH + dh);
+                win.el.style.width = `${win.rect.width}px`;
+                win.el.style.height = `${win.rect.height}px`;
             }
         };
 
         const onUp = (ev) => {
-            if (!this._activeResize || ev.pointerId !== this._activeResize.pointerId) return;
-            try { handle.releasePointerCapture(ev.pointerId); } catch (_) {}
+            if (!this._activeResize || (ev.pointerId !== undefined && ev.pointerId !== this._activeResize.pointerId)) return;
+            try { handle.releasePointerCapture(this._activeResize.pointerId); } catch (_) {}
             win.el.classList.remove('is-interacting');
             document.body.classList.remove('is-dragging-window');
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onUp);
+            handle.removeEventListener('lostpointercapture', onUp);
             handle.removeEventListener('pointermove', onMove);
             handle.removeEventListener('pointerup', onUp);
             handle.removeEventListener('pointercancel', onUp);
             if (this.mode === 'tiling') {
                 win.tilingWidth = win.rect.width;
-                win.tilingHeight = win.rect.height;
+                win.el.style.height = '100%';
             }
             this._activeResize = null;
             if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) {
@@ -682,6 +736,10 @@ const WindowManager = {
             }
         };
 
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+        handle.addEventListener('lostpointercapture', onUp);
         handle.addEventListener('pointermove', onMove);
         handle.addEventListener('pointerup', onUp);
         handle.addEventListener('pointercancel', onUp);

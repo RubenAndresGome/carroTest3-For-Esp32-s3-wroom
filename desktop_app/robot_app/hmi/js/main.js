@@ -13,6 +13,7 @@
             this.load();
             this.apply();
             this.bindUI();
+            this.loadFromBackend();
         },
         translations: {
             es: {
@@ -65,6 +66,24 @@
                 }
             } catch (_) {}
         },
+        async loadFromBackend() {
+            if (typeof WSControl !== 'undefined' && WSControl.api) {
+                try {
+                    const data = await WSControl.api('/api/v1/config/user-settings');
+                    if (data && typeof data === 'object') {
+                        const previousMode = this.settings.default_mode;
+                        this.settings = Object.assign({}, this.settings, data);
+                        try {
+                            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
+                        } catch (_) {}
+                        this.apply();
+                        if (typeof WindowManager !== 'undefined' && this.settings.default_mode && (this.settings.default_mode !== previousMode || WindowManager.mode !== this.settings.default_mode)) {
+                            WindowManager.setMode(this.settings.default_mode, true);
+                        }
+                    }
+                } catch (_) {}
+            }
+        },
         save(newSettings) {
             const previousMode = this.settings.default_mode;
             this.settings = Object.assign({}, this.settings, newSettings);
@@ -93,6 +112,15 @@
             if (selTheme) selTheme.value = this.settings.theme;
             if (selLang) selLang.value = this.settings.language;
             if (selMode) selMode.value = this.settings.default_mode;
+
+            ['tabs', 'tiling', 'floating'].forEach(m => {
+                const btn = document.getElementById(`ws-mode-${m}`);
+                if (btn) {
+                    const isActive = m === (typeof WindowManager !== 'undefined' ? WindowManager.mode : this.settings.default_mode);
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                }
+            });
         },
         applyTranslations(lang) {
             const t = this.translations[lang] || this.translations.es;
@@ -142,14 +170,18 @@
             if (modalTitle) modalTitle.textContent = t.settings_title;
         },
         applyInitialMode() {
-            if (this.settings.default_mode && this.settings.default_mode !== 'tabs') {
-                if (typeof WindowManager !== 'undefined') {
-                    WindowManager.setMode(this.settings.default_mode);
-                }
+            if (this.settings.default_mode && typeof WindowManager !== 'undefined') {
+                WindowManager.setMode(this.settings.default_mode, true);
             }
         },
         async syncBackend() {
             if (typeof WSControl !== 'undefined' && WSControl.api) {
+                try {
+                    await WSControl.api('/api/v1/config/user-settings', {
+                        method: 'PUT',
+                        body: JSON.stringify(this.settings)
+                    });
+                } catch (_) {}
                 try {
                     await WSControl.api('/api/v1/config/robot', {
                         method: 'PUT',
@@ -165,6 +197,26 @@
             const btnClose = document.getElementById('btn-close-settings');
             const btnSave = document.getElementById('btn-save-settings');
             const modal = document.getElementById('modal-settings');
+            const selMode = document.getElementById('setting-default-mode');
+
+            if (selMode) {
+                selMode.addEventListener('change', (e) => {
+                    const newMode = e.target.value;
+                    if (['tabs', 'tiling', 'floating'].includes(newMode)) {
+                        ['tabs', 'tiling', 'floating'].forEach(m => {
+                            const btn = document.getElementById(`ws-mode-${m}`);
+                            if (btn) {
+                                const isActive = m === newMode;
+                                btn.classList.toggle('active', isActive);
+                                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                            }
+                        });
+                        if (typeof WindowManager !== 'undefined') {
+                            WindowManager.setMode(newMode);
+                        }
+                    }
+                });
+            }
 
             if (btnOpen && modal) {
                 btnOpen.addEventListener('click', () => {
@@ -192,13 +244,13 @@
                     const selTelem = document.getElementById('setting-telemetry-mode');
                     const selTheme = document.getElementById('setting-theme');
                     const selLang = document.getElementById('setting-language');
-                    const selMode = document.getElementById('setting-default-mode');
+                    const selModeEl = document.getElementById('setting-default-mode');
 
                     this.save({
                         telemetry_recording: selTelem ? selTelem.value : this.settings.telemetry_recording,
                         theme: selTheme ? selTheme.value : this.settings.theme,
                         language: selLang ? selLang.value : this.settings.language,
-                        default_mode: selMode ? selMode.value : this.settings.default_mode
+                        default_mode: selModeEl ? selModeEl.value : this.settings.default_mode
                     });
 
                     modal.style.display = 'none';

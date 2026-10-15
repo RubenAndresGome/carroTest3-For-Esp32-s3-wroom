@@ -1075,6 +1075,80 @@ class ApiTests(unittest.TestCase):
             self.assertIn("<script nonce=", body)
             self.assertIn("Robot Autonomo S3", body)
 
+    def test_user_settings_api_get_and_put_persist_to_sqlite(self) -> None:
+        headers = {"X-App-Token": self.token}
+
+        # 1. Sin autenticación debe fallar 403
+        unauth = self.client.get("/api/v1/config/user-settings")
+        self.assertEqual(unauth.status_code, 403)
+
+        # 2. GET inicial devuelve defaults
+        initial = self.client.get("/api/v1/config/user-settings", headers=headers)
+        self.assertEqual(initial.status_code, 200)
+        self.assertEqual(initial.json["theme"], "cyber-dark")
+        self.assertEqual(initial.json["language"], "es")
+        self.assertEqual(initial.json["default_mode"], "tabs")
+        self.assertEqual(initial.json["telemetry_recording"], "always")
+
+        # 3. PUT actualiza y persiste en SQLite
+        payload = {
+            "theme": "high-contrast",
+            "language": "en",
+            "default_mode": "tiling",
+            "telemetry_recording": "error_only",
+        }
+        put_resp = self.client.put("/api/v1/config/user-settings", json=payload, headers=headers)
+        self.assertEqual(put_resp.status_code, 200)
+        self.assertEqual(put_resp.json["theme"], "high-contrast")
+        self.assertEqual(put_resp.json["language"], "en")
+        self.assertEqual(put_resp.json["default_mode"], "tiling")
+        self.assertEqual(put_resp.json["telemetry_recording"], "error_only")
+
+        # 4. GET posterior refleja los cambios
+        get_resp = self.client.get("/api/v1/config/user-settings", headers=headers)
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertEqual(get_resp.json["theme"], "high-contrast")
+        self.assertEqual(get_resp.json["language"], "en")
+        self.assertEqual(get_resp.json["default_mode"], "tiling")
+        self.assertEqual(get_resp.json["telemetry_recording"], "error_only")
+
+        # 5. La tabla SQLite user_settings conserva los valores directamente
+        db_settings = self.service.database.get_user_settings()
+        self.assertEqual(db_settings["theme"], "high-contrast")
+        self.assertEqual(db_settings["language"], "en")
+        self.assertEqual(db_settings["default_mode"], "tiling")
+        self.assertEqual(db_settings["telemetry_recording"], "error_only")
+
+        # 6. Nueva conexión a la base de datos lee los mismos datos
+        new_db = Database(self.service.database.path)
+        self.assertEqual(new_db.get_user_setting("default_mode"), "tiling")
+        self.assertEqual(new_db.get_user_setting("theme"), "high-contrast")
+
+        # 7. Payload no diccionario retorna 400
+        bad_resp = self.client.put("/api/v1/config/user-settings", data="not-a-json",
+                                   content_type="application/json", headers=headers)
+        self.assertEqual(bad_resp.status_code, 400)
+        list_resp = self.client.put("/api/v1/config/user-settings", json=[1, 2, 3], headers=headers)
+        self.assertEqual(list_resp.status_code, 400)
+
+        # 8. Payload vacío `{}` es idempotente y retorna los valores vigentes
+        empty_resp = self.client.put("/api/v1/config/user-settings", json={}, headers=headers)
+        self.assertEqual(empty_resp.status_code, 200)
+        self.assertEqual(empty_resp.json["default_mode"], "tiling")
+
+        # 9. Inicialización de nuevo RobotService lee telemetry_recording desde user_settings
+        from robot_app.services import RobotService
+        fresh_service = RobotService(new_db, start_gateway=False)
+        self.assertEqual(fresh_service._telemetry_recording_mode, "error_only")
+        fresh_service.close()
+
+        # 10. Rutas /plan y /boost devuelven 200 con HTML y token
+        for route in ("/plan", "/boost"):
+            resp = self.client.get(route)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("text/html", resp.content_type)
+            self.assertIn(f'<meta name="app-token" content="{self.token}">', resp.get_data(as_text=True))
+
 
 if __name__ == "__main__":
     unittest.main()

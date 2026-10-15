@@ -220,20 +220,29 @@
         #hmi-workspace.workspace-tabs .window-header { display: none; }
         #hmi-workspace.workspace-tabs .window-resize-handle { display: none; }
 
-        /* Modo Mosaico (Tiling Grid) */
+        /* Modo Mosaico (Tiling Vertical - Stacking Full Width) */
         #hmi-workspace.workspace-tiling {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 14px;
-            padding: 10px 12px;
-            align-items: start;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            height: calc(100vh - var(--header-h) - var(--tabbar-h) - 24px);
+            min-height: 520px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 10px 12px 24px 12px;
+            box-sizing: border-box;
+            align-items: stretch;
         }
         #hmi-workspace.workspace-tiling .tab-content {
+            flex: 0 0 auto;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            min-height: 480px;
             display: flex;
             flex-direction: column;
             margin: 0;
-            min-height: 400px;
-            min-width: 320px;
             position: relative !important;
             transform: none !important;
             box-sizing: border-box;
@@ -242,14 +251,29 @@
             border: 1px solid var(--glass-border);
             border-radius: var(--radius);
         }
+        #hmi-workspace.workspace-tiling .tab-content.is-minimized {
+            display: none !important;
+        }
+        #hmi-workspace.workspace-tiling .tab-content > :not(.window-header):not(.window-resize-handle),
+        #hmi-workspace.workspace-tiling .tab-content > .connection-layout,
+        #hmi-workspace.workspace-tiling .tab-content > .nav-layout,
+        #hmi-workspace.workspace-tiling .tab-content > .testing-grid,
+        #hmi-workspace.workspace-tiling .tab-content > .touch-layout,
+        #hmi-workspace.workspace-tiling .tab-content > .card {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
         #hmi-workspace.workspace-tiling .window-header { display: flex; cursor: default; }
         #hmi-workspace.workspace-tiling .window-resize-handle {
             display: block;
             position: absolute;
             right: 0;
             bottom: 0;
-            width: 18px;
-            height: 18px;
+            width: 28px;
+            height: 28px;
             cursor: se-resize;
             z-index: 25;
             touch-action: none;
@@ -262,7 +286,7 @@
             padding: 10px 12px;
         }
         #hmi-workspace.workspace-floating .tab-content {
-            display: flex;
+            display: flex !important;
             flex-direction: column;
             position: absolute;
             z-index: 10;
@@ -274,18 +298,63 @@
         #hmi-workspace.workspace-floating .tab-content.is-minimized {
             display: none !important;
         }
-        #hmi-workspace.workspace-floating .tab-content > :not(.window-header):not(.window-resize-handle) {
+        #hmi-workspace.workspace-floating .tab-content > :not(.window-header):not(.window-resize-handle),
+        #hmi-workspace.workspace-floating .tab-content > .connection-layout,
+        #hmi-workspace.workspace-floating .tab-content > .nav-layout,
+        #hmi-workspace.workspace-floating .tab-content > .testing-grid,
+        #hmi-workspace.workspace-floating .tab-content > .touch-layout,
+        #hmi-workspace.workspace-floating .tab-content > .card {
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
+            box-sizing: border-box;
         }
-        #hmi-workspace.workspace-floating .tab-content > .card.route-content {
+        #hmi-workspace.workspace-floating .tab-content .connection-layout,
+        #hmi-workspace.workspace-floating .tab-content .nav-layout,
+        #hmi-workspace.workspace-floating .tab-content .testing-grid,
+        #hmi-workspace.workspace-floating .tab-content .touch-layout {
+            grid-template-columns: minmax(0, 1fr);
+            max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #hmi-workspace.workspace-floating .tab-content .touch-joystick-area {
+            min-height: 320px;
+            padding: 12px;
+            border-right: none;
+            border-bottom: 1px solid var(--border);
+        }
+        @media (min-width: 900px) {
+            #hmi-workspace.workspace-floating .tab-content.is-maximized .connection-layout {
+                grid-template-columns: 380px minmax(0, 1fr);
+            }
+            #hmi-workspace.workspace-floating .tab-content.is-maximized .nav-layout {
+                grid-template-columns: 260px minmax(0, 1fr);
+            }
+            #hmi-workspace.workspace-floating .tab-content.is-maximized .testing-grid {
+                grid-template-columns: 260px minmax(380px, 1fr) 270px;
+            }
+            #hmi-workspace.workspace-floating .tab-content.is-maximized .touch-layout {
+                grid-template-columns: minmax(0, 1fr) 270px;
+            }
+            #hmi-workspace.workspace-floating .tab-content.is-maximized .touch-joystick-area {
+                min-height: 540px;
+                border-right: 1px solid var(--border);
+                border-bottom: none;
+            }
+        }
+        #hmi-workspace.workspace-floating .tab-content > .card.route-content,
+        #hmi-workspace.workspace-tiling .tab-content > .card.route-content {
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
-        #hmi-workspace.workspace-floating .tab-content > .card.route-content > .window-scroll-body:not([hidden]) {
+        #hmi-workspace.workspace-floating .tab-content > .card.route-content > .window-scroll-body:not([hidden]),
+        #hmi-workspace.workspace-tiling .tab-content > .card.route-content > .window-scroll-body:not([hidden]) {
             flex: 1 1 auto;
             min-height: 0;
             max-height: 100%;
@@ -377,21 +446,43 @@
             position: absolute;
             right: 0;
             bottom: 0;
-            width: 16px;
-            height: 16px;
+            width: 28px;
+            height: 28px;
             cursor: se-resize;
             touch-action: none;
-            z-index: 20;
+            z-index: 30;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 3px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, transparent 55%, rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.08) 100%);
+            border-bottom-right-radius: var(--radius);
+            opacity: 0.75;
+            transition: opacity 0.15s ease, background 0.15s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .window-resize-handle:hover,
+        .window-resize-handle:active {
+            opacity: 1;
+            background: linear-gradient(135deg, transparent 40%, rgba(0, 230, 118, 0.08) 40%, rgba(0, 230, 118, 0.18) 100%);
         }
         .window-resize-handle::after {
             content: '';
-            position: absolute;
-            right: 4px;
-            bottom: 4px;
-            width: 6px;
-            height: 6px;
-            border-right: 2px solid var(--text-muted);
-            border-bottom: 2px solid var(--text-muted);
+            width: 14px;
+            height: 14px;
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--text-muted, rgba(255, 255, 255, 0.45)),
+                var(--text-muted, rgba(255, 255, 255, 0.45)) 1.5px,
+                transparent 1.5px,
+                transparent 4px
+            );
+            border-right: 2px solid var(--accent, #00e676);
+            border-bottom: 2px solid var(--accent, #00e676);
+            border-bottom-right-radius: 3px;
+            pointer-events: none;
         }
 
         /* Salvaguarda de rendimiento: desactiva blur pesado durante arrastre/interacción */

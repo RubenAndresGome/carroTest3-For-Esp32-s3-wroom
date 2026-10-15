@@ -111,6 +111,26 @@ def robot_config() -> Response | tuple[Response, int]:
     return jsonify(service.robot_config())
 
 
+@web.route("/api/v1/config/user-settings", methods=["GET", "PUT"])
+@_require_token
+def user_settings() -> Response | tuple[Response, int]:
+    service = _service()
+    if request.method == "GET":
+        return jsonify(service.get_user_settings())
+    if request.data and request.get_json(silent=True) is None:
+        return jsonify({"error": "cuerpo_json_invalido"}), 400
+    body = request.get_json(silent=True)
+    if body is None:
+        body = {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "settings_debe_ser_un_objeto"}), 400
+    try:
+        updated = service.update_user_settings(body)
+        return jsonify(updated)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
 @web.post("/api/v1/connection/<action>")
 @_require_token
 def connection(action: str) -> Response | tuple[Response, int]:

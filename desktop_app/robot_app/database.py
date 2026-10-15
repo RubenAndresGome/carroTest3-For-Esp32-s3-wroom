@@ -141,6 +141,11 @@ class Database:
                         "VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                         (sid, sname, pos, neg, cpos, cneg, sdesc),
                     )
+            connection.execute("""CREATE TABLE IF NOT EXISTS user_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )""")
         finally:
             connection.close()
 
@@ -157,6 +162,36 @@ class Database:
                 "ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=CURRENT_TIMESTAMP",
                 (key, encoded),
             )
+
+    def get_user_settings(self) -> dict[str, str]:
+        with contextlib.closing(self.connect()) as connection:
+            rows = connection.execute("SELECT key, value FROM user_settings").fetchall()
+        return {row["key"]: row["value"] for row in rows}
+
+    def get_user_setting(self, key: str, default: str | None = None) -> str | None:
+        with contextlib.closing(self.connect()) as connection:
+            row = connection.execute("SELECT value FROM user_settings WHERE key=?", (key,)).fetchone()
+        return default if row is None else row["value"]
+
+    def set_user_setting(self, key: str, value: Any) -> None:
+        val_str = str(value)
+        with self.transaction() as connection:
+            connection.execute(
+                "INSERT INTO user_settings(key, value, updated_at) VALUES(?, ?, CURRENT_TIMESTAMP) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP",
+                (key, val_str),
+            )
+
+    def update_user_settings(self, settings: dict[str, Any]) -> dict[str, str]:
+        with self.transaction() as connection:
+            for key, value in settings.items():
+                val_str = str(value)
+                connection.execute(
+                    "INSERT INTO user_settings(key, value, updated_at) VALUES(?, ?, CURRENT_TIMESTAMP) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP",
+                    (key, val_str),
+                )
+        return self.get_user_settings()
 
     def create_session(self) -> int:
         utc_text, local_day, offset_minutes, timezone_name = self._session_timestamp()

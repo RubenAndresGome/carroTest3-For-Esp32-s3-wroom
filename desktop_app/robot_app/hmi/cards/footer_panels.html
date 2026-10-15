@@ -41,6 +41,15 @@
             </div>
             <div class="settings-modal-body">
                 <div class="settings-field">
+                    <label class="settings-label">Disposición de Ventanas y Espacio de Trabajo:</label>
+                    <div class="workspace-mode-selector" role="group" aria-label="Modo de Espacio de Trabajo">
+                        <button id="ws-mode-tabs" type="button" class="btn-ws-mode active" title="Modo Pestañas Clásico" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg><span class="ws-label">Pestañas</span></button>
+                        <button id="ws-mode-tiling" type="button" class="btn-ws-mode" title="Modo Mosaico Dividido" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/></svg><span class="ws-label">Mosaico</span></button>
+                        <button id="ws-mode-floating" type="button" class="btn-ws-mode" title="Modo Ventanas Libres" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="14" height="14" rx="1"/><rect x="7" y="7" width="14" height="14" rx="1" fill="none"/></svg><span class="ws-label">Flotante</span></button>
+                    </div>
+                    <span class="settings-help">Selecciona el modo de organización de pantallas: pestañas tradicionales, mosaico horizontal a pantalla completa o ventanas flotantes libres.</span>
+                </div>
+                <div class="settings-field">
                     <label for="setting-telemetry-mode" class="settings-label">Registro de Telemetría de Sesión (SQLite):</label>
                     <select id="setting-telemetry-mode" class="settings-select">
                         <option value="always">Guardar siempre en SQLite (Por defecto)</option>

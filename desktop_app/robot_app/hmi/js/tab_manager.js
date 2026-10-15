@@ -59,7 +59,8 @@
                 const isActive = c.id===`tab-${id}` || c.id===id;
                 c.classList.toggle('active', isActive);
                 if (isActive) {
-                    c.style.display = 'block';
+                    const isFlexMode = typeof WindowManager !== 'undefined' && (WindowManager.mode === 'floating' || WindowManager.mode === 'tiling');
+                    c.style.display = isFlexMode ? 'flex' : 'block';
                 } else if (typeof WindowManager === 'undefined' || WindowManager.mode === 'tabs') {
                     c.style.display = 'none';
                 }
@@ -69,7 +70,13 @@
                 const win = WindowManager.windows.get(winId) || WindowManager.windows.get(id);
                 if (win) {
                     win.isMinimized = false;
-                    win.el.style.display = WindowManager.mode === 'tiling' ? 'flex' : 'block';
+                    win.el.style.display = (WindowManager.mode === 'tiling' || WindowManager.mode === 'floating') ? 'flex' : 'block';
+                    if (WindowManager.mode === 'floating' && WindowManager._applyWindowRect) {
+                        WindowManager._applyWindowRect(win);
+                    } else if (WindowManager.mode === 'tiling') {
+                        win.el.style.height = '100%';
+                        if (win.tilingWidth) win.el.style.width = `${win.tilingWidth}px`;
+                    }
                     WindowManager.bringToFront(win.id);
                 }
             }

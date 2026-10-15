@@ -206,7 +206,8 @@ class RobotService:
         self._mission_accumulated_angular_deg: float = 0.0
         self._mission_accuracy: dict[str, Any] = {}
         self._session_id: int | None = None
-        self._telemetry_recording_mode: str = str(database.get_setting("telemetry_recording_mode", "always") or "always")
+        user_telem = database.get_user_setting("telemetry_recording")
+        self._telemetry_recording_mode: str = str(user_telem or database.get_setting("telemetry_recording_mode", "always") or "always")
         self._last_telemetry: TelemetrySnapshot | None = None
         self._telemetry_sequence = 0
         self._last_recorded_at = 0.0
@@ -389,6 +390,27 @@ class RobotService:
         self.database.set_setting("experimental_vectorial_routes", value)
         self.events.publish("config", self.robot_config())
         return value
+
+    def get_user_settings(self) -> dict[str, str]:
+        defaults = {
+            "telemetry_recording": "always",
+            "theme": "cyber-dark",
+            "language": "es",
+            "default_mode": "tabs",
+        }
+        stored = self.database.get_user_settings()
+        defaults.update(stored)
+        return defaults
+
+    def update_user_settings(self, settings: dict[str, Any]) -> dict[str, str]:
+        if not isinstance(settings, dict):
+            raise ValueError("settings_debe_ser_un_objeto")
+        if "telemetry_recording" in settings:
+            mode = str(settings["telemetry_recording"]).strip().lower()
+            if mode in {"always", "error_only", "disabled"}:
+                self.set_telemetry_recording_mode(mode)
+        self.database.update_user_settings(settings)
+        return self.get_user_settings()
 
     def connect(self) -> None:
         self.gateway.start()

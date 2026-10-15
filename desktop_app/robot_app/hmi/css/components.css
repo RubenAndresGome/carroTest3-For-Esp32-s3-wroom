@@ -581,6 +581,27 @@
             color: var(--text-secondary);
             line-height: 1.4;
         }
+        .settings-modal-card .workspace-mode-selector {
+            display: flex;
+            width: 100%;
+            margin-top: 4px;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            box-sizing: border-box;
+        }
+        .settings-modal-card .workspace-mode-selector .btn-ws-mode {
+            flex: 1;
+            justify-content: center;
+            padding: 8px 10px;
+            font-size: 11px;
+            border-radius: var(--radius-sm);
+        }
+        .settings-modal-card .workspace-mode-selector .ws-label {
+            display: inline !important;
+        }
         .settings-modal-footer {
             display: flex;
             justify-content: flex-end;

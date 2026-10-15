@@ -319,4 +319,16 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toContain("ensureTaskbarButton(");
     expect(html).toContain("openWindow(");
   });
+
+  it("implementa scroll universal en ventanas flotantes, mosaico horizontal a 100% Y y tirador tactil de 28px", () => {
+    expect(html).toMatch(/\.window-resize-handle\s*\{[^}]*width:\s*28px/);
+    expect(html).toMatch(/\.window-resize-handle\s*\{[^}]*height:\s*28px/);
+    expect(html).toMatch(/\.window-resize-handle\s*\{[^}]*touch-action:\s*none/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s*\{[^}]*flex-direction:\s*row/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s*\{[^}]*overflow-x:\s*auto/);
+    expect(html).toContain("connection-layout");
+    expect(html).toContain("testing-grid");
+    expect(html).toContain("touch-layout");
+    expect(html).toContain("Otras ventanas, submódulos y alertas");
+  });
 });
