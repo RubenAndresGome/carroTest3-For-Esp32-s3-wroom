@@ -301,14 +301,17 @@ const WindowManager = {
         header.addEventListener('pointerdown', (e) => this._startDrag(e, id));
         resizeHandle.addEventListener('pointerdown', (e) => this._startResize(e, id));
 
-        // Observar redimensionamiento nativo (CSS resize: both) para preservar dimensiones en mosaico
+        // Observar redimensionamiento nativo (CSS resize: vertical) para preservar dimensiones en mosaico
         if (typeof ResizeObserver !== 'undefined') {
             const ro = new ResizeObserver(() => {
-                if (this.mode === 'tiling' && element && element.style.width) {
+                if (this.mode === 'tiling' && element) {
+                    const h = parseFloat(element.style.height) || element.offsetHeight;
+                    if (Number.isFinite(h) && h >= 380) {
+                        winData.tilingHeight = h;
+                        winData.rect.height = h;
+                    }
                     const w = parseFloat(element.style.width);
-                    const h = parseFloat(element.style.height);
                     if (Number.isFinite(w) && w > 0) winData.tilingWidth = w;
-                    if (Number.isFinite(h) && h > 0) winData.tilingHeight = h;
                 }
             });
             ro.observe(element);
@@ -327,10 +330,13 @@ const WindowManager = {
         if (this.mode === 'tiling') {
             this.windows.forEach(win => {
                 if (win.el) {
+                    const h = parseFloat(win.el.style.height) || win.el.offsetHeight;
+                    if (Number.isFinite(h) && h >= 380) {
+                        win.tilingHeight = h;
+                        win.rect.height = h;
+                    }
                     const w = parseFloat(win.el.style.width);
-                    const h = parseFloat(win.el.style.height);
                     if (Number.isFinite(w) && w > 0) win.tilingWidth = w;
-                    if (Number.isFinite(h) && h > 0) win.tilingHeight = h;
                 }
             });
         }
@@ -396,13 +402,13 @@ const WindowManager = {
                 TabManager.switch(state.activeTab || 'conexion');
             }
         } else if (mode === 'tiling') {
-            // Modo Mosaico Horizontal: columnas una al lado de la otra ocupando el 100% del eje Y
+            // Modo Mosaico Vertical: ventanas apiladas hacia abajo con 100% de ancho y scroll doble
             this.windows.forEach(win => {
                 if (win.isMaximized) this.maximizeWindow(win.id);
                 win.el.style.left = '';
                 win.el.style.top = '';
-                win.el.style.width = win.tilingWidth ? `${win.tilingWidth}px` : '';
-                win.el.style.height = '100%';
+                win.el.style.width = '100%';
+                win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '520px';
                 win.el.style.zIndex = '';
                 if (!win.isCustomWidget && !win.isFork) {
                     win.isMinimized = false;
@@ -479,6 +485,7 @@ const WindowManager = {
             if (!btn) return;
             if (w.id === id) {
                 w.isMinimized = false;
+                w.el.classList.remove('is-minimized');
                 btn.classList.add('active');
                 btn.classList.remove('is-minimized');
                 btn.setAttribute('aria-selected', 'true');
@@ -530,8 +537,8 @@ const WindowManager = {
             this._applyWindowRect(win);
         } else if (this.mode === 'tiling') {
             win.el.style.display = 'flex';
-            win.el.style.width = win.tilingWidth ? `${win.tilingWidth}px` : '';
-            win.el.style.height = '100%';
+            win.el.style.width = '100%';
+            win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '520px';
         } else { // tabs
             win.el.style.display = 'block';
             win.el.classList.add('active');
@@ -702,10 +709,10 @@ const WindowManager = {
             const dw = ev.clientX - this._activeResize.startX;
             const dh = ev.clientY - this._activeResize.startY;
             if (this.mode === 'tiling') {
-                win.rect.width = Math.max(360, this._activeResize.startW + dw);
-                win.el.style.width = `${win.rect.width}px`;
-                win.el.style.height = '100%';
-                win.tilingWidth = win.rect.width;
+                win.rect.height = Math.max(380, this._activeResize.startH + dh);
+                win.el.style.width = '100%';
+                win.el.style.height = `${win.rect.height}px`;
+                win.tilingHeight = win.rect.height;
             } else {
                 win.rect.width = Math.max(320, this._activeResize.startW + dw);
                 win.rect.height = Math.max(240, this._activeResize.startH + dh);
@@ -727,12 +734,15 @@ const WindowManager = {
             handle.removeEventListener('pointerup', onUp);
             handle.removeEventListener('pointercancel', onUp);
             if (this.mode === 'tiling') {
-                win.tilingWidth = win.rect.width;
-                win.el.style.height = '100%';
+                win.tilingHeight = win.rect.height;
+                win.el.style.width = '100%';
             }
             this._activeResize = null;
             if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) {
                 RouteManager.resizeCharts();
+            }
+            if (typeof robotChart !== 'undefined' && robotChart && robotChart.resize) {
+                robotChart.resize();
             }
         };
 

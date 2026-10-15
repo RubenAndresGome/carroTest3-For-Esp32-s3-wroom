@@ -136,7 +136,10 @@
                             <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-plan-map" title="Salir de Modo Cine (Esc)">Reducir</button>
                             <div class="route-map-header">
                                 <span class="route-map-title">Plan Teórico</span>
-                                <button class="btn btn-sm route-cinema" data-card="card-plan-map" title="Pantalla completa / Modo cine">Cine</button>
+                                <button type="button" class="btn btn-sm route-cinema" data-card="card-plan-map" title="Pantalla completa: Plan Teórico" aria-label="Pantalla completa Plan Teórico">
+                                    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                                    <span class="cinema-btn-text">Cine (Plan)</span>
+                                </button>
                             </div>
                             <div class="route-angular-meta" id="route-angular-meta" hidden>
                                 <div class="route-angular-legend" role="list" aria-label="Leyenda del modo angular">
@@ -156,7 +159,10 @@
                             <button type="button" class="route-cinema-floating-close btn btn-stop" data-card="card-telem-map" title="Salir de Modo Cine (Esc)">Reducir</button>
                             <div class="route-map-header">
                                 <span class="route-map-title">Telemetría Real</span>
-                                <button class="btn btn-sm route-cinema" data-card="card-telem-map" title="Pantalla completa / Modo cine">Cine</button>
+                                <button type="button" class="btn btn-sm route-cinema" data-card="card-telem-map" title="Pantalla completa: Telemetría Real" aria-label="Pantalla completa Telemetría Real">
+                                    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                                    <span class="cinema-btn-text">Cine (Telemetría)</span>
+                                </button>
                             </div>
                             <div class="route-map-container">
                                 <canvas class="route-chart-canvas" id="route-telem-chart" aria-label="Gráfica de telemetría real"></canvas>

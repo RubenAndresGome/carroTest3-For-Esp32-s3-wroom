@@ -275,8 +275,8 @@ describe("contrato responsive del HMI canónico", () => {
   });
 
   it("habilita el redimensionamiento de mosaicos en workspace-tiling", () => {
-    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\s*\{[^}]*resize:\s*both/);
-    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\s*\{[^}]*overflow:\s*auto/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\s*\{[^}]*resize:\s*vertical/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\s*\{[^}]*overflow:\s*hidden/);
   });
 
   it("garantiza que las tarjetas críticas no contengan caracteres emoji", () => {
@@ -320,15 +320,22 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toContain("openWindow(");
   });
 
-  it("implementa scroll universal en ventanas flotantes, mosaico horizontal a 100% Y y tirador tactil de 28px", () => {
+  it("implementa scroll universal en ventanas flotantes, mosaico vertical con scroll general y tirador tactil de 28px", () => {
     expect(html).toMatch(/\.window-resize-handle\s*\{[^}]*width:\s*28px/);
     expect(html).toMatch(/\.window-resize-handle\s*\{[^}]*height:\s*28px/);
     expect(html).toMatch(/\.window-resize-handle\s*\{[^}]*touch-action:\s*none/);
-    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s*\{[^}]*flex-direction:\s*row/);
-    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s*\{[^}]*overflow-x:\s*auto/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s*\{[^}]*flex-direction:\s*column/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s*\{[^}]*overflow-y:\s*auto/);
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.window-resize-handle\s*\{[^}]*cursor:\s*ns-resize/);
     expect(html).toContain("connection-layout");
     expect(html).toContain("testing-grid");
     expect(html).toContain("touch-layout");
     expect(html).toContain("Otras ventanas, submódulos y alertas");
+  });
+
+  it("desduplica los botones de modo cine en charts de rutas y asegura maximizacion fija en mosaico", () => {
+    expect(html).toContain("Cine (Plan)");
+    expect(html).toContain("Cine (Telemetría)");
+    expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\.is-maximized\s*\{[^}]*position:\s*fixed/);
   });
 });

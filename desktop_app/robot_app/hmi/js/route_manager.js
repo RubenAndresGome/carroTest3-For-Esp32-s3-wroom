@@ -929,21 +929,30 @@
             const btn = document.querySelector(`.route-cinema[data-card="${cardId}"]`);
             if (btn) {
                 btn.setAttribute('aria-pressed', isCinema);
+                const isPlan = cardId === 'card-plan-map';
+                const labelText = isPlan ? 'Cine (Plan)' : 'Cine (Telemetría)';
+                const labelTitle = isPlan ? 'Pantalla completa: Plan Teórico' : 'Pantalla completa: Telemetría Real';
+                const iconExpand = '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+                const iconReduce = '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 14h6m0 0v6m0-6L3 21m17-11h-6m0 0V4m0 6l7-7"/></svg>';
                 if (isCinema) {
                     btn.classList.add('btn-stop');
-                    btn.innerHTML = 'Reducir';
+                    btn.innerHTML = `${iconReduce} <span class="cinema-btn-text">Reducir</span>`;
                     btn.title = 'Salir de modo cine (Esc)';
                 } else {
                     btn.classList.remove('btn-stop');
-                    btn.innerHTML = 'Cine';
-                    btn.title = 'Pantalla completa / Modo cine';
+                    btn.innerHTML = `${iconExpand} <span class="cinema-btn-text">${labelText}</span>`;
+                    btn.title = labelTitle;
                 }
             }
             if (cardId === 'card-plan-map') {
                 const previewBtn = document.getElementById('btn-route-preview');
                 if (previewBtn) {
                     previewBtn.setAttribute('aria-pressed', isCinema);
-                    previewBtn.textContent = isCinema ? 'Cerrar previsualización' : 'Previsualizar';
+                    const iconPreview = '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+                    const iconClose = '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+                    previewBtn.innerHTML = isCinema 
+                        ? `${iconClose} Cerrar previsualización` 
+                        : `${iconPreview} Previsualizar`;
                     if (isCinema) previewBtn.classList.add('btn-stop');
                     else previewBtn.classList.remove('btn-stop');
                 }

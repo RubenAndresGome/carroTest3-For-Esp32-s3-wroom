@@ -220,46 +220,57 @@
         #hmi-workspace.workspace-tabs .window-header { display: none; }
         #hmi-workspace.workspace-tabs .window-resize-handle { display: none; }
 
-        /* Modo Mosaico (Tiling Horizontal - Stacking Max Eje Y) */
+        /* Modo Mosaico (Tiling Vertical - Stacking Full Width con Doble Scroll) */
         #hmi-workspace.workspace-tiling {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             gap: 16px;
             width: 100%;
             height: calc(100vh - var(--header-h) - var(--tabbar-h) - 24px);
             min-height: 520px;
-            overflow-x: auto;
-            overflow-y: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
             padding: 10px 12px 24px 12px;
             box-sizing: border-box;
             align-items: stretch;
         }
         #hmi-workspace.workspace-tiling .tab-content {
-            flex: 1 1 480px;
-            width: auto;
-            min-width: 360px;
+            flex: 0 0 auto;
+            width: 100%;
+            min-width: 0;
             max-width: 100%;
-            height: 100%;
-            min-height: 0;
+            height: 520px;
+            min-height: 380px;
             display: flex;
             flex-direction: column;
             margin: 0;
-            position: relative !important;
+            position: relative;
             transform: none !important;
             box-sizing: border-box;
-            resize: both;
-            overflow: auto;
+            resize: vertical;
+            overflow: hidden;
             border: 1px solid var(--glass-border);
             border-radius: var(--radius);
         }
         #hmi-workspace.workspace-tiling .tab-content.is-minimized {
             display: none !important;
         }
+        #hmi-workspace.workspace-tiling .tab-content.is-maximized {
+            position: fixed !important;
+            top: var(--header-h) !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: calc(100vh - var(--header-h) - 48px) !important;
+            z-index: 999 !important;
+            border-radius: 0 !important;
+            resize: none !important;
+        }
         #hmi-workspace.workspace-tiling .tab-content > :not(.window-header):not(.window-resize-handle),
         #hmi-workspace.workspace-tiling .tab-content > .connection-layout,
         #hmi-workspace.workspace-tiling .tab-content > .nav-layout,
         #hmi-workspace.workspace-tiling .tab-content > .testing-grid,
         #hmi-workspace.workspace-tiling .tab-content > .touch-layout,
+        #hmi-workspace.workspace-tiling .tab-content > .window-scroll-body,
         #hmi-workspace.workspace-tiling .tab-content > .card {
             flex: 1 1 auto;
             min-height: 0;
@@ -277,15 +288,19 @@
             box-sizing: border-box;
         }
         @media (min-width: 900px) {
+            #hmi-workspace.workspace-tiling .tab-content .connection-layout,
             #hmi-workspace.workspace-tiling .tab-content.is-maximized .connection-layout {
                 grid-template-columns: 380px minmax(0, 1fr);
             }
+            #hmi-workspace.workspace-tiling .tab-content .nav-layout,
             #hmi-workspace.workspace-tiling .tab-content.is-maximized .nav-layout {
                 grid-template-columns: 260px minmax(0, 1fr);
             }
+            #hmi-workspace.workspace-tiling .tab-content .testing-grid,
             #hmi-workspace.workspace-tiling .tab-content.is-maximized .testing-grid {
                 grid-template-columns: 260px minmax(380px, 1fr) 270px;
             }
+            #hmi-workspace.workspace-tiling .tab-content .touch-layout,
             #hmi-workspace.workspace-tiling .tab-content.is-maximized .touch-layout {
                 grid-template-columns: minmax(0, 1fr) 270px;
             }
@@ -298,7 +313,7 @@
             bottom: 0;
             width: 28px;
             height: 28px;
-            cursor: se-resize;
+            cursor: ns-resize;
             z-index: 25;
             touch-action: none;
         }
