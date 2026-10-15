@@ -396,13 +396,13 @@ const WindowManager = {
                 TabManager.switch(state.activeTab || 'conexion');
             }
         } else if (mode === 'tiling') {
-            // Modo Mosaico Vertical: paneles apilados ocupando el 100% del ancho
+            // Modo Mosaico Horizontal: columnas una al lado de la otra ocupando el 100% del eje Y
             this.windows.forEach(win => {
                 if (win.isMaximized) this.maximizeWindow(win.id);
                 win.el.style.left = '';
                 win.el.style.top = '';
-                win.el.style.width = '100%';
-                win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '';
+                win.el.style.width = win.tilingWidth ? `${win.tilingWidth}px` : '';
+                win.el.style.height = '100%';
                 win.el.style.zIndex = '';
                 if (!win.isCustomWidget && !win.isFork) {
                     win.isMinimized = false;
@@ -530,8 +530,8 @@ const WindowManager = {
             this._applyWindowRect(win);
         } else if (this.mode === 'tiling') {
             win.el.style.display = 'flex';
-            win.el.style.width = '100%';
-            win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '';
+            win.el.style.width = win.tilingWidth ? `${win.tilingWidth}px` : '';
+            win.el.style.height = '100%';
         } else { // tabs
             win.el.style.display = 'block';
             win.el.classList.add('active');

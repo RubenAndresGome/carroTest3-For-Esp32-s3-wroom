@@ -11,19 +11,34 @@
                     const winId = button.getAttribute('data-win') || (tabId === 'boost' ? 'tab-boost' : `tab-${tabId}`);
                     
                     // Comportamiento de barra de tareas estilo Windows
-                    if (typeof WindowManager !== 'undefined') {
+                    if (typeof WindowManager !== 'undefined' && WindowManager.mode !== 'tabs') {
                         const win = WindowManager.windows.get(winId);
                         if (win) {
                             if (win.isMinimized) {
                                 WindowManager.restoreWindow(winId);
-                                return;
-                            }
-                            const isCurrentlyActive = (WindowManager.mode === 'tabs' && state.activeTab === tabId && !win.isMinimized) ||
-                                (WindowManager.mode !== 'tabs' && win.el.classList.contains('is-focused') && !win.isMinimized);
-                            if (isCurrentlyActive) {
+                                WindowManager.bringToFront(winId);
+                                if (WindowManager.mode === 'tiling') {
+                                    win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                }
+                            } else if (win.el.classList.contains('is-focused')) {
                                 WindowManager.minimizeWindow(winId);
-                                return;
+                            } else {
+                                WindowManager.bringToFront(winId);
+                                if (WindowManager.mode === 'tiling') {
+                                    win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                }
                             }
+                            return;
+                        }
+                    } else if (typeof WindowManager !== 'undefined' && WindowManager.mode === 'tabs') {
+                        const win = WindowManager.windows.get(winId);
+                        if (win && win.isMinimized) {
+                            WindowManager.restoreWindow(winId);
+                            this.switch(tabId);
+                            return;
+                        } else if (win && state.activeTab === tabId && !win.isMinimized) {
+                            WindowManager.minimizeWindow(winId);
+                            return;
                         }
                     }
                     this.switch(tabId);
@@ -75,7 +90,7 @@
                         WindowManager._applyWindowRect(win);
                     } else if (WindowManager.mode === 'tiling') {
                         win.el.style.height = '100%';
-                        if (win.tilingWidth) win.el.style.width = `${win.tilingWidth}px`;
+                        win.el.style.width = win.tilingWidth ? `${win.tilingWidth}px` : '';
                     }
                     WindowManager.bringToFront(win.id);
                 }
