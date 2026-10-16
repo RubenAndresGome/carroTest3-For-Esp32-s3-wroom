@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
        TOUCH / JOYSTICK
        ============================================== */
@@ -45,10 +49,12 @@
 
             this._bindInputEvents();
 
-            document.getElementById('btn-touch-return').addEventListener('click', () => this.returnRecording());
-            document.getElementById('btn-touch-delete').addEventListener('click', () => this.deleteRecording());
-            document.getElementById('touch-open-area-ack').addEventListener('change', e => {
-                document.getElementById('btn-touch-return').disabled = !this.recordingId || !e.target.checked;
+            document.getElementById('btn-touch-return')?.addEventListener('click', () => this.returnRecording());
+            document.getElementById('btn-touch-delete')?.addEventListener('click', () => this.deleteRecording());
+            document.getElementById('touch-open-area-ack')?.addEventListener('change', e => {
+                const target = /** @type {HTMLInputElement} */ (e.target);
+                const btn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-touch-return'));
+                if (btn) btn.disabled = !this.recordingId || !target.checked;
             });
             this.renderRecording(null);
             this.setCapability(false);
@@ -124,9 +130,10 @@
             const p=this._pos(e); let dx=p.x-this.cx, dy=p.y-this.cy, dist=Math.sqrt(dx*dx+dy*dy);
             if(dist>this.maxR){dx=(dx/dist)*this.maxR;dy=(dy/dist)*this.maxR;}
             const tx=this.cx+dx, ty=this.cy+dy;
-            this.thumb.setAttribute('cx',tx);this.thumb.setAttribute('cy',ty);
-            this.wrap.querySelector('.joy-thumb-outer').setAttribute('cx',tx);this.wrap.querySelector('.joy-thumb-outer').setAttribute('cy',ty);
-            this.dirLine.setAttribute('x2',tx);this.dirLine.setAttribute('y2',ty);
+            this.thumb.setAttribute('cx', String(tx)); this.thumb.setAttribute('cy', String(ty));
+            this.wrap.querySelector('.joy-thumb-outer')?.setAttribute('cx', String(tx));
+            this.wrap.querySelector('.joy-thumb-outer')?.setAttribute('cy', String(ty));
+            this.dirLine.setAttribute('x2', String(tx)); this.dirLine.setAttribute('y2', String(ty));
             const cd=Math.min(dist,this.maxR), nx=cd>0?dx/this.maxR:0, ny=cd>0?dy/this.maxR:0;
             let mag=cd/this.maxR; if(cd<this.deadR)mag=0;
             const ang=Math.atan2(dx,-dy)*180/Math.PI, fwd=-ny, turn=nx;
@@ -165,10 +172,13 @@
             }
         },
         renderRecording(recording) {
-            const canvas=document.getElementById('touch-recording-preview'),ctx=canvas.getContext('2d');
-            const width=canvas.width,height=canvas.height,pad=24;
-            ctx.clearRect(0,0,width,height);ctx.fillStyle='#09111b';ctx.fillRect(0,0,width,height);
-            ctx.strokeStyle='rgba(120,145,170,.22)';ctx.lineWidth=1;
+            const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('touch-recording-preview'));
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const width = canvas.width, height = canvas.height, pad = 24;
+            ctx.clearRect(0, 0, width, height); ctx.fillStyle = '#09111b'; ctx.fillRect(0, 0, width, height);
+            ctx.strokeStyle = 'rgba(120,145,170,.22)'; ctx.lineWidth = 1;
             for(let x=pad;x<width;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,height);ctx.stroke();}
             for(let y=pad;y<height;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y);ctx.stroke();}
             const samples=recording?.samples||[],points=recording?.points||[],segments=recording?.compiled_segments||[];
@@ -190,13 +200,17 @@
             const valid=recording?.status==='completed'&&segments.length>0;
             this.displayedRecordingId=recording?.id||null;
             this.recordingId=valid?recording.id:null;
-            document.getElementById('touch-open-area-ack').checked=false;
-            document.getElementById('btn-touch-return').disabled=true;
-            document.getElementById('btn-touch-delete').disabled=!recording?.id;
+            const ackBox = /** @type {HTMLInputElement | null} */ (document.getElementById('touch-open-area-ack'));
+            if (ackBox) ackBox.checked = false;
+            const btnReturn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-touch-return'));
+            if (btnReturn) btnReturn.disabled = true;
+            const btnDelete = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-touch-delete'));
+            if (btnDelete) btnDelete.disabled = !recording?.id;
             document.getElementById('touch-recording-status').textContent=!recording?'Sin grabación todavía.':valid?'Vista previa lista: morado conceptual, cian medido y ámbar X→Y físico. Confirma el área para regresar.':`Grabación no ejecutable: ${recording.invalid_reason||recording.status}`;
         },
         async returnRecording() {
-            if(!this.recordingId||!document.getElementById('touch-open-area-ack').checked)return;
+            const ackBox = /** @type {HTMLInputElement | null} */ (document.getElementById('touch-open-area-ack'));
+            if(!this.recordingId || !ackBox || !ackBox.checked) return;
             try{
                 await WSControl.api(`/api/v1/touch-recordings/${this.recordingId}/acknowledge-open-area`,{method:'POST',body:'{}'});
                 const mission=await WSControl.api(`/api/v1/touch-recordings/${this.recordingId}/return`,{method:'POST',body:'{}'});
@@ -217,24 +231,29 @@
             catch(error){LogSystem.add('ERROR',`No se pudo eliminar la grabación: ${error.message}`);}
         },
         _resetVis() {
-            this.thumb.setAttribute('cx',this.cx);this.thumb.setAttribute('cy',this.cy);
-            this.wrap.querySelector('.joy-thumb-outer').setAttribute('cx',this.cx);this.wrap.querySelector('.joy-thumb-outer').setAttribute('cy',this.cy);
-            this.dirLine.setAttribute('x2',this.cx);this.dirLine.setAttribute('y2',this.cy);
-            const c=2*Math.PI*118;this.arc.setAttribute('stroke-dasharray',`0 ${c}`);
+            this.thumb.setAttribute('cx', String(this.cx)); this.thumb.setAttribute('cy', String(this.cy));
+            this.wrap.querySelector('.joy-thumb-outer')?.setAttribute('cx', String(this.cx));
+            this.wrap.querySelector('.joy-thumb-outer')?.setAttribute('cy', String(this.cy));
+            this.dirLine.setAttribute('x2', String(this.cx)); this.dirLine.setAttribute('y2', String(this.cy));
+            const c=2*Math.PI*118; this.arc.setAttribute('stroke-dasharray', `0 ${c}`);
         },
         _bars(pL,pR,dL,dR) {
             const sc=100/230;
             const fL=document.getElementById('bar-left-fill'), fR=document.getElementById('bar-right-fill');
-            if(dL==='fwd'){const h=pL*sc;fL.setAttribute('y',120-h);fL.setAttribute('height',h);fL.setAttribute('class','bar-fill-fwd');}
-            else if(dL==='rev'){const h=pL*sc;fL.setAttribute('y',120);fL.setAttribute('height',h);fL.setAttribute('class','bar-fill-rev');}
-            else{fL.setAttribute('y',120);fL.setAttribute('height',0);}
-            if(dR==='fwd'){const h=pR*sc;fR.setAttribute('y',120-h);fR.setAttribute('height',h);fR.setAttribute('class','bar-fill-fwd');}
-            else if(dR==='rev'){const h=pR*sc;fR.setAttribute('y',120);fR.setAttribute('height',h);fR.setAttribute('class','bar-fill-rev');}
-            else{fR.setAttribute('y',120);fR.setAttribute('height',0);}
-            document.getElementById('bar-left-val').textContent=pL;
-            document.getElementById('bar-right-val').textContent=pR;
-            document.getElementById('bar-left-dir').textContent=dL;
-            document.getElementById('bar-right-dir').textContent=dR;
+            if (fL) {
+                if(dL==='fwd'){const h=pL*sc; fL.setAttribute('y', String(120-h)); fL.setAttribute('height', String(h)); fL.setAttribute('class','bar-fill-fwd');}
+                else if(dL==='rev'){const h=pL*sc; fL.setAttribute('y', '120'); fL.setAttribute('height', String(h)); fL.setAttribute('class','bar-fill-rev');}
+                else{fL.setAttribute('y', '120'); fL.setAttribute('height', '0');}
+            }
+            if (fR) {
+                if(dR==='fwd'){const h=pR*sc; fR.setAttribute('y', String(120-h)); fR.setAttribute('height', String(h)); fR.setAttribute('class','bar-fill-fwd');}
+                else if(dR==='rev'){const h=pR*sc; fR.setAttribute('y', '120'); fR.setAttribute('height', String(h)); fR.setAttribute('class','bar-fill-rev');}
+                else{fR.setAttribute('y', '120'); fR.setAttribute('height', '0');}
+            }
+            const elLVal = document.getElementById('bar-left-val'); if (elLVal) elLVal.textContent = String(pL);
+            const elRVal = document.getElementById('bar-right-val'); if (elRVal) elRVal.textContent = String(pR);
+            const elLDir = document.getElementById('bar-left-dir'); if (elLDir) elLDir.textContent = dL;
+            const elRDir = document.getElementById('bar-right-dir'); if (elRDir) elRDir.textContent = dR;
         },
         _dirName(a,m) {
             if(m<0.05)return'EN REPOSO';

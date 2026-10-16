@@ -78,11 +78,20 @@ El ejecutable binario `dist\RobotS3.exe` empaqueta Flask, Waitress, el cliente W
 
 ## Desarrollo del Frontend (Opcional Vite / Node)
 
-Node, Vite y TypeScript están preparados en `.tools/` (excluido de Git) para desarrollo de interfaz moderna.
+Node, Vite y TypeScript están preparados en `.tools/` (excluido de Git) para desarrollo de interfaz moderna y verificación estática.
 
 ```powershell
 # Preparar entorno frontend
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\frontend\preparar_frontend.ps1
+
+# Verificación de tipos TypeScript en el frontend
+npm --prefix desktop_app/frontend run check
+
+# Verificación de tipos JSDoc en los 18 módulos del HMI
+npm --prefix desktop_app/frontend run check:hmi
+
+# Pruebas unitarias y de contrato responsive (Vitest)
+npm --prefix desktop_app/frontend test
 
 # Servidor de desarrollo con Hot Reload (127.0.0.1:5173)
 scripts\frontend\desarrollar_frontend.bat

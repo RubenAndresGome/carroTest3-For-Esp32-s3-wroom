@@ -10,6 +10,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "check": "tsc --noEmit",
+    "check:hmi": "tsc -p ../robot_app/hmi/tsconfig.json",
     "test": "vitest run --exclude e2e/**",
     "test:hmi-responsive": "vitest run tests/hmi-responsive-contract.test.ts",
     "test:hmi-browser": "playwright test",

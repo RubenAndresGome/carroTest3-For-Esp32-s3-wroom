@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    ROUTE MODES & PLANNING STRATEGIES (Strategy Pattern)
    ============================================== */
@@ -41,6 +45,10 @@ class RoutePlanningMode {
 
     updatePreview() {}
 
+    /**
+     * @param {any} manager
+     * @returns {Record<string, any>}
+     */
     missionPayload(manager) {
         return {
             points: manager.queue.map(wp => ({

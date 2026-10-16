@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    SURFACE FRICTION MANAGER (SQLite REST API & Calibration Presets)
    ============================================== */
@@ -37,7 +41,7 @@ const SurfaceManager = {
     },
 
     _bindAutoName() {
-        const autoNameInput = document.getElementById('surface-auto-name');
+        const autoNameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-auto-name'));
         const calibrateLabel = document.getElementById('btn-calibrate-label');
         if (autoNameInput && calibrateLabel) {
             autoNameInput.addEventListener('input', () => {
@@ -53,7 +57,7 @@ const SurfaceManager = {
         const saveLiveBtn = document.getElementById('btn-save-current-as-surface');
         if (saveLiveBtn) saveLiveBtn.addEventListener('click', () => this.saveCurrentLiveSurface());
 
-        const select = document.getElementById('select-surface');
+        const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-surface'));
         if (select) select.addEventListener('change', () => this.onSurfaceSelect(select.value));
 
         const applyBtn = document.getElementById('btn-apply-surface');
@@ -74,7 +78,7 @@ const SurfaceManager = {
         try {
             const data = await WSControl.api('/api/v1/calibration/surfaces');
             this.surfaces = Array.isArray(data) ? data : [];
-            const select = document.getElementById('select-surface');
+            const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-surface'));
             if (!select) return;
 
             select.innerHTML = '';
@@ -107,12 +111,12 @@ const SurfaceManager = {
         const surface = this.surfaces.find(s => s.id === id);
         if (!surface) return;
 
-        const nameInput = document.getElementById('surface-name');
-        const descInput = document.getElementById('surface-desc');
-        const pwmPosInput = document.getElementById('surface-pwm-pos');
-        const pwmNegInput = document.getElementById('surface-pwm-neg');
-        const candPosSelect = document.getElementById('surface-cand-pos');
-        const candNegSelect = document.getElementById('surface-cand-neg');
+        const nameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-name'));
+        const descInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-desc'));
+        const pwmPosInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-pwm-pos'));
+        const pwmNegInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-pwm-neg'));
+        const candPosSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('surface-cand-pos'));
+        const candNegSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('surface-cand-neg'));
 
         if (nameInput) nameInput.value = surface.name || '';
         if (descInput) descInput.value = surface.description || '';
@@ -121,8 +125,8 @@ const SurfaceManager = {
         const candP = surface.cand_pos ?? surface.positive_polarity ?? 1;
         const candN = surface.cand_neg ?? surface.negative_polarity ?? -1;
 
-        if (pwmPosInput) pwmPosInput.value = pwmP;
-        if (pwmNegInput) pwmNegInput.value = pwmN;
+        if (pwmPosInput) pwmPosInput.value = String(pwmP);
+        if (pwmNegInput) pwmNegInput.value = String(pwmN);
         if (candPosSelect) candPosSelect.value = String(candP);
         if (candNegSelect) candNegSelect.value = String(candN);
     },
@@ -132,11 +136,11 @@ const SurfaceManager = {
             LogSystem.add('WARN', `El robot está en ${Calibration.robotState || Calibration.lastRobotState}. Presiona "Rearmar" antes de aplicar una superficie.`);
             return;
         }
-        const select = document.getElementById('select-surface');
+        const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-surface'));
         const id = select?.value;
         if (!id) return LogSystem.add('WARN', 'Selecciona una superficie primero.');
 
-        const applyBtn = document.getElementById('btn-apply-surface');
+        const applyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-apply-surface'));
         if (applyBtn) applyBtn.disabled = true;
 
         try {
@@ -174,7 +178,7 @@ const SurfaceManager = {
     },
 
     async saveCurrentLiveSurface() {
-        const autoNameInput = document.getElementById('surface-auto-name');
+        const autoNameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-auto-name'));
         const name = autoNameInput?.value?.trim();
         if (!name) {
             LogSystem.add('WARN', 'Escribe el nombre del piso antes de guardar.');
@@ -215,7 +219,7 @@ const SurfaceManager = {
                 })
             });
             LogSystem.add('INFO', `Calibración finalizada: Superficie "${saved.name}" registrada en SQLite (PWM: ${pwmPos}/${pwmNeg}).`);
-            const autoNameInput = document.getElementById('surface-auto-name');
+            const autoNameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-auto-name'));
             if (autoNameInput) autoNameInput.value = '';
             const calibrateLabel = document.getElementById('btn-calibrate-label');
             if (calibrateLabel) calibrateLabel.textContent = 'Calibrar físicamente (Giro ±25°)';
@@ -235,12 +239,12 @@ const SurfaceManager = {
     },
 
     async saveCurrent() {
-        const name = document.getElementById('surface-name')?.value?.trim();
-        const desc = document.getElementById('surface-desc')?.value?.trim() || '';
-        const pwmPos = Number(document.getElementById('surface-pwm-pos')?.value);
-        const pwmNeg = Number(document.getElementById('surface-pwm-neg')?.value);
-        const candPos = Number(document.getElementById('surface-cand-pos')?.value);
-        const candNeg = Number(document.getElementById('surface-cand-neg')?.value);
+        const name = (/** @type {HTMLInputElement | null} */ (document.getElementById('surface-name')))?.value?.trim();
+        const desc = (/** @type {HTMLInputElement | null} */ (document.getElementById('surface-desc')))?.value?.trim() || '';
+        const pwmPos = Number((/** @type {HTMLInputElement | null} */ (document.getElementById('surface-pwm-pos')))?.value);
+        const pwmNeg = Number((/** @type {HTMLInputElement | null} */ (document.getElementById('surface-pwm-neg')))?.value);
+        const candPos = Number((/** @type {HTMLSelectElement | null} */ (document.getElementById('surface-cand-pos')))?.value);
+        const candNeg = Number((/** @type {HTMLSelectElement | null} */ (document.getElementById('surface-cand-neg')))?.value);
 
         if (!name) return LogSystem.add('WARN', 'El nombre de la superficie es obligatorio.');
         if (!Number.isFinite(pwmPos) || pwmPos < 140 || pwmPos > 247 || !Number.isFinite(pwmNeg) || pwmNeg < 140 || pwmNeg > 247) {
@@ -264,12 +268,12 @@ const SurfaceManager = {
 
     captureFromTelemetry() {
         const { pwmPos, pwmNeg } = this._extractPwmFromTelemetry();
-        const pwmPosInput = document.getElementById('surface-pwm-pos');
-        const pwmNegInput = document.getElementById('surface-pwm-neg');
-        if (pwmPosInput) pwmPosInput.value = pwmPos;
-        if (pwmNegInput) pwmNegInput.value = pwmNeg;
+        const pwmPosInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-pwm-pos'));
+        const pwmNegInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-pwm-neg'));
+        if (pwmPosInput) pwmPosInput.value = String(pwmPos);
+        if (pwmNegInput) pwmNegInput.value = String(pwmNeg);
 
-        const nameInput = document.getElementById('surface-name');
+        const nameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-name'));
         if (nameInput && !nameInput.value) {
             nameInput.value = `Captura ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         }
@@ -277,7 +281,7 @@ const SurfaceManager = {
     },
 
     async deleteSelected() {
-        const select = document.getElementById('select-surface');
+        const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-surface'));
         const id = select?.value;
         if (!id) return LogSystem.add('WARN', 'Selecciona una superficie para borrar.');
 

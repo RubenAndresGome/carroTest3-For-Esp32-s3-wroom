@@ -1,7 +1,10 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    CALIBRATION & CONNECTION (Canonical MPU6050 FSM & Connection Panel)
    ============================================== */
-
 const Calibration = {
     calibrated: false, commandId: null, commandPending: false, rearmCommandId: null, rearmPending: false,
     selfTestCommandId: null, selfTestPassed: true, robotState: '', mpuReady: false, allowedCommands: null,
@@ -11,11 +14,11 @@ const Calibration = {
     lastEncoderHealthKey: '', lastAntiFrictionKey: '',
 
     _bindCalibrateButton() {
-        document.getElementById('btn-calibrate').addEventListener('click', async () => {
+        document.getElementById('btn-calibrate')?.addEventListener('click', async () => {
             if (!state.connected) return LogSystem.add('WARN', 'Conecta primero con el carrito.');
             if (!this.canCalibrate()) return LogSystem.add('WARN', this.calibrationBlockReason());
 
-            const desiredName = document.getElementById('surface-auto-name')?.value?.trim() || null;
+            const desiredName = (/** @type {HTMLInputElement | null} */ (document.getElementById('surface-auto-name')))?.value?.trim() || null;
             if (typeof SurfaceManager !== 'undefined') SurfaceManager.pendingAutoSaveName = desiredName;
             this.commandPending = true; this.updateAvailability();
             const calPanel = document.getElementById('cal-physical-panel'), toggleCalBtn = document.getElementById('btn-toggle-cal-diagnostics');
@@ -50,9 +53,8 @@ const Calibration = {
             }
         });
     },
-
     _bindClearFaultButton() {
-        document.getElementById('btn-clear-fault').addEventListener('click', async () => {
+        document.getElementById('btn-clear-fault')?.addEventListener('click', async () => {
             if (!this.canRearm()) return LogSystem.add('WARN', 'El rearme sólo está disponible conectado y en FALLO o ESTOP.');
             this.rearmPending = true;
             this.updateAvailability();
@@ -62,24 +64,28 @@ const Calibration = {
             this.rearmCommandId = result.id;
         });
     },
-
     init() {
         document.body.classList.add('calibration-locked');
-        document.getElementById('btn-calibrate').disabled = true;
-        document.getElementById('btn-self-test').disabled = true;
-        document.getElementById('self-test-state').textContent = 'INTEGRADA EN FIRMWARE';
-
+        const calBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-calibrate'));
+        if (calBtn) calBtn.disabled = true;
+        const selfBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-self-test'));
+        if (selfBtn) selfBtn.disabled = true;
+        const selfState = document.getElementById('self-test-state');
+        if (selfState) selfState.textContent = 'INTEGRADA EN FIRMWARE';
         this._bindCalibrateButton();
         this._bindClearFaultButton();
     },
-
     normalizeRobotState(value) {
         const current = String(value || '').trim().toUpperCase();
         return ['FAULT', 'SAFE_STOP'].includes(current) ? 'FALLO' : current;
     },
-
-    hasAllowed(command) {
-        return !Array.isArray(this.allowedCommands) || this.allowedCommands.includes(command);
+    hasAllowed(command) { return !Array.isArray(this.allowedCommands) || this.allowedCommands.includes(command); },
+    canCalibrate() {
+        return state.connected && ['DESARMADO','LISTO'].includes(this.robotState) && this.mpuReady &&
+            !this.commandPending && !this.rearmPending && this.hasAllowed('calibrate');
+    },
+    canRearm() {
+        return state.connected && ['FALLO','ESTOP'].includes(this.robotState) && !this.rearmPending && this.hasAllowed('clear_fault');
     },
 
     mpuStatus(raw) {
@@ -93,16 +99,6 @@ const Calibration = {
         if (stale !== false) return { ready: false, reason: stale === true ? 'Telemetría MPU obsoleta.' : 'Esperando vigencia de la MPU.' };
         if (calibrated !== true) return { ready: false, reason: 'MPU presente, pero aún no está calibrada.' };
         return { ready: true, reason: 'MPU apta para calibración física.' };
-    },
-
-    canCalibrate() {
-        return state.connected && ['DESARMADO','LISTO'].includes(this.robotState) && this.mpuReady &&
-            !this.commandPending && !this.rearmPending && this.hasAllowed('calibrate');
-    },
-
-    canRearm() {
-        return state.connected && ['FALLO','ESTOP'].includes(this.robotState) && !this.rearmPending &&
-            this.hasAllowed('clear_fault');
     },
 
     calibrationBlockReason() {
@@ -120,13 +116,20 @@ const Calibration = {
     },
 
     updateAvailability() {
-        const cal = document.getElementById('btn-calibrate'), rearm = document.getElementById('btn-clear-fault'), applyBtn = document.getElementById('btn-apply-surface');
+        const cal = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-calibrate'));
+        const rearm = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-clear-fault'));
+        const applyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-apply-surface'));
         const faultState = ['FALLO','ESTOP'].includes(this.robotState);
-        cal.disabled = !this.canCalibrate();
-        cal.title = cal.disabled ? this.calibrationBlockReason() : 'Iniciar calibración física';
-        rearm.hidden = !faultState;
-        rearm.disabled = !this.canRearm();
-        document.getElementById('btn-clear-fault-label').textContent = this.rearmPending ? 'Rearmando…' : `Rearmar ${this.robotState || 'sistema'}`;
+        if (cal) {
+            cal.disabled = !this.canCalibrate();
+            cal.title = cal.disabled ? this.calibrationBlockReason() : 'Iniciar calibración física';
+        }
+        if (rearm) {
+            rearm.hidden = !faultState;
+            rearm.disabled = !this.canRearm();
+        }
+        const rearmLbl = document.getElementById('btn-clear-fault-label');
+        if (rearmLbl) rearmLbl.textContent = this.rearmPending ? 'Rearmando…' : `Rearmar ${this.robotState || 'sistema'}`;
         if (applyBtn) {
             applyBtn.disabled = faultState || !this.mpuReady;
             applyBtn.title = faultState ? `El robot está en ${this.robotState}. Rearme el sistema antes de aplicar superficie.` : (!this.mpuReady ? 'MPU no listo para inyectar calibración' : 'Aplicar superficie seleccionada al robot');
@@ -135,21 +138,15 @@ const Calibration = {
 
     showCause(reason, visible) {
         const node = document.getElementById('calibration-cause');
-        node.textContent = visible ? `Causa exacta: ${reason || 'sin causa reportada'}` : '';
-        node.classList.toggle('visible', Boolean(visible));
+        if (node) { node.textContent = visible ? `Causa exacta: ${reason || 'sin causa reportada'}` : ''; node.classList.toggle('visible', Boolean(visible)); }
     },
-
     setState(label, ready, tone = '') {
         this.calibrated = ready;
         const node = document.getElementById('calibration-state');
-        node.textContent = label;
-        node.classList.toggle('ready', ready);
-        node.classList.toggle('fault', tone === 'fault');
-        node.classList.toggle('estop', tone === 'estop');
+        if (node) { node.textContent = label; node.classList.toggle('ready', ready); node.classList.toggle('fault', tone === 'fault'); node.classList.toggle('estop', tone === 'estop'); }
         document.body.classList.toggle('calibration-locked', !ready);
         this.updateAvailability();
     },
-
     valueAt(container, key, index, fallback = undefined) {
         if (Array.isArray(container)) return container[index] ?? fallback;
         if (container && typeof container === 'object') return container[key] ?? container[key.toUpperCase()] ?? fallback;
@@ -164,7 +161,6 @@ const Calibration = {
         this._renderWheelDeltas(diag);
         this._renderDiagnosticSides(diag);
     },
-
     _renderPhaseAndRamp(diag, raw) {
         const phase = diag.phase ?? raw.active_command_name ?? '—';
         const ramp = diag.ramp_level ?? diag.ramp_step ?? diag.pasoRampa, rampTotal = diag.ramp_level_count ?? diag.ramp_total ?? diag.pasosRampaTotal;
@@ -178,7 +174,6 @@ const Calibration = {
             ? `L/R ${pwmL ?? '—'}/${pwmR ?? '—'} de 255` : (pwm10 === undefined ? '—' : `${pwm8 ?? '—'}/255 · ${pwm10}/1023`);
         document.getElementById('cal-diag-attempt').textContent = att === undefined ? '—' : `${att}/${attMax ?? '—'}`;
     },
-
     _renderHistory(raw) {
         const h = raw && typeof raw.torque_history === 'object' && raw.torque_history ? raw.torque_history : {};
         const count = Number(h.record_count || 0), status = String(h.status || 'sin datos');
@@ -187,7 +182,6 @@ const Calibration = {
         document.getElementById('cal-diag-history').textContent = count
             ? `${count}/10 · base + L/R ${bPosL}/${bPosR} · − L/R ${bNegL}/${bNegR} · ${status}` : `0/10 · base 140 · ${status}`;
     },
-
     _renderPcntInit(raw) {
         const pcnt = raw && typeof raw.pcnt_init === 'object' && raw.pcnt_init ? raw.pcnt_init : {};
         const failures = ['fl', 'fr', 'bl', 'br'].filter(n => pcnt[n]?.initialized === false)
@@ -212,7 +206,6 @@ const Calibration = {
             document.getElementById(`cal-diag-${wheel}`).dataset.status = status;
         });
     },
-
     _renderDiagnosticSides(diag) {
         const silence = Number(diag.encoder_silence_ms || 0), silenceLimit = Number(diag.encoder_silence_limit_ms || 500);
         const silenceLabel = diag.gyro_without_encoders === true ? ` · IMU sin PCNT ${silence}/${silenceLimit} ms` : '';
@@ -229,7 +222,7 @@ const Calibration = {
         const respCount = Number(diag.pcnt_response_count || 0), wait = String(diag.wait_reason || 'esperando datos');
         document.getElementById('cal-diag-sides').textContent = `${authority} · ${torque} · ${pivotState} · calidad ${quality} · balance ${balance} · ticks L/R ${leftTicks}/${rightTicks} (ratio ${ratioLabel}) · Δyaw ${yawDelta.toFixed(1)}° · traslación estimada ${translation.toFixed(2)} cm · PCNT ${respCount}/4 · espera ${wait} · PWM lógico L/R ${pivot.logical_left ?? '—'}/${pivot.logical_right ?? '—'}${silenceLabel}${dirLabel}`;
     },
-
+    /** @param {TelemetryPayload} raw */
     applyTelemetry(raw) {
         this.lastRaw = raw || {};
         this.selfTestPassed = true;
@@ -243,10 +236,8 @@ const Calibration = {
         this.allowedCommands = Array.isArray(raw.allowed_commands) ? raw.allowed_commands.map(v => String(v).toLowerCase()) : null;
         this.mpuReady = this.mpuStatus(raw).ready;
         this.renderDiagnostics(raw);
-
         this._checkTerminalState(raw, fault, robotState);
     },
-
     _checkTurnTelemetry(raw) {
         const reqMode = String(raw.turn_requested_mode || 'AUTO'), turnMode = String(raw.turn_mode || 'PIVOT');
         if (reqMode !== this.lastRequestedTurnMode) {
@@ -275,7 +266,6 @@ const Calibration = {
         }
         this.lastAlignmentStage = aStage;
     },
-
     _checkEncoderTelemetry(raw) {
         const encoderHealth = raw.encoder_health || {};
         const key = ['fl', 'fr', 'bl', 'br'].map(k => String(encoderHealth[k] || 'unknown')).join('/');
@@ -292,7 +282,6 @@ const Calibration = {
         this.lastDegradedMode = degraded;
         this.lastEncoderHealthKey = key;
     },
-
     _checkAntiFrictionTelemetry(raw) {
         const anti = raw.anti_friction || {};
         const antiKey = `${Boolean(anti.active)}:${Number(anti.pulse_index || 0)}:${Boolean(anti.pulse_on)}`;
@@ -303,7 +292,6 @@ const Calibration = {
         }
         this.lastAntiFrictionKey = antiKey;
     },
-
     _checkTerminalState(raw, fault, robotState) {
         const terminal = raw.last_terminal || {};
         const diag = raw.calibration_diagnostics && typeof raw.calibration_diagnostics === 'object' ? raw.calibration_diagnostics : {};
@@ -374,7 +362,6 @@ const Calibration = {
         }
         this.updateAvailability();
     },
-
     _handleRearmEvent(event) {
         if (event.type === 'queued' || event.type === 'accepted' || event.type === 'progress') return;
         this.rearmPending = false;
@@ -390,13 +377,13 @@ const Calibration = {
             this.updateAvailability();
         }
     },
-
     _handleSelfTestEvent(event) {
         if (event.type === 'queued' || event.type === 'accepted' || event.type === 'progress') return;
         const ok = event.type === 'completed';
         this.selfTestPassed = ok;
         document.getElementById('self-test-state').textContent = ok ? 'APROBADA' : `FALLO — ${event.detail || event.reason || 'sin detalle'}`;
-        document.getElementById('btn-self-test').disabled = false;
+        const selfBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-self-test'));
+        if (selfBtn) selfBtn.disabled = false;
         this.updateAvailability();
         LogSystem.add(ok ? 'INFO' : 'ERROR', ok ? 'Autoevaluación lógica aprobada.' : `Autoevaluación falló: ${event.detail || event.reason || 'sin detalle'}`);
     }
@@ -406,19 +393,17 @@ const ConnectionPanel = {
     state: 'stopped',
 
     init() {
-        document.getElementById('btn-connect').addEventListener('click', () => this.change('connect'));
-        document.getElementById('btn-reconnect').addEventListener('click', () => this.change('reconnect'));
-        document.getElementById('btn-disconnect').addEventListener('click', () => this.change('disconnect'));
+        document.getElementById('btn-connect')?.addEventListener('click', () => this.change('connect'));
+        document.getElementById('btn-reconnect')?.addEventListener('click', () => this.change('reconnect'));
+        document.getElementById('btn-disconnect')?.addEventListener('click', () => this.change('disconnect'));
         this.loadHistory();
     },
 
     async change(action) {
-        if (!WSControl.flaskMode) {
-            LogSystem.add('WARN', 'La gestión explícita está disponible en la aplicación Flask.');
-            return;
-        }
+        if (!WSControl.flaskMode) return LogSystem.add('WARN', 'La gestión explícita está disponible en la aplicación Flask.');
         try {
-            const host = document.getElementById('robot-host').value.trim();
+            const hostInput = /** @type {HTMLInputElement | null} */ (document.getElementById('robot-host'));
+            const host = hostInput ? hostInput.value.trim() : '192.168.4.1';
             if (action !== 'disconnect') {
                 await WSControl.api('/api/v1/config/robot', { method: 'PUT', body: JSON.stringify({ robot_host: host }) });
             }
@@ -431,11 +416,13 @@ const ConnectionPanel = {
     },
 
     applySnapshot(snapshot) {
-        document.getElementById('robot-host').value = snapshot.robot_host || '192.168.4.1';
+        const hostInput = /** @type {HTMLInputElement | null} */ (document.getElementById('robot-host'));
+        if (hostInput) hostInput.value = snapshot.robot_host || '192.168.4.1';
         if (typeof RouteManager !== 'undefined') RouteManager.applyCapabilities(snapshot.capabilities || {});
         this.applyConnection(snapshot.connection || {});
         this.applySession({ recording: snapshot.recording, session_id: snapshot.session_id });
-        document.getElementById('protocol-version').textContent = snapshot.connection?.state === 'stopped' ? '—' : (snapshot.connection?.protocol || '—');
+        const proto = document.getElementById('protocol-version');
+        if (proto) proto.textContent = snapshot.connection?.state === 'stopped' ? '—' : (snapshot.connection?.protocol || '—');
         if (snapshot.telemetry) this.applyIdentity(snapshot.telemetry);
     },
 

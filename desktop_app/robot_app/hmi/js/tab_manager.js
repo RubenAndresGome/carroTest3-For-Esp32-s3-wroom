@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    TAB MANAGER
    ============================================== */
@@ -36,6 +40,11 @@ const TabManager = {
         return false;
     },
 
+    /**
+     * @param {KeyboardEvent} event
+     * @param {number} index
+     * @param {HTMLElement[]} tabs
+     */
     _handleKeyNavigation(event, index, tabs) {
         let targetIndex = null;
         if (event.key==='ArrowRight') targetIndex = (index + 1) % tabs.length;
@@ -49,7 +58,7 @@ const TabManager = {
     },
 
     init() {
-        const tabs = [...document.querySelectorAll('.tab-btn')];
+        const tabs = /** @type {HTMLElement[]} */ ([...document.querySelectorAll('.tab-btn')]);
         tabs.forEach((button, index) => {
             button.addEventListener('click', () => {
                 if (button.getAttribute('aria-disabled') === 'true') return;
@@ -86,18 +95,20 @@ const TabManager = {
         if (!requestedTab || requestedTab.getAttribute('aria-disabled') === 'true') return;
         if (!Calibration.calibrated && id !== 'conexion') return LogSystem.add('WARN', 'Completa primero la calibración física de torque y giro.');
         if (typeof RouteManager !== 'undefined' && RouteManager.isRunning && id !== 'rutas') return;
-        if (state.activeTab === 'touch' && id !== 'touch') Touch.end();
+        if (state.activeTab === 'touch' && id !== 'touch') (/** @type {RobotJoystick} */ (/** @type {unknown} */ (Touch))).end();
         state.activeTab = id;
 
-        document.querySelectorAll('.tab-btn').forEach(b => {
+        document.querySelectorAll('.tab-btn').forEach(elem => {
+            const b = /** @type {HTMLElement} */ (elem);
             const a = b.dataset.tab === id;
             b.classList.toggle('active', a);
             if (a) b.classList.remove('is-minimized');
-            b.setAttribute('aria-selected', a);
+            b.setAttribute('aria-selected', a ? 'true' : 'false');
             b.tabIndex = a ? 0 : -1;
         });
 
-        document.querySelectorAll('.tab-content').forEach(c => {
+        document.querySelectorAll('.tab-content').forEach(elem => {
+            const c = /** @type {HTMLElement} */ (elem);
             const isActive = c.id === `tab-${id}` || c.id === id;
             c.classList.toggle('active', isActive);
             if (isActive) {

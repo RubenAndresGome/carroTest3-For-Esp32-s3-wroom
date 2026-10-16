@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    HMI APPLICATION BOOTSTRAP (init & Global Event Listeners)
    ============================================== */
@@ -25,18 +29,21 @@ function bindKeyboardShortcuts() {
         }
     });
 
-    document.addEventListener('visibilitychange', () => { if (document.hidden) Touch.end(); });
-    window.addEventListener('blur', () => Touch.end());
-    window.addEventListener('pagehide', () => Touch.end());
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) (/** @type {RobotJoystick} */ (/** @type {unknown} */ (Touch))).end();
+    });
+    window.addEventListener('blur', () => (/** @type {RobotJoystick} */ (/** @type {unknown} */ (Touch))).end());
+    window.addEventListener('pagehide', () => (/** @type {RobotJoystick} */ (/** @type {unknown} */ (Touch))).end());
 }
 
 /**
  * Control de alternancia de signo (+/-) para entradas numéricas.
  */
 function bindSignTogglers() {
-    document.querySelectorAll('[data-toggle-sign]').forEach(button => {
+    document.querySelectorAll('[data-toggle-sign]').forEach(elem => {
+        const button = /** @type {HTMLElement} */ (elem);
         button.addEventListener('click', () => {
-            const input = document.getElementById(button.dataset.toggleSign);
+            const input = /** @type {HTMLInputElement | null} */ (document.getElementById(button.dataset.toggleSign || ''));
             if (!input) return;
             const val = input.value.trim();
             if (val === '' || val === '0' || val === '0.0') {
@@ -85,7 +92,7 @@ function _bindEstopButton() {
  * Botón de restablecimiento de FSM y purga de memoria de Python.
  */
 function _bindResetHmiButton() {
-    const btnResetHmi = document.getElementById('btn-reset-hmi');
+    const btnResetHmi = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-reset-hmi'));
     if (!btnResetHmi) return;
 
     btnResetHmi.addEventListener('click', async function() {
@@ -128,7 +135,7 @@ function _bindResetHmiButton() {
  * Botón de reinicio de CPU ESP32 con confirmación e interlock seguro.
  */
 function _bindRebootRobotButton() {
-    const btnReboot = document.getElementById('btn-reboot-robot');
+    const btnReboot = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-reboot-robot'));
     if (!btnReboot) return;
 
     btnReboot.addEventListener('click', async function() {
@@ -170,7 +177,7 @@ function bindEmergencyControls() {
  * Controles de prueba rápida y motores en pestaña Testing.
  */
 function bindTestingControls() {
-    const btnApplyPwm = document.getElementById('btn-apply-pwm');
+    const btnApplyPwm = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-apply-pwm'));
     if (btnApplyPwm) {
         btnApplyPwm.disabled = true;
         btnApplyPwm.title = `No disponible en ${CANONICAL_CONFIG.PROTOCOL_NAME}. El hardware DRV8833 exige control cerrado por MPU.`;
@@ -181,25 +188,35 @@ function bindTestingControls() {
         });
     }
 
-    document.querySelectorAll('.dir-btn').forEach(b => b.addEventListener('click', function() {
-        const m = this.dataset.motor;
-        document.querySelectorAll(`.dir-btn[data-motor="${m}"]`).forEach(el => el.classList.remove('active-fwd', 'active-rev', 'active-stop'));
-        this.classList.add(this.dataset.dir === 'fwd' ? 'active-fwd' : this.dataset.dir === 'rev' ? 'active-rev' : 'active-stop');
-        state.motorDir[m] = this.dataset.dir;
-    }));
+    document.querySelectorAll('.dir-btn').forEach(elem => {
+        const b = /** @type {HTMLElement} */ (elem);
+        b.addEventListener('click', function() {
+            const m = this.dataset.motor;
+            if (!m) return;
+            document.querySelectorAll(`.dir-btn[data-motor="${m}"]`).forEach(el => el.classList.remove('active-fwd', 'active-rev', 'active-stop'));
+            this.classList.add(this.dataset.dir === 'fwd' ? 'active-fwd' : this.dataset.dir === 'rev' ? 'active-rev' : 'active-stop');
+            state.motorDir[m] = this.dataset.dir;
+        });
+    });
 
-    document.querySelectorAll('[data-cmd]').forEach(b => b.addEventListener('click', function() {
-        _executeQuickCommand(this);
-    }));
+    document.querySelectorAll('[data-cmd]').forEach(elem => {
+        const b = /** @type {HTMLElement} */ (elem);
+        b.addEventListener('click', function() {
+            _executeQuickCommand(this);
+        });
+    });
 }
 
 /**
  * Ejecuta comando rápido de prueba (avance, retroceso, giro, parada, reset).
+ * @param {HTMLElement} btn
  */
 function _executeQuickCommand(btn) {
     const c = btn.dataset.cmd;
-    const dist = parseFloat(document.getElementById('cmd-dist').value) || 50;
-    const angle = parseFloat(document.getElementById('cmd-angle').value) || 90;
+    const distInput = /** @type {HTMLInputElement | null} */ (document.getElementById('cmd-dist'));
+    const angleInput = /** @type {HTMLInputElement | null} */ (document.getElementById('cmd-angle'));
+    const dist = parseFloat(distInput?.value || '') || 50;
+    const angle = parseFloat(angleInput?.value || '') || 90;
     btn.classList.add('btn-flash');
     setTimeout(() => btn.classList.remove('btn-flash'), 250);
 
@@ -224,14 +241,17 @@ function _executeQuickCommand(btn) {
  * Mantenimiento de logs y purga de base de datos SQLite.
  */
 function bindLogAndDatabaseMaintenance() {
-    document.querySelectorAll('.log-filter-btn').forEach(b => b.addEventListener('click', function() {
-        this.classList.toggle('active');
-        this.setAttribute('aria-pressed', this.classList.contains('active') ? 'true' : 'false');
-        LogSystem.setFilter(this.dataset.filter, this.classList.contains('active'));
-    }));
+    document.querySelectorAll('.log-filter-btn').forEach(elem => {
+        const b = /** @type {HTMLElement} */ (elem);
+        b.addEventListener('click', function() {
+            this.classList.toggle('active');
+            this.setAttribute('aria-pressed', this.classList.contains('active') ? 'true' : 'false');
+            LogSystem.setFilter(this.dataset.filter, this.classList.contains('active'));
+        });
+    });
 
-    document.getElementById('btn-download-log').addEventListener('click', () => LogSystem.downloadTXT());
-    document.getElementById('btn-clear-log').addEventListener('click', () => {
+    document.getElementById('btn-download-log')?.addEventListener('click', () => LogSystem.downloadTXT());
+    document.getElementById('btn-clear-log')?.addEventListener('click', () => {
         LogSystem.clear();
         LogSystem.add('INFO', 'Log limpiado');
     });
@@ -246,13 +266,15 @@ function bindLogAndDatabaseMaintenance() {
  * Ejecuta solicitud de purga de historial en base de datos.
  */
 async function _handleDatabasePurge() {
-    const select = document.getElementById('select-purge-days');
+    const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-purge-days'));
+    if (!select) return;
     const days = parseInt(select.value, 10);
-    const label = select.options[select.selectedIndex].text;
+    const label = select.options[select.selectedIndex]?.text || '';
     if (!confirm(`¿Confirmas eliminar los registros de la Base de Datos con antigüedad: ${label}?`)) return;
 
     try {
-        const token = document.querySelector('meta[name="app-token"]').content;
+        const meta = /** @type {HTMLMetaElement | null} */ (document.querySelector('meta[name="app-token"]'));
+        const token = meta?.content || '';
         const res = await fetch('/api/v1/sessions/cleanup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-App-Token': token },
@@ -300,7 +322,7 @@ function init() {
     TabManager.init();
     ConnectionPanel.init();
     initChart();
-    Touch.init();
+    (/** @type {RobotJoystick} */ (/** @type {unknown} */ (Touch))).init();
 
     if (typeof WindowManager !== 'undefined') {
         WindowManager.init();
@@ -310,8 +332,13 @@ function init() {
         RouteManager.init();
     }
 
-    document.querySelectorAll('.route-cinema, .route-cinema-floating-close').forEach(button => {
-        button.addEventListener('click', () => RouteManager.toggleCinema(button.dataset.card));
+    document.querySelectorAll('.route-cinema, .route-cinema-floating-close').forEach(elem => {
+        const button = /** @type {HTMLElement} */ (elem);
+        button.addEventListener('click', () => {
+            if (button.dataset.card && typeof RouteManager !== 'undefined') {
+                RouteManager.toggleCinema(button.dataset.card);
+            }
+        });
     });
 
     bindKeyboardShortcuts();

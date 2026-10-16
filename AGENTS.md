@@ -12,11 +12,15 @@
     `tab_testing.html`, `tab_touch.html`, `tab_rutas.html`, `hud_boost.html`,
     `footer_panels.html`), estilos en `css/` (5 hojas: `theme.css`, `layout.css`,
     `components.css`, `touch.css`, `responsive.css`) y lógica en `js/`
-    (10 módulos: `config.js`, `ws_control.js`, `calibration.js`, `telemetry.js`,
-    `fork_registry.js`, `window_manager.js`, `route_manager.js`, `tab_manager.js`,
-    `touch.js`, `main.js`). `web.py` sirve estáticos `/css/` y `/js/`, y ensambla
-    dinámicamente en memoria con CSP nonce y `app-token`. `compilar_hmi.py` provee
-    utilidades CLI y validación `--check`.
+    (18 módulos: `config.js`, `ws_control.js`, `surface_manager.js`, `calibration.js`,
+    `telemetry.js`, `fork_registry.js`, `window_interact.js`, `window_layout.js`,
+    `window_manager.js`, `route_modes.js`, `route_forks.js`, `route_charts.js`,
+    `route_ockham.js`, `route_manager.js`, `tab_manager.js`, `touch.js`,
+    `settings_manager.js`, `main.js`). El subsistema cuenta con tipado estático
+    mediante JSDoc + `// @ts-check` respaldado por `tsconfig.json` y `types/globals.d.ts`,
+    consumiendo directamente los contratos canónicos de `desktop_app/frontend/src/protocol.ts`.
+    `web.py` sirve estáticos `/css/` y `/js/`, y ensambla dinámicamente en memoria
+    con CSP nonce y `app-token`. `compilar_hmi.py` provee utilidades CLI y validación `--check`.
 - `src/` e `include/` contienen el firmware modular actual. Los ensayos físicos
   aprobados están deshabilitados en `archive/firmware_tests/` y se compilan
   únicamente mediante su script de staging.
@@ -160,7 +164,11 @@ Antes de integrar cambios o realizar commits, verificar que las suites de prueba
    ```powershell
    npm --prefix desktop_app/frontend test
    ```
-5. **Verificación de HMI Modular**:
+5. **Verificación Estática de Tipos HMI (JSDoc + TypeScript)**:
+   ```powershell
+   npm --prefix desktop_app/frontend run check:hmi
+   ```
+6. **Verificación de HMI Modular**:
    ```powershell
    & desktop_app\.test-venv\Scripts\python.exe desktop_app/robot_app/hmi/compilar_hmi.py --check
    ```

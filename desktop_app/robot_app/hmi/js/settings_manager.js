@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    SETTINGS MANAGER (User Settings, Themes, i18n & Modes)
    ============================================== */
@@ -105,10 +109,10 @@ const SettingsManager = {
         document.documentElement.lang = this.settings.language;
         this.applyTranslations(this.settings.language);
 
-        const selTelem = document.getElementById('setting-telemetry-mode');
-        const selTheme = document.getElementById('setting-theme');
-        const selLang = document.getElementById('setting-language');
-        const selMode = document.getElementById('setting-default-mode');
+        const selTelem = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-telemetry-mode'));
+        const selTheme = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-theme'));
+        const selLang = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-language'));
+        const selMode = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-default-mode'));
         if (selTelem) selTelem.value = this.settings.telemetry_recording;
         if (selTheme) selTheme.value = this.settings.theme;
         if (selLang) selLang.value = this.settings.language;
@@ -240,10 +244,10 @@ const SettingsManager = {
     _bindSaveSettings(btnSave, modal, btnOpen) {
         if (!btnSave || !modal) return;
         btnSave.addEventListener('click', () => {
-            const selTelem = document.getElementById('setting-telemetry-mode');
-            const selTheme = document.getElementById('setting-theme');
-            const selLang = document.getElementById('setting-language');
-            const selModeEl = document.getElementById('setting-default-mode');
+            const selTelem = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-telemetry-mode'));
+            const selTheme = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-theme'));
+            const selLang = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-language'));
+            const selModeEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-default-mode'));
 
             this.save({
                 telemetry_recording: selTelem ? selTelem.value : this.settings.telemetry_recording,

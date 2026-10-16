@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    ROUTE CHARTS & VISUALIZATION (Chart.js & Plugins)
    ============================================== */
@@ -190,7 +194,8 @@ const RouteCharts = {
     },
 
     _initTelemChart(manager, tolerancePlugin) {
-        return new Chart(document.getElementById('route-telem-chart').getContext('2d'), {
+        const telemCanvas = /** @type {HTMLCanvasElement} */ (document.getElementById('route-telem-chart'));
+        return new Chart(telemCanvas.getContext('2d'), {
             type: 'scatter',
             data: {
                 datasets: [
@@ -402,7 +407,7 @@ const RouteCharts = {
      * Sincroniza las etiquetas, accesibilidad e iconos de los botones de modo cine.
      */
     syncCinemaButton(cardId, isCinema) {
-        const btn = document.querySelector(`.route-cinema[data-card="${cardId}"]`);
+        const btn = /** @type {HTMLElement | null} */ (document.querySelector(`.route-cinema[data-card="${cardId}"]`));
         if (btn) {
             btn.setAttribute('aria-pressed', isCinema);
             const isPlan = cardId === 'card-plan-map';

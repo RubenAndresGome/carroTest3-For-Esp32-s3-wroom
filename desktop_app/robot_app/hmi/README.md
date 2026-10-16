@@ -67,3 +67,41 @@ La aceptación en Android requiere además una pasada física en al menos un
 teléfono y una tablet: rotación en ambas orientaciones, recortes por notch o
 barras del sistema, teclado virtual, gesto de desplazamiento y lectura básica
 con TalkBack. Esta comprobación no se sustituye con la emulación de Chromium.
+
+---
+
+## Tipado Estático y Calidad de Código (JSDoc + `// @ts-check`)
+
+Los 18 módulos JavaScript en `js/` implementan la **Opción A (`JSDoc` + `// @ts-check`)**, permitiendo verificación estática y autocompletado estricto tipo TypeScript sin pasos de transpilación que rompan la inmediatez en Flask (`web.py`) ni en el WebView de Android.
+
+### Arquitectura de Tipado
+
+1. **Configuración del Compilador**:
+   `desktop_app/robot_app/hmi/tsconfig.json` gobierna el análisis estático con:
+   - `"allowJs": true` y `"checkJs": true`: análisis exhaustivo de todos los archivos `.js`.
+   - `"noEmit": true`: cero generación de código intermedio.
+   - `"paths": { "@frontend/*": ["../../frontend/src/*"] }`: mapeo de importaciones a los contratos canónicos.
+2. **Consumo Directo de Contratos Canónicos**:
+   Los módulos importan los tipos de [`desktop_app/frontend/src/protocol.ts`](../../frontend/src/protocol.ts) mediante JSDoc estándar:
+   ```javascript
+   // @ts-check
+   /** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+   /** @typedef {import('@frontend/protocol').CommandName} CommandName */
+   ```
+3. **Desacoplamiento de Objetos DOM y Singletons Globales**:
+   Para evitar colisiones entre el singleton `Touch` del HMI (`touch.js`) y la interfaz `Touch` de `lib.dom.d.ts`, `types/globals.d.ts` declara el tipo específico `RobotJoystick`. En los módulos llamadores se utiliza casting inline explícito:
+   ```javascript
+   (/** @type {RobotJoystick} */ (Touch)).end();
+   ```
+4. **Presupuesto Estricto de Líneas (≤ 500 líneas por módulo)**:
+   Todos los módulos respetan la regla arquitectónica de un máximo de 500 líneas. Los archivos de alta densidad (`calibration.js`, `route_manager.js`, `window_manager.js`) emplean compresión de líneas en blanco y JSDoc compacto de una sola línea para conservarse en ≤ 495 líneas.
+
+### Comprobación de Tipos
+
+Para verificar la integridad estática de los 18 módulos del HMI:
+
+```powershell
+Push-Location desktop_app\frontend
+npm run check:hmi
+Pop-Location
+```

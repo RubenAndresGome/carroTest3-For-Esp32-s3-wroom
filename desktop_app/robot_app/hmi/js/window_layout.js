@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    WINDOW LAYOUT (Layout State Machine: Tabs, Tiling & Floating)
    ============================================== */
@@ -181,7 +185,8 @@ const WindowLayout = {
             </div>
         `).join('');
 
-        listEl.querySelectorAll('.glass-fork-menu-item').forEach(el => {
+        listEl.querySelectorAll('.glass-fork-menu-item').forEach(elem => {
+            const el = /** @type {HTMLElement} */ (elem);
             el.addEventListener('click', () => {
                 const modId = el.dataset.moduleId;
                 const menu = document.getElementById('glass-fork-menu');

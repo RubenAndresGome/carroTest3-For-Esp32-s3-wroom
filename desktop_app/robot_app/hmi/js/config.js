@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    CONFIGURACIÓN CANÓNICA Y PROTOCOLO
    ============================================== */
@@ -18,6 +22,8 @@ let lastPoint = { x: 0, y: 0 };
 
 /**
  * Crea la instancia de Chart.js tipo scatter para la trayectoria global.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {CSSStyleDeclaration} chartTheme
  */
 function _createScatterChart(ctx, chartTheme) {
     const chartInfo = chartTheme.getPropertyValue('--info').trim();
@@ -76,8 +82,10 @@ function _bindChartFormEvents() {
 
     form.addEventListener('submit', function(event) {
         event.preventDefault();
-        const xInput = document.getElementById('chart-x').value;
-        const yInput = document.getElementById('chart-y').value;
+        const xEl = /** @type {HTMLInputElement | null} */ (document.getElementById('chart-x'));
+        const yEl = /** @type {HTMLInputElement | null} */ (document.getElementById('chart-y'));
+        const xInput = xEl ? xEl.value : '';
+        const yInput = yEl ? yEl.value : '';
         if (xInput === '' || yInput === '') return;
         const x = parseFloat(xInput);
         const y = parseFloat(yInput);
@@ -99,8 +107,8 @@ function _bindChartFormEvents() {
 
         WSControl.sendMove(newPoint.x, newPoint.y);
         actualizarBarra();
-        document.getElementById('chart-x').value = '';
-        document.getElementById('chart-y').value = '';
+        if (xEl) xEl.value = '';
+        if (yEl) yEl.value = '';
     });
 }
 
@@ -117,8 +125,10 @@ function _bindChartControlButtons() {
             totalPoints = 0;
             currentPoint = 0;
             lastPoint = { x: 0, y: 0 };
-            document.getElementById('chart-progressBar').style.width = '0%';
-            document.getElementById('chart-distanceLabel').innerHTML = 'Distancia recorrida: <strong>0.00 cm</strong>';
+            const bar = document.getElementById('chart-progressBar');
+            if (bar) bar.style.width = '0%';
+            const lbl = document.getElementById('chart-distanceLabel');
+            if (lbl) lbl.innerHTML = 'Distancia recorrida: <strong>0.00 cm</strong>';
             robotChart.update();
         });
     }
@@ -135,9 +145,10 @@ function _bindChartControlButtons() {
  * Inicializa el gráfico central de trayectoria y sus escuchadores.
  */
 function initChart() {
-    const canvas = document.getElementById('robotChart');
+    const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('robotChart'));
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const chartTheme = getComputedStyle(document.documentElement);
 
     robotChart = _createScatterChart(ctx, chartTheme);
@@ -148,8 +159,9 @@ function initChart() {
 function actualizarBarra() {
     const progressBar = document.getElementById('chart-progressBar');
     let porcentaje = totalPoints === 0 ? 0 : (currentPoint / totalPoints) * 100;
-    progressBar.style.width = porcentaje + '%';
-    document.getElementById('chart-distanceLabel').innerHTML = `Distancia recorrida: <strong>${totalDistance.toFixed(2)} cm</strong>`;
+    if (progressBar) progressBar.style.width = porcentaje + '%';
+    const lbl = document.getElementById('chart-distanceLabel');
+    if (lbl) lbl.innerHTML = `Distancia recorrida: <strong>${totalDistance.toFixed(2)} cm</strong>`;
     if (robotChart) robotChart.update();
 }
 
@@ -165,6 +177,7 @@ const CONFIG = {
     JOYSTICK_DEAD_ZONE: 18
 };
 
+/** @type {HmiState} */
 const state = {
     connected: false,
     demoMode: false,

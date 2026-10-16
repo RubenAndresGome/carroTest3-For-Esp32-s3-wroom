@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    SISTEMA DE WEBSOCKET (Sustituye HTTP Fetch)
    ============================================== */
@@ -5,7 +9,7 @@ const WSControl = {
     events: null,
     lastRtosKey: '',
     lastYawRecenterCount: 0,
-    appToken: document.querySelector('meta[name="app-token"]')?.content || '',
+    appToken: (/** @type {HTMLMetaElement | null} */ (document.querySelector('meta[name="app-token"]'))?.content) || '',
     get flaskMode() { return Boolean(this.appToken); },
 
     init() {
@@ -21,7 +25,7 @@ const WSControl = {
         if (this.appToken) headers['X-App-Token'] = this.appToken;
         let controller = null;
         let timeoutId = null;
-        const fetchOptions = { ...options, headers };
+        const fetchOptions = /** @type {RequestInit & { timeoutMs?: number }} */ ({ ...options, headers });
         if (options.timeoutMs && !options.signal) {
             controller = new AbortController();
             fetchOptions.signal = controller.signal;
@@ -31,7 +35,7 @@ const WSControl = {
             const response = await fetch(path, fetchOptions);
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
-                const error = new Error(data.error || `HTTP ${response.status}`);
+                const error = /** @type {any} */ (new Error(data.error || `HTTP ${response.status}`));
                 error.status = response.status;
                 error.data = data;
                 throw error;
@@ -43,8 +47,8 @@ const WSControl = {
     },
 
     async closeApplication(force = false) {
-        const button = document.getElementById('btn-close-app');
-        button.disabled = true;
+        const button = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-close-app'));
+        if (button) button.disabled = true;
         try {
             const result = await this.api('/api/v1/app/close', {
                 method: 'POST',
@@ -54,13 +58,13 @@ const WSControl = {
                 ? 'Cierre forzado registrado; la parada física no fue confirmada.'
                 : 'STOP confirmado y SQLite guardado. Cerrando aplicación...');
             if (this.events) this.events.close();
-            button.textContent = 'Cierre seguro completado';
+            if (button) button.textContent = 'Cierre seguro completado';
             if (window.RobotHost && typeof window.RobotHost.closeApp === 'function') {
                 window.RobotHost.closeApp();
             }
             return result;
         } catch (error) {
-            button.disabled = false;
+            if (button) button.disabled = false;
             if (error.status === 409 && confirm('No se confirmó STOP. ¿Forzar el cierre dejando constancia en SQLite?')) {
                 return this.closeApplication(true);
             }
@@ -175,7 +179,7 @@ const WSControl = {
             ? capabilities.includes('manual_drive_v1')
             : capabilities.manual_drive_v1 === true || raw.manual_drive_v1 === true || raw.manual_drive === 'manual_drive_v1';
         state.manualDriveSupported = manualDrive;
-        if (typeof Touch !== 'undefined') Touch.setCapability(manualDrive);
+        if (typeof Touch !== 'undefined') (/** @type {RobotJoystick} */ (/** @type {unknown} */ (Touch))).setCapability(manualDrive);
 
         const telemX = Number(raw.x_mm || 0) / 10;
         const telemY = Number(raw.y_mm || 0) / 10;

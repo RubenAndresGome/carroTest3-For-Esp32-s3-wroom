@@ -1,13 +1,18 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    HMI FORK REGISTRY (Extensible User Modules & Widgets)
    ============================================== */
 
 /**
  * Renderiza la lista de bifurcaciones en el modal de ramas de ruta.
+ * @param {HTMLElement | null} listEl
  */
 function _renderForkBranchList(listEl) {
     if (!listEl || typeof RouteManager === 'undefined') return;
-    const branches = [['main', { name: 'Ruta Base (A)', queue: RouteManager.mainBranchBackup?.queue || RouteManager.queue }]];
+    const branches = /** @type {Array<[string, any]>} */ ([['main', { name: 'Ruta Base (A)', queue: RouteManager.mainBranchBackup?.queue || RouteManager.queue }]]);
     RouteManager.forks.forEach((val, key) => branches.push([key, val]));
     listEl.innerHTML = branches.map(([key, val]) => {
         const isAct = key === RouteManager.activeBranch;
@@ -18,7 +23,8 @@ function _renderForkBranchList(listEl) {
         </div>`;
     }).join('');
 
-    listEl.querySelectorAll('.btn-switch-branch').forEach(b => {
+    listEl.querySelectorAll('.btn-switch-branch').forEach(elem => {
+        const b = /** @type {HTMLElement} */ (elem);
         b.addEventListener('click', () => {
             RouteManager.switchBranch(b.dataset.branch);
             _renderForkBranchList(listEl);
@@ -66,13 +72,15 @@ function _createRouteForkWidget(container) {
 
 /**
  * Actualiza los campos numéricos de la consola de telemetría extendida.
+ * @param {HTMLElement} container
+ * @param {any} interval
  */
 function _updateTelemInspectFields(container, interval) {
     if (!document.body.contains(container)) {
         clearInterval(interval);
         return;
     }
-    const t = (typeof state !== 'undefined' && state.telemetria) || {};
+    const t = (typeof state !== 'undefined' && state.telemetria) ? state.telemetria : /** @type {any} */ ({});
     const poseEl = container.querySelector('#telem-inspect-pose');
     const yawEl = container.querySelector('#telem-inspect-yaw');
     const flEl = container.querySelector('#telem-inspect-fl');
@@ -84,16 +92,17 @@ function _updateTelemInspectFields(container, interval) {
 
     if (poseEl) poseEl.textContent = `X: ${(t.posX || 0).toFixed(2)} cm · Y: ${(t.posY || 0).toFixed(2)} cm`;
     if (yawEl) yawEl.textContent = `θ: ${(t.angulo || 0).toFixed(1)}° (${t.calibrado ? 'CAL' : 'NO_CAL'})`;
-    if (flEl) flEl.textContent = t.pfl || 0;
-    if (frEl) frEl.textContent = t.pfr || 0;
-    if (blEl) blEl.textContent = t.pbl || 0;
-    if (brEl) brEl.textContent = t.pbr || 0;
+    if (flEl) flEl.textContent = String(t.pfl || 0);
+    if (frEl) frEl.textContent = String(t.pfr || 0);
+    if (blEl) blEl.textContent = String(t.pbl || 0);
+    if (brEl) brEl.textContent = String(t.pbr || 0);
     if (pwmEl) pwmEl.textContent = `L: ${t.pwmL || 0} · R: ${t.pwmR || 0}`;
     if (stateEl && typeof state !== 'undefined') stateEl.textContent = state.estado || 'INIT';
 }
 
 /**
  * Fabrica el widget de inspección de telemetría y PCNT de bajo nivel.
+ * @param {HTMLElement | null} container
  */
 function _createTelemInspectWidget(container) {
     if (!container) return;

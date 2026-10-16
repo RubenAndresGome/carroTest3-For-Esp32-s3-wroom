@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    ROUTE FORKS MANAGER (Bifurcations, A/B Compare & Persistence)
    ============================================== */
@@ -94,7 +98,7 @@ const RouteForksManager = {
         manager.nextLogicalStepId = targetData.nextLogicalStepId || (manager.logicalSteps.length + 1);
         manager.currentStepIndex = 0;
 
-        const modeSelect = document.getElementById('route-mode');
+        const modeSelect = /** @type {HTMLSelectElement | null} */ (document.getElementById('route-mode'));
         if (modeSelect && targetData.mode) {
             modeSelect.value = targetData.mode;
         }
@@ -109,7 +113,7 @@ const RouteForksManager = {
         const delBtn = document.getElementById('btn-delete-branch');
         if (delBtn) delBtn.style.display = branchKey === 'main' ? 'none' : 'inline-flex';
 
-        const sel = document.getElementById('route-branch-select');
+        const sel = /** @type {HTMLSelectElement | null} */ (document.getElementById('route-branch-select'));
         if (sel) sel.value = branchKey;
 
         manager.updateModeLock();
@@ -174,7 +178,7 @@ const RouteForksManager = {
      * Actualiza el selector HTML de ramas disponibles.
      */
     updateBranchSelector(manager) {
-        const sel = document.getElementById('route-branch-select');
+        const sel = /** @type {HTMLSelectElement | null} */ (document.getElementById('route-branch-select'));
         if (!sel) return;
         const baseLabel = manager.mainRouteName ? `${manager.mainRouteName} (Base A)` : 'Ruta Base (A)';
         sel.innerHTML = `<option value="main">${baseLabel}</option>`;

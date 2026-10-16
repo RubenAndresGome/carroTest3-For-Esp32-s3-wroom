@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
        SISTEMA DE LOGS Y UI S3 (TELEMETRIA, MOTORES)
        ============================================== */
@@ -6,7 +10,7 @@
         init() { this.container = document.getElementById('log-container'); this.emptyMsg = document.getElementById('log-empty'); },
         updateCount() {
             const count = document.getElementById('log-count');
-            count.textContent = this.entries.length;
+            count.textContent = String(this.entries.length);
             count.setAttribute('aria-label', `${this.entries.length} registros`);
         },
         add(level, message) {
@@ -73,8 +77,8 @@
             for (let i = 0; i < n; i++) {
                 const a = (i*360/n)*Math.PI/180, mj = i%(n/4)===0, r1 = mj ? rI-2 : rI+2;
                 const l = document.createElementNS('http://www.w3.org/2000/svg','line');
-                l.setAttribute('x1',100+r1*Math.sin(a)); l.setAttribute('y1',100-r1*Math.cos(a));
-                l.setAttribute('x2',100+rO*Math.sin(a)); l.setAttribute('y2',100-rO*Math.cos(a));
+                l.setAttribute('x1', String(100+r1*Math.sin(a))); l.setAttribute('y1', String(100-r1*Math.cos(a)));
+                l.setAttribute('x2', String(100+rO*Math.sin(a))); l.setAttribute('y2', String(100-rO*Math.cos(a)));
                 l.setAttribute('class', mj ? 'tick-major' : 'tick-minor'); g.appendChild(l);
             }
         },
@@ -249,13 +253,13 @@
         },
         _uiPos() {
             const t = state.telemetria;
-            document.getElementById('pos-dot').setAttribute('cx',t.posX);
-            document.getElementById('pos-dot').setAttribute('cy',-t.posY);
+            document.getElementById('pos-dot').setAttribute('cx', String(t.posX));
+            document.getElementById('pos-dot').setAttribute('cy', String(-t.posY));
             const hl=25;
-            document.getElementById('pos-heading').setAttribute('x1',t.posX);
-            document.getElementById('pos-heading').setAttribute('y1',-t.posY);
-            document.getElementById('pos-heading').setAttribute('x2',t.posX+hl*Math.sin(t.orientacion));
-            document.getElementById('pos-heading').setAttribute('y2',-t.posY-hl*Math.cos(t.orientacion));
+            document.getElementById('pos-heading').setAttribute('x1', String(t.posX));
+            document.getElementById('pos-heading').setAttribute('y1', String(-t.posY));
+            document.getElementById('pos-heading').setAttribute('x2', String(t.posX+hl*Math.sin(t.orientacion)));
+            document.getElementById('pos-heading').setAttribute('y2', String(-t.posY-hl*Math.cos(t.orientacion)));
             state.trail.push({x:t.posX,y:-t.posY});
             if (state.trail.length>CONFIG.TRAIL_MAX) state.trail.shift();
             if (state.trail.length%3===0) document.getElementById('pos-trail').setAttribute('points',state.trail.map(p=>`${p.x},${p.y}`).join(' '));
@@ -271,7 +275,8 @@
 
     const FSMDisplay = {
         update(s) {
-            document.querySelectorAll('.fsm-node').forEach(n => {
+            document.querySelectorAll('.fsm-node').forEach(elem => {
+                const n = /** @type {HTMLElement} */ (elem);
                 n.classList.remove('active','active-reverse','active-fault','active-estop');
                 n.removeAttribute('aria-current');
                 if (n.dataset.state===s) {

@@ -1,7 +1,10 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    ROUTE MANAGER (Facade Coordinator & Form Orchestration)
    ============================================== */
-
 const RouteManager = {
     queue: [],
     logicalSteps: [],
@@ -17,7 +20,10 @@ const RouteManager = {
     lockedMode: null,
     nextLogicalStepId: 1,
     vectorialEnabled: false,
+    /** @type {TelemetryPayload | null} */
     lastRobotTelemetry: null,
+    /** @type {HTMLElement | null} */
+    preview: null,
     forks: new Map(),
     activeBranch: 'main',
     comparingAB: false,
@@ -33,26 +39,25 @@ const RouteManager = {
         this._bindActionButtons();
         this._bindForkToolbar();
         RouteForksManager.loadFromStorage(this);
-
         this.updateLabels();
         this.actualizarRestriccionInputs();
     },
 
     _bindDOMElements() {
         const g = id => document.getElementById(id);
-        this.modeSelect = g('route-mode'); this.list = g('route-list');
-        this.input1 = g('route-input-1'); this.input2 = g('route-input-2');
+        this.modeSelect = /** @type {HTMLSelectElement} */ (g('route-mode')); this.list = g('route-list');
+        this.input1 = /** @type {HTMLInputElement} */ (g('route-input-1')); this.input2 = /** @type {HTMLInputElement} */ (g('route-input-2'));
         this.lbl1 = g('route-label-1'); this.lbl2 = g('route-label-2');
-        this.axisDefault = g('route-axis-default'); this.axisDefaultGroup = g('route-axis-default-group');
-        this.preview = g('route-polar-preview'); this.planCanvas = g('route-plan-chart');
+        this.axisDefault = /** @type {HTMLInputElement} */ (g('route-axis-default')); this.axisDefaultGroup = g('route-axis-default-group');
+        this.preview = g('route-polar-preview'); this.planCanvas = /** @type {HTMLCanvasElement} */ (g('route-plan-chart'));
         this.angularMeta = g('route-angular-meta'); this.angularSummary = g('route-angular-summary');
         this.angularXLabel = g('route-angular-x-label'); this.angularYLabel = g('route-angular-y-label');
-        this.vectorialSafety = g('route-vectorial-safety'); this.vectorialToggle = g('route-vectorial-enabled');
+        this.vectorialSafety = g('route-vectorial-safety'); this.vectorialToggle = /** @type {HTMLInputElement} */ (g('route-vectorial-enabled'));
         this.vectorialStatus = g('route-vectorial-status'); this.modeChip = g('route-mode-chip');
     },
 
     _bindRouteNameUI() {
-        this.routeNameInput = document.getElementById('route-name-input');
+        this.routeNameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('route-name-input'));
         const btnRename = document.getElementById('btn-rename-route'), btnSaveName = document.getElementById('btn-save-route-name');
         this.mainRouteName = localStorage.getItem('hmi_main_route_name') || 'Ruta Planificada Robot_A';
         if (this.routeNameInput) {
@@ -68,7 +73,8 @@ const RouteManager = {
 
     _bindModeAndAxisControls() {
         this.modeSelect.addEventListener('change', (e) => {
-            const isRect = e.target.value === 'rect' || e.target.value === 'RECTANGULAR_XY';
+            const val = /** @type {HTMLSelectElement} */ (e.target).value;
+            const isRect = val === 'rect' || val === 'RECTANGULAR_XY';
             if (this.axisDefault) { if (isRect) this.axisDefault.checked = true; else this.axisDefault.disabled = false; }
             this.actualizarRestriccionInputs(isRect);
             this.updateLabels();
@@ -102,21 +108,18 @@ const RouteManager = {
     _bindActionButtons() {
         const on = (id, evt, fn) => document.getElementById(id)?.addEventListener(evt, fn);
         on('route-form', 'submit', (e) => { e.preventDefault(); this.addStep(); });
-        on('btn-route-start', 'click', () => this.start());
-        on('btn-route-preview', 'click', () => this.preview());
-        on('btn-route-pop', 'click', () => this.removeLastStep());
-        on('btn-route-stop', 'click', () => this.stopAndReset());
-        on('btn-route-discard', 'click', () => this.stopAndReset());
-        on('btn-route-ockham', 'click', () => this.ockhamReturn());
-        on('btn-confirm-ockham', 'click', () => this.confirmOckhamReturn());
-        on('btn-cancel-ockham', 'click', () => this.cancelOckhamReturn());
-        on('btn-route-clear-memory', 'click', () => this.clearRobotMemory());
+        [['btn-route-start', () => this.start()], ['btn-route-preview', () => this.toggleCinema('card-plan-map')],
+         ['btn-route-pop', () => this.removeLastStep()], ['btn-route-stop', () => this.stopAndReset()],
+         ['btn-route-discard', () => this.stopAndReset()], ['btn-route-ockham', () => this.ockhamReturn()],
+         ['btn-confirm-ockham', () => this.confirmOckhamReturn()], ['btn-cancel-ockham', () => this.cancelOckhamReturn()],
+         ['btn-route-clear-memory', () => this.clearRobotMemory()]
+        ].forEach(([id, fn]) => on(id, 'click', fn));
     },
 
     _bindForkToolbar() {
         const on = (id, evt, fn) => document.getElementById(id)?.addEventListener(evt, fn);
         on('btn-fork-route', 'click', () => this.forkCurrentRoute());
-        on('route-branch-select', 'change', (e) => this.switchBranch(e.target.value));
+        on('route-branch-select', 'change', (e) => this.switchBranch(/** @type {HTMLSelectElement} */ (e.target).value));
         on('btn-compare-branches', 'click', () => this.toggleCompareAB());
         on('btn-delete-branch', 'click', () => this.deleteBranch(this.activeBranch));
     },
@@ -136,11 +139,8 @@ const RouteManager = {
         if (this.lockedMode) this.modeSelect.value = this.lockedMode;
     },
 
-    drawPlan() { RouteCharts.drawPlan(this); },
-    updateTelemetryMap(x, y, h) { RouteCharts.updateTelemetryMap(this, x, y, h); },
-    autoScale() { RouteCharts.autoScale(this); },
-    resizeCharts() { RouteCharts.resizeCharts(this); },
-    preview() { this.toggleCinema('card-plan-map'); },
+    drawPlan() { RouteCharts.drawPlan(this); }, updateTelemetryMap(x, y, h) { RouteCharts.updateTelemetryMap(this, x, y, h); },
+    autoScale() { RouteCharts.autoScale(this); }, resizeCharts() { RouteCharts.resizeCharts(this); },
     toggleCinema(cardId) { RouteCharts.toggleCinema(this, cardId); },
     _syncCinemaButton(cardId, isCinema) { RouteCharts.syncCinemaButton(cardId, isCinema); },
 
@@ -152,7 +152,6 @@ const RouteManager = {
             this.telemChart.update('none');
         }
     },
-
     renderMetrics() {
         const dur = this.routeStartedAt ? ((Date.now() - this.routeStartedAt) / 1000) : 0, n = this.telemetryTrail.length;
         const ep = this.logicalEndpoint(), act = this.telemetryTrail[n - 1] || { x: state.telemetria.posX, y: state.telemetria.posY };
@@ -162,12 +161,10 @@ const RouteManager = {
         document.getElementById('route-metric-segments').textContent = `${this.queue.length} / 256`;
         document.getElementById('route-metric-deviation').textContent = `${dev.toFixed(1)} cm`;
     },
-
     applyCapabilities(capabilities) {
         const v = capabilities?.angular_vectorial || {};
         if (typeof v.enabled === 'boolean') this.applyConfig({ experimental_vectorial_routes: v.enabled });
     },
-
     applyConfig(config) {
         if (typeof config?.experimental_vectorial_routes === 'boolean') {
             this.vectorialEnabled = config.experimental_vectorial_routes;
@@ -175,7 +172,7 @@ const RouteManager = {
             this.renderVectorialSafety();
         }
     },
-
+    /** @param {TelemetryPayload} raw */
     applyVectorialTelemetry(raw) {
         this.lastRobotTelemetry = raw || null;
         this.renderVectorialSafety();
@@ -187,7 +184,7 @@ const RouteManager = {
 
     renderVectorialSafety() {
         if (!this.vectorialStatus) return;
-        const r = this.vectorialReadiness(), raw = this.lastRobotTelemetry || {}, h = raw.encoder_health || {};
+        const r = this.vectorialReadiness(), raw = this.lastRobotTelemetry, h = raw?.encoder_health || {};
         const hText = ['fl', 'fr', 'bl', 'br'].map(w => `${w.toUpperCase()}=${h[w] || 'unknown'}`).join(' · ');
         this.vectorialStatus.textContent = `${r.reason} ${hText}`;
         this.vectorialStatus.classList.toggle('ready', r.ready);
@@ -248,7 +245,6 @@ const RouteManager = {
         input.style.opacity = op; input.style.pointerEvents = pe;
         if (signEl) { signEl.style.opacity = op; signEl.style.pointerEvents = pe; }
     },
-
     saveCurrentRouteName() {
         if (!this.routeNameInput) return;
         const newName = this.routeNameInput.value.trim() || 'Ruta Planificada Robot_A';
@@ -264,9 +260,7 @@ const RouteManager = {
         RouteForksManager.updateBranchSelector(this);
         if (typeof LogSystem !== 'undefined') LogSystem.add('INFO', `Nombre de ruta activo: '${newName}'.`);
     },
-
     updatePreview() { this.activeMode().updatePreview(this); },
-
     addStep() {
         if (this.isRunning) return LogSystem.add('WARN', 'Ruta en ejecución. Detén primero.');
         const v1 = Number.parseFloat(this.input1.value), v2 = Number.parseFloat(this.input2.value);
@@ -340,23 +334,25 @@ const RouteManager = {
         }).join('');
     },
 
-    forkCurrentRoute(name) { RouteForksManager.fork(this, name); },
-    switchBranch(key) { RouteForksManager.switchBranch(this, key); },
-    deleteBranch(key) { RouteForksManager.deleteBranch(this, key); },
-    toggleCompareAB() { RouteForksManager.toggleCompareAB(this); },
-    _syncActiveBranch() { RouteForksManager.syncActiveBranch(this); },
-    _updateBranchSelector() { RouteForksManager.updateBranchSelector(this); },
-    _saveForksToStorage() { RouteForksManager.saveToStorage(this); },
-    _loadForksFromStorage() { RouteForksManager.loadFromStorage(this); },
+    forkCurrentRoute(name) { RouteForksManager.fork(this, name); }, switchBranch(key) { RouteForksManager.switchBranch(this, key); },
+    deleteBranch(key) { RouteForksManager.deleteBranch(this, key); }, toggleCompareAB() { RouteForksManager.toggleCompareAB(this); },
+    _syncActiveBranch() { RouteForksManager.syncActiveBranch(this); }, _updateBranchSelector() { RouteForksManager.updateBranchSelector(this); },
+    _saveForksToStorage() { RouteForksManager.saveToStorage(this); }, _loadForksFromStorage() { RouteForksManager.loadFromStorage(this); },
 
     lockTabs() {
-        document.querySelectorAll('.tab-btn').forEach(b => { if (b.dataset.tab !== 'rutas') b.classList.add('disabled'); });
-        document.getElementById('route-running-badge').classList.add('show');
+        document.querySelectorAll('.tab-btn').forEach(elem => {
+            const b = /** @type {HTMLElement} */ (elem);
+            if (b.dataset.tab !== 'rutas') b.classList.add('disabled');
+        });
+        document.getElementById('route-running-badge')?.classList.add('show');
     },
 
     unlockTabs() {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('disabled'));
-        document.getElementById('route-running-badge').classList.remove('show');
+        document.querySelectorAll('.tab-btn').forEach(elem => {
+            const b = /** @type {HTMLElement} */ (elem);
+            b.classList.remove('disabled');
+        });
+        document.getElementById('route-running-badge')?.classList.remove('show');
     },
 
     async start() {
@@ -446,14 +442,12 @@ const RouteManager = {
     },
 
     onFsmIdle() {},
-
     failRoute(reason) {
         this.isRunning = false; this.waitingForMovement = false; this.activeCommandId = null;
         clearTimeout(this.moveTimeout);
         this.unlockTabs(); this.updateListUI(); this.renderVectorialSafety();
         LogSystem.add('ERROR', reason);
     },
-
     async stopAndReset() {
         if (this.logicalSteps.length > 0 && !confirm('¿Borrar la ruta actual y reiniciar el origen?')) return;
         try {
@@ -472,7 +466,6 @@ const RouteManager = {
             LogSystem.add('ERROR', `No se pudo borrar la ruta: ${err.message}`);
         }
     },
-
     async clearRobotMemory() {
         const box = document.getElementById('route-ockham-confirm-box');
         if (box) box.style.display = 'none';
@@ -487,7 +480,6 @@ const RouteManager = {
             LogSystem.add('ERROR', `No se pudo liberar la memoria: ${err.message}`);
         }
     },
-
     async ockhamReturn() { await RouteOckhamCockpit.ockhamReturn(this); },
     async confirmOckhamReturn() { await RouteOckhamCockpit.confirmOckhamReturn(this); },
     cancelOckhamReturn() { RouteOckhamCockpit.cancelOckhamReturn(this); }

@@ -1,3 +1,7 @@
+// @ts-check
+/** @typedef {import('@frontend/protocol').Telemetry} TelemetryPayload */
+/** @typedef {import('@frontend/protocol').CommandName} CommandName */
+
 /* ==============================================
    WINDOW MANAGER (Multi-Panel Workspace & Window Lifecycle)
    ============================================== */
@@ -49,7 +53,6 @@ const WindowManager = {
             if (btn) btn.addEventListener('click', () => this.setMode(m));
         });
     },
-
     _bindForkMenu() {
         const btnAdd = document.getElementById('ws-btn-add-fork'), menu = document.getElementById('glass-fork-menu'), closeBtn = document.getElementById('btn-close-fork-menu');
         if (btnAdd && menu) {
@@ -62,12 +65,11 @@ const WindowManager = {
         }
         if (closeBtn && menu) closeBtn.addEventListener('click', () => { menu.style.display = 'none'; btnAdd?.setAttribute('aria-expanded', 'false'); });
         document.addEventListener('click', (e) => {
-            if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btnAdd) {
+            if (menu && menu.style.display !== 'none' && !menu.contains(/** @type {Node} */ (e.target)) && e.target !== btnAdd) {
                 menu.style.display = 'none'; btnAdd?.setAttribute('aria-expanded', 'false');
             }
         });
     },
-
     _registerPanels() {
         const panels = [
             { id: 'tab-conexion', title: 'Conexión y Sesiones', icon: '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 12a4 4 0 0 1 4-4h3"/><path d="M16 8l-2-2"/><path d="M16 8l-2 2"/><path d="M16 12a4 4 0 0 1-4 4H9"/><path d="M8 16l2-2"/><path d="M8 16l2 2"/></svg>', singleton: true },
@@ -82,10 +84,8 @@ const WindowManager = {
             const el = document.getElementById(p.id);
             if (!el) return;
             this.registerWindow(p.id, el, p.title, p.icon, {
-                isSingleton: p.singleton,
-                isForkable: Boolean(p.forkable),
-                isCustomWidget: Boolean(p.isCustomWidget),
-                initiallyMinimized: Boolean(p.initiallyMinimized),
+                isSingleton: p.singleton, isForkable: Boolean(p.forkable),
+                isCustomWidget: Boolean(p.isCustomWidget), initiallyMinimized: Boolean(p.initiallyMinimized),
                 initialRect: { x: 20 + (idx * 28) % 240, y: 20 + (idx * 28) % 180, width: 620, height: 480 }
             });
         });
@@ -234,22 +234,18 @@ const WindowManager = {
         const maxBtn = header.querySelector('.win-btn-max');
         const closeBtn = header.querySelector('.win-btn-close');
 
-        if (forkBtn) {
-            forkBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (id === 'tab-rutas' && typeof RouteManager !== 'undefined') RouteManager.forkCurrentRoute();
-                else this.createForkWindow(id);
-            });
-        }
+        if (forkBtn) forkBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (id === 'tab-rutas' && typeof RouteManager !== 'undefined') RouteManager.forkCurrentRoute();
+            else this.createForkWindow(id);
+        });
         if (minBtn) minBtn.addEventListener('click', (e) => { e.stopPropagation(); this.minimizeWindow(id); });
         if (maxBtn) maxBtn.addEventListener('click', (e) => { e.stopPropagation(); this.maximizeWindow(id); });
         if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); this.closeWindow(id); });
     },
-
     setMode(mode, silent = false) {
         if (!['tabs', 'tiling', 'floating'].includes(mode)) return;
         if (this.mode === 'tiling') WindowLayout.preserveTilingDimensions(this.windows);
-
         let effectiveMode = mode;
         if (window.innerWidth < 768 && mode !== 'tabs') {
             if (!silent && typeof LogSystem !== 'undefined') {
@@ -257,12 +253,9 @@ const WindowManager = {
             }
             effectiveMode = 'tabs';
         }
-
         this.mode = effectiveMode;
         try { localStorage.setItem('hmi_workspace_mode', effectiveMode); } catch (_) {}
-
         this._syncModeSelectors(effectiveMode, silent);
-
         if (this.workspaceEl) {
             this.workspaceEl.classList.remove('workspace-tabs', 'workspace-tiling', 'workspace-floating');
             this.workspaceEl.classList.add(`workspace-${mode}`);
@@ -284,7 +277,7 @@ const WindowManager = {
     },
 
     _syncModeSelectors(effectiveMode, silent) {
-        const selMode = document.getElementById('setting-default-mode');
+        const selMode = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-default-mode'));
         if (selMode && selMode.value !== effectiveMode) selMode.value = effectiveMode;
 
         if (!silent && typeof SettingsManager !== 'undefined' && SettingsManager.settings && SettingsManager.settings.default_mode !== effectiveMode) {
@@ -366,7 +359,8 @@ const WindowManager = {
             win.el.style.display = 'block';
             win.el.classList.add('active');
             if (typeof state !== 'undefined') state.activeTab = cleanId;
-            document.querySelectorAll('.tab-content').forEach(c => {
+            document.querySelectorAll('.tab-content').forEach(elem => {
+                const c = /** @type {HTMLElement} */ (elem);
                 if (c.id !== id && c.id !== win.id) {
                     c.classList.remove('active');
                     c.style.display = 'none';
