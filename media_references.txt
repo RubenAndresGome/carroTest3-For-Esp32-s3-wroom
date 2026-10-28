@@ -1,0 +1,110 @@
+media/image1.jpg: referenced 1 time(s)
+   -> Posicionamiento de robot móvil: Desarrollo yvalidación funcional sistema móvil: 
+media/image10.png: referenced 1 time(s)
+   -> Figura 5 Diagrama de Capas , Esquema HTML elaboración PropiaCapa de supervisión 
+media/image11.png: referenced 1 time(s)
+   -> 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: El
+media/image12.png: referenced 1 time(s)
+   -> 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: El
+media/image13.png: referenced 1 time(s)
+   -> 
+media/image14.png: referenced 1 time(s)
+   -> 
+media/image15.png: referenced 1 time(s)
+   -> 
+media/image16.png: referenced 1 time(s)
+   -> 
+media/image17.png: referenced 1 time(s)
+   -> 
+media/image18.png: referenced 1 time(s)
+   -> 
+media/image19.png: referenced 1 time(s)
+   -> Figura 7 Script ..exe ejecutable para actualizar robot y App Android via ADBSema
+media/image2.jpe: referenced 1 time(s)
+   -> 
+media/image20.png: referenced 1 time(s)
+   -> 1336675100965000Semana 11: Iteración en prototipo de interfaz gráfica, depuració
+media/image21.png: referenced 1 time(s)
+   -> EVIDENCIA DE DESARROLLO Y TESTING DE HARDWARE
+media/image22.png: referenced 1 time(s)
+   -> 
+media/image23.png: referenced 1 time(s)
+   -> 
+media/image24.png: referenced 1 time(s)
+   -> 
+media/image25.png: referenced 1 time(s)
+   -> 
+media/image26.png: referenced 1 time(s)
+   -> 
+media/image27.png: referenced 1 time(s)
+   -> 
+media/image28.png: referenced 1 time(s)
+   -> 
+media/image29.png: referenced 1 time(s)
+   -> 
+media/image3.png: referenced 1 time(s)
+   -> Figura 1 Conversor Bidireccional . Elaboración PropiaIncompatibilidad de niveles
+media/image30.png: referenced 1 time(s)
+   -> 1405716446463carroTest3-For-Esp32-s3-wroom/evidencia at main · RubenAndresGome/c
+media/image31.png: referenced 1 time(s)
+   -> 2073910-35052000RESULTADOS .
+media/image32.png: referenced 1 time(s)
+   -> ANÁLISIS GRÁFICO DE TELEMETRÍA Y CONTROL.
+media/image33.png: referenced 1 time(s)
+   -> ANÁLISIS GRÁFICO DE TELEMETRÍA Y CONTROL.
+media/image34.png: referenced 1 time(s)
+   -> ANÁLISIS GRÁFICO DE TELEMETRÍA Y CONTROL.
+media/image35.png: referenced 1 time(s)
+   -> Figura 13 Fuente: Elaboración propia , versión completa en anexo
+media/image36.png: referenced 1 time(s)
+   -> Figura 13 Fuente: Elaboración propia , versión completa en anexo
+media/image360.png: referenced 1 time(s)
+   -> center23346900
+media/image37.png: referenced 1 time(s)
+   -> Figura 14Fuente: Elaboración propia886056558338Frente a un gasto de hardware y l
+media/image38.png: referenced 1 time(s)
+   -> La principal implicación es que el desempeño del robot depende tanto del algorit
+media/image39.png: referenced 1 time(s)
+   -> 1435312268393ANEXO A. Carta de Aceptación.
+media/image4.png: referenced 1 time(s)
+   -> 95059516573500
+media/image40.png: referenced 1 time(s)
+   -> 1232482425
+media/image41.png: referenced 1 time(s)
+   -> -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificad
+media/image42.png: referenced 1 time(s)
+   -> -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificad
+media/image43.png: referenced 1 time(s)
+   -> -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificad
+media/image44.png: referenced 1 time(s)
+   -> -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificad
+media/image45.png: referenced 1 time(s)
+   -> center23346900
+media/image46.png: referenced 1 time(s)
+   -> center23346900
+media/image47.png: referenced 1 time(s)
+   -> center23346900
+media/image48.png: referenced 1 time(s)
+   -> -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3
+media/image49.png: referenced 1 time(s)
+   -> -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3
+media/image5.png: referenced 1 time(s)
+   -> 727133385156El sistema:
+media/image50.png: referenced 1 time(s)
+   -> 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (An
+media/image51.png: referenced 1 time(s)
+   -> 
+media/image52.png: referenced 1 time(s)
+   -> 
+media/image53.png: referenced 1 time(s)
+   -> 
+media/image54.png: referenced 1 time(s)
+   -> 
+media/image6.png: referenced 1 time(s)
+   -> 
+media/image7.png: referenced 1 time(s)
+   -> Figura 3 Abstraccion de forma de lectura, usando muesca como referencia, la estr
+media/image8.png: referenced 1 time(s)
+   -> 142684525971500
+media/image9.png: referenced 1 time(s)
+   -> Figura  SEQ Figura \* ARABIC 4 Skill Experimental, Skill en Github propio La pro

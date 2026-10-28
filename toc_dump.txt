@@ -1,0 +1,180 @@
+Child[40] (style=, bms=[]): 
+Child[41] (style=, bms=[]): 
+Child[42] (style=, bms=[]): 
+Child[43] (style=Ttulo1, bms=['_Toc244020252', '_Toc244023498', '_Toc244025049']): ABSTRACT
+Child[44] (style=, bms=[]): Mobile Robot Positioning: Functional Development and Experimental Validation of an ESP32-S3 Mobile Robot with MPU6050 Odometry, Encoders, and Graphical User Interface.
+Child[45] (style=, bms=[]): This professional residency project presents the embedded design, instrumentation, and experimental validation of a low-cost 4WD mobile robot prototype developed under academic and laboratory resource constraints. Centered on an ESP32-S3 microcontroller, dual slotted optical encoders (LM393 with hardware pulse counting via PCNT), and an MPU6050 6-DOF inertial measurement unit, the platform implements an asymmetric dual-core architecture: a deterministic 100 Hz synchronous super-cycle in FreeRTOS on Core 1 dedicated to sensor filtering, heading PID control, and dynamic pivot maneuvers, decoupled from asynchronous WebSocket communications and JSON telemetry (protocol robot-s3-steps-v3) managed on Core 0. Forensics state vectors are persisted in real time into an SQLite database operating under Write-Ahead Logging (WAL) and audited post-run via ADB synchronization. Physical track testing across 94 discrete route steps confirmed effective heading stabilization, achieving a mean angular error of -0.04° ± 0.89° (with 93.5% of endpoints contained within a ±1.5° tolerance). Rather than claiming ideal autonomy, systematic metric evaluation revealed clear hardware boundaries: a step-command execution success rate of 79.7% (94 of 118 route segments completed without triggering stall watchdogs; 83.2% global protocol success across 268 total system commands) and a systematic longitudinal slip error of -8.63 ± 8.53 cm attributable to uncalibrated Instantaneous Center of Rotation (ICR) dynamics and tire viscoelastic compliance on smooth tile surfaces. The primary contribution of this work lies in delivering an open, fully instrumented, and reproducible cyber-physical baseline (backed by 13,930 forensic database records, 74/74 unit tests, and a live web technical atlas) that quantitatively isolates control strengths from mechanical friction limits, establishing an empirical foundation for future state-estimation research.
+Child[46] (style=, bms=[]): 
+Child[47] (style=, bms=[]): 
+Child[48] (style=Ttulo1, bms=['_Toc244025050']): ÍNDICE GENERAL DE CONTENIDO
+Child[49] (style=, bms=[]): Tabla de contenido estructurada del informe de residencia profesional. Los números de página se actualizan automáticamente al abrir el documento o mediante F9 en Microsoft Word:
+Child[50] (style=TDC1, bms=[]): TOC \o "1-3" \h \z \uAGRADECIMIENTOS PAGEREF _Toc244025047 \h 1
+Child[51] (style=TDC1, bms=[]): RESUMEN. PAGEREF _Toc244025048 \h 3
+Child[52] (style=TDC1, bms=[]): ABSTRACT PAGEREF _Toc244025049 \h 6
+Child[53] (style=TDC1, bms=[]): ÍNDICE GENERAL DE CONTENIDO PAGEREF _Toc244025050 \h 1
+Child[54] (style=TDC1, bms=[]): ÍNDICE DE TABLAS PAGEREF _Toc244025051 \h 4
+Child[55] (style=TDC1, bms=[]): ÍNDICE DE FIGURAS PAGEREF _Toc244025052 \h 5
+Child[56] (style=TDC1, bms=[]): ÍNDICE DE ECUACIONES Y MODELOS MATEMÁTICOS PAGEREF _Toc244025053 \h 6
+Child[57] (style=TDC1, bms=[]): ÍNDICE DE CONCEPTOS Y GLOSARIO TÉCNICO-OPERATIVO PAGEREF _Toc244025054 \h 7
+Child[58] (style=TDC1, bms=[]): INTRODUCCIÓN. PAGEREF _Toc244025055 \h 9
+Child[59] (style=TDC2, bms=[]): Pregunta de Investigación Central PAGEREF _Toc244025056 \h 9
+Child[60] (style=TDC2, bms=[]): Alcance y Delimitaciones del Sistema PAGEREF _Toc244025057 \h 9
+Child[61] (style=TDC2, bms=[]): Datos de la empresa/organización. PAGEREF _Toc244025058 \h 13
+Child[62] (style=TDC2, bms=[]): Descripción de la empresa/organización. PAGEREF _Toc244025059 \h 13
+Child[63] (style=TDC2, bms=[]): Descripción de área de trabajo PAGEREF _Toc244025060 \h 14
+Child[64] (style=TDC1, bms=[]): Problemas a resolver. PAGEREF _Toc244025061 \h 14
+Child[65] (style=TDC3, bms=[]): Problemáticas eléctricas y de integración de hardware (Electrónica de potencia y señales). PAGEREF _Toc244025062 \h 14
+Child[66] (style=TDC3, bms=[]): Problemáticas de arquitectura de firmware y tiempo real. PAGEREF _Toc244025063 \h 15
+Child[67] (style=TDC3, bms=[]): Problemáticas de estimación de pose, sensores y control (Odometría y lazo cerrado). PAGEREF _Toc244025064 \h 15
+Child[68] (style=TDC3, bms=[]): Problemáticas de comunicación, backend e interfaz de usuario PAGEREF _Toc244025065 \h 16
+Child[69] (style=TDC3, bms=[]): Problemáticas de metodología, gestión y uso de IA. PAGEREF _Toc244025066 \h 16
+Child[70] (style=TDC3, bms=[]): Problemáticas de seguridad y robustez ( Watchdogs y fallos críticos). PAGEREF _Toc244025067 \h 17
+Child[71] (style=TDC3, bms=[]): Matriz de Trazabilidad: Problemáticas e Hipótesis de Mitigación. PAGEREF _Toc244025068 \h 18
+Child[72] (style=TDC1, bms=[]): OBJETIVOS PAGEREF _Toc244025069 \h 19
+Child[73] (style=TDC2, bms=[]): Objetivo general. PAGEREF _Toc244025070 \h 19
+Child[74] (style=TDC2, bms=[]): Objetivos específicos. PAGEREF _Toc244025071 \h 20
+Child[75] (style=TDC1, bms=[]): JUSTIFICACIÓN. PAGEREF _Toc244025072 \h 21
+Child[76] (style=TDC2, bms=[]): Pertinencia Formativa y Demandas del Mercado Laboral Tecnológico. PAGEREF _Toc244025073 \h 22
+Child[77] (style=TDC1, bms=[]): MARCO TEÓRICO. PAGEREF _Toc244025074 \h 22
+Child[78] (style=TDC2, bms=[]): Estado del Proyecto y Comparativa Tecnológica. PAGEREF _Toc244025075 \h 22
+Child[79] (style=TDC2, bms=[]): Cinemática de Patinaje (Skid-Steering) y Migración del Centro Instantáneo de Rotación (ICR). PAGEREF _Toc244025076 \h 22
+Child[80] (style=TDC2, bms=[]): Fusión Giroscopio–Odometría (Gyrodometry) y Teoría del Muestreo a 100 Hz. PAGEREF _Toc244025077 \h 22
+Child[81] (style=TDC2, bms=[]): Acondicionamiento Lógico TXS0108E y Mitigación de Ruido Electromecánico. PAGEREF _Toc244025078 \h 23
+Child[82] (style=TDC1, bms=[]): METODOLOGIA. PAGEREF _Toc244025079 \h 25
+Child[83] (style=TDC3, bms=[]): Contexto y método del desarrollo asistido por tecnología PAGEREF _Toc244025080 \h 43
+Child[84] (style=TDC2, bms=[]): Modelo Híbrido, Desarrollo Ágil e Ingeniería Asistida por IA con Humano en el Bucle PAGEREF _Toc244025081 \h 52
+Child[85] (style=TDC1, bms=[]): DESARROLLO. PAGEREF _Toc244025082 \h 55
+Child[86] (style=TDC2, bms=[]): Metodología Experimental Reproducible. PAGEREF _Toc244025083 \h 55
+Child[87] (style=TDC3, bms=[]): Planos. PAGEREF _Toc244025084 \h 55
+Child[88] (style=TDC3, bms=[]): Procedimiento 1: Calibración Estática y Dinámica de Torque (Dogma Canónico) PAGEREF _Toc244025085 \h 58
+Child[89] (style=TDC3, bms=[]): Procedimiento 2: Avance Recto en Lazo Cerrado y Control de Endpoint PAGEREF _Toc244025086 \h 58
+Child[90] (style=TDC3, bms=[]): Procedimiento 3: Giro Autónomo en el Sitio (Controlador Híbrido en 3 Zonas) PAGEREF _Toc244025087 \h 58
+Child[91] (style=TDC3, bms=[]): Procedimiento 4: Telemetría Forense, Persistencia SQLite WAL y Extracción ADB PAGEREF _Toc244025088 \h 58
+Child[92] (style=TDC2, bms=[]): Metodología de desarrollo y planificación. PAGEREF _Toc244025089 \h 60
+Child[93] (style=TDC3, bms=[]): EVIDENCIA DE DESARROLLO Y TESTING DE HARDWARE PAGEREF _Toc244025090 \h 69
+Child[94] (style=TDC2, bms=[]): Matriz de Trazabilidad: Decisiones de Arquitectura e Implementación. PAGEREF _Toc244025091 \h 72
+Child[95] (style=TDC2, bms=[]): Estrategia de Testing y Evidencia de Pruebas Unitarias de Firmware. PAGEREF _Toc244025092 \h 72
+Child[96] (style=TDC1, bms=[]): RESULTADOS PAGEREF _Toc244025093 \h 73
+Child[97] (style=TDC2, bms=[]): Resultados Cuantitativos de Precisión y Desempeño Operativo. PAGEREF _Toc244025094 \h 73
+Child[98] (style=TDC2, bms=[]): Discusión Crítica de Resultados y Lecciones Aprendidas de Ingeniería. PAGEREF _Toc244025095 \h 75
+Child[99] (style=TDC2, bms=[]): Discusión Crítica Comparativa de Desempeño Experimental Frente a la Literatura Científica PAGEREF _Toc244025096 \h 75
+Child[100] (style=TDC2, bms=[]): Lecciones Aprendidas de Ingeniería (6 Puntos Accionables). PAGEREF _Toc244025097 \h 76
+Child[101] (style=TDC2, bms=[]): Manuales técnicos y documentación viva. PAGEREF _Toc244025098 \h 79
+Child[102] (style=TDC2, bms=[]): Modelos matemáticos. PAGEREF _Toc244025099 \h 80
+Child[103] (style=TDC2, bms=[]): Síntesis Teórico-Matemática por Clústeres Funcionales (Clústeres I a VI) PAGEREF _Toc244025100 \h 80
+Child[104] (style=TDC2, bms=[]): Regulaciones y restricciones. PAGEREF _Toc244025101 \h 88
+Child[105] (style=TDC2, bms=[]): Estudio técnico. PAGEREF _Toc244025102 \h 88
+Child[106] (style=TDC2, bms=[]): Estudio económico. PAGEREF _Toc244025103 \h 88
+Child[107] (style=TDC3, bms=[]): Presupuesto real ejecutado de hardware y logística (bom) PAGEREF _Toc244025104 \h 88
+Child[108] (style=TDC3, bms=[]): Gestión del tiempo y mitigación de riesgo en hardware. PAGEREF _Toc244025105 \h 89
+Child[109] (style=TDC2, bms=[]): Procedimientos de Seguridad, Diagnóstico de Sensores y Contingencia en Pista (PNO-01) PAGEREF _Toc244025106 \h 91
+Child[110] (style=TDC3, bms=[]): Análisis comparativo: hardware vs. inversión en tokens de IA. PAGEREF _Toc244025107 \h 92
+Child[111] (style=TDC2, bms=[]): Actividades sociales y divulgación científico-tecnológica. PAGEREF _Toc244025108 \h 93
+Child[112] (style=TDC3, bms=[]): Matriz de Trazabilidad: Hipótesis de Desempeño y Validación Experimental PAGEREF _Toc244025109 \h 94
+Child[113] (style=TDC1, bms=[]): CONCLUSIONES. PAGEREF _Toc244025110 \h 94
+Child[114] (style=TDC2, bms=[]): Conclusiones del proyecto. PAGEREF _Toc244025111 \h 95
+Child[115] (style=TDC2, bms=[]): Recomendaciones. PAGEREF _Toc244025112 \h 97
+Child[116] (style=TDC1, bms=[]): EXPERIENCIA PERSONAL PROFESIONAL ADQUIRIDA. PAGEREF _Toc244025113 \h 98
+Child[117] (style=TDC1, bms=[]): COMPETENCIAS DESARROLLADAS PAGEREF _Toc244025114 \h 99
+Child[118] (style=TDC1, bms=[]): GLOSARIO TÉCNICO-OPERATIVO Y DICCIONARIO DE MÉTODOS DEL SISTEMA (EXPLICADO EN LENGUAJE CLARO). PAGEREF _Toc244025115 \h 100
+Child[119] (style=TDC2, bms=[]): Perros guardianes, seguridad y fallos críticos (watchdogs y protecciones) PAGEREF _Toc244025116 \h 100
+Child[120] (style=TDC2, bms=[]): Conceptos de robótica, electrónica y control embebido. PAGEREF _Toc244025117 \h 102
+Child[121] (style=TDC2, bms=[]): Diccionario de métodos c++ en firmware del robot PAGEREF _Toc244025118 \h 108
+Child[122] (style=TDC2, bms=[]): Protocolo de comunicaciones, backend y supervisión. PAGEREF _Toc244025119 \h 112
+Child[123] (style=TDC2, bms=[]): Guía de Reproducibilidad Técnica y Compilación del Firmware. PAGEREF _Toc244025120 \h 114
+Child[124] (style=TDC2, bms=[]): Automatización de Extracción de Telemetría vía ADB (scripts/pull_telemetry.sh). PAGEREF _Toc244025121 \h 114
+Child[125] (style=TDC2, bms=[]): Herramienta de Análisis Cuantitativo de Telemetría (tools/analyze_telemetry.py) PAGEREF _Toc244025122 \h 115
+Child[126] (style=TDC2, bms=[]): Plantilla Canónica de Parámetros de Hardware (Config.h.example). PAGEREF _Toc244025123 \h 115
+Child[127] (style=TDC2, bms=[]): Repositorios Oficiales y Enlaces de Acceso Abierto. PAGEREF _Toc244025124 \h 116
+Child[128] (style=TDC1, bms=[]): FUENTES DE INFORMACIÓN. PAGEREF _Toc244025125 \h 117
+Child[129] (style=TDC1, bms=[]): ANEXOS. PAGEREF _Toc244025126 \h 119
+Child[130] (style=TDC3, bms=[]): ANEXO A. Carta de Aceptación. PAGEREF _Toc244025127 \h 120
+Child[131] (style=TDC3, bms=[]): ANEXO B. Carta de Liberación Oficial de Residencia Profesional. PAGEREF _Toc244025128 \h 121
+Child[132] (style=TDC3, bms=[]): ANEXO B-1 CERTIFICADO CENIDET. PAGEREF _Toc244025129 \h 122
+Child[133] (style=TDC3, bms=[]): ANEXO C .Diagramas PAGEREF _Toc244025130 \h 123
+Child[134] (style=TDC3, bms=[]): ANEXO C-01.Visualización de evidencias de evolución de prototipo. PAGEREF _Toc244025131 \h 123
+Child[135] (style=TDC3, bms=[]): ANEXO C-02. Diagrama en estrella simplificado. PAGEREF _Toc244025132 \h 124
+Child[136] (style=TDC3, bms=[]): ANEXO C-03. Esquema completo. PAGEREF _Toc244025133 \h 125
+Child[137] (style=TDC3, bms=[]): ANEXO D. Esquemas Lógicos. PAGEREF _Toc244025134 \h 126
+Child[138] (style=TDC3, bms=[]): ANEXO D. Guía de Telemetría Forense, Scripts de Análisis y Código Fuente PAGEREF _Toc244025135 \h 127
+Child[139] (style=TDC2, bms=[]): Matriz de Correspondencia entre Fuentes Bibliográficas y Subsistemas del Robot PAGEREF _Toc244025136 \h 127
+Child[140] (style=TDC3, bms=[]): ANEXO E. Portal web “robot s3 · atlas técnico y manual” PAGEREF _Toc244025137 \h 131
+Child[141] (style=TDC3, bms=[]): ANEXO F. Diagrama de gantt y cronograma de ingeniería PAGEREF _Toc244025138 \h 132
+Child[142] (style=TDC3, bms=[]): ANEXO G. Evidencias de programas usados. PAGEREF _Toc244025139 \h 137
+Child[143] (style=, bms=[]): 
+Child[144] (style=, bms=[]): 
+Child[145] (style=Ttulo1, bms=['_Toc244025051']): ÍNDICE DE TABLAS
+Child[146] (style=, bms=[]): Relación sistemática de tablas técnicas, matrices de trazabilidad, comparativas y especificaciones experimentales desarrolladas en el proyecto:
+Child[147] (style=Tabladeilustraciones, bms=[]): Tabla 1. Datos generales de identificación de la institución y dependencia del proyecto PAGEREF _TocTbl01 \h 13
+Child[148] (style=Tabladeilustraciones, bms=[]): Tabla 2. Matriz de trazabilidad de problemáticas físicas e hipótesis de mitigación en hardware y firmware PAGEREF _TocTbl02 \h 18
+Child[149] (style=Tabladeilustraciones, bms=[]): Tabla 3. Comparativa de soluciones en odometría y fusión sensorial para robots móviles terrestres PAGEREF _TocTbl03 \h 23
+Child[150] (style=Tabladeilustraciones, bms=[]): Tabla 4. Especificación de versiones del entorno de desarrollo frontend (Node.js, Vite y gestores de paquetes) PAGEREF _TocTbl04 \h 26
+Child[151] (style=Tabladeilustraciones, bms=[]): Tabla 5. Evolución de parámetros críticos y diferencias técnicas frente a iteraciones previas del firmware PAGEREF _TocTbl05 \h 39
+Child[152] (style=Tabladeilustraciones, bms=[]): Tabla 6. Regímenes de modulación PWM diferenciada y protecciones operativas del lazo de control PAGEREF _TocTbl06 \h 41
+Child[153] (style=Tabladeilustraciones, bms=[]): Tabla 7. Criterios cuantitativos de aceptación experimental y parámetros canónicos en firmware (Config.h) PAGEREF _TocTbl07 \h 58
+Child[154] (style=Tabladeilustraciones, bms=[]): Tabla 8. Matriz de trazabilidad de decisiones de arquitectura de software y determinismo en tiempo real PAGEREF _TocTbl08 \h 72
+Child[155] (style=Tabladeilustraciones, bms=[]): Tabla 9. Matriz de validación experimental por niveles y estrategia de testing automatizado de firmware PAGEREF _TocTbl09 \h 72
+Child[156] (style=Tabladeilustraciones, bms=[]): Tabla 10. Evaluación cuantitativa de precisión odométrica y angular por serie experimental en pista física PAGEREF _TocTbl10 \h 74
+Child[157] (style=Tabladeilustraciones, bms=[]): Tabla 11. Desglose estadístico de exactitud por tipo de maniobra motriz con intervalos de confianza al 95 % PAGEREF _TocTbl11 \h 74
+Child[158] (style=Tabladeilustraciones, bms=[]): Tabla 12. Desempeño operativo y tasa de éxito en la ejecución de comandos del protocolo robot-s3-steps-v3 PAGEREF _TocTbl12 \h 75
+Child[159] (style=Tabladeilustraciones, bms=[]): Tabla 13. Correlación teórico-matemática de las 31 ecuaciones del firmware frente a la literatura indexada PAGEREF _TocTbl13 \h 80
+Child[160] (style=Tabladeilustraciones, bms=[]): Tabla 14. Límites eléctricos y térmicos de protección para los puentes H DRV8833 en el firmware PAGEREF _TocTbl14 \h 87
+Child[161] (style=Tabladeilustraciones, bms=[]): Tabla 15. Presupuesto real ejecutado de componentes de hardware, instrumentación y logística (BOM) PAGEREF _TocTbl15 \h 88
+Child[162] (style=Tabladeilustraciones, bms=[]): Tabla 16. Matriz AMFE (Análisis de Modos de Fallo y Efectos) en subsistemas ciberfísicos del robot móvil PAGEREF _TocTbl16 \h 90
+Child[163] (style=Tabladeilustraciones, bms=[]): Tabla 17. Análisis comparativo de costos de inversión en herramientas de inteligencia artificial y consumo de tokens PAGEREF _TocTbl17 \h 92
+Child[164] (style=Tabladeilustraciones, bms=[]): Tabla 18. Matriz de trazabilidad final de hipótesis de desempeño cinemático y validación con telemetría forense PAGEREF _TocTbl18 \h 94
+Child[165] (style=Tabladeilustraciones, bms=[]): Tabla 19. Inventario de artefactos forenses, scripts de extracción ADB y herramientas de análisis en el repositorio PAGEREF _TocTbl19 \h 130
+Child[166] (style=Tabladeilustraciones, bms=[]): Tabla 20. Cronograma detallado de actividades e hitos de ingeniería por sprint (Diagrama de Gantt tabular) PAGEREF _TocTbl20 \h 132
+Child[167] (style=, bms=[]): 
+Child[168] (style=Ttulo1, bms=['_Toc244025052']): ÍNDICE DE FIGURAS
+Child[169] (style=, bms=[]): Catálogo integral de ilustraciones, diagramas técnicos, capturas de interfaz, esquemas de conexión y registros gráficos del sistema:
+Child[170] (style=Tabladeilustraciones, bms=[]): Figura 1. Instituto Tecnológico Superior de Salvatierra (Campus ITESS) PAGEREF _TocFig01 \h 13
+Child[171] (style=Tabladeilustraciones, bms=[]): Figura 2. Diagrama conceptual de bloques del sistema en arquitectura general y contexto operativo PAGEREF _TocFig02 \h 14
+Child[172] (style=Tabladeilustraciones, bms=[]): Figura 3. Diagrama simplificado de bloques del sistema y arquitectura general PAGEREF _TocFig03 \h 28
+Child[173] (style=Tabladeilustraciones, bms=[]): Figura 4. Extracto de sistema y dogma de calibración inercial en GitHub Pages PAGEREF _TocFig04 \h 29
+Child[174] (style=Tabladeilustraciones, bms=[]): Figura 5. Ensamble estructural del robot móvil 4WD sobre chasis de doble plataforma PAGEREF _TocFig05 \h 40
+Child[175] (style=Tabladeilustraciones, bms=[]): Figura 6. Repositorio canónico de código fuente en GitHub (carroTest3-For-Esp32-s3-wroom) PAGEREF _TocFig06 \h 43
+Child[176] (style=Tabladeilustraciones, bms=[]): Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz PAGEREF _TocFig07 \h 56
+Child[177] (style=Tabladeilustraciones, bms=[]): Figura 8. Mapa conceptual de conexión digital de encoders ópticos mediante conversor TXS0108E PAGEREF _TocFig08 \h 56
+Child[178] (style=Tabladeilustraciones, bms=[]): Figura 9. Mapa conceptual de conexionado de baterías Li-Ion 18650 y sensor MPU6050 PAGEREF _TocFig09 \h 56
+Child[179] (style=Tabladeilustraciones, bms=[]): Figura 10. Esquema de conexiones de la Zona de Potencia (módulos DRV8833 y motores DC) PAGEREF _TocFig10 \h 56
+Child[180] (style=Tabladeilustraciones, bms=[]): Figura 11. Esquema de conexiones de la Zona de Control Digital (ESP32-S3, encoders y MPU6050) PAGEREF _TocFig11 \h 57
+Child[181] (style=Tabladeilustraciones, bms=[]): Figura 12. Diagrama de Gantt y cronología gráfica de la metodología de desarrollo PAGEREF _TocFig12 \h 60
+Child[182] (style=Tabladeilustraciones, bms=[]): Figura 13. Habilidad y script ejecutable para sincronización de firmware ESP32 y tablet Android vía ADB PAGEREF _TocFig13 \h 61
+Child[183] (style=Tabladeilustraciones, bms=[]): Figura 14. Atlas técnico del robot y manual de referencia viva en GitHub Pages PAGEREF _TocFig14 \h 61
+Child[184] (style=Tabladeilustraciones, bms=[]): Figura 15. Ensamble de chasis y montaje de reductores TT amarillos a la plataforma inferior PAGEREF _TocFig15 \h 69
+Child[185] (style=Tabladeilustraciones, bms=[]): Figura 16. Primera iteración de la zona de potencia DC (eliminación de LEDs por interferencias) PAGEREF _TocFig16 \h 69
+Child[186] (style=Tabladeilustraciones, bms=[]): Figura 17. Montaje e integración del microcontrolador ESP32-S3 DevKitC-1 sobre el chasis PAGEREF _TocFig17 \h 69
+Child[187] (style=Tabladeilustraciones, bms=[]): Figura 18. Ensayos preliminares en prototipo no funcional y diagnóstico de hardware PAGEREF _TocFig18 \h 70
+Child[188] (style=Tabladeilustraciones, bms=[]): Figura 19. Prototipado en protoboard para conexión del sensor inercial MPU6050 y detección de falsos contactos PAGEREF _TocFig19 \h 70
+Child[189] (style=Tabladeilustraciones, bms=[]): Figura 20. Cableado inicial con falta de canon y documentación previa a la estandarización PAGEREF _TocFig20 \h 70
+Child[190] (style=Tabladeilustraciones, bms=[]): Figura 21. Montaje y alineación de los cuatro módulos de encoder óptico LM393 PAGEREF _TocFig21 \h 71
+Child[191] (style=Tabladeilustraciones, bms=[]): Figura 22. Disposición de herramientas de taller y puntos de control en distintas superficies de ensayo PAGEREF _TocFig22 \h 71
+Child[192] (style=Tabladeilustraciones, bms=[]): Figura 23. Pista de pruebas métricas sobre azulejo cerámico con baliza de 2 metros PAGEREF _TocFig23 \h 71
+Child[193] (style=Tabladeilustraciones, bms=[]): Figura 24. Registro audiovisual de validación de mejoras en control PID y funciones motrices PAGEREF _TocFig24 \h 77
+Child[194] (style=Tabladeilustraciones, bms=[]): Figura 25. Interfaz Gráfica de Usuario (HMI) en funcionamiento durante el control de misión PAGEREF _TocFig25 \h 78
+Child[195] (style=Tabladeilustraciones, bms=[]): Figura 26. Registro preliminar de telemetría inercial y odométrica a 100 Hz PAGEREF _TocFig26 \h 78
+Child[196] (style=Tabladeilustraciones, bms=[]): Figura 27. Diagrama esquemático completo de conexiones del sistema (versión de ingeniería) PAGEREF _TocFig27 \h 79
+Child[197] (style=Tabladeilustraciones, bms=[]): Figura 28. Prototipo móvil durante la ejecución de pruebas dinámicas en pista de suelo PAGEREF _TocFig28 \h 97
+Child[198] (style=Tabladeilustraciones, bms=[]): Figura 29. Carta de Aceptación oficial de Residencia Profesional (Anexo A) PAGEREF _TocFig29 \h 120
+Child[199] (style=Tabladeilustraciones, bms=[]): Figura 30. Carta de Liberación oficial de Residencia Profesional (Anexo B) PAGEREF _TocFig30 \h 121
+Child[200] (style=Tabladeilustraciones, bms=[]): Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C) PAGEREF _TocFig31 \h 125
+Child[201] (style=Tabladeilustraciones, bms=[]): Figura 32. Evidencias de la evolución física de prototipos y montajes mecánicos PAGEREF _TocFig32 \h 123
+Child[202] (style=Tabladeilustraciones, bms=[]): Figura 33. Evidencia de telemetría forense sincronizada a 100 Hz en base de datos SQLite PAGEREF _TocFig33 \h 127
+Child[203] (style=Tabladeilustraciones, bms=[]): Figura 34. Complicación resuelta en PlatformIO para carga de firmware a microcontrolador ESP32-S3 PAGEREF _TocFig34 \h 137
+Child[204] (style=Tabladeilustraciones, bms=[]): Figura 35. Uso eficiente de herramientas de costo optimizado (DeepSeek) como ejecutor de planes PAGEREF _TocFig35 \h 137
+Child[205] (style=Tabladeilustraciones, bms=[]): Figura 36. Entorno de desarrollo Visual Studio Code utilizado en etapas tempranas PAGEREF _TocFig36 \h 138
+Child[206] (style=Tabladeilustraciones, bms=[]): Figura 37. Estrategias de control de versiones y trazabilidad de firmware para ESP32-S3 PAGEREF _TocFig37 \h 138
+Child[207] (style=, bms=[]): 
+Child[208] (style=Ttulo1, bms=['_Toc244025053']): ÍNDICE DE ECUACIONES Y MODELOS MATEMÁTICOS
+Child[209] (style=, bms=[]): Catálogo de modelos analíticos, formulaciones cinemáticas, leyes de control PID y filtros inerciales en versión dual:
+Child[210] (style=Tabladeilustraciones, bms=[]): Ecuación 1. Velocidad angular instantánea corregida y escalada del giróscopo PAGEREF _TocEq01 \h 29
+Child[211] (style=Tabladeilustraciones, bms=[]): Ecuación 2. Filtro de promedio móvil (8 muestras) y zona muerta para señal derivativa PAGEREF _TocEq02 \h 30
+Child[212] (style=Tabladeilustraciones, bms=[]): Ecuación 3. Integración numérica discreta sin retardo de fase del ángulo de rumbo PAGEREF _TocEq03 \h 31
+Child[213] (style=Tabladeilustraciones, bms=[]): Ecuación 4. Error angular normalizado por trayectoria mínima en (−180°, +180°] PAGEREF _TocEq04 \h 32
+Child[214] (style=Tabladeilustraciones, bms=[]): Ecuación 5. Consigna angular de corrección lateral acotada y rumbo objetivo dinámico PAGEREF _TocEq05 \h 34
+Child[215] (style=Tabladeilustraciones, bms=[]): Ecuación 6. Controlador PI de rumbo con derivada inercial directa y anti-windup condicional PAGEREF _TocEq06 \h 35
+Child[216] (style=Tabladeilustraciones, bms=[]): Ecuación 7. Reparto motriz diferencial simétrico con empuje longitudinal constante PAGEREF _TocEq07 \h 36
+Child[217] (style=Tabladeilustraciones, bms=[]): Ecuación 8. Cinemática directa teórica de velocidades en un vehículo diferencial PAGEREF _TocEq08 \h 44
+Child[218] (style=Tabladeilustraciones, bms=[]): Ecuación 9. Estimación del sesgo estático inicial (offset) del giróscopo en reposo PAGEREF _TocEq09 \h 45
+Child[219] (style=Tabladeilustraciones, bms=[]): Ecuación 10. Compensación de sesgo estático e inversión de polaridad canónica del eje Z PAGEREF _TocEq10 \h 46

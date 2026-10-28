@@ -50,6 +50,7 @@ JS_ORDER = [
     "window_interact.js",
     "window_layout.js",
     "window_manager.js",
+    "route_vector_stack.js",
     "route_modes.js",
     "route_forks.js",
     "route_charts.js",

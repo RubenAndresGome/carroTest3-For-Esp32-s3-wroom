@@ -1,0 +1,204 @@
+Child[0]: drws=2 imgs=['media/image1.jpg'] fig_bms=[]
+   text: Posicionamiento de robot móvil: Desarrollo yvalidación funcional sistema móvil: ESP32 robotodómetro MPU6050 , encoders e interfaz GráficaREP
+Child[170]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 1. Instituto Tecnológico Superior de Salvatierra (Campus ITESS) PAGEREF _TocFig01 \h 13
+Child[171]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 2. Diagrama conceptual de bloques del sistema en arquitectura general y contexto operativo PAGEREF _TocFig02 \h 14
+Child[172]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 3. Diagrama simplificado de bloques del sistema y arquitectura general PAGEREF _TocFig03 \h 28
+Child[173]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 4. Extracto de sistema y dogma de calibración inercial en GitHub Pages PAGEREF _TocFig04 \h 29
+Child[174]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 5. Ensamble estructural del robot móvil 4WD sobre chasis de doble plataforma PAGEREF _TocFig05 \h 40
+Child[175]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 6. Repositorio canónico de código fuente en GitHub (carroTest3-For-Esp32-s3-wroom) PAGEREF _TocFig06 \h 43
+Child[176]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz PAGEREF _TocFig07 \h 56
+Child[177]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 8. Mapa conceptual de conexión digital de encoders ópticos mediante conversor TXS0108E PAGEREF _TocFig08 \h 56
+Child[178]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 9. Mapa conceptual de conexionado de baterías Li-Ion 18650 y sensor MPU6050 PAGEREF _TocFig09 \h 56
+Child[179]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 10. Esquema de conexiones de la Zona de Potencia (módulos DRV8833 y motores DC) PAGEREF _TocFig10 \h 56
+Child[180]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 11. Esquema de conexiones de la Zona de Control Digital (ESP32-S3, encoders y MPU6050) PAGEREF _TocFig11 \h 57
+Child[181]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 12. Diagrama de Gantt y cronología gráfica de la metodología de desarrollo PAGEREF _TocFig12 \h 60
+Child[182]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 13. Habilidad y script ejecutable para sincronización de firmware ESP32 y tablet Android vía ADB PAGEREF _TocFig13 \h 61
+Child[183]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 14. Atlas técnico del robot y manual de referencia viva en GitHub Pages PAGEREF _TocFig14 \h 61
+Child[184]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 15. Ensamble de chasis y montaje de reductores TT amarillos a la plataforma inferior PAGEREF _TocFig15 \h 69
+Child[185]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 16. Primera iteración de la zona de potencia DC (eliminación de LEDs por interferencias) PAGEREF _TocFig16 \h 69
+Child[186]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 17. Montaje e integración del microcontrolador ESP32-S3 DevKitC-1 sobre el chasis PAGEREF _TocFig17 \h 69
+Child[187]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 18. Ensayos preliminares en prototipo no funcional y diagnóstico de hardware PAGEREF _TocFig18 \h 70
+Child[188]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 19. Prototipado en protoboard para conexión del sensor inercial MPU6050 y detección de falsos contactos PAGEREF _TocFig19 \h 70
+Child[189]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 20. Cableado inicial con falta de canon y documentación previa a la estandarización PAGEREF _TocFig20 \h 70
+Child[190]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 21. Montaje y alineación de los cuatro módulos de encoder óptico LM393 PAGEREF _TocFig21 \h 71
+Child[191]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 22. Disposición de herramientas de taller y puntos de control en distintas superficies de ensayo PAGEREF _TocFig22 \h 71
+Child[192]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 23. Pista de pruebas métricas sobre azulejo cerámico con baliza de 2 metros PAGEREF _TocFig23 \h 71
+Child[193]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 24. Registro audiovisual de validación de mejoras en control PID y funciones motrices PAGEREF _TocFig24 \h 77
+Child[194]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 25. Interfaz Gráfica de Usuario (HMI) en funcionamiento durante el control de misión PAGEREF _TocFig25 \h 78
+Child[195]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 26. Registro preliminar de telemetría inercial y odométrica a 100 Hz PAGEREF _TocFig26 \h 78
+Child[196]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 27. Diagrama esquemático completo de conexiones del sistema (versión de ingeniería) PAGEREF _TocFig27 \h 79
+Child[197]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 28. Prototipo móvil durante la ejecución de pruebas dinámicas en pista de suelo PAGEREF _TocFig28 \h 97
+Child[198]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 29. Carta de Aceptación oficial de Residencia Profesional (Anexo A) PAGEREF _TocFig29 \h 120
+Child[199]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 30. Carta de Liberación oficial de Residencia Profesional (Anexo B) PAGEREF _TocFig30 \h 121
+Child[200]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C) PAGEREF _TocFig31 \h 125
+Child[201]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 32. Evidencias de la evolución física de prototipos y montajes mecánicos PAGEREF _TocFig32 \h 123
+Child[202]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 33. Evidencia de telemetría forense sincronizada a 100 Hz en base de datos SQLite PAGEREF _TocFig33 \h 127
+Child[203]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 34. Complicación resuelta en PlatformIO para carga de firmware a microcontrolador ESP32-S3 PAGEREF _TocFig34 \h 137
+Child[204]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 35. Uso eficiente de herramientas de costo optimizado (DeepSeek) como ejecutor de planes PAGEREF _TocFig35 \h 137
+Child[205]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 36. Entorno de desarrollo Visual Studio Code utilizado en etapas tempranas PAGEREF _TocFig36 \h 138
+Child[206]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 37. Estrategias de control de versiones y trazabilidad de firmware para ESP32-S3 PAGEREF _TocFig37 \h 138
+Child[330]: drws=1 imgs=['media/image2.jpe'] fig_bms=[]
+   text: 
+Child[331]: drws=0 imgs=[] fig_bms=['_TocFig01']
+   text: Figura 1. Instituto Tecnológico Superior de Salvatierra (Campus ITESS)
+Child[347]: drws=1 imgs=['media/image3.png'] fig_bms=[]
+   text: Figura 1 Conversor Bidireccional . Elaboración PropiaIncompatibilidad de niveles lógicos (3.3V vs 5V): Se resolvió utilizando el conversor b
+Child[349]: drws=0 imgs=[] fig_bms=['_TocFig02']
+   text: Figura 2. Diagrama conceptual de bloques del sistema en arquitectura general y contexto operativo
+Child[501]: drws=1 imgs=['media/image4.png'] fig_bms=[]
+   text: 95059516573500
+Child[502]: drws=0 imgs=[] fig_bms=['_TocFig03']
+   text: Figura 3. Diagrama simplificado de bloques del sistema y arquitectura general
+Child[505]: drws=1 imgs=['media/image5.png'] fig_bms=[]
+   text: 727133385156El sistema:
+Child[506]: drws=0 imgs=[] fig_bms=['_TocFig04']
+   text: Figura 4. Extracto de sistema y dogma de calibración inercial en GitHub Pages
+Child[508]: drws=0 imgs=[] fig_bms=[]
+   text: Configura el acelerómetro en ±8 g.
+Child[509]: drws=0 imgs=[] fig_bms=[]
+   text: Configura el giroscopio en ±500 °/s.
+Child[510]: drws=0 imgs=[] fig_bms=[]
+   text: Configura el filtro interno en 21 Hz.
+Child[611]: drws=0 imgs=[] fig_bms=[]
+   text: Configuración de adquisición y filtrado de hardware
+Child[631]: drws=1 imgs=['media/image6.png'] fig_bms=['_TocFig05']
+   text: Figura 2 Ensamble del robotFigura 5. Ensamble estructural del robot móvil 4WD sobre chasis de doble plataforma
+Child[662]: drws=1 imgs=['media/image7.png'] fig_bms=[]
+   text: Figura 3 Abstraccion de forma de lectura, usando muesca como referencia, la estrella verde es el cable indicadorLa disposición de cables, la
+Child[668]: drws=1 imgs=['media/image8.png'] fig_bms=[]
+   text: 142684525971500
+Child[669]: drws=0 imgs=[] fig_bms=['_TocFig06']
+   text: Figura 6. Repositorio canónico de código fuente en GitHub (carroTest3-For-Esp32-s3-wroom)
+Child[811]: drws=1 imgs=['media/image9.png'] fig_bms=[]
+   text: Figura  SEQ Figura \* ARABIC 4 Skill Experimental, Skill en Github propio La programación basada en agentes (Codex, Copilot, OpenCode)  + pr
+Child[823]: drws=1 imgs=['media/image10.png'] fig_bms=[]
+   text: Figura 5 Diagrama de Capas , Esquema HTML elaboración PropiaCapa de supervisión y lógica de misión (Python/Flask, SQLite, interfaz multiplat
+Child[837]: drws=2 imgs=['media/image11.png', 'media/image12.png'] fig_bms=[]
+   text: 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia00Figura 6  Diagrama de ensamble versión com
+Child[838]: drws=1 imgs=['media/image13.png'] fig_bms=[]
+   text: 
+Child[839]: drws=0 imgs=[] fig_bms=['_TocFig07']
+   text: Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz
+Child[840]: drws=1 imgs=['media/image14.png'] fig_bms=[]
+   text: 
+Child[841]: drws=0 imgs=[] fig_bms=['_TocFig08']
+   text: Figura 8. Mapa conceptual de conexión digital de encoders ópticos mediante conversor TXS0108E
+Child[842]: drws=1 imgs=['media/image15.png'] fig_bms=[]
+   text: 
+Child[843]: drws=0 imgs=[] fig_bms=['_TocFig09']
+   text: Figura 9. Mapa conceptual de conexionado de baterías Li-Ion 18650 y sensor MPU6050
+Child[845]: drws=1 imgs=['media/image16.png'] fig_bms=[]
+   text: 
+Child[846]: drws=0 imgs=[] fig_bms=['_TocFig10']
+   text: Figura 10. Esquema de conexiones de la Zona de Potencia (módulos DRV8833 y motores DC)
+Child[847]: drws=1 imgs=['media/image17.png'] fig_bms=[]
+   text: 
+Child[848]: drws=0 imgs=[] fig_bms=['_TocFig11']
+   text: Figura 11. Esquema de conexiones de la Zona de Control Digital (ESP32-S3, encoders y MPU6050)
+Child[868]: drws=1 imgs=['media/image18.png'] fig_bms=[]
+   text: 
+Child[869]: drws=0 imgs=[] fig_bms=['_TocFig12']
+   text: Figura 12. Diagrama de Gantt y cronología gráfica de la metodología de desarrollo
+Child[878]: drws=1 imgs=['media/image19.png'] fig_bms=[]
+   text: Figura 7 Script ..exe ejecutable para actualizar robot y App Android via ADBSemana 9-10: Creación de los prototipos prueba de sensores, prue
+Child[879]: drws=0 imgs=[] fig_bms=['_TocFig13']
+   text: Figura 13. Habilidad y script ejecutable para sincronización de firmware ESP32 y tablet Android vía ADB
+Child[881]: drws=1 imgs=['media/image20.png'] fig_bms=[]
+   text: 1336675100965000Semana 11: Iteración en prototipo de interfaz gráfica, depuración de errores de lógica y mejora continua de interfaz, teleme
+Child[882]: drws=0 imgs=[] fig_bms=['_TocFig14']
+   text: Figura 14. Atlas técnico del robot y manual de referencia viva en GitHub Pages
+Child[982]: drws=10 imgs=['media/image21.png', 'media/image22.png', 'media/image23.png', 'media/image24.png', 'media/image25.png', 'media/image26.png', 'media/image27.png', 'media/image28.png', 'media/image29.png'] fig_bms=['_TocFig15', '_TocFig16', '_TocFig17', '_TocFig18', '_TocFig19', '_TocFig20', '_TocFig21', '_TocFig22', '_TocFig23']
+   text: EVIDENCIA DE DESARROLLO Y TESTING DE HARDWAREFigura 15. Ensamble de chasis y montaje de reductores TT amarillos a la plataforma inferiorFigu
+Child[1023]: drws=1 imgs=['media/image30.png'] fig_bms=[]
+   text: 1405716446463carroTest3-For-Esp32-s3-wroom/evidencia at main · RubenAndresGome/carroTest3-For-Esp32-s3-wroom
+Child[1024]: drws=0 imgs=[] fig_bms=['_TocFig24']
+   text: Figura 24. Registro audiovisual de validación de mejoras en control PID y funciones motrices
+Child[1026]: drws=1 imgs=['media/image31.png'] fig_bms=[]
+   text: 2073910-35052000RESULTADOS .
+Child[1027]: drws=0 imgs=[] fig_bms=['_TocFig25']
+   text: Figura 25. Interfaz Gráfica de Usuario (HMI) en funcionamiento durante el control de misión
+Child[1029]: drws=1 imgs=['media/image32.png'] fig_bms=[]
+   text: ANÁLISIS GRÁFICO DE TELEMETRÍA Y CONTROL.
+Child[1030]: drws=0 imgs=[] fig_bms=['_TocFig26']
+   text: Figura 26. Registro preliminar de telemetría inercial y odométrica a 100 Hz
+Child[1034]: drws=2 imgs=['media/image35.png'] fig_bms=['_TocFig27']
+   text: Figura 13 Fuente: Elaboración propia , versión completa en anexoEl desarrollo físico del chasis atravesó una evolución iterativa: desde los 
+Child[1181]: drws=2 imgs=['media/image37.png'] fig_bms=[]
+   text: Figura 14Fuente: Elaboración propia886056558338Frente a un gasto de hardware y logística de ~$2,960 MXN, el ecosistema de Inteligencia Artif
+Child[1221]: drws=1 imgs=['media/image38.png'] fig_bms=[]
+   text: La principal implicación es que el desempeño del robot depende tanto del algoritmo como de la integridad eléctrica y mecánica. Un falso cont
+Child[1223]: drws=0 imgs=[] fig_bms=['_TocFig28']
+   text: Figura 28. Prototipo móvil durante la ejecución de pruebas dinámicas en pista de suelo
+Child[1486]: drws=1 imgs=['media/image39.png'] fig_bms=[]
+   text: 1435312268393ANEXO A. Carta de Aceptación.
+Child[1487]: drws=0 imgs=[] fig_bms=['_TocFig29']
+   text: Figura 29. Carta de Aceptación oficial de Residencia Profesional (Anexo A)
+Child[1492]: drws=1 imgs=['media/image40.png'] fig_bms=['_TocFig30']
+   text: 1232482425Figura 30. Carta de Liberación oficial de Residencia Profesional (Anexo B)
+Child[1496]: drws=4 imgs=['media/image41.png', 'media/image43.png'] fig_bms=[]
+   text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+Child[1501]: drws=2 imgs=['media/image45.png', 'media/image47.png'] fig_bms=[]
+   text: center23346900
+Child[1502]: drws=0 imgs=[] fig_bms=['_TocFig32']
+   text: Figura 32. Evidencias de la evolución física de prototipos y montajes mecánicos
+Child[1505]: drws=2 imgs=['media/image48.png', 'media/image49.png'] fig_bms=[]
+   text: -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3Figura 16 Diagrama estrella simplificado versión completa de
+Child[1511]: drws=3 imgs=['media/image50.png'] fig_bms=['_TocFig31', '_TocFig31']
+   text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00Figura 31. Esquema de conexiones del robot diseñado 
+Child[1514]: drws=1 imgs=['media/image51.png'] fig_bms=[]
+   text: 
+Child[1515]: drws=0 imgs=[] fig_bms=[]
+   text: Figura 17 Anexo capas Lógicas de Sistema Distribuido en tamaño completo
+Child[1517]: drws=0 imgs=[] fig_bms=['_TocFig33']
+   text: ANEXO D. Guía de Telemetría Forense, Scripts de Análisis y Código Fuente
+Child[1545]: drws=1 imgs=['media/image52.png'] fig_bms=[]
+   text: 
+Child[1546]: drws=0 imgs=[] fig_bms=['_TocFig34']
+   text: Figura 34. Complicación resuelta en PlatformIO para carga de firmware a microcontrolador ESP32-S3
+Child[1548]: drws=1 imgs=['media/image53.png'] fig_bms=[]
+   text: 
+Child[1549]: drws=0 imgs=[] fig_bms=['_TocFig35']
+   text: Figura 35. Uso eficiente de herramientas de costo optimizado (DeepSeek) como ejecutor de planes
+Child[1552]: drws=1 imgs=['media/image54.png'] fig_bms=[]
+   text: 
+Child[1553]: drws=0 imgs=[] fig_bms=['_TocFig36']
+   text: Figura 36. Entorno de desarrollo Visual Studio Code utilizado en etapas tempranas
+Child[1555]: drws=0 imgs=[] fig_bms=['_TocFig37']
+   text: Figura 37Estrategias de control de versiones y trazabilidad de firmware para ESP32-S3

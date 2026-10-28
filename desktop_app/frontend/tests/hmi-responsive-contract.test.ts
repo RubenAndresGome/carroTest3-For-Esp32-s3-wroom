@@ -338,4 +338,13 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toContain("Cine (Telemetría)");
     expect(html).toMatch(/#hmi-workspace\.workspace-tiling\s+\.tab-content\.is-maximized\s*\{[^}]*position:\s*fixed/);
   });
+
+  it("integra el modulo independiente de pila vectorial en el HMI ensamblado", () => {
+    expect(html).toContain("class VectorNode");
+    expect(html).toContain("class VectorRouteStack");
+    expect(html).toContain("RouteVectorStack");
+    expect(html).toContain("PILA VECTORIAL");
+    expect(html).toContain("Ángulo θReal relativo");
+  });
 });
+

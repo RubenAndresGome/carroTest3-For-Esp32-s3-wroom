@@ -4,9 +4,13 @@ import unittest
 from robot_app.route_planning import (
     AngularDecompositionRouteStrategy,
     AngularVectorialRouteStrategy,
+    OrthogonalRealignmentPolicy,
     RectangularRouteStrategy,
+    VectorialRealignmentPolicy,
     compile_orthogonal_points,
     compile_touch_path,
+    get_realignment_policy,
+    select_optimal_drive_mode,
 )
 
 
@@ -127,6 +131,51 @@ class RoutePlanningTests(unittest.TestCase):
         segments = compile_orthogonal_points(points, deduct_chassis_offset=True)
         self.assertEqual(len(segments), 2)
         self.assertEqual(segments[-1]["y_mm"], 860.0)
+
+    def test_realignment_policies(self) -> None:
+        ortho = get_realignment_policy("rectangular")
+        self.assertIsInstance(ortho, OrthogonalRealignmentPolicy)
+        self.assertEqual(ortho.target_heading(12.0), 0.0)
+        self.assertEqual(ortho.target_heading(44.0), 0.0)
+        self.assertEqual(ortho.target_heading(46.0), 90.0)
+        self.assertEqual(ortho.target_heading(182.0), 180.0)
+        self.assertEqual(ortho.target_heading(358.0), 0.0)
+
+        vec = get_realignment_policy("angular_vectorial")
+        self.assertIsInstance(vec, VectorialRealignmentPolicy)
+        self.assertAlmostEqual(vec.target_heading(42.5), 42.5)
+        self.assertAlmostEqual(vec.target_heading(375.0), 15.0)
+
+        touch_policy = get_realignment_policy("touch_reverse")
+        self.assertIsInstance(touch_policy, OrthogonalRealignmentPolicy)
+
+    def test_select_optimal_drive_mode(self) -> None:
+        # Facing 0° (+Y), heading is 10° -> turn is only 10° for forward, 170° for reverse -> forward
+        self.assertEqual(select_optimal_drive_mode(10.0, 0.0), "forward")
+        # Facing 0° (+Y), heading is 170° -> turn is 170° forward, but 10° reverse -> reverse
+        self.assertEqual(select_optimal_drive_mode(170.0, 0.0), "reverse")
+        # Facing 90° (+X), heading is 260° -> delta_fwd = 170°, delta_rev = 10° -> reverse
+        self.assertEqual(select_optimal_drive_mode(260.0, 90.0), "reverse")
+        # Facing 90° (+X), heading is 80° -> forward
+        self.assertEqual(select_optimal_drive_mode(80.0, 90.0), "forward")
+
+    def test_chained_vectorial_route_notebook_trig(self) -> None:
+        compilation = AngularVectorialRouteStrategy().compile({
+            "vectors": [
+                {"length_cm": 100, "relative_angle_deg": 30},
+                {"length_cm": 100, "relative_angle_deg": -30},
+            ],
+        }, self.origin)
+        self.assertEqual(len(compilation.logical_steps), 2)
+        step1, step2 = compilation.logical_steps
+        self.assertAlmostEqual(step1["relative_angle_deg"], 30.0)
+        self.assertAlmostEqual(step1["absolute_angle_deg"], 30.0)
+        self.assertAlmostEqual(step2["relative_angle_deg"], -30.0)
+        self.assertAlmostEqual(step2["absolute_angle_deg"], 0.0)
+        self.assertAlmostEqual(step1["firmware_heading_deg"], 60.0)
+        self.assertAlmostEqual(step2["firmware_heading_deg"], 90.0)
+        self.assertAlmostEqual(step2["target"]["x_mm"], 1866.0254, places=2)
+        self.assertAlmostEqual(step2["target"]["y_mm"], 500.0, places=2)
 
 
 if __name__ == "__main__":

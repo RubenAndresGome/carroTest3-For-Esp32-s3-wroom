@@ -397,7 +397,96 @@ class ApiTests(unittest.TestCase):
         command = self.service.gateway._outgoing.queue[-1].command
         self.assertAlmostEqual(command.payload["heading"], 225.0)
         self.assertAlmostEqual(command.payload["cm"], 50.0)
-        self.assertEqual(command.payload["drive_mode"], "auto")
+        # Facing 0° yaw, heading 225° -> forward turn is 135°, reverse turn is only 45° -> reverse
+        self.assertEqual(command.payload["drive_mode"], "reverse")
+
+    def test_vectorial_return_chooses_forward_when_already_facing_target(self) -> None:
+        self.service.set_vectorial_routes_enabled(True)
+        self._ready_vectorial()
+        mission = self.service.start_mission({
+            "mode": "angular_vectorial",
+            "vectors": [{"length_cm": 50, "relative_angle_deg": 45}],
+        })
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        route = self.service.database.get_setting("last_completed_route")
+        target = route["points"][-1]
+        # Robot already rotated to 225° (facing directly toward origin 0,0)
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x": target["x_mm"] / 10,
+            "y": target["y_mm"] / 10, "yaw": 225.0, "cal": True, "enc": [1, 1, 1, 1],
+            "mpu_present": True, "mpu_stale": False, "mpu_calibrated": True,
+            "encoder_health": {wheel: "healthy" for wheel in ("fl", "fr", "bl", "br")},
+        }, 2)
+        response = self.service.start_return_home()
+        self.assertEqual(response["mode"], "angular_vectorial")
+        command = self.service.gateway._outgoing.queue[-1].command
+        self.assertAlmostEqual(command.payload["heading"], 225.0)
+        # Facing 225° yaw, heading 225° -> forward turn is 0°, reverse turn is 180° -> forward
+        self.assertEqual(command.payload["drive_mode"], "forward")
+
+    def test_vectorial_realignment_preserves_oblique_heading(self) -> None:
+        self.service.set_vectorial_routes_enabled(True)
+        self.service._settling_delay_s = 0.10
+        self._ready_vectorial()
+        # 2-step vectorial mission: 45° heading followed by another step
+        mission = self.service.start_mission({
+            "mode": "angular_vectorial",
+            "vectors": [
+                {"length_cm": 50, "relative_angle_deg": 45},
+                {"length_cm": 50, "relative_angle_deg": 45},
+            ],
+        })
+        # Simulate drift on step 1: expected heading was 45.0°, actual drifted to 47.5° (> 1.5° threshold)
+        self.service._last_telemetry = TelemetrySnapshot.from_message({
+            "evt": "telemetry", "state": "listo", "x": 35.35, "y": 35.35, "yaw": 47.5,
+            "cal": True, "enc": [10, 10, 10, 10],
+            "mpu_present": True, "mpu_stale": False, "mpu_calibrated": True,
+            "encoder_health": {wheel: "healthy" for wheel in ("fl", "fr", "bl", "br")},
+        }, 2)
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        self.assertEqual(self.service.mission_status()["stage"], "settling")
+        for _ in range(50):
+            if self.service.mission_status()["stage"] == "realigning":
+                break
+            time.sleep(0.01)
+        status = self.service.mission_status()
+        self.assertEqual(status["stage"], "realigning")
+        turn_cmd = next(item.command for item in self.service.gateway._outgoing.queue
+                        if item.command.seq == status["active_seq"])
+        self.assertEqual(turn_cmd.name, "turn_to")
+        # Vectorial policy MUST NOT snap to cardinal 0° or 90°; it must preserve exact 45.0°
+        self.assertAlmostEqual(turn_cmd.payload["heading"], 45.0)
+
+    def test_ockham_return_aligns_to_zero_at_completion(self) -> None:
+        self.service.set_vectorial_routes_enabled(True)
+        self._ready_vectorial()
+        route = {
+            "route_id": "test_ockham_final",
+            "origin": {"x_mm": 0.0, "y_mm": 0.0},
+            "points": [{"x_mm": 500.0, "y_mm": 500.0}],
+            "mode": "angular_vectorial",
+            "logical_steps": [],
+            "return_state": "available",
+            "return_error": None,
+        }
+        self.service.database.set_setting("last_completed_route", route)
+        self._ready_vectorial(500, 500)
+        mission = self.service.start_return_home()
+        # Complete return step back to (0,0)
+        self._ready_vectorial(0, 0)
+        self.service._on_robot_message({"evt": "completed", "seq": mission["active_seq"], "detail": "step_ok"})
+        # Should now enter aligning_final stage to orient at 0° (+Y)
+        status = self.service.mission_status()
+        self.assertEqual(status["stage"], "aligning_final")
+        turn_cmd = next(item.command for item in self.service.gateway._outgoing.queue
+                        if item.command.seq == status["active_seq"])
+        self.assertEqual(turn_cmd.name, "turn_to")
+        self.assertEqual(turn_cmd.payload["heading"], 0.0)
+        # Complete the final turn_to alignment
+        self.service._on_robot_message({"evt": "completed", "seq": turn_cmd.seq, "detail": "turn_ok"})
+        final_status = self.service.mission_status()
+        self.assertEqual(final_status["stage"], "completed")
+        self.assertEqual(self.service.database.get_setting("last_completed_route")["return_state"], "completed")
 
     def test_fault_blocks_current_waypoint(self) -> None:
         self._ready()

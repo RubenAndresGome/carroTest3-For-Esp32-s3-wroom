@@ -1,0 +1,217 @@
+
+==================== Child[518] ['_TocEq01'] ====================
+Intro text: La velocidad angular instantánea corregida y escalada del giróscopo se obtiene mediante la ecuación (1):(Ecuación adaptada de Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[519], math=True): ωz,cruda = ωz - ωz,offset · Pyaw · Kescala · Ksuperficie    (1)
+   +offset 2 (Child[520], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp [leerGiroscopio()])// Transformación del eje Z crudo
+   +offset 3 (Child[521], math=False): En Resumen: : Convierte las lecturas crudas del sensor en una velocidad de giro real en radianes por segundo, restando e
+   +offset 4 (Child[522], math=False): Donde:
+
+==================== Child[529] ['_TocEq02'] ====================
+Intro text: El filtrado digital mediante promedio móvil de 8 muestras y aplicación de zona muerta para la señal derivativa se modela en la ecuación (2):(Ecuación adaptada de Franklin et al. (2019).)
+   +offset 1 (Child[530], math=True): ωz,prom = 18j=07ωz,crudak - j ,    ωz,filtrada = 0.0  si  ωz,prom < 0.005 rad/s    (2)
+   +offset 2 (Child[531], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp [PromedioMovil<8>::agregar() & leerGiroscopio()])// 
+   +offset 3 (Child[532], math=False): En Resumen: : Suaviza las vibraciones mecánicas promediando las últimas 8 muestras y descarta fluctuaciones diminutas me
+   +offset 4 (Child[533], math=False): • Integración numérica del ángulo yaw: Aplica la zona muerta directamente sobre la velocidad instantánea corregida para 
+
+==================== Child[534] ['_TocEq03'] ====================
+Intro text: La integración numérica discreta sin retardo de fase para la estimación del ángulo de rumbo se calcula mediante la ecuación (3):(Ecuación adaptada de Siegwart et al. (2011), Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[535], math=True): Δψrad = ωint · Δt ,    ψk = ψk-1 + Δψrad ,    θyaw = ψk · 180°π    (3)
+   +offset 2 (Child[536], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp [leerGiroscopio()])// Integración directa con deadba
+   +offset 3 (Child[537], math=False): En Resumen: : Suma paso a paso cada pequeño giro angular que ocurre en cada décima de segundo (10 ms) para saber exactam
+   +offset 4 (Child[538], math=False): El diferencial de tiempo Δt se mide en microsegundos mediante el temporizador de alta resolución de ESP-IDF (esp_timer_g
+
+==================== Child[542] ['_TocEq04'] ====================
+Intro text: El error angular normalizado según el camino de rotación mínima en el intervalo (−180°, +180°] se determina mediante la ecuación (4):(Elaboración propia.)
+   +offset 1 (Child[543], math=True): egiro = wrap(-180°, +180°]modθobj, 360° - modθactual, 360°    (4)
+   +offset 2 (Child[544], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h [ControlRuta::errorAngularDeg()])// Cálculo del
+   +offset 3 (Child[545], math=False): En Resumen: : Calcula el camino más corto para girar hacia el objetivo (por ejemplo, girar 10° a la izquierda en vez de 
+   +offset 4 (Child[546], math=False): Régimen de control híbrido en dos fases
+
+==================== Child[574] ['_TocEq05'] ====================
+Intro text: La consigna angular de corrección lateral acotada y el rumbo objetivo dinámico durante el avance se obtienen mediante la ecuación (5):(Elaboración propia.)
+   +offset 1 (Child[575], math=True): θcorr,lat = sat[-18°, +18°]-elat · Kp,lat ,    θobj,din = modθcuerpo + θcorr,lat, 360°    (5)
+   +offset 2 (Child[576], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h & src/Cinematica.cpp [correccionLateralRumboDeg
+   +offset 3 (Child[577], math=False): En Resumen: : Si el robot se desvía de lado respecto a la línea recta, genera un ángulo suave de reenganche de hasta 20°
+   +offset 4 (Child[578], math=False): Controlador de rumbo PI con derivada inercial (PID): La corrección angular se calcula en ControlRuta::actualizarPI() com
+
+==================== Child[579] ['_TocEq06'] ====================
+Intro text: La acción de control del regulador PI de rumbo con realimentación inercial directa y anti-windup condicional se define mediante la ecuación (6):(Ecuación adaptada de Franklin et al. (2019).)
+   +offset 1 (Child[580], math=True): urumbo = sat[-umáx, +umáx]Kp · eθ + Ki · Ik - Kd · ωz,filtrada    (6)
+   +offset 2 (Child[581], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h [ControlRuta::actualizarPI()])// Término D alim
+   +offset 3 (Child[582], math=False): En Resumen: : Calcula cuánto empuje diferencial dar a las ruedas para enderezar el robot, frenando suavemente si ya está
+   +offset 4 (Child[583], math=False): • Término Proporcional (P): Kp · eθ (fuerza restauradora directa hacia la directriz del tramo).
+
+==================== Child[597] ['_TocEq07'] ====================
+Intro text: El reparto motriz diferencial simétrico para modulación de los puentes H conservando empuje longitudinal constante se expresa en la ecuación (7):(Elaboración propia.)
+   +offset 1 (Child[598], math=True): Δmitad = urumbo2 ,    PWML = PWMbase,L ∓ Δmitad ,    PWMR = PWMbase,R ± Δmitad    (7)
+   +offset 2 (Child[599], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Cinematica.cpp [controlarAvance()])// Reparto diferencial simétri
+   +offset 3 (Child[600], math=False): En Resumen: : Distribuye la fuerza de los motores sumando par a un lado y restándolo al otro, manteniendo constante la v
+   +offset 4 (Child[601], math=False): Autoridad angular de los encodersEn el firmware actual, la corrección auxiliar de rumbo por diferencia de pulsos de enco
+
+==================== Child[684] ['_TocEq08'] ====================
+Intro text: La cinemática directa diferencial teórica que relaciona las velocidades lineales de las ruedas con la velocidad traslacional y angular del chasis se expresa mediante la ecuación (8):(Ecuación adaptada de Siegwart et al. (2011).)
+   +offset 1 (Child[685], math=True): v = vR + vL2 ,        ω = vR - vLL    (8)
+   +offset 2 (Child[686], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp & src/PoseEstimator.cpp [leerEncoders() & actualizar
+   +offset 3 (Child[687], math=False): En Resumen: : Determina la velocidad lineal y la rapidez de rotación del vehículo combinando la velocidad con la que gir
+   +offset 4 (Child[688], math=False): Donde v es la velocidad lineal del centro del robot, ω es la velocidad angular, vi y vd son las velocidades lineales de 
+
+==================== Child[709] ['_TocEq09'] ====================
+Intro text: La estimación del sesgo estático inicial (offset) del giróscopo durante el reposo se determina promediando 256 muestras según la ecuación (9):(Ecuación adaptada de Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[710], math=True): ωz,offset = 1Ni=1Nωz,i ,    (con N = 256 muestras)    (9)
+   +offset 2 (Child[711], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp [setup_Sensores() / recalibrarOffsetIMU()])// Muestr
+   +offset 3 (Child[712], math=False): En Resumen: : Durante los primeros 5 segundos de encendido con el robot quieto, toma 256 lecturas para medir el error de
+   +offset 4 (Child[713], math=False): Durante la operación, la velocidad angular se corrige restando este error al que llamaremos offset: (ver ecuación (10)) 
+
+==================== Child[714] ['_TocEq10'] ====================
+Intro text: La compensación del sesgo estático y la alineación de la polaridad canónica dextrógira del eje Z se calculan mediante la ecuación (10):(Ecuación adaptada de Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[715], math=True): ωz,corr = ωz,medido - ωz,offset × Pyaw ,    (Pyaw = -1.0)    (10)
+   +offset 2 (Child[716], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/Config.h & src/Sensores.cpp [leerGiroscopio()])// include/Con
+   +offset 3 (Child[717], math=False): En Resumen: : Corrige el signo de giro para que girar a la derecha sume grados y a la izquierda reste grados, coincidien
+   +offset 4 (Child[718], math=False): 
+
+==================== Child[723] ['_TocEq11'] ====================
+Intro text: La integración temporal discreta de Euler para el ángulo de orientación yaw se formaliza en la ecuación (11): Esta formulación retoma la ley de integración cinemática (véase la ecuación (3)), implementándose en firmware dentro del súper-ciclo a 100 Hz.(Ecuación adaptada de Siegwart et al. (2011), Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[724], math=True): ψk = ψk-1 + ωz,int · Δt    (11)
+   +offset 2 (Child[725], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/PoseEstimator.cpp [PoseEstimator::actualizarOrientacion()])// Acu
+   +offset 3 (Child[726], math=False): En Resumen: : Acumula en el tiempo la velocidad de giro para mantener actualizada la brújula interna del robot a lo larg
+   +offset 4 (Child[727], math=False): El MPU6050 es la autoridad principal para el rumbo durante los giros y la corrección de trayectoria, ya que integrar la 
+
+==================== Child[731] ['_TocEq12'] ====================
+Intro text: La conversión métrica de pulsos acumulados por hardware PCNT a distancia lineal recorrida se define mediante la ecuación (12):(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[732], math=True): d = N · π · DodoPPR = N · Ctick ,        Ctick = π · DodoPPR    (12)
+   +offset 2 (Child[733], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h & src/PoseEstimator.cpp [ControlRuta::distancia
+   +offset 3 (Child[734], math=False): En Resumen: : Traduce cada ranura que cruza el disco óptico en centímetros reales avanzados (aproximadamente medio centí
+   +offset 4 (Child[735], math=False): 
+
+==================== Child[746] ['_TocEq13'] ====================
+Intro text: La distancia lineal recorrida por el centro geométrico del chasis a partir del promedio bilateral de encoders se expresa en la ecuación (13):(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[747], math=True): dc = dL + dR2    (13)
+   +offset 2 (Child[748], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/PoseEstimator.cpp [PoseEstimator::actualizarOdometria()])// Prome
+   +offset 3 (Child[749], math=False): En Resumen: : Promedia lo que avanzaron las ruedas izquierdas y derechas para calcular exactamente cuánta distancia reco
+   +offset 4 (Child[750], math=False): Donde di y dd son las distancias estimadas por los lados izquierdo y derecho. La posición en el plano (x, y) se actualiz
+
+==================== Child[751] ['_TocEq14'] ====================
+Intro text: La proyección odométrica cartesiana de las coordenadas globales (X, Y) a partir del rumbo se calcula según la ecuación (14):(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[752], math=True): Xk = Xk-1 + dc · sinθyaw ,        Yk = Yk-1 + dc · cosθyaw    (14)
+   +offset 2 (Child[753], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/PoseEstimator.cpp [PoseEstimator::actualizarOdometria()])// Conve
+   +offset 3 (Child[754], math=False): En Resumen: : Descompone el avance en coordenadas X e Y en el mapa usando trigonometría para dibujar en la pantalla la p
+   +offset 4 (Child[755], math=False): Es importante resaltar que la orientación yaw proviene del MPU6050, y no de la integración de la diferencia de encoders.
+
+==================== Child[771] ['_TocEq15'] ====================
+Intro text: El error instantáneo durante un giro relativo en pivote se evalúa mediante la ecuación (15):(Elaboración propia.)
+   +offset 1 (Child[772], math=True): egiro = θobjetivo - θactual - θinicio    (15)
+   +offset 2 (Child[773], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Cinematica.cpp [calTorque() & controlarGiro()])// Fijación de met
+   +offset 3 (Child[774], math=False): En Resumen: : Mide cuántos grados le faltan al robot para completar el giro ordenado por el usuario o la misión.
+   +offset 4 (Child[775], math=False): 
+
+==================== Child[782] ['_TocEq16'] ====================
+Intro text: El error instantáneo de rumbo durante las maniobras de avance rectilíneo se obtiene mediante la ecuación (16):(Elaboración propia.)
+   +offset 1 (Child[783], math=True): erumbo = θobjetivo - θactual    (16)
+   +offset 2 (Child[784], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Cinematica.cpp [controlarAvance()])// Error instantáneo de orient
+   +offset 3 (Child[785], math=False): En Resumen: : Compara hacia dónde apunta el robot frente a hacia dónde debería apuntar, detectando cualquier desvío de l
+   +offset 4 (Child[786], math=False): 
+
+==================== Child[788] ['_TocEq17'] ====================
+Intro text: La señal de corrección calculada por el controlador PID discreto con amortiguamiento giroscópico directo se formaliza mediante la ecuación (17): Esta estructura implementa el esquema de control en lazo cerrado de orientación (véase la ecuación (6)), trasladado a variables de error ancladas a la trayectoria.(Ecuación adaptada de Franklin et al. (2019).)
+   +offset 1 (Child[789], math=True): Controlk = Kp · ek + Ki · j=0kej · Δt - Kd · ωz,k    (17)
+   +offset 2 (Child[790], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Cinematica.cpp [controlarAvance()])// Llamada síncrona a 100 Hz (
+   +offset 3 (Child[791], math=False): En Resumen: : Algoritmo de control que actúa con proporcionalidad al desvío, corrige errores acumulados lentos y amortig
+   +offset 4 (Child[792], math=False): 
+
+==================== Child[928] ['_TocEq18'] ====================
+Intro text: La integración determinista del ángulo yaw en memoria compartida mediante sección crítica de hardware se expresa en la ecuación (18): Constituye la realización concurrente en tiempo real de la integración inercial (véase la ecuación (3)), ejecutada a 100 Hz en Core 1.(Ecuación adaptada de Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[929], math=True): yawk = yawk-1 + ωz,int · Δt · 180°π    (18)
+   +offset 2 (Child[930], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp [leerGiroscopio() [Sección Crítica Core 1]])// Integ
+   +offset 3 (Child[931], math=False): En Resumen: : Protege el dato de orientación con un candado de memoria para que el sistema de radio y el de control no l
+   +offset 4 (Child[932], math=False): Esta integración se realiza únicamente con el giroscopio, ya que integrar la aceleración del acelerómetro para obtener p
+
+==================== Child[937] ['_TocEq19'] ====================
+Intro text: La distancia lineal fusionada bilateralmente con tolerancia a pérdida de tracción en un canal se obtiene mediante la ecuación (19): Extiende la formulación de distancia central (véase la ecuación (13)) incorporando salvaguardas de degradación grácil ante fallos ópticos.(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[938], math=True): dc = dL,confiable + dR,confiable2    (19)
+   +offset 2 (Child[939], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlSeguridad.h & src/PoseEstimator.cpp [ControlSeguridad:
+   +offset 3 (Child[940], math=False): En Resumen: : Si los sensores de un lado fallan o patinan, el sistema se apoya en el lado sano para no perder la estimac
+   +offset 4 (Child[941], math=False): 
+
+==================== Child[944] ['_TocEq20'] ====================
+Intro text: La actualización síncrona de las coordenadas del estimador global de pose se rige por la ecuación (20): Implementa en tiempo real la proyección trigonométrica de la pose (véase la ecuación (14)) con la orientación provista por el giróscopo.(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[945], math=True): xglobal ← xglobal + dc · sinθrad ,      yglobal ← yglobal + dc · cosθrad    (20)
+   +offset 2 (Child[946], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/PoseEstimator.cpp [PoseEstimator::actualizarOdometria()])// Actua
+   +offset 3 (Child[947], math=False): En Resumen: : Guarda en la memoria del estimador la coordenada actual acumulada para que la aplicación en la tablet sepa
+   +offset 4 (Child[948], math=False): 
+
+==================== Child[1057] ['_TocEq21'] ====================
+Intro text: El factor de conversión métrica calibrado para los módulos de encoder de 40 PPR se define en la ecuación (21): Corresponde a la especificación calibrada en pista de la escala teórica (véase la ecuación (12)) con un diámetro efectivo de 6.699 cm.(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[1058], math=True): Ctick = π · Drueda,odoPPR = 3.1416 × 6.699 cm40 ≈ 0.5261 cm/pulso    (21)
+   +offset 2 (Child[1059], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/Config.h & src/Sensores.cpp [WHEEL_DIAMETER_ODOMETRY_CM & lee
+   +offset 3 (Child[1060], math=False): En Resumen: : Define la constante física exacta (0.5261 cm por pulso) tras calibrar que 190 pulsos equivalen exactamente
+   +offset 4 (Child[1061], math=False): 1.2. Desplazamiento Lineal por Lado: El avance lineal de cada flanco motriz se obtiene multiplicando los pulsos confiabl
+
+==================== Child[1062] ['_TocEq22'] ====================
+Intro text: El desplazamiento longitudinal independiente de cada tren motriz (izquierdo y derecho) se calcula mediante la ecuación (22): Aplica de forma bilateral el factor de escala (véase la ecuación (13)) sobre el conteo de pulsos depurado.(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[1063], math=True): ΔsL = ΔticksL · Ctick ,        ΔsR = ΔticksR · Ctick    (22)
+   +offset 2 (Child[1064], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/PoseEstimator.cpp [PoseEstimator::actualizarOdometria()])// Conve
+   +offset 3 (Child[1065], math=False): En Resumen: : Calcula de forma independiente cuántos centímetros avanzó el costado izquierdo y cuántos el derecho para d
+   +offset 4 (Child[1066], math=False): 1.3. Cinemática Directa de Pose: El avance del centro del chasis (Δs) y su actualización en el marco global (X, Y) para 
+
+==================== Child[1067] ['_TocEq23'] ====================
+Intro text: La cinemática directa de traslación 4WD y la actualización incremental de pose planar se expresan mediante la ecuación (23): Consolida las ecuaciones de proyección cartesiana (véase la ecuación (14)) en el bucle principal de control.(Ecuación adaptada de Siegwart et al. (2011) y Borenstein y Feng (1996b).)
+   +offset 1 (Child[1068], math=True): Δs = ΔsL + ΔsR2 ,    Xk = Xk-1 + Δs · sinθk ,    Yk = Yk-1 + Δs · cosθk    (23)
+   +offset 2 (Child[1069], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/PoseEstimator.cpp [PoseEstimator::actualizarOdometria()])// Integ
+   +offset 3 (Child[1070], math=False): En Resumen: : Actualiza la posición global en el mapa sumando el avance medio del chasis proyectado en la dirección haci
+   +offset 4 (Child[1071], math=False): Nota de diseño: La orientación θ no se calcula con la diferencia (ΔsR - ΔsL) de los encoders debido al alto patinaje en 
+
+==================== Child[1077] ['_TocEq24'] ====================
+Intro text: El criterio estadístico no paramétrico de descarte de lecturas atípicas basado en la mediana de los 4 encoders se define en la ecuación (24):(Elaboración propia.)
+   +offset 1 (Child[1078], math=True): Δticksi - medmáx1, med > 0.25    ∧    Δticksi - med ≥ 5 ticks    (24)
+   +offset 2 (Child[1079], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlSeguridad.h [ControlSeguridad::estimacionRobustaTicksA
+   +offset 3 (Child[1080], math=False): En Resumen: : Si una de las 4 ruedas se traba o su sensor falla marcando pulsos absurdos, este filtro la compara con las
+   +offset 4 (Child[1081], math=False): • Promedio Filtrado de Consenso: La distancia recorrida se calcula promediando exclusivamente los canales que resultaron
+
+==================== Child[1082] ['_TocEq25'] ====================
+Intro text: El estimador de consenso para el cálculo del avance lineal mediante los canales validados como coherentes se formaliza en la ecuación (25):(Elaboración propia.)
+   +offset 1 (Child[1083], math=True): Δticksefectivo = 1Ncoherentes · i ∈ CoherentesΔticksi    (25)
+   +offset 2 (Child[1084], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlSeguridad.h [ControlSeguridad::estimacionRobustaTicksA
+   +offset 3 (Child[1085], math=False): En Resumen: : Calcula el avance real promediando únicamente las ruedas que están de acuerdo entre sí, garantizando que u
+   +offset 4 (Child[1086], math=False): 
+
+==================== Child[1090] ['_TocEq26'] ====================
+Intro text: El modelo cinemático discreto unificado para la compensación de sesgo, filtrado de zona muerta e integración angular se define en la ecuación (26): Sintetiza la cadena completa de adquisición inercial y cálculo de rumbo (véase la ecuación (3)) dentro del estimador de pose.(Ecuación adaptada de Borenstein y Feng (1996a) y TDK InvenSense (2013a).)
+   +offset 1 (Child[1091], math=True): ωz,corr = ωz - ωz,offset · Pyaw ,      θk = θk-1 + ωz,int · Kescala · Δt · 180°π    (26)
+   +offset 2 (Child[1092], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Sensores.cpp [leerGiroscopio()])// Compensación de offset, polari
+   +offset 3 (Child[1093], math=False): En Resumen: : Modelo matemático unificado que integra lectura, eliminación de sesgo, filtro de zona muerta y cálculo de 
+   +offset 4 (Child[1094], math=False): 
+
+==================== Child[1098] ['_TocEq27'] ====================
+Intro text: La descomposición vectorial de los errores longitudinal y lateral anclados a la recta directriz de misión se obtiene mediante la ecuación (27):(Elaboración propia.)
+   +offset 1 (Child[1099], math=True): elong = Dplan - ΔX · sinθobj + ΔY · cosθobj ,    elat = ΔX · cosθobj - ΔY · sinθobj    (27)
+   +offset 2 (Child[1100], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h [ControlRuta::calcularErroresTrayectoriaAnclado
+   +offset 3 (Child[1101], math=False): En Resumen: : Descompone el error del robot en dos: cuánto le falta para llegar a la meta (longitudinal) y cuánto se des
+   +offset 4 (Child[1102], math=False): 5.2. Corrección Proporcional Lateral y Controlador en Marcha: El desvío transversal genera una consigna angular correcti
+
+==================== Child[1103] ['_TocEq28'] ====================
+Intro text: La ley de control combinada de seguimiento de rumbo y convergencia lateral sobre los puentes H se define mediante la ecuación (28): Modula dinámicamente el lazo de orientación principal (véase la ecuación (6)) con realimentación del error transversal de posición.(Ecuación adaptada de Franklin et al. (2019).)
+   +offset 1 (Child[1104], math=True): PWMcorr = sateθ · Kp + Ik · Ki - ωz,filt · Kd ,    PWML,R = PWMbase ∓ PWMcorr2    (28)
+   +offset 2 (Child[1105], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h & src/Cinematica.cpp [actualizarPI() & controla
+   +offset 3 (Child[1106], math=False): En Resumen: : Ajusta la potencia de los motores para mantener el robot centrado sobre la línea virtual entre el punto de
+   +offset 4 (Child[1107], math=False): Kp ≈ 40.12 PWM/° (10.0 en escala 8-bit × 1023/255): Fuerza proporcional de alineación de rumbo sobre la consigna motriz.
+
+==================== Child[1113] ['_TocEq29'] ====================
+Intro text: El controlador híbrido de giro sobre el eje segmentado en zonas de potencia, rampa y micro-pulsos se formaliza en la ecuación (29):(Elaboración propia.)
+   +offset 1 (Child[1114], math=True): PWMeθ = PWMmín + PWMmáx - PWMmín · eθθfreno ,    (con micro-pulsos si eθ ≤ 4°)    (29)
+   +offset 2 (Child[1115], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, src/Cinematica.cpp [controlarGiro()])// Ley de 3 zonas: (1) Búsqueda/
+   +offset 3 (Child[1116], math=False): En Resumen: : Controla los giros sobre su propio eje en 3 etapas: giro rápido para cubrir distancia, frenado antes de pa
+   +offset 4 (Child[1117], math=False): 6.2. Frenado Activo Predictivo por Inercia (Back-EMF DRV8833): Basado en la cinemática rotacional clásica (ω² = 2 · α · 
+
+==================== Child[1118] ['_TocEq30'] ====================
+Intro text: La distancia angular predictiva para la activación anticipada del freno dinámico por contrafuerza electromotriz (Back-EMF) se modela mediante la ecuación (30):(Cinemática rotacional clásica aplicada según Texas Instruments (2015); elaboración propia.)
+   +offset 1 (Child[1119], math=True): Δθfreno = ωz22 · αfrenado ,        Regla: Freno Activo si  eθ ≤ Δθfreno    (30)
+   +offset 2 (Child[1120], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlSeguridad.h [calcularDistanciaFrenadoInercialDeg() & e
+   +offset 3 (Child[1121], math=False): En Resumen: : Calcula por física cuánta inercia lleva el carro según su velocidad de giro, para mandar un contragolpe de
+   +offset 4 (Child[1122], math=False): ω_z: Velocidad angular actual en °/s.
+
+==================== Child[1129] ['_TocEq31'] ====================
+Intro text: El modelo cinemático de compensación de desplazamientos parásitos debidos a la asimetría del Centro Instantáneo de Rotación (ICR) en vehículos skid-steer se expresa en la ecuación (31):(Ecuación adaptada de Mandow et al. (2007).)
+   +offset 1 (Child[1130], math=True): Δxchasis = -yICR · Δθrad ,  Δychasis = xICR · Δθrad   ⇒   ΔXparásito = cos(θ)Δxchasis + sin(θ)Δychasis ,  ΔYparásito = -
+   +offset 2 (Child[1131], math=False): ▸ Implementación de Firmware (Gómez Molina, 2026a, include/ControlRuta.h & src/PoseEstimator.cpp [corregirTraslacionPara
+   +offset 3 (Child[1132], math=False): En Resumen: : Modela y corrige el pequeño desplazamiento de costado que ocurre cuando un carro de 4 ruedas derrapa al gi
+   +offset 4 (Child[1133], math=False): Esta corrección se descuenta de la odometría global para mantener impecables las coordenadas de navegación.

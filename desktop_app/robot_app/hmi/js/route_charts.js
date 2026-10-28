@@ -14,35 +14,17 @@ const RouteCharts = {
      */
     chartOptions() {
         const theme = getComputedStyle(document.documentElement);
-        const grid = theme.getPropertyValue('--border').trim();
-        const text = theme.getPropertyValue('--text-secondary').trim();
+        const grid = theme.getPropertyValue('--border').trim(), text = theme.getPropertyValue('--text-secondary').trim();
         return {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            normalized: true,
+            responsive: true, maintainAspectRatio: false, animation: false, normalized: true,
             plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { color: text, boxWidth: 28, boxHeight: 8, font: { size: 10 } }
-                },
+                legend: { position: 'top', labels: { color: text, boxWidth: 28, boxHeight: 8, font: { size: 10 } } },
                 datalabels: { display: false },
-                zoom: {
-                    pan: { enabled: true, mode: 'xy' },
-                    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' }
-                }
+                zoom: { pan: { enabled: true, mode: 'xy' }, zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy' } }
             },
             scales: {
-                x: {
-                    type: 'linear', min: -50, max: 50,
-                    title: { display: true, text: 'X (cm) [← Izq / Der →]', color: text },
-                    ticks: { color: text }, grid: { color: grid }
-                },
-                y: {
-                    type: 'linear', min: -50, max: 50,
-                    title: { display: true, text: 'Y (cm) [↓ Rev / Fte ↑]', color: text },
-                    ticks: { color: text }, grid: { color: grid }
-                }
+                x: { type: 'linear', min: -50, max: 50, title: { display: true, text: 'X (cm) [← Izq / Der →]', color: text }, ticks: { color: text }, grid: { color: grid } },
+                y: { type: 'linear', min: -50, max: 50, title: { display: true, text: 'Y (cm) [↓ Rev / Fte ↑]', color: text }, ticks: { color: text }, grid: { color: grid } }
             }
         };
     },
@@ -77,34 +59,95 @@ const RouteCharts = {
 
     _drawStepGeometry(ctx, px, step, stepIndex, geometry, colors) {
         const start = px(step.start), end = px(step.end);
-        if (Math.abs(step.dx) > 0.01) this._drawArrow(ctx, px, step.start, step.corner, colors.info, `X ${step.dx.toFixed(2)} cm`, -1);
-        if (Math.abs(step.dy) > 0.01) this._drawArrow(ctx, px, step.corner, step.end, colors.warn, `Y ${step.dy.toFixed(2)} cm`, 1);
+        const isVec = Boolean(step.direct);
 
+        // 1. Línea guía horizontal paralela a X+ en el vértice de inicio
+        ctx.save();
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(start.x + 32, start.y);
+        ctx.stroke();
+        ctx.restore();
+        this._drawBadge(ctx, 'X+', start.x + 40, start.y, 'rgba(148, 163, 184, 0.85)');
+
+        // 2. Paralelogramo virtual / triángulo rectángulo punteado (ΔX, ΔY)
+        if (Math.abs(step.dx) > 0.01) this._drawArrow(ctx, px, step.start, step.corner, colors.info, `ΔX ${step.dx.toFixed(1)} cm`, -1);
+        if (Math.abs(step.dy) > 0.01) this._drawArrow(ctx, px, step.corner, step.end, colors.warn, `ΔY ${step.dy.toFixed(1)} cm`, 1);
+        if (isVec && Math.abs(step.dx) > 0.01 && Math.abs(step.dy) > 0.01) {
+            const oppCorner = px({ x: step.start.x, y: step.end.y });
+            ctx.save();
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(oppCorner.x, oppCorner.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 3. Prolongación del vector anterior (para visualizar θReal)
+        const refDeg = step.referenceAngleDeg || 0;
+        if (step.number > 1 || Math.abs(refDeg) > 0.01) {
+            const refRad = refDeg * Math.PI / 180;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.45)';
+            ctx.lineWidth = 1.1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(start.x + 34 * Math.cos(refRad), start.y - 34 * Math.sin(refRad));
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // 4. Arcos de ángulo
         const coincident = geometry.slice(0, stepIndex).filter(p => Math.hypot(p.start.x - step.start.x, p.start.y - step.start.y) < 0.01).length;
-        const arcRadius = 28 + coincident * 30, labelRadius = arcRadius + 16;
-        const refRad = step.referenceAngleDeg * Math.PI / 180;
+        if (isVec && step.thetaRealDeg !== undefined) {
+            const arcRadius = 26 + coincident * 16;
+            this._drawArcSegment(ctx, start, arcRadius, refDeg, step.thetaRealDeg, colors.accent);
+            const realLabel = step.number === 1 ? `θ1: ${step.thetaRealDeg.toFixed(1)}°` : `θReal: ${step.thetaRealDeg.toFixed(1)}°`;
+            this._drawBadge(ctx, realLabel, start.x - 30, start.y - 38 - coincident * 18, colors.accent);
 
-        ctx.save();
-        ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]); ctx.globalAlpha = 0.8;
-        ctx.beginPath(); ctx.moveTo(start.x, start.y);
-        ctx.lineTo(start.x + (labelRadius + 4) * Math.cos(refRad), start.y - (labelRadius + 4) * Math.sin(refRad));
-        ctx.stroke(); ctx.restore();
+            if (Math.abs(step.thetaChartDeg) > 0.01) {
+                this._drawArcSegment(ctx, start, 16, 0, step.thetaChartDeg, colors.info);
+                if (step.number > 1 || Math.abs(step.thetaRealDeg - step.thetaChartDeg) > 0.01) {
+                    this._drawBadge(ctx, `θChart: ${step.thetaChartDeg.toFixed(1)}°`, start.x + 30, start.y - 18, colors.info);
+                }
+            }
+        } else {
+            const arcRadius = 28 + coincident * 30;
+            const theta = step.theta !== undefined ? step.theta : (step.thetaRealDeg || 0);
+            this._drawArcSegment(ctx, start, arcRadius, refDeg, theta, colors.accent);
+            this._drawBadge(ctx, `θ${step.number} ${theta.toFixed(1)}°`, start.x - 34, start.y - 44 - coincident * 18, colors.accent);
+        }
 
-        const samples = Math.max(2, Math.ceil(Math.abs(step.theta) / 8));
+        // 5. Etiquetas de nodos y vector
+        if (step.length > 0.01) {
+            const lbl = isVec ? `P${step.number} · ${step.length.toFixed(1)} cm` : `V${step.number} · ${step.length.toFixed(2)} cm`;
+            this._drawBadge(ctx, lbl, (start.x + end.x) / 2, (start.y + end.y) / 2 + 12, colors.vector);
+        }
+        this._drawBadge(ctx, `P${step.number}`, end.x + 8, end.y - 8, colors.vector);
+    },
+
+    _drawArcSegment(ctx, center, radius, fromDeg, sweepDeg, col) {
+        if (Math.abs(sweepDeg) < 0.1) return;
+        const samples = Math.max(2, Math.ceil(Math.abs(sweepDeg) / 8));
         ctx.save();
-        ctx.strokeStyle = colors.accent; ctx.lineWidth = 2; ctx.shadowColor = colors.accent; ctx.shadowBlur = 5;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.8;
         ctx.beginPath();
         for (let idx = 0; idx <= samples; idx++) {
-            const a = (step.referenceAngleDeg + step.theta * idx / samples) * Math.PI / 180;
-            const x = start.x + arcRadius * Math.cos(a), y = start.y - arcRadius * Math.sin(a);
+            const a = (fromDeg + sweepDeg * idx / samples) * Math.PI / 180;
+            const x = center.x + radius * Math.cos(a), y = center.y - radius * Math.sin(a);
             if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
-        ctx.stroke(); ctx.restore();
-
-        this._drawBadge(ctx, `θ${step.number} ${step.theta.toFixed(1)}°`, start.x - 34, start.y - 44 - coincident * 18, colors.accent);
-        if (step.length > 0.01) {
-            this._drawBadge(ctx, `V${step.number} · ${step.length.toFixed(2)} cm`, (start.x + end.x) / 2, (start.y + end.y) / 2 + 12, colors.vector);
-        }
+        ctx.stroke();
+        ctx.restore();
     },
 
     /**
@@ -172,19 +215,14 @@ const RouteCharts = {
                                 : (i === manager.currentStepIndex && manager.isRunning ? this.colors.accent : this.colors.info);
                         }
                     },
-                    {
-                        label: 'Origen', data: [{ x: 0, y: 0 }], pointRadius: 5,
-                        pointBackgroundColor: this.colors.reverse, pointBorderColor: this.colors.reverse
-                    },
-                    {
-                        label: 'Ruta Fork [B]', data: [], showLine: true,
-                        borderColor: '#ff007f', backgroundColor: '#ff007f', borderDash: [6, 4], borderWidth: 2,
-                        pointRadius: 4, pointBackgroundColor: '#ff007f'
-                    },
+                    { label: 'Origen', data: [{ x: 0, y: 0 }], pointRadius: 5, pointBackgroundColor: this.colors.reverse, pointBorderColor: this.colors.reverse },
+                    { label: 'Ruta Fork [B]', data: [], showLine: true, borderColor: '#ff007f', backgroundColor: '#ff007f', borderDash: [6, 4], borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#ff007f' },
                     {
                         label: 'Simulación Ockham', data: [], showLine: true,
                         borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderDash: [5, 4], borderWidth: 2,
-                        pointRadius: 4, pointBackgroundColor: '#f59e0b'
+                        pointRadius: ctx => (ctx.dataIndex > 0 && manager.isOckhamRunning && ctx.dataIndex - 1 === manager.currentStepIndex) ? 6 : (ctx.dataIndex === 0 ? 3 : 4),
+                        pointBackgroundColor: ctx => ctx.dataIndex === 0 ? '#f59e0b' : (manager.isOckhamRunning ? (ctx.dataIndex - 1 < manager.currentStepIndex ? '#10b981' : (ctx.dataIndex - 1 === manager.currentStepIndex ? '#00e5ff' : '#f59e0b')) : '#f59e0b'),
+                        pointBorderColor: ctx => ctx.dataIndex === 0 ? '#f59e0b' : (manager.isOckhamRunning ? (ctx.dataIndex - 1 < manager.currentStepIndex ? '#10b981' : (ctx.dataIndex - 1 === manager.currentStepIndex ? '#00e5ff' : '#f59e0b')) : '#f59e0b')
                     }
                 ]
             },
@@ -242,7 +280,7 @@ const RouteCharts = {
         const vis = mode.buildVisualization(manager);
         const dataset = manager.planChart.data.datasets[0];
         dataset.label = vis.label;
-        dataset.data = manager.isOckhamSimulating ? [] : vis.points;
+        dataset.data = vis.points;
 
         const isAngular = mode instanceof AngularRouteMode;
         dataset.borderColor = this.colors.vector;
@@ -313,19 +351,30 @@ const RouteCharts = {
     _renderOverlayOckham(manager) {
         const ockhamDataset = manager.planChart.data.datasets[3];
         if (!ockhamDataset) return;
-        ockhamDataset.data = (manager.isOckhamSimulating && manager.queue.length > 0)
-            ? [{ x: 0, y: 0 }, ...manager.queue.map(wp => ({ x: wp.x - manager.currentOrigin.x, y: wp.y - manager.currentOrigin.y }))]
-            : [];
+        const active = (manager.isOckhamSimulating || manager.isOckhamRunning) && manager.ockhamQueue && manager.ockhamQueue.length > 0;
+        if (active) {
+            const startPt = manager.ockhamStart || manager.currentOrigin;
+            ockhamDataset.data = [
+                { x: startPt.x - manager.currentOrigin.x, y: startPt.y - manager.currentOrigin.y },
+                ...manager.ockhamQueue.map(wp => ({ x: wp.x - manager.currentOrigin.x, y: wp.y - manager.currentOrigin.y }))
+            ];
+            ockhamDataset.label = manager.isOckhamRunning ? 'Retorno Ockham (en curso)' : 'Simulación Ockham';
+        } else {
+            ockhamDataset.data = [];
+            ockhamDataset.label = 'Simulación Ockham';
+        }
     },
 
     _renderAngularSummary(manager, isAngular) {
         if (!manager.angularSummary) return;
         if (isAngular && manager.logicalSteps.length) {
             const last = manager.logicalSteps[manager.logicalSteps.length - 1];
-            const chain = manager.logicalSteps.map(step =>
-                `V${step.number}: L=${step.length.toFixed(2)} cm, θ=${step.theta.toFixed(2)}°, φ=${step.absoluteAngleDeg.toFixed(2)}°, ΔX=${step.dx.toFixed(2)} cm, ΔY=${step.dy.toFixed(2)} cm${step.length === 0 ? ' (sólo orientación)' : ''}`
-            ).join(' · ');
-            manager.angularSummary.textContent = `${chain} · punto final (${(last.end.x - manager.currentOrigin.x).toFixed(2)}, ${(last.end.y - manager.currentOrigin.y).toFixed(2)}) cm`;
+            const chain = manager.logicalSteps.map(step => {
+                const thR = step.thetaRealDeg !== undefined ? step.thetaRealDeg : step.theta;
+                const thC = step.thetaChartDeg !== undefined ? step.thetaChartDeg : step.absoluteAngleDeg;
+                return `P${step.number || step.index}: L=${step.length.toFixed(1)} cm, θReal=${thR.toFixed(1)}°, θChart=${thC.toFixed(1)}°, ΔX=${step.dx.toFixed(1)} cm, ΔY=${step.dy.toFixed(1)} cm`;
+            }).join(' · ');
+            manager.angularSummary.textContent = `${chain} · fin (${(last.end.x - manager.currentOrigin.x).toFixed(1)}, ${(last.end.y - manager.currentOrigin.y).toFixed(1)}) cm`;
         } else {
             manager.angularSummary.textContent = 'Sin vectores angulares.';
         }
@@ -353,17 +402,20 @@ const RouteCharts = {
     },
 
     /**
-     * Ajusta la escala simétrica de los gráficos en base a los puntos de la cola.
+     * Ajusta la escala simétrica de los gráficos en base a los puntos de la cola y retorno Ockham.
      */
     autoScale(manager) {
         const isAngular = manager.activeMode() instanceof AngularRouteMode;
         let maxDist = isAngular ? 8 : 50;
-        manager.queue.forEach(wp => {
-            const rx = Math.abs(wp.x - manager.currentOrigin.x);
-            const ry = Math.abs(wp.y - manager.currentOrigin.y);
+        const checkPoint = (x, y) => {
+            const rx = Math.abs(x - manager.currentOrigin.x), ry = Math.abs(y - manager.currentOrigin.y);
             if (rx > maxDist) maxDist = rx;
             if (ry > maxDist) maxDist = ry;
-        });
+        };
+        manager.queue.forEach(wp => checkPoint(wp.x, wp.y));
+        if ((manager.isOckhamSimulating || manager.isOckhamRunning) && manager.ockhamQueue) {
+            manager.ockhamQueue.forEach(wp => checkPoint(wp.x, wp.y));
+        }
         const s = Math.max(isAngular ? 12 : 50, maxDist * (isAngular ? 1.4 : 1.2));
         for (const chart of [manager.planChart, manager.telemChart]) {
             if (!chart) continue;

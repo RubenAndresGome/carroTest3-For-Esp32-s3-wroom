@@ -214,10 +214,54 @@ ROUTE_EXECUTION_STRATEGIES: dict[str, RouteExecutionStrategy] = {
 }
 
 
+class RealignmentPolicy(ABC):
+    """Estrategia polimórfica de realineación angular según el modo de navegación."""
+
+    @abstractmethod
+    def target_heading(self, expected_heading: float) -> float:
+        """Calcula el rumbo objetivo para la realineación."""
+        raise NotImplementedError
+
+
+class OrthogonalRealignmentPolicy(RealignmentPolicy):
+    """Realinea al múltiplo cardinal de 90° más próximo."""
+
+    def target_heading(self, expected_heading: float) -> float:
+        return round(expected_heading / 90.0) * 90.0 % 360.0
+
+
+class VectorialRealignmentPolicy(RealignmentPolicy):
+    """Realinea directamente al rumbo objetivo del vector sin destruir ángulos oblicuos."""
+
+    def target_heading(self, expected_heading: float) -> float:
+        return expected_heading % 360.0
+
+
+REALIGNMENT_POLICIES: dict[str, RealignmentPolicy] = {
+    "rectangular": OrthogonalRealignmentPolicy(),
+    "angular_decomposition": OrthogonalRealignmentPolicy(),
+    "angular_vectorial": VectorialRealignmentPolicy(),
+    "touch_reverse": OrthogonalRealignmentPolicy(),
+}
+
+
+def get_realignment_policy(mode: str) -> RealignmentPolicy:
+    return REALIGNMENT_POLICIES.get(str(mode or "rectangular"), OrthogonalRealignmentPolicy())
+
+
+def select_optimal_drive_mode(trajectory_heading_deg: float, current_heading_deg: float) -> str:
+    """Calcula si conviene avanzar de frente ('forward') o en reversa ('reverse') para minimizar el giro."""
+    delta_fwd = abs(normalize_signed_degrees(trajectory_heading_deg - current_heading_deg))
+    delta_rev = abs(normalize_signed_degrees((trajectory_heading_deg + 180.0) - current_heading_deg))
+    return "reverse" if delta_rev < delta_fwd else "forward"
+
+
 def strategy_for_request(request: Mapping[str, Any]) -> RouteExecutionStrategy:
     raw_mode = request.get("mode", "rectangular")
     if raw_mode == "polar":
         raw_mode = "angular_decomposition"
+    elif raw_mode in {"vectorial", "vector_stack"}:
+        raw_mode = "angular_vectorial"
     mode = str(raw_mode or "rectangular")
     strategy = ROUTE_EXECUTION_STRATEGIES.get(mode)
     if strategy is None:

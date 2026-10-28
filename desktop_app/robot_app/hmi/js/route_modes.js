@@ -278,6 +278,64 @@ class AngularDecompositionRouteMode extends AngularRouteMode {
 class AngularVectorialRouteMode extends AngularRouteMode {
     constructor() {
         super('vectorial', 'angular_vectorial', true);
+        this.stack = new VectorRouteStack();
+    }
+
+    configureForm(manager) {
+        this.stack.configureForm(manager);
+    }
+
+    updatePreview(manager) {
+        const previewInfo = this.stack.updatePreview(
+            manager.input1.value,
+            manager.input2.value,
+            manager.logicalSteps
+        );
+        manager.preview.textContent = previewInfo.text;
+    }
+
+    createLogicalStep(manager, length, theta) {
+        if (!Number.isFinite(length) || length < 0) {
+            throw new Error('La longitud L debe ser un número mayor o igual que cero.');
+        }
+        if (!Number.isFinite(theta) || theta < -180 || theta > 180) {
+            throw new Error('El ángulo θ debe estar entre -180° y 180°.');
+        }
+        const origin = manager.logicalEndpoint();
+        const prevNode = this.stack.lastNode(manager.logicalSteps);
+        const prevChart = prevNode ? prevNode.thetaChartDeg : 0;
+        const index = manager.logicalSteps.length + 1;
+        const id = manager.nextLogicalStepId++;
+
+        return this.stack.createNode({
+            index,
+            id,
+            length,
+            thetaRealDeg: theta,
+            prevChartAngleDeg: prevChart,
+            start: origin
+        });
+    }
+
+    expandExecutionWaypoints(manager, step) {
+        if (step.length > 0.01) {
+            manager.queue.push({
+                x: step.end.x,
+                y: step.end.y,
+                logicalStepId: step.id,
+                component: 'vector',
+                desc: step.description,
+                heading: step.headingDeg
+            });
+        }
+    }
+
+    buildVisualization(manager) {
+        return this.stack.toVisualization(manager.logicalSteps, manager.currentOrigin);
+    }
+
+    missionPayload(manager) {
+        return this.stack.missionPayload(manager.logicalSteps);
     }
 
     checkVectorialReadiness(telemetry, enabled) {

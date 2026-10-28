@@ -10,26 +10,28 @@ const RouteOckhamCockpit = {
     /**
      * Inicia la simulación previa del retorno seguro a origen de Ockham.
      */
-    _buildOckhamSteps(manager, points, vectorialReturn) {
-        let logicalStart = manager.currentOrigin;
+    _buildOckhamSteps(manager, points, vectorialReturn, returnStart) {
+        let logicalStart = returnStart;
         return (points || []).map((point, index) => {
             const end = { x: Number(point.x_mm) / 10, y: Number(point.y_mm) / 10 };
             const id = manager.nextLogicalStepId++;
             const dx = end.x - logicalStart.x, dy = end.y - logicalStart.y;
             const absoluteAngleDeg = normalizeSignedDegrees(Math.atan2(dy, dx) * 180 / Math.PI);
-            const prev = manager.logicalSteps.length ? manager.logicalSteps[manager.logicalSteps.length - 1].absoluteAngleDeg : 0;
+            const prev = index > 0 && manager.ockhamQueue && manager.ockhamQueue[index - 1]
+                ? manager.ockhamQueue[index - 1].absoluteAngleDeg
+                : absoluteAngleDeg;
             const theta = normalizeSignedDegrees(absoluteAngleDeg - prev);
 
             const step = vectorialReturn
-                ? { id, number: index + 1, mode: 'vectorial', start: logicalStart, end, dx, dy, length: Math.hypot(dx, dy), theta, referenceAngleDeg: prev, absoluteAngleDeg, execution: [], description: 'Vector inverso Ockham' }
-                : { id, number: index + 1, mode: 'rect', start: logicalStart, end, dx, dy, execution: [], description: 'Paso inverso Ockham' };
+                ? { id, number: index + 1, mode: 'vectorial', start: logicalStart, end, dx, dy, length: Math.hypot(dx, dy), theta, referenceAngleDeg: prev, absoluteAngleDeg, execution: [], description: `Ockham R${index + 1}` }
+                : { id, number: index + 1, mode: 'rect', start: logicalStart, end, dx, dy, execution: [], description: `Ockham R${index + 1}` };
 
-            manager.logicalSteps.push(step);
             logicalStart = end;
             return {
                 x: end.x, y: end.y, logicalStepId: id,
                 component: vectorialReturn ? 'vector' : 'ockham',
-                desc: vectorialReturn ? 'Vector inverso Ockham' : 'Paso inverso Ockham'
+                desc: vectorialReturn ? `Retorno Ockham R${index + 1}` : `Paso inverso Ockham R${index + 1}`,
+                step, absoluteAngleDeg
             };
         });
     },
@@ -45,12 +47,20 @@ const RouteOckhamCockpit = {
                 body: JSON.stringify({ preview: true })
             });
 
-            manager.logicalSteps = [];
-            manager.nextLogicalStepId = 1;
-            const vectorialReturn = preview.mode === 'angular_vectorial';
-            manager.modeSelect.value = vectorialReturn ? 'vectorial' : 'rect';
+            if (!manager.forwardQueueBackup) {
+                manager.forwardQueueBackup = [...manager.queue];
+            }
 
-            manager.queue = this._buildOckhamSteps(manager, preview.planned_points, vectorialReturn);
+            const vectorialReturn = preview.mode === 'angular_vectorial';
+            // Origen real de retorno: preview.origin (el punto objetivo final Pn)
+            const returnStart = preview.origin
+                ? { x: Number(preview.origin.x_mm) / 10, y: Number(preview.origin.y_mm) / 10 }
+                : (manager.queue.length
+                    ? { x: manager.queue[manager.queue.length - 1].x, y: manager.queue[manager.queue.length - 1].y }
+                    : manager.currentOrigin);
+
+            manager.ockhamStart = returnStart;
+            manager.ockhamQueue = this._buildOckhamSteps(manager, preview.planned_points, vectorialReturn, returnStart);
             this._updateSimulationUI(manager, preview);
         } catch (error) {
             manager.isOckhamSimulating = false;
@@ -59,9 +69,6 @@ const RouteOckhamCockpit = {
     },
 
     _updateSimulationUI(manager, preview) {
-        manager.updateModeLock();
-        manager.currentStepIndex = 0;
-        manager.updateListUI();
         manager.drawPlan();
         manager.autoScale();
 
@@ -83,12 +90,16 @@ const RouteOckhamCockpit = {
         const box = document.getElementById('route-ockham-confirm-box');
         if (box) box.style.display = 'none';
         manager.isOckhamSimulating = false;
+        manager.isOckhamRunning = true;
 
         try {
             const mission = await WSControl.api('/api/v1/missions/return-home', {
                 method: 'POST',
                 body: JSON.stringify({ preview: false })
             });
+            if (manager.ockhamQueue && manager.ockhamQueue.length > 0) {
+                manager.queue = manager.ockhamQueue;
+            }
             manager.currentStepIndex = mission.current_index || 0;
             manager.activeCommandId = mission.active_command_id || null;
             manager.isRunning = true;
@@ -99,6 +110,7 @@ const RouteOckhamCockpit = {
             manager.updateListUI();
             manager.drawPlan();
         } catch (error) {
+            manager.isOckhamRunning = false;
             LogSystem.add('ERROR', `No se pudo iniciar regreso Ockham: ${error.message}`);
         }
     },
@@ -110,12 +122,15 @@ const RouteOckhamCockpit = {
         const box = document.getElementById('route-ockham-confirm-box');
         if (box) box.style.display = 'none';
         manager.isOckhamSimulating = false;
+        manager.isOckhamRunning = false;
+        manager.ockhamQueue = [];
 
         const stageLabel = document.getElementById('ockham-current-stage');
         if (stageLabel) stageLabel.textContent = 'Ockham: Inactivo';
-        manager.queue = [];
-        manager.logicalSteps = [];
-        manager.currentStepIndex = 0;
+        if (manager.forwardQueueBackup) {
+            manager.queue = manager.forwardQueueBackup;
+            manager.forwardQueueBackup = null;
+        }
         manager.updateListUI();
         manager.drawPlan();
         LogSystem.add('INFO', 'Simulación de regreso Ockham cancelada por el operador.');
@@ -125,6 +140,14 @@ const RouteOckhamCockpit = {
      * Procesa la telemetría y estado de una misión activa Ockham o estándar.
      */
     onMissionUpdate(manager, mission) {
+        if (mission.kind === 'ockham_return' && !mission.running) {
+            manager.isOckhamRunning = false;
+            if (manager.forwardQueueBackup) {
+                manager.queue = manager.forwardQueueBackup;
+                manager.forwardQueueBackup = null;
+            }
+            manager.ockhamQueue = [];
+        }
         this._updateBadgesAndStage(manager, mission);
         this._updateAccuracyMetrics(mission.accuracy);
         this._updateSafetyText(manager, mission);
@@ -135,7 +158,7 @@ const RouteOckhamCockpit = {
         const realigningBadge = document.getElementById('ockham-badge-realigning');
         const stageLabel = document.getElementById('ockham-current-stage');
 
-        if (mission.kind === 'ockham_return' || manager.isOckhamSimulating) {
+        if (mission.kind === 'ockham_return' || manager.isOckhamSimulating || manager.isOckhamRunning) {
             if (stageLabel) {
                 stageLabel.textContent = mission.running
                     ? `OCKHAM: Tramo ${manager.currentStepIndex + 1}/${mission.total_segments || 0} (${String(mission.stage || 'idle').toUpperCase()})`

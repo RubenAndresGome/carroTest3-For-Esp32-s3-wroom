@@ -18,6 +18,7 @@ from .domain import (MAX_SEGMENT_MM, PWM_SAFE_LIMIT, SNAP_RESIDUAL_MM, CommandSt
                      Severity, TelemetrySnapshot)
 from .gateway import RobotGateway
 from .route_planning import (RectangularRouteStrategy, compile_touch_path,
+                             get_realignment_policy, select_optimal_drive_mode,
                              strategy_for_request)
 
 
@@ -904,6 +905,7 @@ class RobotService:
                 return
             if self._mission_stage == "aligning_final":
                 self._mission_stage = "completed"
+                self._mission_final_heading = None
                 completed_kind = self._mission_kind
             else:
                 self._mission_index += 1
@@ -957,15 +959,23 @@ class RobotService:
             reuse_command_id = self._mission_command_id if seq_override is not None else None
             mission_mode = self._mission_mode
             telemetry = self._last_telemetry
+            heading = math.degrees(math.atan2(dx, dy)) % 360.0
+            distance_cm = math.hypot(dx, dy) / 10.0
             drive_mode = str(target.get("drive_mode", "auto"))
+            if drive_mode in {"optimal", "minimum_turn"} or (
+                drive_mode == "auto" and (mission_mode == "angular_vectorial" or self._mission_kind == "ockham_return")
+            ):
+                if telemetry is not None and telemetry.yaw_deg is not None:
+                    drive_mode = select_optimal_drive_mode(heading, float(telemetry.yaw_deg))
+                else:
+                    drive_mode = "forward"
+            target["effective_drive_mode"] = drive_mode
         if mission_mode == "angular_vectorial":
             try:
                 self._require_vectorial_ready(telemetry)
             except RuntimeError as exc:
                 self._block_mission(str(exc))
                 return
-        heading = math.degrees(math.atan2(dx, dy)) % 360.0
-        distance_cm = math.hypot(dx, dy) / 10.0
         if mission_mode != "angular_vectorial" and abs(dx) > 1.0 and abs(dy) > 1.0:
             raise RuntimeError("Segmento de misión no ortogonal")
         if not 0.5 <= distance_cm <= MAX_SEGMENT_MM / 10.0:
@@ -1461,7 +1471,8 @@ class RobotService:
                 # destructivo que la reversa precisamente evita.
                 expected_heading = target_heading
                 motion = telemetry.motion if isinstance(telemetry.motion, dict) else {}
-                if str(motion.get("effective_mode") or "").lower() == "reverse":
+                effective_mode = str(motion.get("effective_mode") or step.get("effective_drive_mode") or "").lower()
+                if effective_mode == "reverse":
                     body_heading = motion.get("body_heading_deg")
                     expected_heading = (float(body_heading) if body_heading is not None
                                         else (target_heading + 180.0) % 360.0)
@@ -1476,9 +1487,8 @@ class RobotService:
                 if self._settling_delay_s > 0.0 and not is_last_step:
                     if abs(error_angular_deg) > 1.5 or self._mission_accumulated_lateral_cm > 2.5:
                         realign_needed = True
-                        # Realinear a la cardinal del rumbo del cuerpo esperado
-                        # (giro mas corto), nunca a la del trayecto en reversa.
-                        cardinal_target = round(expected_heading / 90.0) * 90.0 % 360.0
+                        policy = get_realignment_policy(self._mission_mode)
+                        cardinal_target = policy.target_heading(expected_heading)
 
                 self._mission_accuracy = {
                     "step_index": curr_idx + 1,

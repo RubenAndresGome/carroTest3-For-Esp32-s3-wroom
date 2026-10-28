@@ -1,0 +1,556 @@
+
+==================== Graphic #1 [pict] in Child[0] ====================
+Image: 
+Bookmarks in P: []
+Graphic text: Posicionamiento de robot móvil: Desarrollo yvalidación funcional sistema móvil: ESP32 robotodómetro MPU6050 , encoders e
+P text: Posicionamiento de robot móvil: Desarrollo yvalidación funcional sistema móvil: ESP32 robotodómetro MPU6050 , encoders e
+   Neighbor[1] (offset +1): bms=['_Toc244020250', '_Toc244023496', '_Toc244025047'] | text=AGRADECIMIENTOS
+   Neighbor[2] (offset +2): bms=[] | text=Quiero expresar mi agradecimiento a la institución que me permitió aprender conocimientos nuevos , m
+
+==================== Graphic #2 [drawing] in Child[0] ====================
+Image: media/image1.jpg
+Bookmarks in P: []
+Graphic text: -10801340
+P text: Posicionamiento de robot móvil: Desarrollo yvalidación funcional sistema móvil: ESP32 robotodómetro MPU6050 , encoders e
+   Neighbor[1] (offset +1): bms=['_Toc244020250', '_Toc244023496', '_Toc244025047'] | text=AGRADECIMIENTOS
+   Neighbor[2] (offset +2): bms=[] | text=Quiero expresar mi agradecimiento a la institución que me permitió aprender conocimientos nuevos , m
+
+==================== Graphic #3 [drawing] in Child[330] ====================
+Image: media/image2.jpe
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[328] (offset -2): bms=['_Toc244020260', '_Toc244023507', '_Toc244025058'] | text=Datos de la empresa/organización.
+   Neighbor[329] (offset -1): bms=['_Toc244020261', '_Toc244023508', '_Toc244025059'] | text=Descripción de la empresa/organización.
+   Neighbor[331] (offset +1): bms=['_TocFig01'] | text=Figura 1. Instituto Tecnológico Superior de Salvatierra (Campus ITESS)
+   Neighbor[332] (offset +2): bms=[] | text=
+
+==================== Graphic #4 [pict] in Child[347] ====================
+Image: media/image3.png
+Bookmarks in P: []
+Graphic text: Figura 1 Conversor Bidireccional . Elaboración Propia
+P text: Figura 1 Conversor Bidireccional . Elaboración PropiaIncompatibilidad de niveles lógicos (3.3V vs 5V): Se resolvió utili
+   Neighbor[345] (offset -2): bms=[] | text=Resumen: Este capítulo desglosa los desafíos ciberfísicos, eléctricos, mecánicos y de software ident
+   Neighbor[346] (offset -1): bms=['_Toc244020264', '_Toc244023511', '_Toc244025062'] | text=Problemáticas eléctricas y de integración de hardware (Electrónica de potencia y señales).
+   Neighbor[348] (offset +1): bms=[] | text=Ruido eléctrico y falsos contactos: Se implementó una topología de tierra común en malla estrella, s
+   Neighbor[349] (offset +2): bms=['_TocFig02'] | text=Figura 2. Diagrama conceptual de bloques del sistema en arquitectura general y contexto operativo
+
+==================== Graphic #5 [drawing] in Child[501] ====================
+Image: media/image4.png
+Bookmarks in P: []
+Graphic text: 95059516573500
+P text: 95059516573500
+   Neighbor[499] (offset -2): bms=[] | text=El ESP32 trabaja con dos partes separadas:
+   Neighbor[500] (offset -1): bms=[] | text=Task_Web en Core 0 atiende el servidor WebSocket, recibe y valida mensajes, encola comandos y public
+   Neighbor[502] (offset +1): bms=['_TocFig03'] | text=Figura 3. Diagrama simplificado de bloques del sistema y arquitectura general
+   Neighbor[503] (offset +2): bms=[] | text=El ciclo de control se implementa en el archivo main.cpp.
+
+==================== Graphic #6 [drawing] in Child[505] ====================
+Image: media/image5.png
+Bookmarks in P: []
+Graphic text: 727133385156
+P text: 727133385156El sistema:
+   Neighbor[503] (offset -2): bms=[] | text=El ciclo de control se implementa en el archivo main.cpp.
+   Neighbor[504] (offset -1): bms=[] | text=Inicialización y calibración
+   Neighbor[506] (offset +1): bms=['_TocFig04'] | text=Figura 4. Extracto de sistema y dogma de calibración inercial en GitHub Pages
+   Neighbor[507] (offset +2): bms=[] | text=Inicializa I2C usando SDA en GPIO 8 y SCL en GPIO 9.
+
+==================== Graphic #7 [drawing] in Child[631] ====================
+Image: media/image6.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[629] (offset -2): bms=[] | text=Nota. Elaboración propia a partir del historial de control de versiones en include/Config.h (Gómez M
+   Neighbor[630] (offset -1): bms=[] | text=
+   Neighbor[632] (offset +1): bms=[] | text=
+   Neighbor[633] (offset +2): bms=[] | text=FL y BL forman el lado izquierdo; FR y BR forman el lado derecho. El sistema evalúa la salud de cada
+
+==================== Graphic #8 [pict] in Child[662] ====================
+Image: media/image7.png
+Bookmarks in P: ['_Toc241672306']
+Graphic text: Figura 3 Abstraccion de forma de lectura, usando muesca como referencia, la estrella verde es el cable indicador
+P text: Figura 3 Abstraccion de forma de lectura, usando muesca como referencia, la estrella verde es el cable indicadorLa dispo
+   Neighbor[660] (offset -2): bms=[] | text=
+   Neighbor[661] (offset -1): bms=[] | text=Nomenclatura.
+   Neighbor[663] (offset +1): bms=[] | text=
+   Neighbor[664] (offset +2): bms=[] | text=
+
+==================== Graphic #9 [drawing] in Child[668] ====================
+Image: media/image8.png
+Bookmarks in P: []
+Graphic text: 142684525971500
+P text: 142684525971500
+   Neighbor[666] (offset -2): bms=[] | text=
+   Neighbor[667] (offset -1): bms=[] | text=Repositorio del sistema.
+   Neighbor[669] (offset +1): bms=['_TocFig06'] | text=Figura 6. Repositorio canónico de código fuente en GitHub (carroTest3-For-Esp32-s3-wroom)
+   Neighbor[670] (offset +2): bms=[] | text=
+
+==================== Graphic #10 [pict] in Child[811] ====================
+Image: media/image9.png
+Bookmarks in P: ['_Toc241672308']
+Graphic text: Figura  SEQ Figura \* ARABIC 4 Skill Experimental, Skill en Github propio
+P text: Figura  SEQ Figura \* ARABIC 4 Skill Experimental, Skill en Github propio La programación basada en agentes (Codex, Copi
+   Neighbor[809] (offset -2): bms=[] | text=La integración de agentes autónomos y asistentes de código basados en modelos de lenguaje (OpenAI, s
+   Neighbor[810] (offset -1): bms=[] | text=La metodología aplicada fue hibrida combinando elementos de la metodología waterfall, e incluso PDCA
+   Neighbor[812] (offset +1): bms=[] | text=
+   Neighbor[813] (offset +2): bms=[] | text=El proyecto experimental "Concilio de Salamanca Concilio de Salamanca (Gómez Molina, 2026b) se utili
+
+==================== Graphic #11 [pict] in Child[823] ====================
+Image: media/image10.png
+Bookmarks in P: []
+Graphic text: Figura 5 Diagrama de Capas , Esquema HTML elaboración Propia
+P text: Figura 5 Diagrama de Capas , Esquema HTML elaboración PropiaCapa de supervisión y lógica de misión (Python/Flask, SQLite
+   Neighbor[821] (offset -2): bms=[] | text=Capa de fusión sensorial (MPU6050 para orientación, encoders para distancia, con filtros y salud de 
+   Neighbor[822] (offset -1): bms=[] | text=Capa de comunicación (WebSocket/JSON con protocolo estructurado).
+   Neighbor[824] (offset +1): bms=[] | text=
+   Neighbor[825] (offset +2): bms=[] | text=
+
+==================== Graphic #12 [drawing] in Child[837] ====================
+Image: media/image11.png
+Bookmarks in P: ['_Toc241672323']
+Graphic text: 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia00
+P text: 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia00Figura 6  Diagrama de 
+   Neighbor[835] (offset -2): bms=[] | text=
+   Neighbor[836] (offset -1): bms=['_Toc244020287', '_Toc244023534', '_Toc244025084'] | text=Planos.
+   Neighbor[838] (offset +1): bms=[] | text=
+   Neighbor[839] (offset +2): bms=['_TocFig07'] | text=Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz
+
+==================== Graphic #13 [pict] in Child[837] ====================
+Image: media/image12.png
+Bookmarks in P: ['_Toc241672323']
+Graphic text: Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia
+P text: 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia00Figura 6  Diagrama de 
+   Neighbor[835] (offset -2): bms=[] | text=
+   Neighbor[836] (offset -1): bms=['_Toc244020287', '_Toc244023534', '_Toc244025084'] | text=Planos.
+   Neighbor[838] (offset +1): bms=[] | text=
+   Neighbor[839] (offset +2): bms=['_TocFig07'] | text=Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz
+
+==================== Graphic #14 [drawing] in Child[838] ====================
+Image: media/image13.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[836] (offset -2): bms=['_Toc244020287', '_Toc244023534', '_Toc244025084'] | text=Planos.
+   Neighbor[837] (offset -1): bms=['_Toc241672323'] | text=248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia00Fi
+   Neighbor[839] (offset +1): bms=['_TocFig07'] | text=Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz
+   Neighbor[840] (offset +2): bms=[] | text=
+
+==================== Graphic #15 [drawing] in Child[840] ====================
+Image: media/image14.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[838] (offset -2): bms=[] | text=
+   Neighbor[839] (offset -1): bms=['_TocFig07'] | text=Figura 7. Mapa conceptual de conexión del ESP32-S3 con la Etapa de Potencia motriz
+   Neighbor[841] (offset +1): bms=['_TocFig08'] | text=Figura 8. Mapa conceptual de conexión digital de encoders ópticos mediante conversor TXS0108E
+   Neighbor[842] (offset +2): bms=[] | text=
+
+==================== Graphic #16 [drawing] in Child[842] ====================
+Image: media/image15.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[840] (offset -2): bms=[] | text=
+   Neighbor[841] (offset -1): bms=['_TocFig08'] | text=Figura 8. Mapa conceptual de conexión digital de encoders ópticos mediante conversor TXS0108E
+   Neighbor[843] (offset +1): bms=['_TocFig09'] | text=Figura 9. Mapa conceptual de conexionado de baterías Li-Ion 18650 y sensor MPU6050
+   Neighbor[844] (offset +2): bms=[] | text=
+
+==================== Graphic #17 [drawing] in Child[845] ====================
+Image: media/image16.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[843] (offset -2): bms=['_TocFig09'] | text=Figura 9. Mapa conceptual de conexionado de baterías Li-Ion 18650 y sensor MPU6050
+   Neighbor[844] (offset -1): bms=[] | text=
+   Neighbor[846] (offset +1): bms=['_TocFig10'] | text=Figura 10. Esquema de conexiones de la Zona de Potencia (módulos DRV8833 y motores DC)
+   Neighbor[847] (offset +2): bms=[] | text=
+
+==================== Graphic #18 [drawing] in Child[847] ====================
+Image: media/image17.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[845] (offset -2): bms=[] | text=
+   Neighbor[846] (offset -1): bms=['_TocFig10'] | text=Figura 10. Esquema de conexiones de la Zona de Potencia (módulos DRV8833 y motores DC)
+   Neighbor[848] (offset +1): bms=['_TocFig11'] | text=Figura 11. Esquema de conexiones de la Zona de Control Digital (ESP32-S3, encoders y MPU6050)
+   Neighbor[849] (offset +2): bms=[] | text=
+
+==================== Graphic #19 [drawing] in Child[868] ====================
+Image: media/image18.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[866] (offset -2): bms=['_Toc244020292', '_Toc244023539', '_Toc244025089'] | text=Metodología de desarrollo y planificación.
+   Neighbor[867] (offset -1): bms=[] | text=El proyecto se rigió por una metodología de ingeniería híbrida, que tomó elementos del modelo Waterf
+   Neighbor[869] (offset +1): bms=['_TocFig12'] | text=Figura 12. Diagrama de Gantt y cronología gráfica de la metodología de desarrollo
+   Neighbor[870] (offset +2): bms=[] | text=Cada semana se definió un objetivo principal:
+
+==================== Graphic #20 [pict] in Child[878] ====================
+Image: media/image19.png
+Bookmarks in P: ['_Toc241672309']
+Graphic text: Figura 7 Script ..exe ejecutable para actualizar robot y App Android via ADB
+P text: Figura 7 Script ..exe ejecutable para actualizar robot y App Android via ADBSemana 9-10: Creación de los prototipos prue
+   Neighbor[876] (offset -2): bms=[] | text=Semana 7: Integración de todos los subsistemas, pruebas de lazo cerrado, ajuste de parámetros y docu
+   Neighbor[877] (offset -1): bms=[] | text=Semana 8: Planificación express del prototipo a 4 ruedas, reciclaje de material y adquisición de mat
+   Neighbor[879] (offset +1): bms=['_TocFig13'] | text=Figura 13. Habilidad y script ejecutable para sincronización de firmware ESP32 y tablet Android vía 
+   Neighbor[880] (offset +2): bms=[] | text=Así como skill de actualización interna para que se usen agentes siendo mas practica la Interfaz pue
+
+==================== Graphic #21 [drawing] in Child[881] ====================
+Image: media/image20.png
+Bookmarks in P: []
+Graphic text: 1336675100965000
+P text: 1336675100965000Semana 11: Iteración en prototipo de interfaz gráfica, depuración de errores de lógica y mejora continua
+   Neighbor[879] (offset -2): bms=['_TocFig13'] | text=Figura 13. Habilidad y script ejecutable para sincronización de firmware ESP32 y tablet Android vía 
+   Neighbor[880] (offset -1): bms=[] | text=Así como skill de actualización interna para que se usen agentes siendo mas practica la Interfaz pue
+   Neighbor[882] (offset +1): bms=['_TocFig14'] | text=Figura 14. Atlas técnico del robot y manual de referencia viva en GitHub Pages
+   Neighbor[883] (offset +2): bms=[] | text=
+
+==================== Graphic #22 [pict] in Child[982] ====================
+Image: 
+Bookmarks in P: ['_Toc244023540', '_Toc244025090']
+Graphic text: EVIDENCIA DE DESARROLLO Y TESTING DE HARDWARE
+P text: EVIDENCIA DE DESARROLLO Y TESTING DE HARDWARE
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #23 [drawing] in Child[982] ====================
+Image: media/image21.png
+Bookmarks in P: ['_Toc244023540', '_Toc244025090']
+Graphic text: 
+P text: EVIDENCIA DE DESARROLLO Y TESTING DE HARDWARE
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #24 [drawing] in Child[982] ====================
+Image: media/image22.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #25 [drawing] in Child[982] ====================
+Image: media/image23.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #26 [drawing] in Child[982] ====================
+Image: media/image24.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #27 [drawing] in Child[982] ====================
+Image: media/image25.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #28 [drawing] in Child[982] ====================
+Image: media/image26.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #29 [drawing] in Child[982] ====================
+Image: media/image27.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #30 [drawing] in Child[982] ====================
+Image: media/image28.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #31 [drawing] in Child[982] ====================
+Image: media/image29.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[980] (offset -2): bms=[] | text=Una interfaz multiplataforma (Windows/Android) con planificación de misiones, logs persistentes y he
+   Neighbor[981] (offset -1): bms=[] | text=
+   Neighbor[983] (offset +1): bms=[] | text=
+   Neighbor[984] (offset +2): bms=[] | text=
+
+==================== Graphic #32 [drawing] in Child[1023] ====================
+Image: media/image30.png
+Bookmarks in P: []
+Graphic text: 1405716446463
+P text: 1405716446463carroTest3-For-Esp32-s3-wroom/evidencia at main · RubenAndresGome/carroTest3-For-Esp32-s3-wroom
+   Neighbor[1021] (offset -2): bms=[] | text=1. Concurrencia desacoplada en núcleos simétricos: La arquitectura de asignar la pila de red y WebSo
+   Neighbor[1022] (offset -1): bms=[] | text=A continuación, se presentan los resultados obtenidos tras la implementación, integración y validaci
+   Neighbor[1024] (offset +1): bms=['_TocFig24'] | text=Figura 24. Registro audiovisual de validación de mejoras en control PID y funciones motrices
+   Neighbor[1025] (offset +2): bms=[] | text=
+
+==================== Graphic #33 [drawing] in Child[1026] ====================
+Image: media/image31.png
+Bookmarks in P: []
+Graphic text: 2073910-35052000
+P text: 2073910-35052000RESULTADOS .
+   Neighbor[1024] (offset -2): bms=['_TocFig24'] | text=Figura 24. Registro audiovisual de validación de mejoras en control PID y funciones motrices
+   Neighbor[1025] (offset -1): bms=[] | text=
+   Neighbor[1027] (offset +1): bms=['_TocFig25'] | text=Figura 25. Interfaz Gráfica de Usuario (HMI) en funcionamiento durante el control de misión
+   Neighbor[1028] (offset +2): bms=[] | text=
+
+==================== Graphic #34 [pict] in Child[1029] ====================
+Image: media/image32.png
+Bookmarks in P: []
+Graphic text: 
+P text: ANÁLISIS GRÁFICO DE TELEMETRÍA Y CONTROL.
+   Neighbor[1027] (offset -2): bms=['_TocFig25'] | text=Figura 25. Interfaz Gráfica de Usuario (HMI) en funcionamiento durante el control de misión
+   Neighbor[1028] (offset -1): bms=[] | text=
+   Neighbor[1030] (offset +1): bms=['_TocFig26'] | text=Figura 26. Registro preliminar de telemetría inercial y odométrica a 100 Hz
+   Neighbor[1031] (offset +2): bms=[] | text=
+
+==================== Graphic #35 [pict] in Child[1034] ====================
+Image: media/image35.png
+Bookmarks in P: ['_Toc241672330']
+Graphic text: 
+P text: Figura 13 Fuente: Elaboración propia , versión completa en anexo
+   Neighbor[1032] (offset -2): bms=[] | text=
+   Neighbor[1033] (offset -1): bms=[] | text=EVOLUCIÓN DE PROTOTIPOS FÍSICOS
+   Neighbor[1035] (offset +1): bms=[] | text=
+   Neighbor[1036] (offset +2): bms=['_Toc244020301', '_Toc244023548', '_Toc244025098'] | text=Manuales técnicos y documentación viva.
+
+==================== Graphic #36 [pict] in Child[1034] ====================
+Image: 
+Bookmarks in P: ['_Toc241672330']
+Graphic text: Figura 13 Fuente: Elaboración propia , versión completa en anexo
+P text: Figura 13 Fuente: Elaboración propia , versión completa en anexo
+   Neighbor[1032] (offset -2): bms=[] | text=
+   Neighbor[1033] (offset -1): bms=[] | text=EVOLUCIÓN DE PROTOTIPOS FÍSICOS
+   Neighbor[1035] (offset +1): bms=[] | text=
+   Neighbor[1036] (offset +2): bms=['_Toc244020301', '_Toc244023548', '_Toc244025098'] | text=Manuales técnicos y documentación viva.
+
+==================== Graphic #37 [pict] in Child[1181] ====================
+Image: 
+Bookmarks in P: ['_Toc241672331']
+Graphic text: Figura 14Fuente: Elaboración propia
+P text: Figura 14Fuente: Elaboración propia886056558338Frente a un gasto de hardware y logística de ~$2,960 MXN, el ecosistema d
+   Neighbor[1179] (offset -2): bms=[] | text=
+   Neighbor[1180] (offset -1): bms=['_Toc244020310', '_Toc244023557', '_Toc244025107'] | text=Análisis comparativo: hardware vs. inversión en tokens de IA.
+   Neighbor[1182] (offset +1): bms=[] | text=
+   Neighbor[1183] (offset +2): bms=['_TocTbl17'] | text=Tabla 17Análisis comparativo de costos de inversión en herramientas de inteligencia artificial y con
+
+==================== Graphic #38 [drawing] in Child[1181] ====================
+Image: media/image37.png
+Bookmarks in P: ['_Toc241672331']
+Graphic text: 886056558338
+P text: Figura 14Fuente: Elaboración propia886056558338Frente a un gasto de hardware y logística de ~$2,960 MXN, el ecosistema d
+   Neighbor[1179] (offset -2): bms=[] | text=
+   Neighbor[1180] (offset -1): bms=['_Toc244020310', '_Toc244023557', '_Toc244025107'] | text=Análisis comparativo: hardware vs. inversión en tokens de IA.
+   Neighbor[1182] (offset +1): bms=[] | text=
+   Neighbor[1183] (offset +2): bms=['_TocTbl17'] | text=Tabla 17Análisis comparativo de costos de inversión en herramientas de inteligencia artificial y con
+
+==================== Graphic #39 [drawing] in Child[1221] ====================
+Image: media/image38.png
+Bookmarks in P: []
+Graphic text: 28265015792930
+P text: La principal implicación es que el desempeño del robot depende tanto del algoritmo como de la integridad eléctrica y mec
+   Neighbor[1219] (offset -2): bms=[] | text=
+   Neighbor[1220] (offset -1): bms=[] | text=El conteo mediante PCNT y la generación PWM con LEDC aprovecharon periféricos dedicados del ESP32-S3
+   Neighbor[1222] (offset +1): bms=[] | text=
+   Neighbor[1223] (offset +2): bms=['_TocFig28'] | text=Figura 28. Prototipo móvil durante la ejecución de pruebas dinámicas en pista de suelo
+
+==================== Graphic #40 [drawing] in Child[1486] ====================
+Image: media/image39.png
+Bookmarks in P: ['_Toc244020330', '_Toc244023577', '_Toc244025127']
+Graphic text: 1435312268393
+P text: 1435312268393ANEXO A. Carta de Aceptación.
+   Neighbor[1484] (offset -2): bms=[] | text=Yun Ler, L., Bhuvaneswari, T., Soe, M. T., & Hishamuddin, M. (2026). Beyond odometry accuracy: How e
+   Neighbor[1485] (offset -1): bms=['_Toc244020329', '_Toc244023576', '_Toc244025126'] | text=ANEXOS.
+   Neighbor[1487] (offset +1): bms=['_TocFig29'] | text=Figura 29. Carta de Aceptación oficial de Residencia Profesional (Anexo A)
+   Neighbor[1488] (offset +2): bms=[] | text=
+
+==================== Graphic #41 [drawing] in Child[1492] ====================
+Image: media/image40.png
+Bookmarks in P: []
+Graphic text: 1232482425
+P text: 1232482425
+   Neighbor[1490] (offset -2): bms=[] | text=
+   Neighbor[1491] (offset -1): bms=['_Toc244020331', '_Toc244023578', '_Toc244025128'] | text=ANEXO B. Carta de Liberación Oficial de Residencia Profesional.
+   Neighbor[1493] (offset +1): bms=[] | text=
+   Neighbor[1494] (offset +2): bms=[] | text=
+
+==================== Graphic #42 [drawing] in Child[1496] ====================
+Image: 
+Bookmarks in P: []
+Graphic text: -57154260850Figura 15 Certificado de verano de investigación
+P text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+   Neighbor[1494] (offset -2): bms=[] | text=
+   Neighbor[1495] (offset -1): bms=['_Toc244023579', '_Toc244025129'] | text=ANEXO B-1 CERTIFICADO CENIDET.
+   Neighbor[1497] (offset +1): bms=[] | text=
+   Neighbor[1498] (offset +2): bms=[] | text=
+
+==================== Graphic #43 [pict] in Child[1496] ====================
+Image: 
+Bookmarks in P: []
+Graphic text: Figura 15 Certificado de verano de investigación
+P text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+   Neighbor[1494] (offset -2): bms=[] | text=
+   Neighbor[1495] (offset -1): bms=['_Toc244023579', '_Toc244025129'] | text=ANEXO B-1 CERTIFICADO CENIDET.
+   Neighbor[1497] (offset +1): bms=[] | text=
+   Neighbor[1498] (offset +2): bms=[] | text=
+
+==================== Graphic #44 [drawing] in Child[1496] ====================
+Image: media/image41.png
+Bookmarks in P: []
+Graphic text: -5715169545
+P text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+   Neighbor[1494] (offset -2): bms=[] | text=
+   Neighbor[1495] (offset -1): bms=['_Toc244023579', '_Toc244025129'] | text=ANEXO B-1 CERTIFICADO CENIDET.
+   Neighbor[1497] (offset +1): bms=[] | text=
+   Neighbor[1498] (offset +2): bms=[] | text=
+
+==================== Graphic #45 [pict] in Child[1496] ====================
+Image: media/image43.png
+Bookmarks in P: []
+Graphic text: 
+P text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+   Neighbor[1494] (offset -2): bms=[] | text=
+   Neighbor[1495] (offset -1): bms=['_Toc244023579', '_Toc244025129'] | text=ANEXO B-1 CERTIFICADO CENIDET.
+   Neighbor[1497] (offset +1): bms=[] | text=
+   Neighbor[1498] (offset +2): bms=[] | text=
+
+==================== Graphic #46 [drawing] in Child[1501] ====================
+Image: media/image45.png
+Bookmarks in P: []
+Graphic text: center23346900
+P text: center23346900
+   Neighbor[1499] (offset -2): bms=['_Toc244020332', '_Toc244023580', '_Toc244025130'] | text=ANEXO C .Diagramas
+   Neighbor[1500] (offset -1): bms=['_Toc244020333', '_Toc244023581', '_Toc244025131'] | text=ANEXO C-01.Visualización de evidencias de evolución de prototipo.
+   Neighbor[1502] (offset +1): bms=['_TocFig32'] | text=Figura 32. Evidencias de la evolución física de prototipos y montajes mecánicos
+   Neighbor[1503] (offset +2): bms=[] | text=
+
+==================== Graphic #47 [pict] in Child[1501] ====================
+Image: media/image47.png
+Bookmarks in P: []
+Graphic text: 
+P text: center23346900
+   Neighbor[1499] (offset -2): bms=['_Toc244020332', '_Toc244023580', '_Toc244025130'] | text=ANEXO C .Diagramas
+   Neighbor[1500] (offset -1): bms=['_Toc244020333', '_Toc244023581', '_Toc244025131'] | text=ANEXO C-01.Visualización de evidencias de evolución de prototipo.
+   Neighbor[1502] (offset +1): bms=['_TocFig32'] | text=Figura 32. Evidencias de la evolución física de prototipos y montajes mecánicos
+   Neighbor[1503] (offset +2): bms=[] | text=
+
+==================== Graphic #48 [drawing] in Child[1505] ====================
+Image: media/image48.png
+Bookmarks in P: []
+Graphic text: -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3
+P text: -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3Figura 16 Diagrama estrella simplificado
+   Neighbor[1503] (offset -2): bms=[] | text=
+   Neighbor[1504] (offset -1): bms=['_Toc244020334', '_Toc244023582', '_Toc244025132'] | text=ANEXO C-02. Diagrama en estrella simplificado.
+   Neighbor[1506] (offset +1): bms=[] | text=
+   Neighbor[1507] (offset +2): bms=[] | text=
+
+==================== Graphic #49 [pict] in Child[1505] ====================
+Image: media/image49.png
+Bookmarks in P: []
+Graphic text: Figura 16 Diagrama estrella simplificado versión completa de Figura 3
+P text: -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3Figura 16 Diagrama estrella simplificado
+   Neighbor[1503] (offset -2): bms=[] | text=
+   Neighbor[1504] (offset -1): bms=['_Toc244020334', '_Toc244023582', '_Toc244025132'] | text=ANEXO C-02. Diagrama en estrella simplificado.
+   Neighbor[1506] (offset +1): bms=[] | text=
+   Neighbor[1507] (offset +2): bms=[] | text=
+
+==================== Graphic #50 [drawing] in Child[1511] ====================
+Image: 
+Bookmarks in P: ['_TocFig31', '_TocFig31']
+Graphic text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00
+P text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00Figura 31. Esquema de conexiones
+   Neighbor[1509] (offset -2): bms=['_Toc244020335', '_Toc244023583', '_Toc244025133'] | text=ANEXO C-03. Esquema completo.
+   Neighbor[1510] (offset -1): bms=[] | text=
+   Neighbor[1512] (offset +1): bms=[] | text=
+   Neighbor[1513] (offset +2): bms=['_Toc244020336', '_Toc244023584', '_Toc244025134'] | text=ANEXO D. Esquemas Lógicos.
+
+==================== Graphic #51 [pict] in Child[1511] ====================
+Image: 
+Bookmarks in P: ['_TocFig31', '_TocFig31']
+Graphic text: Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)
+P text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00Figura 31. Esquema de conexiones
+   Neighbor[1509] (offset -2): bms=['_Toc244020335', '_Toc244023583', '_Toc244025133'] | text=ANEXO C-03. Esquema completo.
+   Neighbor[1510] (offset -1): bms=[] | text=
+   Neighbor[1512] (offset +1): bms=[] | text=
+   Neighbor[1513] (offset +2): bms=['_Toc244020336', '_Toc244023584', '_Toc244025134'] | text=ANEXO D. Esquemas Lógicos.
+
+==================== Graphic #52 [drawing] in Child[1511] ====================
+Image: media/image50.png
+Bookmarks in P: ['_TocFig31', '_TocFig31']
+Graphic text: 38418104574000
+P text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00Figura 31. Esquema de conexiones
+   Neighbor[1509] (offset -2): bms=['_Toc244020335', '_Toc244023583', '_Toc244025133'] | text=ANEXO C-03. Esquema completo.
+   Neighbor[1510] (offset -1): bms=[] | text=
+   Neighbor[1512] (offset +1): bms=[] | text=
+   Neighbor[1513] (offset +2): bms=['_Toc244020336', '_Toc244023584', '_Toc244025134'] | text=ANEXO D. Esquemas Lógicos.
+
+==================== Graphic #53 [drawing] in Child[1514] ====================
+Image: media/image51.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[1512] (offset -2): bms=[] | text=
+   Neighbor[1513] (offset -1): bms=['_Toc244020336', '_Toc244023584', '_Toc244025134'] | text=ANEXO D. Esquemas Lógicos.
+   Neighbor[1515] (offset +1): bms=[] | text=Figura 17 Anexo capas Lógicas de Sistema Distribuido en tamaño completo
+   Neighbor[1516] (offset +2): bms=[] | text=
+
+==================== Graphic #54 [drawing] in Child[1545] ====================
+Image: media/image52.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[1543] (offset -2): bms=[] | text=PROGRAMAS.
+   Neighbor[1544] (offset -1): bms=[] | text=Antigravity + PlatformIO.
+   Neighbor[1546] (offset +1): bms=['_TocFig34'] | text=Figura 34. Complicación resuelta en PlatformIO para carga de firmware a microcontrolador ESP32-S3
+   Neighbor[1547] (offset +2): bms=[] | text=Open Code.
+
+==================== Graphic #55 [drawing] in Child[1548] ====================
+Image: media/image53.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[1546] (offset -2): bms=['_TocFig34'] | text=Figura 34. Complicación resuelta en PlatformIO para carga de firmware a microcontrolador ESP32-S3
+   Neighbor[1547] (offset -1): bms=[] | text=Open Code.
+   Neighbor[1549] (offset +1): bms=['_TocFig35'] | text=Figura 35. Uso eficiente de herramientas de costo optimizado (DeepSeek) como ejecutor de planes
+   Neighbor[1550] (offset +2): bms=[] | text=
+
+==================== Graphic #56 [drawing] in Child[1552] ====================
+Image: media/image54.png
+Bookmarks in P: []
+Graphic text: 
+P text: 
+   Neighbor[1550] (offset -2): bms=[] | text=
+   Neighbor[1551] (offset -1): bms=[] | text=Visual Studio
+   Neighbor[1553] (offset +1): bms=['_TocFig36'] | text=Figura 36. Entorno de desarrollo Visual Studio Code utilizado en etapas tempranas
+   Neighbor[1554] (offset +2): bms=[] | text=Control de Versiones y Repositorio Git.

@@ -1,0 +1,78 @@
+Drawing #1: in_table=False name='image1.jpg' txbx='' bms=[]
+   P text: Posicionamiento de robot móvil: Desarrollo yvalidación funcional sistema móvil: ESP32 robotodómetro MPU6050 , encoders e
+Drawing #2: in_table=False name='Imagen 28' txbx='' bms=[]
+   P text: 
+Drawing #3: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 95059516573500
+Drawing #4: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 727133385156El sistema:
+Drawing #5: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #6: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 142684525971500
+Drawing #7: in_table=False name='Grupo 3' txbx='Figura 6  Diagrama de ensamble versión completa en anexos Fu' bms=['_Toc241672323']
+   P text: 248920999490Figura 6  Diagrama de ensamble versión completa en anexos Fuente: Elaboración propia00Figura 6  Diagrama de 
+Drawing #8: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #9: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #10: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #11: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #12: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #13: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #14: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 1336675100965000Semana 11: Iteración en prototipo de interfaz gráfica, depuración de errores de lógica y mejora continua
+Drawing #15: in_table=True name='Imagen 1' txbx='' bms=['_Toc244023540', '_Toc244025090']
+   P text: EVIDENCIA DE DESARROLLO Y TESTING DE HARDWARE
+Drawing #16: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #17: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #18: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #19: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #20: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #21: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #22: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #23: in_table=True name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #24: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 1405716446463carroTest3-For-Esp32-s3-wroom/evidencia at main · RubenAndresGome/carroTest3-For-Esp32-s3-wroom
+Drawing #25: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 2073910-35052000RESULTADOS .
+Drawing #26: in_table=False name='Imagen 1' txbx='' bms=['_Toc241672331']
+   P text: Figura 14Fuente: Elaboración propia886056558338Frente a un gasto de hardware y logística de ~$2,960 MXN, el ecosistema d
+Drawing #27: in_table=False name='Imagen 20' txbx='' bms=[]
+   P text: La principal implicación es que el desempeño del robot depende tanto del algoritmo como de la integridad eléctrica y mec
+Drawing #28: in_table=False name='Imagen 1' txbx='' bms=['_Toc244020330', '_Toc244023577', '_Toc244025127']
+   P text: 1435312268393ANEXO A. Carta de Aceptación.
+Drawing #29: in_table=True name='Imagen 13' txbx='' bms=[]
+   P text: 1232482425
+Drawing #30: in_table=False name='Cuadro de texto 1' txbx='Figura 15 Certificado de verano de investigación' bms=[]
+   P text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+Drawing #31: in_table=False name='Grupo 4' txbx='' bms=[]
+   P text: -57154260850Figura 15 Certificado de verano de investigaciónFigura 15 Certificado de verano de investigación-5715169545
+Drawing #32: in_table=False name='Grupo 3' txbx='' bms=[]
+   P text: center23346900
+Drawing #33: in_table=False name='Grupo 2' txbx='Figura 16 Diagrama estrella simplificado versión completa de' bms=[]
+   P text: -1905285750Figura 16 Diagrama estrella simplificado versión completa de Figura 3Figura 16 Diagrama estrella simplificado
+Drawing #34: in_table=True name='Cuadro de texto 3' txbx='Figura 31. Esquema de conexiones del robot diseñado en Fritz' bms=['_TocFig31', '_TocFig31']
+   P text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00Figura 31. Esquema de conexiones
+Drawing #35: in_table=True name='Imagen 18' txbx='' bms=['_TocFig31', '_TocFig31']
+   P text: 6477006590030Figura 31. Esquema de conexiones del robot diseñado en Fritzing (Anexo C)00Figura 31. Esquema de conexiones
+Drawing #36: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #37: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #38: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
+Drawing #39: in_table=False name='Imagen 1' txbx='' bms=[]
+   P text: 
