@@ -7,6 +7,7 @@ on:
     paths:
       - "docs_markdowns/**"
       - "evidencia/**"
+      - "docs/**"
       - "scripts/documentacion/**"
       - ".github/workflows/documentacion.yml"
   pull_request:
@@ -31,10 +32,29 @@ jobs:
   verificar:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Lista única de videos LFS realmente usados por el portal (ejes_invertidos_2026-09-08.mp4 se omite).
+      LFS_INCLUDE: "evidencia/videos/servidor_y_robot_ruta_ortogonal.mp4,evidencia/videos/ruta_ortogonal_y100_y50_x190_xmenos190.mp4,evidencia/videos/RutaOrtogonal_ligero.mp4,evidencia/videos/SistemaControlRemotoTestingMovement_ligero.mp4"
     steps:
+      # Se evita descargar todo LFS (ahorra ancho de banda mensual): solo los 4 videos usados.
       - uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
+
+      - name: Calcular clave de caché LFS
+        id: lfs-key
+        run: |
+          HASH=$(git lfs ls-files -l --include="$LFS_INCLUDE" | sort | sha256sum | cut -d' ' -f1)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Restaurar caché de objetos LFS
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-${{ steps.lfs-key.outputs.hash }}
+
+      - name: Descargar solo los videos LFS necesarios
+        run: git lfs pull --include="$LFS_INCLUDE"
 
       - uses: actions/setup-python@v5
         with:
@@ -89,13 +109,32 @@ jobs:
     needs: verificar
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      # Lista única de videos LFS realmente usados por el portal (ejes_invertidos_2026-09-08.mp4 se omite).
+      LFS_INCLUDE: "evidencia/videos/servidor_y_robot_ruta_ortogonal.mp4,evidencia/videos/ruta_ortogonal_y100_y50_x190_xmenos190.mp4,evidencia/videos/RutaOrtogonal_ligero.mp4,evidencia/videos/SistemaControlRemotoTestingMovement_ligero.mp4"
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Se evita descargar todo LFS (ahorra ancho de banda mensual): solo los 4 videos usados.
       - uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
+
+      - name: Calcular clave de caché LFS
+        id: lfs-key
+        run: |
+          HASH=$(git lfs ls-files -l --include="$LFS_INCLUDE" | sort | sha256sum | cut -d' ' -f1)
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Restaurar caché de objetos LFS
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-${{ steps.lfs-key.outputs.hash }}
+
+      - name: Descargar solo los videos LFS necesarios
+        run: git lfs pull --include="$LFS_INCLUDE"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -116,6 +155,28 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run check
           pnpm run build
+
+      - name: Excluir video no usado y verificar artefacto
+        run: |
+          rm -f docs/videos/ejes_invertidos_2026-09-08.mp4
+          fallo=0
+          IFS=',' read -ra requeridos <<< "$LFS_INCLUDE"
+          for ruta in "${requeridos[@]}"; do
+            archivo="docs/videos/$(basename "$ruta")"
+            if [ ! -f "$archivo" ]; then
+              echo "::error::Falta el video requerido: $archivo"
+              fallo=1
+            fi
+          done
+          while IFS= read -r -d '' archivo; do
+            if head -c 64 "$archivo" | grep -aq '^version https://git-lfs'; then
+              echo "::error::Puntero LFS sin resolver: $archivo"
+              fallo=1
+            fi
+          done < <(find docs/videos docs/fotogramas -type f -print0 2>/dev/null)
+          echo "Videos: $(find docs/videos -type f -name '*.mp4' 2>/dev/null | wc -l)"
+          echo "Fotogramas (.jpg/.webp): $(find docs/fotogramas -type f \( -name '*.jpg' -o -name '*.webp' \) 2>/dev/null | wc -l)"
+          exit $fallo
 
       - name: Publicar artefacto de la web documental
         uses: actions/upload-pages-artifact@v3

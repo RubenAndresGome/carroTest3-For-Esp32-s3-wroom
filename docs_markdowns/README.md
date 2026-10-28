@@ -69,3 +69,14 @@ Pop-Location
 ```
 
 El inventario excluye `archive/`, pruebas, dependencias, `.pio`, `build` y `dist`. La salida versionada se genera en `docs/`; se regenera desde `docs_markdowns/portal/` y no se edita manualmente.
+
+## Publicación en GitHub Pages
+
+- En Settings → Pages → Build and deployment, el origen debe ser **GitHub Actions**, no "Deploy from branch /docs".
+- `docs/videos/`, `docs/fotogramas/` y `docs/incidentes/` están en `.gitignore` y se generan en el build desde `evidencia/` (Vite `publicDir`). Un deploy desde rama sirve 404 para videos y fotos.
+- Los videos viven en Git LFS bajo `evidencia/videos/`; el workflow descarga únicamente los 4 usados.
+- Tras cada deploy, verificar en vivo con:
+
+```powershell
+python scripts/documentacion/verificar_pages_en_vivo.py --muestra 8
+```
