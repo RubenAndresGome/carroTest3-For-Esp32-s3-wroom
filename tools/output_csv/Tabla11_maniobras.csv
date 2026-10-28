@@ -1,0 +1,6 @@
+Criterio / Maniobra,Muestra (n),Métrica Evaluada,Media ± Desv. Est.,Mediana (IQR),Intervalo Confianza 95%,Tasa Cumplimiento
+Régimen Calibrado (19-Sep),46,Error Angular (°),-0.04 ± 0.90°,-0.02° (0.90°),"[-0.30, +0.22]°",93.5 % (≤1.5°)
+Campaña Rectilínea Filtrada,89,Error Angular (°),-0.25 ± 1.08°,-0.40° (1.50°),"[-0.47, -0.02]°",83.1 % (≤1.5°)
+Subavance Longitudinal,94,Error en Eje X (cm),-8.63 ± 8.57 cm,-8.55 cm (12.75 cm),"[-10.36, -6.89] cm",— (Derrape Skid-Steer)
+Desvío Lateral,94,Error en Eje Y (cm),-2.48 ± 5.54 cm,-1.90 cm (4.20 cm),"[-3.60, -1.36] cm",73.4 % (≤3.5 cm)
+Error Euclídeo Total,94,Distancia a Meta (cm),10.75 ± 8.30 cm,9.82 cm (11.61 cm),"[9.07, 12.43] cm",Hipótesis Descartada

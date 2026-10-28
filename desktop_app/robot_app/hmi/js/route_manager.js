@@ -339,70 +339,10 @@ const RouteManager = {
     _syncActiveBranch() { RouteForksManager.syncActiveBranch(this); }, _updateBranchSelector() { RouteForksManager.updateBranchSelector(this); },
     _saveForksToStorage() { RouteForksManager.saveToStorage(this); }, _loadForksFromStorage() { RouteForksManager.loadFromStorage(this); },
 
-    lockTabs() {
-        document.querySelectorAll('.tab-btn').forEach(elem => {
-            const b = /** @type {HTMLElement} */ (elem);
-            if (b.dataset.tab !== 'rutas') b.classList.add('disabled');
-        });
-        document.getElementById('route-running-badge')?.classList.add('show');
-    },
-
-    unlockTabs() {
-        document.querySelectorAll('.tab-btn').forEach(elem => {
-            const b = /** @type {HTMLElement} */ (elem);
-            b.classList.remove('disabled');
-        });
-        document.getElementById('route-running-badge')?.classList.remove('show');
-    },
-
-    async start() {
-        if (this.logicalSteps.length && this.queue.length === 0) {
-            return LogSystem.add('WARN', 'La ruta sólo contiene orientaciones visuales; agrega una hipotenusa con longitud mayor que cero.');
-        }
-        if (this.isRunning || this.queue.length === 0 || this.currentStepIndex >= this.queue.length) return;
-        const mode = this.activeMode();
-        if (mode.key === 'vectorial' && !this.vectorialReadiness().ready) {
-            return LogSystem.add('ERROR', `Angular vectorial bloqueado: ${this.vectorialReadiness().reason}`);
-        }
-        const curName = this.routeNameInput?.value.trim() || this.mainRouteName || 'Ruta Planificada Robot_A';
-        this.saveCurrentRouteName();
-        this._persistRouteHistory(curName, mode);
-
-        try {
-            const prev = await WSControl.api('/api/v1/missions');
-            if (prev.blocked) {
-                await WSControl.api('/api/v1/missions', { method: 'DELETE' });
-                LogSystem.add('WARN', `Misión bloqueada ${prev.id || ''} descartada antes de iniciar.`);
-            }
-            const mission = await WSControl.api('/api/v1/missions', {
-                method: 'POST', body: JSON.stringify(mode.missionPayload(this))
-            });
-            this.isRunning = true;
-            this.routeStartedAt = Date.now();
-            this.currentStepIndex = mission.current_index || 0;
-            this.activeCommandId = mission.active_command_id;
-            this.waitingForMovement = true;
-            this.clearTelemetryTrail();
-            this.lockTabs();
-            LogSystem.add('INFO', `Ruta '${curName}' guardada. Misión ${mission.id} iniciada con ${mission.total_segments} segmentos.`);
-            this.updateListUI();
-            this.drawPlan();
-        } catch (err) {
-            this.isRunning = false;
-            this.unlockTabs();
-            LogSystem.add('ERROR', err.message);
-        }
-    },
-
-    _persistRouteHistory(name, mode) {
-        try {
-            const saved = JSON.parse(localStorage.getItem('hmi_saved_routes') || '[]');
-            const record = { name, savedAt: new Date().toISOString(), steps: this.queue.length, mode: mode.key, payload: mode.missionPayload(this) };
-            const idx = saved.findIndex(r => r.name === name);
-            if (idx >= 0) saved[idx] = record; else saved.unshift(record);
-            localStorage.setItem('hmi_saved_routes', JSON.stringify(saved.slice(0, 20)));
-        } catch (_) {}
-    },
+    lockTabs() { RouteLifecycle.lockTabs(this); },
+    unlockTabs() { RouteLifecycle.unlockTabs(this); },
+    start() { return RouteLifecycle.start(this); },
+    _persistRouteHistory(name, mode) { return RouteLifecycle._persistRouteHistory(this, name, mode); },
 
     onRobotEvent(event) {},
 
@@ -442,44 +382,9 @@ const RouteManager = {
     },
 
     onFsmIdle() {},
-    failRoute(reason) {
-        this.isRunning = false; this.waitingForMovement = false; this.activeCommandId = null;
-        clearTimeout(this.moveTimeout);
-        this.unlockTabs(); this.updateListUI(); this.renderVectorialSafety();
-        LogSystem.add('ERROR', reason);
-    },
-    async stopAndReset() {
-        if (this.logicalSteps.length > 0 && !confirm('¿Borrar la ruta actual y reiniciar el origen?')) return;
-        try {
-            const m = await WSControl.api('/api/v1/missions', { method: 'DELETE' });
-            if (m.id !== null || m.blocked) throw new Error('El backend no confirmó el borrado de la misión');
-            this.isRunning = false; this.isOckhamSimulating = false; this.unlockTabs();
-            clearTimeout(this.moveTimeout);
-            this.waitingForMovement = false; this.activeCommandId = null;
-            this.queue = []; this.logicalSteps = []; this.nextLogicalStepId = 1; this.currentStepIndex = 0;
-            this.currentOrigin = { x: state.telemetria.posX, y: state.telemetria.posY };
-            this.clearTelemetryTrail(); this.updateModeLock();
-            LogSystem.add('WARN', 'Ruta detenida y reset confirmado por backend.');
-            this.updateListUI(); this.updateLabels(); this.updatePreview();
-            this.renderVectorialSafety(); this.actualizarRestriccionInputs();
-        } catch (err) {
-            LogSystem.add('ERROR', `No se pudo borrar la ruta: ${err.message}`);
-        }
-    },
-    async clearRobotMemory() {
-        const box = document.getElementById('route-ockham-confirm-box');
-        if (box) box.style.display = 'none';
-        if (!confirm('¿Detener el robot y borrar la misión y su checkpoint de Python?')) return;
-        try {
-            await WSControl.api('/api/v1/missions/robot-memory', { method: 'DELETE' });
-            this.isRunning = false; this.waitingForMovement = false; this.activeCommandId = null;
-            this.isOckhamSimulating = false; this.unlockTabs();
-            LogSystem.add('INFO', 'Misión y checkpoint de Python eliminados; se solicitó STOP si había un paso activo.');
-            this.currentStepIndex = 0; this.updateListUI(); this.drawPlan();
-        } catch (err) {
-            LogSystem.add('ERROR', `No se pudo liberar la memoria: ${err.message}`);
-        }
-    },
+    failRoute(reason) { return RouteLifecycle.failRoute(this, reason); },
+    stopAndReset() { return RouteLifecycle.stopAndReset(this); },
+    clearRobotMemory() { return RouteLifecycle.clearRobotMemory(this); },
     async ockhamReturn() { await RouteOckhamCockpit.ockhamReturn(this); },
     async confirmOckhamReturn() { await RouteOckhamCockpit.confirmOckhamReturn(this); },
     cancelOckhamReturn() { RouteOckhamCockpit.cancelOckhamReturn(this); }

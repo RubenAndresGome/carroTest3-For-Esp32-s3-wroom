@@ -1,0 +1,6 @@
+Fecha de Sesión,Pasos Brutos,Reversas (|Δθ|>90°),Pasos Válidos,Error Angular Medio (°),Desv. Est. Angular (°),Alineación ≤1.5° (n),Tasa Éxito Angular (%),Error Posición Medio (cm),Desv. Est. Posición (cm)
+2026-09-17,20,4,16,-0.69,0.89,12,75.0,11.84,8.86
+2026-09-18,28,1,27,-0.33,1.38,19,70.4,8.75,5.53
+2026-09-19,46,0,46,-0.04,0.90,43,93.5,12.42,9.23
+Total Filtrado,94,5,89,-0.25,1.08,74,83.1,11.20,8.29
+Total Bruto (con Reversas),94,0,94,5.47,41.16,74,78.7,10.75,8.30

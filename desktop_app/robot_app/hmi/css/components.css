@@ -610,3 +610,10 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        /* Inline Alerts & E-STOP Status */
+        .inline-alert { font-size: var(--font-size-operational); padding: 8px 10px; border-radius: var(--radius-sm); border-left: 4px solid var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+        .inline-alert[data-level="warn"] { border-left-color: var(--accent); }
+        .estop-status { font-size: var(--font-size-operational); font-weight: 700; padding: 4px 10px; border-radius: var(--radius-sm); }
+        .estop-status[data-stage="failed"] { background: var(--danger); color: #fff; }
+
+

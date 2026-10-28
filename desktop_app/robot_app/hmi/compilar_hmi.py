@@ -42,6 +42,7 @@ CARDS_ORDER = [
 
 JS_ORDER = [
     "config.js",
+    "operator_feedback.js",
     "ws_control.js",
     "surface_manager.js",
     "calibration.js",
@@ -55,6 +56,7 @@ JS_ORDER = [
     "route_forks.js",
     "route_charts.js",
     "route_ockham.js",
+    "route_lifecycle.js",
     "route_manager.js",
     "tab_manager.js",
     "touch.js",

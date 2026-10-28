@@ -192,3 +192,82 @@ const state = {
     joy: { active: false, nx: 0, ny: 0, magnitude: 0, angle: 0, pwmL: 0, pwmR: 0, dirL: 'stop', dirR: 'stop' },
     manualDriveSupported: false
 };
+
+/* ==============================================
+   TRADUCCIÓN DE CÓDIGOS DE ERROR
+   ============================================== */
+const ERROR_MESSAGES = Object.freeze(/** @type {const} */ ({
+    robot_restarted_mid_mission: 'El ESP32 se reinició durante la misión; el paso no se repetirá automáticamente',
+    robot_restarted_mid_step: 'El ESP32 se reinició durante el paso; ejecución cancelada',
+    operator_stop: 'Detenida por el operador',
+    operator_clear: 'Limpieza de misión por el operador',
+    operator_app_close: 'Cierre de la aplicación por el operador',
+    forced_app_close: 'Cierre forzado de la aplicación',
+    application_closed: 'Aplicación cerrada',
+    session_closed: 'Sesión cerrada',
+    app_restarted_with_pending_mission: 'La aplicación se reinició con una misión pendiente',
+    mission_segment_timeout: 'Tiempo límite del segmento de misión excedido',
+    mission_active_command_mismatch: 'Incoherencia entre comando activo y reporte del robot',
+    mission_reconciliation_missing_command: 'Comando de misión no encontrado durante la reconciliación',
+    '5v_fuente_desconectada': 'Alimentación de 5V o USB desconectada durante la misión',
+    heading_recovery_exhausted: 'Intentos de recuperación de rumbo agotados sin converger',
+    final_endpoint_out_of_tolerance: 'Punto final fuera de la tolerancia permitida',
+    Time_out_eliminada_por_tiempo_maximo_para_expiracion: 'Misión cancelada por superar el tiempo máximo de expiración',
+    stopped_by_estop: 'Misión detenida por parada de emergencia (E-STOP)',
+    calibration_started: 'Misión cancelada por inicio de calibración',
+    calibration_completed: 'Misión cancelada por calibración completada',
+    cal_connection_lost: 'Conexión con el backend perdida durante la calibración',
+    mpu_unavailable_cal: 'MPU no disponible o no calibrada al iniciar calibración',
+    mpu_lost_cal: 'Señales de MPU perdidas durante la calibración',
+    mpu_lost: 'Señales de IMU MPU perdidas durante la operación',
+    motor_output_error: 'Error en salida de potencia a motores',
+    motor_output_unavailable: 'Salida a motores no disponible o deshabilitada',
+    motor_setup_error: 'Error de inicialización en configuración de motores',
+    cal_yaw_sign_mismatch: 'Discrepancia en el signo angular de calibración MPU',
+    cal_dir_failed: 'Fallo al determinar la dirección de giro en calibración',
+    cal_stall_left: 'Bloqueo detectado en ruedas izquierdas durante calibración',
+    cal_stall_right: 'Bloqueo detectado en ruedas derechas durante calibración',
+    cal_return_timeout: 'Tiempo límite de retorno a origen superado en calibración',
+    cal_yaw_divergence: 'Divergencia angular en calibración MPU',
+    cal_unavailable: 'Calibración no disponible en el estado actual',
+    cal_injection_failed: 'Fallo de inyección de comando de calibración',
+    cal_icr_invalid: 'Parámetros ICR de calibración inválidos',
+    cal_gyro_scale_invalid: 'Escala de giróscopo de calibración inválida',
+    cal_pivot_one_side_only: 'Calibración inválida: sólo un lado registró movimiento',
+    cal_pivot_asymmetric: 'Calibración inválida: pivote asimétrico fuera de rango',
+    turn_stall_left: 'Bloqueo del lado izquierdo durante maniobra de giro',
+    turn_stall_right: 'Bloqueo del lado derecho durante maniobra de giro',
+    turn_timeout_total: 'Tiempo límite total de giro superado',
+    turn_timeout_attempt: 'Tiempo límite de intento de giro superado',
+    turn_angular_divergence: 'Divergencia angular acumulada durante el giro',
+    turn_not_calibrated: 'Giro bloqueado: robot no calibrado',
+    turn_no_progress: 'Giro sin progreso angular detectado por MPU',
+    turn_unavailable: 'Maniobra de giro no disponible',
+    turn_payload_invalid: 'Parámetros de giro inválidos',
+    drive_stall_left: 'Bloqueo detectado en ruedas izquierdas durante avance',
+    drive_stall_right: 'Bloqueo detectado en ruedas derechas durante avance',
+    drive_timeout: 'Tiempo límite de avance excedido sin alcanzar objetivo',
+    chassis_reverse_slip_detected: 'Deslizamiento inverso anómalo detectado en el chasis',
+    enc_no_side: 'Pérdida de pulsos de encoder en uno de los lados',
+    enc_no_estimation: 'Imposible estimar trayectoria por encoders',
+    enc_no_estimation_settle: 'Fallo en asentamiento por lectura de encoders',
+    endpoint_not_reached: 'Punto final del recorrido no alcanzado',
+    pcnt_init_failed: 'Fallo de inicialización en contadores de pulsos PCNT',
+    cal_timeout: 'Tiempo máximo de calibración superado',
+    cal_aborted: 'Calibración abortada'
+}));
+
+/** @param {unknown} code @returns {string} */
+function humanizeError(code) {
+    const key = String(code ?? '').trim();
+    if (!key) return 'error desconocido';
+    /** @type {string | undefined} */
+    const msg = ERROR_MESSAGES[/** @type {keyof typeof ERROR_MESSAGES} */ (key)];
+    if (msg) return `${msg} (código: ${key})`;
+    for (const [prefix, template] of Object.entries(ERROR_MESSAGES)) {
+        if (key.startsWith(prefix)) {
+            return `${template} (código: ${key})`;
+        }
+    }
+    return key;
+}

@@ -91,6 +91,7 @@
                             <button type="submit" class="btn btn-accent"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>+ Agregar paso</button>
                             <button type="button" class="btn" id="btn-route-pop"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>Deshacer</button>
                         </form>
+                        <div id="route-form-alert" class="inline-alert" role="alert" hidden></div>
 
                         <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;" aria-live="polite">V1 · L=0.00 cm · θ=0.00° · φ=0.00° · ΔX=0.00 cm · ΔY=0.00 cm</div>
                         <div class="route-metrics" aria-label="Métricas del recorrido"><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Duración</span><strong class="route-metric-value" id="route-metric-duration">0.0 s</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="route-metric-samples">0</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Segmentos ≤256</span><strong class="route-metric-value" id="route-metric-segments">0</strong></div><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Desviación</span><strong class="route-metric-value" id="route-metric-deviation">0.0 cm</strong></div></div>
@@ -112,6 +113,7 @@
                                 <button type="button" class="btn btn-outline btn-ghost" id="btn-route-discard"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Descartar</button>
                                 <button type="button" class="btn btn-outline btn-error btn-danger-outline" id="btn-route-clear-memory"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar misión Python</button>
                             </div>
+                            <div id="route-start-alert" class="inline-alert" role="alert" hidden></div>
                         </div>
 
                     <!-- COLA DE WAYPOINTS Y PASOS CON SCROLL INTERNO -->
@@ -212,6 +214,7 @@
                             <div id="route-ockham-sim-info" style="font-size: 0.9em; margin-bottom: 10px;">
                                 Simulación calculada. Revisa los pasos enlazados en el mapa antes de confirmar.
                             </div>
+                            <div id="route-ockham-error" class="inline-alert" role="alert" hidden></div>
                             <div style="display: flex; gap: 10px;">
                                 <button type="button" class="btn btn-accent" id="btn-confirm-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirmar Regreso</button>
                                 <button type="button" class="btn btn-stop" id="btn-cancel-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
