@@ -20,6 +20,7 @@ from .gateway import RobotGateway
 from .route_planning import (RectangularRouteStrategy, compile_touch_path,
                              get_realignment_policy, select_optimal_drive_mode,
                              strategy_for_request)
+from .routines import compile_routine, invert_mirror, validate_actions
 
 
 class EventHub:
@@ -220,6 +221,8 @@ class RobotService:
         self._touch = TouchRouteRecorder(database)
         self._manual_stream = 0
         self._manual_frame = 0
+        self._manual_mode: str | None = None
+        self._active_routine_run_id: str | None = None
         database.invalidate_open_touch_recordings("app_restarted_during_touch_recording")
         self._tracked_command_ids: set[str] = set()
         self._command_ids_by_seq: dict[int, str] = {}
@@ -622,10 +625,18 @@ class RobotService:
             mode=compilation.mode, logical_steps=compilation.logical_steps,
         )
 
-    def manual_start(self) -> dict[str, Any]:
+    def manual_start(self, mode: str | None = None) -> dict[str, Any]:
         snapshot = self._require_ready_robot()
         if "manual_drive_v1" not in snapshot.capabilities:
             raise RuntimeError("El firmware conectado no anuncia manual_drive_v1")
+        if mode is None:
+            norm_mode = "legacy_record"
+        else:
+            norm_mode = str(mode).lower()
+        if norm_mode in {"record", "touch_record"}:
+            norm_mode = "legacy_record"
+        if norm_mode not in {"free", "gesture", "legacy_record"}:
+            raise ValueError(f"Modo manual no reconocido: {mode}")
         if self._touch.summary().get("recording"):
             raise RuntimeError("Ya existe una grabación Touch activa")
         with self._lock:
@@ -635,19 +646,31 @@ class RobotService:
             if self._manual_stream == 0:
                 self._manual_stream = 1
             self._manual_frame = 0
+            self._manual_mode = norm_mode
         command = self.send_command("manual_begin", {})
-        try:
-            recording = self._touch.start(snapshot)
-        except Exception:
-            self.send_command("manual_end", {})
-            raise
-        return {**recording, "command_id": command.command_id, "stream": self._manual_stream}
+        recording = None
+        if norm_mode == "legacy_record":
+            try:
+                recording = self._touch.start(snapshot)
+            except Exception:
+                with self._lock:
+                    self._manual_mode = None
+                self.send_command("manual_end", {})
+                raise
+        return {
+            **(recording or {"recording": False, "mode": norm_mode}),
+            "command_id": command.command_id,
+            "stream": self._manual_stream,
+            "mode": norm_mode,
+        }
 
     def manual_drive(self, payload: object) -> dict[str, Any]:
         if not isinstance(payload, dict):
             raise ValueError("El control manual requiere left y right")
-        if not self._touch.public().get("recording"):
-            raise RuntimeError("No existe una grabación Touch activa")
+        with self._lock:
+            active_mode = self._manual_mode
+        if active_mode is None and not self._touch.public().get("recording"):
+            raise RuntimeError("No existe una sesión de control manual activa")
         left = payload.get("left")
         right = payload.get("right")
         if isinstance(left, bool) or not isinstance(left, (int, float)) or not -PWM_SAFE_LIMIT <= float(left) <= PWM_SAFE_LIMIT:
@@ -665,14 +688,21 @@ class RobotService:
         return {"id": command.command_id, "status": "queued", "stream": stream, "frame": frame}
 
     def manual_stop(self) -> dict[str, Any]:
+        with self._lock:
+            prev_mode = self._manual_mode
+            self._manual_mode = None
         command = None
         try:
             command = self.send_command("manual_end", {})
         except RuntimeError:
             pass
-        result = self._touch.finish()
-        return {**(result or {"recording": False}),
-                "command_id": command.command_id if command is not None else None}
+        result = None
+        if prev_mode == "legacy_record" or self._touch.public().get("recording"):
+            result = self._touch.finish()
+        return {
+            **(result or {"recording": False, "mode": prev_mode or "free"}),
+            "command_id": command.command_id if command is not None else None,
+        }
 
     @staticmethod
     def _touch_row(row: Any, include_samples: bool = True) -> dict[str, Any]:
@@ -938,6 +968,14 @@ class RobotService:
             self.database.set_setting("last_completed_route", route)
         elif completed_kind == "ockham_return":
             self._set_return_state("completed")
+        elif completed_kind == "routine" or self._active_routine_run_id is not None:
+            with self._lock:
+                run_id = self._active_routine_run_id
+                self._active_routine_run_id = None
+                telemetry = self._last_telemetry
+            if run_id:
+                end_pose = {"x_mm": telemetry.x_mm, "y_mm": telemetry.y_mm, "yaw_deg": telemetry.yaw_deg} if telemetry else None
+                self.database.finish_routine_run(run_id, end_pose, "completed")
         self._persist_mission()
         self.events.publish("mission", self.mission_status())
 
@@ -954,12 +992,27 @@ class RobotService:
                 return
             start = self._mission_origin if self._mission_index == 0 else self._mission_points[self._mission_index - 1]
             target = self._mission_points[self._mission_index]
-            dx = target["x_mm"] - start["x_mm"]
-            dy = target["y_mm"] - start["y_mm"]
             reuse_command_id = self._mission_command_id if seq_override is not None else None
             mission_mode = self._mission_mode
             telemetry = self._last_telemetry
-            heading = math.degrees(math.atan2(dx, dy)) % 360.0
+
+            target_kind = str(target.get("kind", "move")).lower()
+            if target_kind == "turn":
+                heading = float(target.get("heading_deg", target.get("heading", 0.0)))
+                command = self.send_command(
+                    "turn_to", {"heading": heading},
+                    seq_override=seq_override, command_id_override=reuse_command_id
+                )
+                self._mission_command_id = command.command_id
+                self._mission_seq = command.seq
+                self._mission_command_started_at = None
+                self._persist_mission()
+                return
+
+            dx = target["x_mm"] - start["x_mm"]
+            dy = target["y_mm"] - start["y_mm"]
+            calc_heading = math.degrees(math.atan2(dx, dy)) % 360.0
+            heading = float(target.get("heading_deg", calc_heading))
             distance_cm = math.hypot(dx, dy) / 10.0
             drive_mode = str(target.get("drive_mode", "auto"))
             if drive_mode in {"optimal", "minimum_turn"} or (
@@ -976,7 +1029,7 @@ class RobotService:
             except RuntimeError as exc:
                 self._block_mission(str(exc))
                 return
-        if mission_mode != "angular_vectorial" and abs(dx) > 1.0 and abs(dy) > 1.0:
+        if mission_mode not in {"angular_vectorial", "routine"} and abs(dx) > 1.0 and abs(dy) > 1.0:
             raise RuntimeError("Segmento de misión no ortogonal")
         if not 0.5 <= distance_cm <= MAX_SEGMENT_MM / 10.0:
             raise RuntimeError("Segmento de misión fuera de rango")
@@ -1456,26 +1509,27 @@ class RobotService:
                 actual_y_mm = float(telemetry.y_mm)
                 actual_yaw = float(telemetry.yaw_deg)
 
-                dx_mm = actual_x_mm - target_x_mm
-                dy_mm = actual_y_mm - target_y_mm
-                error_pos_cm = math.hypot(dx_mm, dy_mm) / 10.0
+                if str(step.get("kind", "")).lower() == "turn":
+                    error_pos_cm = 0.0
+                    error_long_cm = 0.0
+                    error_lat_cm = 0.0
+                    expected_heading = target_heading
+                else:
+                    dx_mm = actual_x_mm - target_x_mm
+                    dy_mm = actual_y_mm - target_y_mm
+                    error_pos_cm = math.hypot(dx_mm, dy_mm) / 10.0
 
-                rad = math.radians(target_heading)
-                ux, uy = math.sin(rad), math.cos(rad)
-                error_long_cm = (dx_mm * ux + dy_mm * uy) / 10.0
-                error_lat_cm = (dx_mm * uy - dy_mm * ux) / 10.0
-                # El objetivo de orientacion del cuerpo depende del modo efectivo:
-                # en reversa el chasis conserva su rumbo (heading + 180) y no el
-                # rumbo del trayecto. Comparar contra el heading del trayecto
-                # reportaria un error falso de 180 grados y ordenaria un pivote
-                # destructivo que la reversa precisamente evita.
-                expected_heading = target_heading
-                motion = telemetry.motion if isinstance(telemetry.motion, dict) else {}
-                effective_mode = str(motion.get("effective_mode") or step.get("effective_drive_mode") or "").lower()
-                if effective_mode == "reverse":
-                    body_heading = motion.get("body_heading_deg")
-                    expected_heading = (float(body_heading) if body_heading is not None
-                                        else (target_heading + 180.0) % 360.0)
+                    rad = math.radians(target_heading)
+                    ux, uy = math.sin(rad), math.cos(rad)
+                    error_long_cm = (dx_mm * ux + dy_mm * uy) / 10.0
+                    error_lat_cm = (dx_mm * uy - dy_mm * ux) / 10.0
+                    expected_heading = target_heading
+                    motion = telemetry.motion if isinstance(telemetry.motion, dict) else {}
+                    effective_mode = str(motion.get("effective_mode") or step.get("effective_drive_mode") or "").lower()
+                    if effective_mode == "reverse":
+                        body_heading = motion.get("body_heading_deg")
+                        expected_heading = (float(body_heading) if body_heading is not None
+                                            else (target_heading + 180.0) % 360.0)
                 error_angular_deg = (actual_yaw - expected_heading + 180.0) % 360.0 - 180.0
 
                 self._mission_accumulated_lateral_cm += abs(error_lat_cm)
@@ -1796,4 +1850,151 @@ class RobotService:
                 if updated:
                     result = self._format_surface_dict(updated)
                     self.events.publish("calibration_surfaces", {"action": "saved", "surface": result})
+
+    def save_routine(
+        self, name: str, actions: list[dict[str, Any]], source: str = "manual", routine_id: str | None = None
+    ) -> dict[str, Any]:
+        clean_name = str(name or "").strip()
+        if not clean_name:
+            raise ValueError("El nombre de la rutina no puede estar vacío")
+        validate_actions(actions)
+        rid = routine_id or uuid.uuid4().hex[:12]
+        saved = self.database.save_routine(rid, clean_name, actions, source=source)
+        self.events.publish("routines", {"action": "saved", "routine": saved})
+        return saved
+
+    def get_routine(self, routine_id: str) -> dict[str, Any] | None:
+        return self.database.get_routine(routine_id)
+
+    def list_routines(self) -> list[dict[str, Any]]:
+        return self.database.list_routines()
+
+    def delete_routine(self, routine_id: str) -> bool:
+        ok = self.database.delete_routine(routine_id)
+        if ok:
+            self.events.publish("routines", {"action": "deleted", "id": routine_id})
+        return ok
+
+    def preview_routine(
+        self,
+        actions: list[dict[str, Any]],
+        direction: str = "forward",
+        strategy: str = "mirror",
+        start_pose: dict[str, float] | None = None,
+    ) -> dict[str, Any]:
+        validate_actions(actions)
+        effective_direction = "reverse" if str(direction).lower() in {"reverse", "pivot_forward"} else "forward"
+        effective_strategy = "pivot_forward" if str(direction).lower() == "pivot_forward" or str(strategy).lower() == "pivot_forward" else "mirror"
+
+        if start_pose is None:
+            telemetry = self._last_telemetry
+            if telemetry is not None and telemetry.yaw_deg is not None:
+                start_pose = {
+                    "x_mm": float(telemetry.x_mm),
+                    "y_mm": float(telemetry.y_mm),
+                    "yaw_deg": float(telemetry.yaw_deg),
+                }
+            else:
+                start_pose = {"x_mm": 0.0, "y_mm": 0.0, "yaw_deg": 0.0}
+
+        if effective_direction == "reverse":
+            rev_segs, rev_poses = compile_routine(actions, start_pose, direction="reverse", strategy=effective_strategy)
+            origin_pose = rev_poses[-1]
+            fwd_segs, fwd_poses = compile_routine(actions, origin_pose, direction="forward", strategy="mirror")
+            effective_segments, effective_poses = rev_segs, rev_poses
+        else:
+            fwd_segs, fwd_poses = compile_routine(actions, start_pose, direction="forward", strategy="mirror")
+            fwd_end = fwd_poses[-1]
+            rev_segs, rev_poses = compile_routine(actions, fwd_end, direction="reverse", strategy=effective_strategy)
+            effective_segments, effective_poses = fwd_segs, fwd_poses
+
+        return {
+            "direction": effective_direction,
+            "strategy": effective_strategy,
+            "start_pose": start_pose,
+            "segments": effective_segments,
+            "poses": effective_poses,
+            "action_count": len(actions),
+            "segment_count": len(effective_segments),
+            "forward": {"segments": fwd_segs, "poses": fwd_poses},
+            "reverse": {"segments": rev_segs, "poses": rev_poses},
+        }
+
+    def run_routine(
+        self, routine_id: str, request_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        self._expire_stalled_mission()
+        routine = self.get_routine(routine_id)
+        if routine is None:
+            raise ValueError(f"Rutina no encontrada: {routine_id}")
+        telemetry = self._require_ready_robot()
+        req = request_data or {}
+        raw_direction = str(req.get("direction", "forward")).lower()
+        strategy = str(req.get("reverse_strategy", "mirror")).lower()
+        if raw_direction == "pivot_forward":
+            direction = "reverse"
+            strategy = "pivot_forward"
+        else:
+            direction = raw_direction
+
+        start_pose = {
+            "x_mm": float(telemetry.x_mm),
+            "y_mm": float(telemetry.y_mm),
+            "yaw_deg": float(telemetry.yaw_deg),
+        }
+
+        # Anclaje de retorno inverso
+        if direction == "reverse":
+            last_run = self.database.get_last_routine_run(routine_id)
+            if last_run and last_run.get("direction") == "forward" and last_run.get("status") == "completed":
+                end_p = last_run.get("end_pose") or {}
+                if end_p:
+                    dx = abs(start_pose["x_mm"] - float(end_p.get("x_mm", 0.0)))
+                    dy = abs(start_pose["y_mm"] - float(end_p.get("y_mm", 0.0)))
+                    dyaw = abs((start_pose["yaw_deg"] - float(end_p.get("yaw_deg", 0.0)) + 180.0) % 360.0 - 180.0)
+                    if math.hypot(dx, dy) <= 50.0 and dyaw <= 5.0:
+                        start_pose["x_mm"] = float(end_p.get("x_mm", start_pose["x_mm"]))
+                        start_pose["y_mm"] = float(end_p.get("y_mm", start_pose["y_mm"]))
+
+        segments, poses = compile_routine(routine["actions"], start_pose, direction=direction, strategy=strategy)
+        if not segments:
+            raise ValueError("La rutina no contiene movimientos ejecutables para la pose actual.")
+        run_id = uuid.uuid4().hex
+        mission_id = f"routine_{run_id[:16]}"
+        with self._lock:
+            self._active_routine_run_id = run_id
+
+        self.database.save_routine_run(
+            run_id, routine_id, self._session_id, mission_id, direction, strategy,
+            start_pose, poses, status="running"
+        )
+
+        mission = self._activate_mission(
+            segments,
+            {"x_mm": start_pose["x_mm"], "y_mm": start_pose["y_mm"]},
+            kind="routine",
+            mode="routine",
+            logical_steps=[f"{act.get('type')}_{i+1}" for i, act in enumerate(routine["actions"])],
+        )
+        return {**mission, "routine_run_id": run_id, "routine_id": routine_id, "direction": direction}
+
+    def jog(self, action: dict[str, Any], execute: bool = True) -> dict[str, Any]:
+        validate_actions([action])
+        if not execute:
+            return {"action": action, "valid": True}
+        telemetry = self._require_ready_robot()
+        start_pose = {
+            "x_mm": float(telemetry.x_mm),
+            "y_mm": float(telemetry.y_mm),
+            "yaw_deg": float(telemetry.yaw_deg),
+        }
+        segments, poses = compile_routine([action], start_pose, direction="forward")
+        mission = self._activate_mission(
+            segments,
+            {"x_mm": start_pose["x_mm"], "y_mm": start_pose["y_mm"]},
+            kind="jog",
+            mode="routine",
+            logical_steps=["jog"],
+        )
+        return {**mission, "action": action, "measured_pose": start_pose}
 

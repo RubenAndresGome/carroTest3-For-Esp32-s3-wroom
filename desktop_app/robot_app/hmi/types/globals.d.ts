@@ -133,6 +133,7 @@ declare var I18N: Record<string, Record<string, string>>;
 
 interface OperatorFeedbackApi {
   show(slotId: string, message: string, level?: "error" | "warn" | "info"): void;
+  alert(slotId: string, message: string, level?: "error" | "warn" | "info"): void;
   clear(slotId: string): void;
   confirmMotion(message: string): boolean;
   readBoundedNumber(input: HTMLInputElement | null): number | null;
@@ -140,6 +141,10 @@ interface OperatorFeedbackApi {
 }
 declare var OperatorFeedback: OperatorFeedbackApi;
 declare var RouteLifecycle: any;
+declare var RouteAngleRose: any;
+declare var RouteLibrary: any;
+declare var TouchRoutine: any;
 declare var ERROR_MESSAGES: Readonly<Record<string, string>>;
 declare function humanizeError(code: unknown): string;
+
 

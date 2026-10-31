@@ -126,8 +126,8 @@ test.describe("HMI responsive en navegador real", () => {
     await expect(page.locator('[data-tab="touch"]')).toHaveAttribute("aria-disabled", "false");
     await expect(page.locator("#touch-capability")).toContainText("disponible");
     await page.evaluate("TabManager.switch('touch')");
-    await expect(page.locator("#touch-recording-preview")).toBeVisible();
-    await expect(page.locator("#btn-touch-return")).toBeDisabled();
+    await expect(page.locator("#touch-submode-selector")).toBeVisible();
+    await expect(page.locator("#joystick-wrapper")).toBeVisible();
   });
 
   test("la rotación conserva vista y formulario sin overflow", async ({ page }) => {

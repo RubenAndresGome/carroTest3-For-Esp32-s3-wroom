@@ -11,6 +11,16 @@ const TabManager = {
         const win = WindowManager.windows.get(winId);
         if (!win) return false;
 
+        if (WindowManager.mode === 'single') {
+            if (!Calibration.calibrated && tabId !== 'conexion') {
+                LogSystem.add('WARN', 'Completa primero la calibración física de torque y giro.');
+                return true;
+            }
+            if (typeof RouteManager !== 'undefined' && RouteManager.isRunning && tabId !== 'rutas') return true;
+            WindowManager.focusSingle(winId);
+            return true;
+        }
+
         if (WindowManager.mode !== 'tabs') {
             if (win.isMinimized) {
                 WindowManager.restoreWindow(winId);
@@ -18,7 +28,7 @@ const TabManager = {
                 if (WindowManager.mode === 'tiling') {
                     win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
-            } else if (win.el.classList.contains('is-focused')) {
+            } else if (win.el.classList.contains('is-focused') && WindowManager.mode === 'floating') {
                 WindowManager.minimizeWindow(winId);
             } else {
                 WindowManager.bringToFront(winId);
@@ -32,9 +42,6 @@ const TabManager = {
         if (win.isMinimized) {
             WindowManager.restoreWindow(winId);
             this.switch(tabId);
-            return true;
-        } else if (state.activeTab === tabId && !win.isMinimized) {
-            WindowManager.minimizeWindow(winId);
             return true;
         }
         return false;
@@ -77,11 +84,15 @@ const TabManager = {
         const win = WindowManager.windows.get(winId) || WindowManager.windows.get(id);
         if (!win) return;
 
+        if (WindowManager.mode === 'single') {
+            WindowManager.focusSingle(win.id);
+            return;
+        }
         win.isMinimized = false;
         win.el.classList.remove('is-minimized');
         win.el.style.display = (WindowManager.mode === 'tiling' || WindowManager.mode === 'floating') ? 'flex' : 'block';
-        if (WindowManager.mode === 'floating' && WindowManager._applyWindowRect) {
-            WindowManager._applyWindowRect(win);
+        if (WindowManager.mode === 'floating') {
+            WindowLayout.applyWindowRect(win);
         } else if (WindowManager.mode === 'tiling') {
             win.el.style.width = '100%';
             win.el.style.height = win.tilingHeight ? `${win.tilingHeight}px` : '520px';
@@ -112,9 +123,9 @@ const TabManager = {
             const isActive = c.id === `tab-${id}` || c.id === id;
             c.classList.toggle('active', isActive);
             if (isActive) {
-                const isFlexMode = typeof WindowManager !== 'undefined' && (WindowManager.mode === 'floating' || WindowManager.mode === 'tiling');
+                const isFlexMode = typeof WindowManager !== 'undefined' && ['single', 'floating', 'tiling'].includes(WindowManager.mode);
                 c.style.display = isFlexMode ? 'flex' : 'block';
-            } else if (typeof WindowManager === 'undefined' || WindowManager.mode === 'tabs') {
+            } else if (typeof WindowManager === 'undefined' || WindowManager.mode === 'tabs' || WindowManager.mode === 'single') {
                 c.style.display = 'none';
             }
         });

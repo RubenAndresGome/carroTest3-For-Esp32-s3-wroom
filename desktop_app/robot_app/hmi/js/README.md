@@ -8,8 +8,8 @@ El sistema implementa una interfaz de estación de control para telemetría en t
 
 ## 1. Principios de Arquitectura y Seguridad
 
-### 1.1 Modularidad Estricta ($\le 500$ líneas por módulo)
-Ningún archivo JavaScript excede las 500 líneas (rango estándar 100–495 líneas). Los métodos y funciones cumplen el Principio de Responsabilidad Única (SRP), manteniendo una longitud de entre 15 y 45 líneas, desacoplando la lógica de dominio en módulos especializados.
+### 1.1 Modularidad Estricta ($\le 450$ líneas por módulo)
+Ningún archivo JavaScript excede las 450 líneas. Los métodos y funciones cumplen el Principio de Responsabilidad Única (SRP), manteniendo una longitud acotada y desacoplando la lógica de dominio en módulos especializados.
 
 ### 1.2 Vanilla Moderno sin Dependencias Pesadas
 El frontend prescinde deliberadamente de frameworks pesados (React, Vue, Angular) en favor de JavaScript modular nativo (ES6+), renderizado DOM directo y **Chart.js** con plugins de datalabels y zoom para lienzos cartográficos. Esto garantiza arranque instantáneo, latencia mínima en tablets Android e inmunidad ante incompatibilidades de WebViews empotrados.
@@ -20,13 +20,15 @@ El frontend prescinde deliberadamente de frameworks pesados (React, Vue, Angular
 - **Propiedad Única de WebSocket**: El navegador **nunca** se conecta directamente por WebSocket al ESP32. En su lugar, el backend en Python (`gateway.py`) es el dueño único del WebSocket hacia el robot (`ws://192.168.4.1/ws`), reenviando la telemetría al navegador mediante **Server-Sent Events (SSE)** en `/api/v1/events` y despachando comandos mediante REST.
 
 ### 1.4 Ensamblado Modular y Verificación (`compilar_hmi.py`)
-El archivo maestro `index.html` actúa como esqueleto ligero. El script `compilar_hmi.py` concatena y valida los 18 módulos en el orden estricto de dependencias definido por `JS_ORDER`:
+El archivo maestro `index.html` actúa como esqueleto ligero. El script `compilar_hmi.py` concatena y valida los 22 módulos en el orden estricto de dependencias definido por `JS_ORDER`:
 
 ```python
 JS_ORDER = [
     "config.js",
+    "operator_feedback.js",
     "ws_control.js",
     "surface_manager.js",
+    "connection_panel.js",
     "calibration.js",
     "telemetry.js",
     "fork_registry.js",
@@ -34,9 +36,11 @@ JS_ORDER = [
     "window_layout.js",
     "window_manager.js",
     "route_modes.js",
+    "route_vector_stack.js",
     "route_forks.js",
     "route_charts.js",
     "route_ockham.js",
+    "route_lifecycle.js",
     "route_manager.js",
     "tab_manager.js",
     "touch.js",

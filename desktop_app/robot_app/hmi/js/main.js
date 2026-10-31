@@ -13,10 +13,13 @@ function bindKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
             const modal = document.getElementById('modal-settings');
-            if (modal && modal.style.display !== 'none') {
-                modal.style.display = 'none';
-                const btnOpen = document.getElementById('btn-open-settings');
-                if (btnOpen) btnOpen.setAttribute('aria-expanded', 'false');
+            if (modal && (modal.style.display !== 'none' || !modal.hidden)) {
+                if (typeof SettingsManager !== 'undefined' && typeof SettingsManager.closeModal === 'function') {
+                    SettingsManager.closeModal();
+                } else {
+                    modal.hidden = true;
+                    modal.style.display = 'none';
+                }
             }
             const openForkMenu = document.getElementById('glass-fork-menu');
             if (openForkMenu && openForkMenu.style.display !== 'none') {
@@ -64,12 +67,14 @@ function bindSignTogglers() {
 }
 
 /**
- * Botón E-STOP de parada de emergencia inmediata.
+ * Botón E-STOP de parada de emergencia inmediata (A9: primera instrucción WSControl.estop()).
  */
 function _bindEstopButton() {
     const btnEstop = document.getElementById('btn-estop');
     if (!btnEstop) return;
-    btnEstop.addEventListener('click', function() {
+    btnEstop.addEventListener('click', async function() {
+        const estopPromise = WSControl.estop();
+        OperatorFeedback.estopStatus('sent');
         this.classList.add('btn-flash');
         setTimeout(() => this.classList.remove('btn-flash'), 300);
         if (typeof RouteManager !== 'undefined') {
@@ -78,8 +83,9 @@ function _bindEstopButton() {
             }
             RouteManager.unlockTabs();
         }
-        WSControl.send({ cmd: 'estop' });
         LogSystem.add('ERROR', 'E-STOP enviado al robot');
+        const result = await estopPromise;
+        OperatorFeedback.estopStatus(result.ok ? 'confirmed' : 'failed', result.error);
     });
 
     const btnCloseApp = document.getElementById('btn-close-app');
@@ -89,39 +95,43 @@ function _bindEstopButton() {
 }
 
 /**
- * Botón de restablecimiento de FSM y purga de memoria de Python.
+ * Botón de restablecimiento de FSM y purga de memoria de Python (C5).
  */
 function _bindResetHmiButton() {
     const btnResetHmi = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-reset-hmi'));
     if (!btnResetHmi) return;
 
     btnResetHmi.addEventListener('click', async function() {
+        const willRearm = ['FALLO', 'ESTOP'].includes(Calibration.robotState) && Calibration.canRearm();
+        const msg = willRearm
+            ? `¿Borrar la misión en curso y rearmar el robot desde ${Calibration.robotState}? Los motores quedarán habilitados para nuevos comandos.`
+            : '¿Borrar la misión en curso y desbloquear las pestañas del HMI?';
+        if (!confirm(msg)) return;
+
         this.classList.add('btn-flash');
         setTimeout(() => this.classList.remove('btn-flash'), 250);
         this.disabled = true;
         try {
             LogSystem.add('CMD', 'Restableciendo FSM y purgando memoria de misión de Python...');
             await WSControl.api('/api/v1/missions/robot-memory', { method: 'DELETE' }).catch(err => {
-                LogSystem.add('WARN', `Aviso al purgar memoria: ${err.message}`);
+                LogSystem.add('WARN', `Aviso al purgar memoria: ${humanizeError(err.message)}`);
             });
             if (typeof RouteManager !== 'undefined') {
                 RouteManager.isRunning = false;
                 RouteManager.waitingForMovement = false;
                 RouteManager.activeCommandId = null;
+                RouteManager.stoppedAtIndex = null;
                 clearTimeout(RouteManager.moveTimeout);
                 RouteManager.unlockTabs();
                 RouteManager.updateListUI();
                 RouteManager.drawPlan();
             }
-            if (state.connected) {
+            if (willRearm) {
                 await WSControl.send({ cmd: 'clear_fault' });
             }
-            if (typeof FSMDisplay !== 'undefined') {
-                FSMDisplay.update('IDLE');
-            }
-            LogSystem.add('INFO', 'FSM restablecida y pestañas desbloqueadas correctamente.');
+            LogSystem.add('INFO', 'Misión en memoria descartada y pestañas desbloqueadas; el estado real del robot se actualiza por telemetría.');
         } catch (e) {
-            LogSystem.add('ERROR', `Fallo al restablecer FSM: ${e.message}`);
+            LogSystem.add('ERROR', `Fallo al restablecer FSM: ${humanizeError(e.message)}`);
         } finally {
             this.disabled = false;
             if (typeof Calibration !== 'undefined') {
@@ -157,7 +167,7 @@ function _bindRebootRobotButton() {
             await WSControl.api('/api/v1/connection/reconnect', { method: 'POST' }).catch(() => {});
             LogSystem.add('INFO', 'Comando de reinicio ejecutado. Reconectando con ESP32...');
         } catch (err) {
-            LogSystem.add('ERROR', `Error durante reinicio de robot: ${err.message}`);
+            LogSystem.add('ERROR', `Error durante reinicio de robot: ${humanizeError(err.message)}`);
         } finally {
             setTimeout(() => { if (btnReboot) btnReboot.disabled = false; }, 1500);
         }
@@ -208,30 +218,41 @@ function bindTestingControls() {
 }
 
 /**
- * Ejecuta comando rápido de prueba (avance, retroceso, giro, parada, reset).
+ * Ejecuta comando rápido de prueba validando entradas explícitamente (C4).
  * @param {HTMLElement} btn
  */
 function _executeQuickCommand(btn) {
     const c = btn.dataset.cmd;
     const distInput = /** @type {HTMLInputElement | null} */ (document.getElementById('cmd-dist'));
     const angleInput = /** @type {HTMLInputElement | null} */ (document.getElementById('cmd-angle'));
-    const dist = parseFloat(distInput?.value || '') || 50;
-    const angle = parseFloat(angleInput?.value || '') || 90;
     btn.classList.add('btn-flash');
     setTimeout(() => btn.classList.remove('btn-flash'), 250);
 
-    if (c === 'avance') {
-        WSControl.send({ cmd: 'step', heading: 0, cm: dist, drive_mode: 'forward' });
-    } else if (c === 'retroceso') {
-        WSControl.send({ cmd: 'step', heading: 180, cm: dist, drive_mode: 'reverse' });
-    } else if (c === 'giro-izq') {
-        WSControl.send({ cmd: 'turn_to', heading: (Number(state.telemetria.angulo || 0) - angle + 360) % 360 });
-    } else if (c === 'giro-der') {
-        WSControl.send({ cmd: 'turn_to', heading: (Number(state.telemetria.angulo || 0) + angle) % 360 });
+    if (c === 'avance' || c === 'retroceso') {
+        const dist = OperatorFeedback.readBoundedNumber(distInput);
+        if (dist === null) {
+            OperatorFeedback.show('testing-cmd-alert', 'Introduce una distancia válida entre 5 y 200 cm antes de mover el robot.', 'error');
+            LogSystem.add('WARN', 'Distancia inválida en comando rápido.');
+            return;
+        }
+        OperatorFeedback.clear('testing-cmd-alert');
+        WSControl.send({ cmd: 'step', heading: c === 'avance' ? 0 : 180, cm: dist, drive_mode: c === 'avance' ? 'forward' : 'reverse' });
+    } else if (c === 'giro-izq' || c === 'giro-der') {
+        const angle = OperatorFeedback.readBoundedNumber(angleInput);
+        if (angle === null) {
+            OperatorFeedback.show('testing-cmd-alert', 'Introduce un ángulo válido entre 5° y 360° antes de girar el robot.', 'error');
+            LogSystem.add('WARN', 'Ángulo inválido en comando rápido.');
+            return;
+        }
+        OperatorFeedback.clear('testing-cmd-alert');
+        const delta = c === 'giro-izq' ? -angle : angle;
+        WSControl.send({ cmd: 'turn_to', heading: (Number(state.telemetria.angulo || 0) + delta + 360) % 360 });
     } else if (c === 'parada') {
+        OperatorFeedback.clear('testing-cmd-alert');
         WSControl.send({ cmd: 'stop' });
         LogSystem.add('CMD', 'Parada inmediata enviada');
     } else if (c === 'reset') {
+        OperatorFeedback.clear('testing-cmd-alert');
         WSControl.send({ cmd: 'reset_pose' });
         LogSystem.add('CMD', 'Reset pose enviado');
     }
@@ -285,11 +306,26 @@ async function _handleDatabasePurge() {
             LogSystem.add('INFO', `Limpieza de Base de Datos exitosa: ${data.message}`);
             if (typeof ConnectionPanel !== 'undefined' && ConnectionPanel.loadHistory) ConnectionPanel.loadHistory();
         } else {
-            LogSystem.add('ERROR', `Error al limpiar BD: ${data.error || 'error desconocido'}`);
+            LogSystem.add('ERROR', `Error al limpiar BD: ${humanizeError(data.error || 'error desconocido')}`);
         }
     } catch (err) {
-        LogSystem.add('ERROR', `Error al conectar con backend para limpieza: ${err.message}`);
+        LogSystem.add('ERROR', `Error al conectar con backend para limpieza: ${humanizeError(err.message)}`);
     }
+}
+
+/**
+ * Vincula botones contextuales `?` (`[data-help-section]`) para abrir la Guía del Operador.
+ */
+function bindContextualHelp() {
+    document.addEventListener('click', (e) => {
+        const target = /** @type {HTMLElement | null} */ (e.target);
+        const btn = target?.closest?.('[data-help-section]');
+        if (!btn) return;
+        const sectionId = /** @type {HTMLElement} */ (btn).dataset.helpSection;
+        if (typeof SettingsManager !== 'undefined' && SettingsManager.openGuideSection) {
+            SettingsManager.openGuideSection(sectionId || '');
+        }
+    });
 }
 
 /**
@@ -346,6 +382,7 @@ function init() {
     bindEmergencyControls();
     bindTestingControls();
     bindLogAndDatabaseMaintenance();
+    bindContextualHelp();
     handleUrlRouting();
 
     WSControl.init();

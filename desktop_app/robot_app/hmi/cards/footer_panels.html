@@ -6,14 +6,14 @@
                     <button class="log-filter-btn lf-info active" data-filter="info" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Info</button>
                     <button class="log-filter-btn lf-warn active" data-filter="warn" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 9v5M12 17h.01"/></svg>Warn</button>
                     <button class="log-filter-btn lf-error active" data-filter="error" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg>Error</button>
-                    <button class="log-filter-btn lf-cmd active" data-filter="cmd" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Cmd</button>
+                    <button class="log-filter-btn lf-cmd active" data-filter="cmd" aria-pressed="true" data-debug-only><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>Cmd</button>
                 </div>
                 <span class="log-count" id="log-count" aria-label="0 registros">0</span>
             </div>
             <div class="log-actions" aria-label="Acciones de registros">
                 <button class="btn btn-sm" id="btn-download-log"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 19h16"/></svg>Exportar TXT</button>
                 <button class="btn btn-sm" id="btn-clear-log"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></svg>Limpiar UI</button>
-                <div class="log-retention">
+                <div class="log-retention" data-debug-only>
                     <select class="log-select" id="select-purge-days" aria-label="Antigüedad de registros a eliminar">
                         <option value="1">Más de 24h</option>
                         <option value="7" selected>Más de 7 días</option>
@@ -29,8 +29,8 @@
         </div>
     </section>
 
-    <!-- MODAL DE CONFIGURACIÓN GLASSMORPHIC -->
-    <div id="modal-settings" class="settings-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" style="display: none;">
+    <!-- MODAL DE CONFIGURACIÓN, GUÍA DEL OPERADOR Y ACERCA DE -->
+    <div id="modal-settings" class="settings-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" hidden>
         <div class="settings-modal-card">
             <div class="settings-modal-header">
                 <div class="settings-modal-title-wrap">
@@ -39,50 +39,203 @@
                 </div>
                 <button type="button" class="win-btn win-btn-close" id="btn-close-settings" aria-label="Cerrar configuración">✕</button>
             </div>
+            <div class="modal-tabs" role="tablist" aria-label="Secciones de configuración y ayuda">
+                <button type="button" class="modal-tab-btn active" id="modal-tab-btn-ajustes" data-modal-tab="ajustes" role="tab" aria-selected="true" aria-controls="modal-tab-ajustes">Ajustes</button>
+                <button type="button" class="modal-tab-btn" id="modal-tab-btn-guia" data-modal-tab="guia" role="tab" aria-selected="false" aria-controls="modal-tab-guia">Guía del operador</button>
+                <button type="button" class="modal-tab-btn" id="modal-tab-btn-acerca" data-modal-tab="acerca" role="tab" aria-selected="false" aria-controls="modal-tab-acerca">Acerca de</button>
+            </div>
             <div class="settings-modal-body">
-                <div class="settings-field">
-                    <label class="settings-label">Disposición de Ventanas y Espacio de Trabajo:</label>
-                    <div class="workspace-mode-selector" role="group" aria-label="Modo de Espacio de Trabajo">
-                        <button id="ws-mode-tabs" type="button" class="btn-ws-mode active" title="Modo Pestañas Clásico" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg><span class="ws-label">Pestañas</span></button>
-                        <button id="ws-mode-tiling" type="button" class="btn-ws-mode" title="Modo Mosaico Dividido" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/></svg><span class="ws-label">Mosaico</span></button>
-                        <button id="ws-mode-floating" type="button" class="btn-ws-mode" title="Modo Ventanas Libres" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="14" height="14" rx="1"/><rect x="7" y="7" width="14" height="14" rx="1" fill="none"/></svg><span class="ws-label">Flotante</span></button>
+                <!-- PESTAÑA 1: AJUSTES -->
+                <div class="modal-tab-panel" id="modal-tab-ajustes" role="tabpanel" aria-labelledby="modal-tab-btn-ajustes">
+                    <div class="settings-field">
+                        <label for="setting-profile" class="settings-label">Perfil de Usuario:</label>
+                        <select id="setting-profile" class="settings-select">
+                            <option value="operator">Operador (Simplificado)</option>
+                            <option value="technician">Técnico (Diagnóstico Completo)</option>
+                        </select>
+                        <span class="settings-help">El perfil Operador oculta métricas de depuración, bifurcación A/B y purga de base de datos.</span>
                     </div>
-                    <span class="settings-help">Selecciona el modo de organización de pantallas: pestañas tradicionales, mosaico horizontal a pantalla completa o ventanas flotantes libres.</span>
+                    <div class="settings-field">
+                        <label class="settings-label">Disposición de Ventanas y Espacio de Trabajo:</label>
+                        <div class="workspace-mode-selector" role="group" aria-label="Modo de Espacio de Trabajo">
+                            <button id="ws-mode-tabs" type="button" class="btn-ws-mode active" title="Modo Pestañas Clásico" aria-pressed="true"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg><span class="ws-label">Pestañas</span></button>
+                            <button id="ws-mode-single" type="button" class="btn-ws-mode" title="Modo Ventana Única" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="8" x2="21" y2="8"/></svg><span class="ws-label">Única</span></button>
+                            <button id="ws-mode-tiling" type="button" class="btn-ws-mode" title="Modo Mosaico Dividido" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/></svg><span class="ws-label">Mosaico</span></button>
+                            <button id="ws-mode-floating" type="button" class="btn-ws-mode" title="Modo Ventanas Libres" aria-pressed="false"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="14" height="14" rx="1"/><rect x="7" y="7" width="14" height="14" rx="1" fill="none"/></svg><span class="ws-label">Flotante</span></button>
+                        </div>
+                        <span class="settings-help">Selecciona el modo de organización de pantallas: pestañas tradicionales, ventana única enfocada, mosaico dividido o ventanas flotantes libres.</span>
+                    </div>
+                    <div class="settings-field" data-debug-only>
+                        <label for="setting-telemetry-mode" class="settings-label">Registro de Telemetría de Sesión (SQLite):</label>
+                        <select id="setting-telemetry-mode" class="settings-select">
+                            <option value="always">Guardar siempre en SQLite (Por defecto)</option>
+                            <option value="error_only">Guardar solo ante error o parada</option>
+                            <option value="disabled">Deshabilitado (No guardar telemetría continua)</option>
+                        </select>
+                        <span class="settings-help">Controla el almacenamiento continuo de paquetes de alta frecuencia en la base de datos de sesión.</span>
+                    </div>
+                    <div class="settings-field">
+                        <label for="setting-theme" class="settings-label">Tema Visual:</label>
+                        <select id="setting-theme" class="settings-select">
+                            <option value="cyber-dark">Cyber Dark (Neón / Predeterminado)</option>
+                            <option value="high-contrast">Alto Contraste</option>
+                            <option value="light-glass">Light Glass (Vidrio Claro)</option>
+                        </select>
+                        <span class="settings-help">Paleta de colores, contrastes y niveles de translucidez del vidrio.</span>
+                    </div>
+                    <div class="settings-field">
+                        <label for="setting-language" class="settings-label">Idioma / Language:</label>
+                        <select id="setting-language" class="settings-select">
+                            <option value="es">Español (Canónico)</option>
+                            <option value="en">English</option>
+                        </select>
+                        <span class="settings-help">Idioma para la interfaz y mensajes informativos.</span>
+                    </div>
+                    <div class="settings-field">
+                        <label for="setting-default-mode" class="settings-label">Modo de Espacio de Trabajo Inicial:</label>
+                        <select id="setting-default-mode" class="settings-select">
+                            <option value="tabs">Pestañas Clásicas</option>
+                            <option value="single">Ventana Única</option>
+                            <option value="tiling">Mosaico Dividido</option>
+                            <option value="floating">Ventanas Libres</option>
+                        </select>
+                        <span class="settings-help">Disposición predeterminada al cargar la aplicación.</span>
+                    </div>
                 </div>
-                <div class="settings-field">
-                    <label for="setting-telemetry-mode" class="settings-label">Registro de Telemetría de Sesión (SQLite):</label>
-                    <select id="setting-telemetry-mode" class="settings-select">
-                        <option value="always">Guardar siempre en SQLite (Por defecto)</option>
-                        <option value="error_only">Guardar solo ante error o parada</option>
-                        <option value="disabled">Deshabilitado (No guardar telemetría continua)</option>
-                    </select>
-                    <span class="settings-help">Controla el almacenamiento continuo de paquetes de alta frecuencia en la base de datos de sesión.</span>
+
+                <!-- PESTAÑA 2: GUÍA DEL OPERADOR (8 SECCIONES INTERACTIVAS) -->
+                <div class="modal-tab-panel" id="modal-tab-guia" role="tabpanel" aria-labelledby="modal-tab-btn-guia" hidden>
+                    <details class="guide-section" data-guide-id="antes" open>
+                        <summary>1. Antes de empezar</summary>
+                        <div class="guide-body">
+                            <ul>
+                                <li>Verifica que el área de prueba esté despejada (mínimo 1.5 m alrededor del robot).</li>
+                                <li>Mantén VMOT apagado durante el encendido inicial hasta confirmar telemetría estable y PWM en 0/0.</li>
+                                <li>Ten siempre visible el botón rojo <strong>PARO DE EMERGENCIA</strong> en la barra superior.</li>
+                            </ul>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="conexion">
+                        <summary>2. Conectar al robot</summary>
+                        <div class="guide-body">
+                            <p>En la pestaña <strong>Conexión</strong>, verifica la URL WebSocket del ESP32 (ej. <code>ws://192.168.4.1/ws</code>) y pulsa <strong>Conectar</strong>. El indicador superior cambiará a <strong>CONECTADO</strong> cuando fluya telemetría.</p>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="calibracion">
+                        <summary>3. Calibrar giros y superficie</summary>
+                        <div class="guide-body">
+                            <p>Selecciona la superficie física (Loseta, Alfombra, Madera, Concreto) o ejecuta <strong>Calibrar Giros</strong>. El robot permanecerá inmóvil 5 s para estabilizar el giróscopo MPU6050, buscará el torque mínimo en ambos sentidos, validará +25° y retornará a 0°.</p>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="rutas">
+                        <summary>4. Crear y ejecutar una ruta (pasos 1 a 5)</summary>
+                        <div class="guide-body">
+                            <ol>
+                                <li>Asigna o selecciona el nombre de la ruta.</li>
+                                <li>Elige el modo de entrada (Rectangular, Angular X→Y o Vectorial).</li>
+                                <li>Ingresa las coordenadas o ángulos y pulsa <strong>+ Agregar paso</strong>.</li>
+                                <li>Pulsa <strong>Previsualizar</strong> para inspeccionar el recorrido en el mapa teórico.</li>
+                                <li>Pulsa <strong>Guardar la Ruta en "Rutas" / Programar recorrido</strong> y confirma el movimiento.</li>
+                            </ol>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="estados">
+                        <summary>5. Estados del robot</summary>
+                        <div class="guide-body">
+                            <ul>
+                                <li><strong>INIT / IDLE</strong>: Robot listo y en espera de comandos.</li>
+                                <li><strong>GIRANDO / AVANZANDO / ESPERANDO</strong>: Ejecución activa de movimiento o asentamiento.</li>
+                                <li><strong>TERMINADO</strong>: Misión completada en el punto objetivo.</li>
+                                <li><strong>FALLO / ESTOP</strong>: Parada de protección por bloqueo físico, límite o paro de emergencia.</li>
+                            </ul>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="ockham">
+                        <summary>6. Regresar al origen (Ockham)</summary>
+                        <div class="guide-body">
+                            <p>Al terminar o detener una ruta, pulsa <strong>Regresar al origen</strong> en el Cockpit Ockham. El sistema calcula la trayectoria inversa frontal (<code>drive_mode: forward</code>), muestra la simulación en el mapa y espera tu confirmación en <strong>Confirmar Regreso</strong>.</p>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="troubleshooting">
+                        <summary>7. Qué hacer si ocurre un fallo</summary>
+                        <div class="guide-body">
+                            <ul>
+                                <li>Si aparece <strong>FALLO</strong> o <strong>ESTOP</strong>, verifica que ninguna rueda esté obstruida.</li>
+                                <li>Usa el botón <strong>Rearmar sistema</strong> en la barra superior o en Conexión para limpiar el bloqueo.</li>
+                                <li>Si solo deseas limpiar los gráficos sin enviar comandos al robot, usa <strong>Limpiar vista HMI</strong>.</li>
+                            </ul>
+                        </div>
+                    </details>
+                    <details class="guide-section" data-guide-id="glosario">
+                        <summary>8. Glosario técnico</summary>
+                        <div class="guide-body">
+                            <ul>
+                                <li><strong>Yaw (Rumbo)</strong>: Ángulo de orientación del robot medido por el giróscopo MPU6050 (0° = +Y Frente, +90° = +X Derecha).</li>
+                                <li><strong>PWM</strong>: Modulación de ancho de pulso aplicada a los drivers DRV8833 (máximo 242/255 en avance continuo).</li>
+                                <li><strong>Odometría PCNT</strong>: Conteo por hardware de pulsos ópticos en las 4 ruedas para estimar desplazamiento.</li>
+                            </ul>
+                        </div>
+                    </details>
                 </div>
-                <div class="settings-field">
-                    <label for="setting-theme" class="settings-label">Tema Visual:</label>
-                    <select id="setting-theme" class="settings-select">
-                        <option value="cyber-dark">Cyber Dark (Neón / Predeterminado)</option>
-                        <option value="high-contrast">Alto Contraste</option>
-                        <option value="light-glass">Light Glass (Vidrio Claro)</option>
-                    </select>
-                    <span class="settings-help">Paleta de colores, contrastes y niveles de translucidez del vidrio.</span>
-                </div>
-                <div class="settings-field">
-                    <label for="setting-language" class="settings-label">Idioma / Language:</label>
-                    <select id="setting-language" class="settings-select">
-                        <option value="es">Español (Canónico)</option>
-                        <option value="en">English</option>
-                    </select>
-                    <span class="settings-help">Idioma para la interfaz y mensajes informativos.</span>
-                </div>
-                <div class="settings-field">
-                    <label for="setting-default-mode" class="settings-label">Modo de Espacio de Trabajo Inicial:</label>
-                    <select id="setting-default-mode" class="settings-select">
-                        <option value="tabs">Pestañas Clásicas</option>
-                        <option value="tiling">Mosaico Dividido</option>
-                        <option value="floating">Ventanas Libres</option>
-                    </select>
-                    <span class="settings-help">Disposición predeterminada al cargar la aplicación.</span>
+
+                <!-- PESTAÑA 3: ACERCA DE (CRÉDITOS, LOGOS INSTITUCIONALES, QR Y LICENCIA) -->
+                <div class="modal-tab-panel" id="modal-tab-acerca" role="tabpanel" aria-labelledby="modal-tab-btn-acerca" hidden>
+                    <div class="about-credits-card">
+                        <strong>Créditos del Proyecto</strong>
+                        <ul class="about-credits-list">
+                            <li><strong>Rubén Andrés Gómez Molina</strong> — Desarrollo de Firmware, HMI, Backend y Arquitectura del Sistema</li>
+                            <li><strong>Alejandro Tapia Muñoz</strong> — Desarrollo y Pruebas de Hardware</li>
+                            <li><strong>Dra. Rosa María López Salinas</strong> — Asesoría Académica y Dirección Científica</li>
+                        </ul>
+                    </div>
+
+                    <div class="about-institutional-banner" aria-label="Identificación institucional académica">
+                        <div class="about-logo-grid">
+                            <div class="about-logo-item">
+                                <svg width="44" height="44" viewBox="0 0 64 64" role="img" aria-label="Escudo TecNM">
+                                    <circle cx="32" cy="32" r="28" fill="#1b396a"/>
+                                    <circle cx="32" cy="32" r="18" fill="none" stroke="#ffffff" stroke-width="3"/>
+                                    <path d="M32 10v44M10 32h44" stroke="#ffffff" stroke-width="2.5"/>
+                                </svg>
+                                <span>TecNM</span>
+                            </div>
+                            <div class="about-logo-item">
+                                <svg width="44" height="44" viewBox="0 0 64 64" role="img" aria-label="Escudo ITESS">
+                                    <rect x="8" y="8" width="48" height="48" rx="8" fill="#0f766e"/>
+                                    <path d="M20 44L32 18l12 26H20z" fill="none" stroke="#ffffff" stroke-width="3"/>
+                                    <circle cx="32" cy="36" r="4" fill="#ffffff"/>
+                                </svg>
+                                <span>ITESS</span>
+                            </div>
+                            <div class="about-logo-item">
+                                <svg width="44" height="44" viewBox="0 0 64 64" role="img" aria-label="Escudo CENIDET">
+                                    <polygon points="32,6 58,20 58,44 32,58 6,44 6,20" fill="#1e293b"/>
+                                    <circle cx="32" cy="32" r="12" fill="none" stroke="#38bdf8" stroke-width="3"/>
+                                    <circle cx="32" cy="32" r="4" fill="#38bdf8"/>
+                                </svg>
+                                <span>CENIDET</span>
+                            </div>
+                        </div>
+                        <div class="about-legal-notice">
+                            Los escudos y logotipos de TecNM, ITESS y CENIDET son propiedad de sus respectivas instituciones y se muestran únicamente con fines de identificación académica.
+                        </div>
+                    </div>
+
+                    <div class="about-repo-row">
+                        <div>
+                            <div><strong>Repositorio Oficial y Documentación</strong></div>
+                            <div>
+                                <a id="about-github-link" href="https://github.com/RubenAndresGome/carroTest3-For-Esp32-s3-wroom" target="_blank" rel="noopener noreferrer">https://github.com/RubenAndresGome/carroTest3-For-Esp32-s3-wroom</a>
+                            </div>
+                            <div class="settings-help">Licencia de código abierto: <strong>Apache License 2.0</strong></div>
+                        </div>
+                        <div class="about-qr-box" title="Código QR hacia el repositorio GitHub">
+                            <svg class="about-qr-svg" width="72" height="72" viewBox="0 0 29 29" role="img" aria-label="Código QR del repositorio GitHub">
+                                <rect width="29" height="29" fill="#ffffff"/>
+                                <path fill="#000000" d="M2,2h7v7H2V2z M3,3v5h5V3H3z M4,4h3v3H4V4z M20,2h7v7h-7V2z M21,3v5h5V3H21z M22,4h3v3h-3V4z M2,20h7v7H2V20z M3,21v5h5v-5H3z M4,22h3v3H4V22z M11,2h2v2h-2V2z M15,2h2v3h-2V2z M11,6h3v2h-3V6z M16,7h2v2h-2V7z M2,11h3v2H2V11z M7,11h2v3H7V11z M11,11h7v7h-7V11z M13,13v3h3v-3H13z M20,11h3v2h-3V11z M25,11h2v3h-2V11z M2,15h2v3H2V15z M6,16h3v2H6V16z M20,15h2v3h-2V15z M24,16h3v2h-3V16z M11,20h3v2h-3V20z M16,20h2v3h-2V20z M20,20h5v5h-5V20z M21,21v3h3v-3H21z M11,24h2v3h-2V24z M15,25h3v2h-3V25z M26,24h1v3h-1V24z"/>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="settings-modal-footer">
@@ -90,3 +243,4 @@
             </div>
         </div>
     </div>
+

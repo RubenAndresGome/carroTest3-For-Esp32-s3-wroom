@@ -13,6 +13,8 @@ const RouteManager = {
     isRunning: false,
     routeStartedAt: 0,
     currentStepIndex: 0,
+    /** @type {number | null} */
+    stoppedAtIndex: null,
     waitingForMovement: false,
     moveTimeout: null,
     activeCommandId: null,
@@ -39,6 +41,7 @@ const RouteManager = {
         this._bindActionButtons();
         this._bindForkToolbar();
         RouteForksManager.loadFromStorage(this);
+        RouteAngleRose.init(this); RouteLibrary.init(this);
         this.updateLabels();
         this.actualizarRestriccionInputs();
     },
@@ -71,14 +74,35 @@ const RouteManager = {
         if (btnSaveName) btnSaveName.addEventListener('click', () => this.saveCurrentRouteName());
     },
 
+    _syncSegmentedModeButtons() {
+        const current = this.lockedMode || this.modeSelect?.value || 'rect';
+        document.querySelectorAll('.mode-seg-btn').forEach(elem => {
+            const btn = /** @type {HTMLButtonElement} */ (elem);
+            const active = btn.dataset.mode === current;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', String(active));
+            btn.disabled = Boolean(this.lockedMode);
+        });
+    },
+
     _bindModeAndAxisControls() {
         this.modeSelect.addEventListener('change', (e) => {
             const val = /** @type {HTMLSelectElement} */ (e.target).value;
             const isRect = val === 'rect' || val === 'RECTANGULAR_XY';
             if (this.axisDefault) { if (isRect) this.axisDefault.checked = true; else this.axisDefault.disabled = false; }
             this.actualizarRestriccionInputs(isRect);
+            this._syncSegmentedModeButtons();
             this.updateLabels();
             this.updatePreview();
+        });
+
+        document.querySelectorAll('.mode-seg-btn').forEach(elem => {
+            const btn = /** @type {HTMLButtonElement} */ (elem);
+            btn.addEventListener('click', () => {
+                if (this.lockedMode || !btn.dataset.mode) return;
+                this.modeSelect.value = btn.dataset.mode;
+                this.modeSelect.dispatchEvent(new Event('change'));
+            });
         });
 
         this.vectorialToggle.addEventListener('change', async () => {
@@ -92,7 +116,7 @@ const RouteManager = {
                 LogSystem.add(req ? 'WARN' : 'INFO', req ? 'Ejecución angular vectorial experimental habilitada.' : 'Ejecución angular vectorial deshabilitada.');
             } catch (err) {
                 this.vectorialToggle.checked = this.vectorialEnabled;
-                LogSystem.add('ERROR', err.message);
+                LogSystem.add('ERROR', humanizeError(err.message));
             } finally {
                 this.vectorialToggle.disabled = this.isRunning;
                 this.renderVectorialSafety();
@@ -109,8 +133,8 @@ const RouteManager = {
         const on = (id, evt, fn) => document.getElementById(id)?.addEventListener(evt, fn);
         on('route-form', 'submit', (e) => { e.preventDefault(); this.addStep(); });
         [['btn-route-start', () => this.start()], ['btn-route-preview', () => this.toggleCinema('card-plan-map')],
-         ['btn-route-pop', () => this.removeLastStep()], ['btn-route-stop', () => this.stopAndReset()],
-         ['btn-route-discard', () => this.stopAndReset()], ['btn-route-ockham', () => this.ockhamReturn()],
+         ['btn-route-pop', () => this.removeLastStep()], ['btn-route-stop', () => this.stopRoute()],
+         ['btn-route-discard', () => this.discardRoute()], ['btn-route-ockham', () => this.ockhamReturn()],
          ['btn-confirm-ockham', () => this.confirmOckhamReturn()], ['btn-cancel-ockham', () => this.cancelOckhamReturn()],
          ['btn-route-clear-memory', () => this.clearRobotMemory()]
         ].forEach(([id, fn]) => on(id, 'click', fn));
@@ -137,6 +161,7 @@ const RouteManager = {
         this.modeSelect.disabled = Boolean(this.lockedMode);
         this.modeSelect.title = this.lockedMode ? 'Vacía la ruta para cambiar el modo de entrada.' : '';
         if (this.lockedMode) this.modeSelect.value = this.lockedMode;
+        this._syncSegmentedModeButtons();
     },
 
     drawPlan() { RouteCharts.drawPlan(this); }, updateTelemetryMap(x, y, h) { RouteCharts.updateTelemetryMap(this, x, y, h); },
@@ -194,6 +219,7 @@ const RouteManager = {
 
     updateLabels() {
         this.activeMode().configureForm(this);
+        this._syncSegmentedModeButtons();
         this.drawPlan();
     },
 
@@ -260,16 +286,19 @@ const RouteManager = {
         RouteForksManager.updateBranchSelector(this);
         if (typeof LogSystem !== 'undefined') LogSystem.add('INFO', `Nombre de ruta activo: '${newName}'.`);
     },
-    updatePreview() { this.activeMode().updatePreview(this); },
+    updatePreview() { this.activeMode().updatePreview(this); RouteAngleRose.render(this); },
     addStep() {
-        if (this.isRunning) return LogSystem.add('WARN', 'Ruta en ejecución. Detén primero.');
+        if (this.isRunning) {
+            OperatorFeedback.show('route-form-alert', 'Ruta en ejecución. Detén primero.', 'warn');
+            return LogSystem.add('WARN', 'Ruta en ejecución. Detén primero.');
+        }
         const v1 = Number.parseFloat(this.input1.value), v2 = Number.parseFloat(this.input2.value);
         if (this.logicalSteps.length === 0) {
             this.currentOrigin = { x: state.telemetria.posX, y: state.telemetria.posY };
         }
         try {
             const mode = this.activeMode();
-            const step = mode.createLogicalStep(this, v1, v2);
+            const step = mode.createLogicalStep(this, v1, v2); step.inputValues = [v1, v2];
             if (this.logicalSteps.length === 0) this.clearTelemetryTrail();
             const qBefore = this.queue.length;
             mode.expandExecutionWaypoints(this, step);
@@ -278,12 +307,17 @@ const RouteManager = {
                 throw new Error('La ruta excedería el máximo de 256 pasos ejecutables.');
             }
             this.logicalSteps.push(step);
+            this.stoppedAtIndex = null;
+            OperatorFeedback.clear('route-form-alert');
+            OperatorFeedback.clear('route-start-alert');
             this.updateModeLock();
             LogSystem.add('INFO', step.execution.length
                 ? `Paso lógico agregado: ${step.description}`
                 : `Orientación visual agregada: ${step.description}; no se enviará movimiento.`);
         } catch (err) {
-            LogSystem.add('ERROR', err.message);
+            const msg = humanizeError(err.message);
+            OperatorFeedback.show('route-form-alert', msg, 'error');
+            LogSystem.add('ERROR', msg);
             return;
         }
         this.input1.value = ''; this.input2.value = ''; this.rectangularCeroAutomatico = null;
@@ -293,11 +327,20 @@ const RouteManager = {
     },
 
     removeLastStep() {
-        if (this.isRunning) return LogSystem.add('WARN', 'No se puede modificar una ruta en ejecución.');
-        if (this.logicalSteps.length === 0) return LogSystem.add('WARN', 'No hay pasos para deshacer.');
+        if (this.isRunning) {
+            OperatorFeedback.show('route-form-alert', 'No se puede modificar una ruta en ejecución.', 'warn');
+            return LogSystem.add('WARN', 'No se puede modificar una ruta en ejecución.');
+        }
+        if (this.logicalSteps.length === 0) {
+            OperatorFeedback.show('route-form-alert', 'No hay pasos para deshacer.', 'warn');
+            return LogSystem.add('WARN', 'No hay pasos para deshacer.');
+        }
         const removed = this.logicalSteps.pop();
         this.queue = this.queue.filter(wp => wp.logicalStepId !== removed.id);
         this.currentStepIndex = 0;
+        this.stoppedAtIndex = null;
+        OperatorFeedback.clear('route-form-alert');
+        OperatorFeedback.clear('route-start-alert');
         if (this.logicalSteps.length === 0) {
             this.currentOrigin = { x: state.telemetria.posX, y: state.telemetria.posY };
         }
@@ -322,14 +365,15 @@ const RouteManager = {
     updateListUI() {
         if (this.queue.length === 0) {
             const msg = this.logicalSteps.length ? 'Sólo hay orientaciones visuales; no existe desplazamiento para enviar.' : 'La ruta está vacía. Agrega puntos arriba.';
-            this.list.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted)">${msg}</td></tr>`;
+            this.list.innerHTML = `<tr><td colspan="5" class="text-muted">${msg}</td></tr>`;
             return;
         }
         this.list.innerHTML = this.queue.map((wp, i) => {
             const isPast = i < this.currentStepIndex, isCur = i === this.currentStepIndex && this.isRunning;
+            const isStopped = i === this.stoppedAtIndex && !this.isRunning;
             const rowClass = isPast ? 'route-step-done' : (isCur ? 'route-step-current' : '');
-            const status = isPast ? 'Completado' : (isCur ? 'En curso' : 'Pendiente');
-            const statusClass = isPast ? 'done' : (isCur ? 'current' : 'pending');
+            const status = isPast ? 'Completado' : (isCur ? 'En curso' : (isStopped ? 'Detenido' : 'Pendiente'));
+            const statusClass = isPast ? 'done' : (isCur ? 'current' : (isStopped ? 'stopped' : 'pending'));
             return `<tr class="${rowClass}"><td>${i + 1}</td><td>${wp.desc}</td><td>${wp.x.toFixed(2)}</td><td>${wp.y.toFixed(2)}</td><td><span class="route-status ${statusClass}">${status}</span></td></tr>`;
         }).join('');
     },
@@ -353,14 +397,15 @@ const RouteManager = {
 
         if (mission.blocked && mission.error) {
             const interrupted = mission.error === 'robot_restarted_mid_mission';
+            const humanized = humanizeError(mission.error);
             const safety = document.getElementById('route-mission-safety');
             if (safety) {
                 safety.textContent = interrupted
-                    ? `MISIÓN INTERRUMPIDA en el paso ${this.currentStepIndex + 1}. El ESP32 se reinició: el paso no será repetido. Borra la misión, recentra pose y decide una ruta nueva.`
-                    : `Misión bloqueada: ${mission.error}`;
+                    ? `MISIÓN INTERRUMPIDA en el paso ${this.currentStepIndex + 1}. ${humanized}`
+                    : `Misión bloqueada: ${humanized}`;
                 safety.style.color = 'var(--danger)';
             }
-            return this.failRoute(interrupted ? 'robot_restarted_mid_mission: repetición automática bloqueada' : mission.error);
+            return this.failRoute(interrupted ? `${humanized} (repetición automática bloqueada)` : humanized);
         }
 
         RouteOckhamCockpit.onMissionUpdate(this, mission);
@@ -383,6 +428,8 @@ const RouteManager = {
 
     onFsmIdle() {},
     failRoute(reason) { return RouteLifecycle.failRoute(this, reason); },
+    stopRoute() { return RouteLifecycle.stopRoute(this); },
+    discardRoute() { return RouteLifecycle.discardRoute(this); },
     stopAndReset() { return RouteLifecycle.stopAndReset(this); },
     clearRobotMemory() { return RouteLifecycle.clearRobotMemory(this); },
     async ockhamReturn() { await RouteOckhamCockpit.ockhamReturn(this); },

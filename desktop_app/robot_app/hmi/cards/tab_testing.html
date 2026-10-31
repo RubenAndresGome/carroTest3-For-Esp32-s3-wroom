@@ -1,7 +1,7 @@
 <div class="tab-content" id="tab-testing" role="tabpanel" aria-labelledby="tab-control-testing">
         <div class="testing-grid">
             <aside class="col-controls">
-                <div class="card">
+                <div class="card" data-debug-only>
                     <div class="card-title">PWM Manual</div>
                     <div class="pwm-group">
                         <div class="pwm-label"><span>Motor Izquierdo</span><span class="pwm-val" id="pwm-left-val">0</span></div>
@@ -21,20 +21,21 @@
                             <button class="dir-btn" data-motor="right" data-dir="rev">REV</button>
                         </div>
                     </div>
-                    <button class="btn btn-accent btn-sm" id="btn-apply-pwm" style="width:100%">Aplicar PWM</button>
-                    <div class="cmd-input-group" style="margin-top:8px">
+                    <button class="btn btn-accent btn-sm btn-block" id="btn-apply-pwm">Aplicar PWM</button>
+                    <div class="cmd-input-group mt-2">
                         <label for="test-duration">Duraci&oacute;n (ms):</label>
                         <input type="number" id="test-duration" value="500" min="100" max="1500" step="100">
                     </div>
                 </div>
                 <div class="card">
                     <div class="card-title">Control Movimiento S3</div>
+                    <p id="cmd-param-hint" class="cmd-hint-text">Distancia para Avanzar/Reversa (5–200 cm) · Ángulo para Izquierda/Derecha (5–360°).</p>
                     <div class="cmd-input-row">
-                        <div class="cmd-input-group"><label for="cmd-dist">Dist (cm)</label><input type="number" id="cmd-dist" value="50" min="1" max="999"></div>
-                        <div class="cmd-input-group"><label for="cmd-angle">Ang (deg)</label><input type="number" id="cmd-angle" value="90" min="1" max="360"></div>
+                        <div class="cmd-input-group"><label for="cmd-dist">Dist (cm)</label><input type="number" id="cmd-dist" value="50" min="5" max="200" aria-describedby="cmd-param-hint"></div>
+                        <div class="cmd-input-group"><label for="cmd-angle">Ang (deg)</label><input type="number" id="cmd-angle" value="90" min="5" max="360" aria-describedby="cmd-param-hint"></div>
                     </div>
-                    <div id="testing-cmd-alert" class="inline-alert" role="alert" hidden></div>
-                    <div class="cmd-input-group" style="margin:8px 0">
+                    <div id="testing-cmd-alert" class="operator-alert inline-alert" role="alert" aria-live="polite" hidden></div>
+                    <div class="cmd-input-group my-2">
                         <label for="turn-mode">Método de giro (solo Testing)</label>
                         <select id="turn-mode">
                             <option value="auto">Automático — pivot continuo</option>
@@ -134,18 +135,18 @@
                         <div class="telem-item"><div class="telem-label">Angulo (Z)</div><div class="telem-value" id="telem-angle">0.0°</div></div>
                         <div class="telem-item"><div class="telem-label">Enc Izq</div><div class="telem-value" id="telem-enc-l">N/A</div></div>
                         <div class="telem-item"><div class="telem-label">Enc Der</div><div class="telem-value" id="telem-enc-r">N/A</div></div>
-                        <div class="telem-item"><div class="telem-label">PWM Izq</div><div class="telem-value" id="telem-pwm-l" style="color:var(--accent)">N/A</div></div>
-                        <div class="telem-item"><div class="telem-label">PWM Der</div><div class="telem-value" id="telem-pwm-r" style="color:var(--accent)">N/A</div></div>
-                        <div class="telem-item"><div class="telem-label">Orient Rads</div><div class="telem-value" id="telem-orient">0.00 rad</div></div>
-                        <div class="telem-item"><div class="telem-label">Clientes</div><div class="telem-value" id="telem-clients">N/A</div></div>
-                        <div class="telem-item"><div class="telem-label">Control de giro</div><div class="telem-value" id="telem-turn-attempt">0 / 1</div></div>
-                        <div class="telem-item"><div class="telem-label">Pausa segura</div><div class="telem-value" id="telem-retry-pause">0 ms</div></div>
-                        <div class="telem-item full"><div class="telem-label">Heading / yaw MPU continuo</div><div class="telem-value" id="telem-yaw-model">0.0° / 0.0°</div></div>
-                        <div class="telem-item full"><div class="telem-label">Control angular</div><div class="telem-value" id="telem-turn-control">OFF</div></div>
-                        <div class="telem-item full"><div class="telem-label">Stall FL/FR/BL/BR</div><div class="telem-value" id="telem-stall">0 / 0 / 0 / 0 ms</div></div>
-                        <div class="telem-item full"><div class="telem-label">Interlock L/R</div><div class="telem-value" id="telem-interlock">OFF / OFF</div></div>
-                        <div class="telem-item full"><div class="telem-label">Salud FL/FR/BL/BR · política de giro</div><div class="telem-value" id="telem-cal-pulse">unknown/unknown/unknown/unknown · pivot continuo</div></div>
-                        <div class="telem-item full"><div class="telem-label">Control síncrono · Web Core 0 / Super-ciclo Core 1</div><div class="telem-value" id="telem-rtos">sin muestras</div></div>
+                        <div class="telem-item"><div class="telem-label">PWM Izq</div><div class="telem-value text-accent" id="telem-pwm-l">N/A</div></div>
+                        <div class="telem-item"><div class="telem-label">PWM Der</div><div class="telem-value text-accent" id="telem-pwm-r">N/A</div></div>
+                        <div class="telem-item" data-debug-only><div class="telem-label">Orient Rads</div><div class="telem-value" id="telem-orient">0.00 rad</div></div>
+                        <div class="telem-item" data-debug-only><div class="telem-label">Clientes</div><div class="telem-value" id="telem-clients">N/A</div></div>
+                        <div class="telem-item" data-debug-only><div class="telem-label">Control de giro</div><div class="telem-value" id="telem-turn-attempt">0 / 1</div></div>
+                        <div class="telem-item" data-debug-only><div class="telem-label">Pausa segura</div><div class="telem-value" id="telem-retry-pause">0 ms</div></div>
+                        <div class="telem-item full" data-debug-only><div class="telem-label">Heading / yaw MPU continuo</div><div class="telem-value" id="telem-yaw-model">0.0° / 0.0°</div></div>
+                        <div class="telem-item full" data-debug-only><div class="telem-label">Control angular</div><div class="telem-value" id="telem-turn-control">OFF</div></div>
+                        <div class="telem-item full" data-debug-only><div class="telem-label">Stall FL/FR/BL/BR</div><div class="telem-value" id="telem-stall">0 / 0 / 0 / 0 ms</div></div>
+                        <div class="telem-item full" data-debug-only><div class="telem-label">Interlock L/R</div><div class="telem-value" id="telem-interlock">OFF / OFF</div></div>
+                        <div class="telem-item full" data-debug-only><div class="telem-label">Salud FL/FR/BL/BR · política de giro</div><div class="telem-value" id="telem-cal-pulse">unknown/unknown/unknown/unknown · pivot continuo</div></div>
+                        <div class="telem-item full" data-debug-only><div class="telem-label">Control síncrono · Web Core 0 / Super-ciclo Core 1</div><div class="telem-value" id="telem-rtos">sin muestras</div></div>
                         <div class="telem-item full"><div class="telem-label">Último resultado / causa</div><div class="telem-value" id="telem-last-stop">ninguno</div></div>
                     </div>
                 </div>

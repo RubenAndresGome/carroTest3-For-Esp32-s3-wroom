@@ -142,7 +142,7 @@ const HMI_FORK_REGISTRY = {
         this._registry.set(id, {
             id,
             name: definition.name || id,
-            icon: definition.icon || 'Fork',
+            icon: definition.icon || '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg>',
             isSingleton: Boolean(definition.isSingleton),
             factory: definition.factory || null,
             onDestroy: definition.onDestroy || null,
@@ -190,7 +190,8 @@ const HMI_FORK_REGISTRY = {
             const existingWin = WindowManager.windows.get(`tab-${id}`) || WindowManager.windows.get(id);
             if (existingWin) {
                 if (existingWin.isMinimized) WindowManager.restoreWindow(existingWin.id);
-                WindowManager.bringToFront(existingWin.id);
+                if (WindowManager.mode === 'single') WindowManager.focusSingle(existingWin.id);
+                else WindowManager.bringToFront(existingWin.id);
                 if (WindowManager.mode === 'tabs') {
                     existingWin.el.style.display = 'block';
                 }
@@ -210,20 +211,21 @@ const HMI_FORK_REGISTRY = {
     }
 };
 
-// Pre-registro de módulos canónicos
+// Pre-registro de módulos canónicos con iconografía SVG (A8: sin duplicar palabras en etiquetas)
 HMI_FORK_REGISTRY.register('hud_boost', {
     name: 'HUD Cinético & Boost (DRV8833)',
-    icon: 'Boost',
+    icon: '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
     isSingleton: true,
     metadata: {
         category: 'telemetry',
+        debugOnly: true,
         description: 'Monitoreo de ráfaga térmica y reparto diferencial de par DRV8833'
     }
 });
 
 HMI_FORK_REGISTRY.register('route_fork', {
     name: 'Bifurcación de Ruta (A/B)',
-    icon: 'Fork',
+    icon: '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg>',
     isSingleton: false,
     metadata: {
         category: 'routes',
@@ -234,10 +236,11 @@ HMI_FORK_REGISTRY.register('route_fork', {
 
 HMI_FORK_REGISTRY.register('telem_inspect', {
     name: 'Consola de Telemetría Extendida',
-    icon: 'Telemetría',
+    icon: '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
     isSingleton: false,
     metadata: {
         category: 'diagnostics',
+        debugOnly: true,
         description: 'Visualizador de señales de bajo nivel y PCNT'
     },
     factory: _createTelemInspectWidget

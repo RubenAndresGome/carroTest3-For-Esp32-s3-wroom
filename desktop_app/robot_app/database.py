@@ -146,6 +146,29 @@ class Database:
                 value TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS routines (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                actions_json TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                source TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS routine_runs (
+                id TEXT PRIMARY KEY,
+                routine_id TEXT,
+                session_id INTEGER,
+                mission_id TEXT,
+                direction TEXT NOT NULL,
+                strategy TEXT,
+                start_pose_json TEXT,
+                planned_poses_json TEXT,
+                end_pose_json TEXT,
+                status TEXT NOT NULL,
+                started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                finished_at TEXT
+            )""")
         finally:
             connection.close()
 
@@ -592,4 +615,111 @@ class Database:
         with self.transaction() as connection:
             cursor = connection.execute("DELETE FROM calibration_surfaces WHERE id=?", (surface_id,))
             return cursor.rowcount == 1
+
+    def save_routine(
+        self, routine_id: str, name: str, actions: list[dict[str, Any]], source: str = "manual"
+    ) -> dict[str, Any]:
+        with self.transaction() as connection:
+            connection.execute(
+                """INSERT INTO routines(id, name, actions_json, schema_version, source, created_at, updated_at)
+                   VALUES(?, ?, ?, 1, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                   ON CONFLICT(id) DO UPDATE SET
+                       name=excluded.name,
+                       actions_json=excluded.actions_json,
+                       source=excluded.source,
+                       updated_at=CURRENT_TIMESTAMP""",
+                (routine_id, name, json.dumps(actions, ensure_ascii=False), source),
+            )
+        routine = self.get_routine(routine_id)
+        if routine is None:
+            raise RuntimeError(f"Fallo al recuperar rutina guardada {routine_id}")
+        return routine
+
+    def get_routine(self, routine_id: str) -> dict[str, Any] | None:
+        with contextlib.closing(self.connect()) as connection:
+            row = connection.execute("SELECT * FROM routines WHERE id=?", (routine_id,)).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        item["actions"] = json.loads(item.pop("actions_json"))
+        return item
+
+    def list_routines(self) -> list[dict[str, Any]]:
+        with contextlib.closing(self.connect()) as connection:
+            rows = connection.execute("SELECT * FROM routines ORDER BY updated_at DESC").fetchall()
+        result = []
+        for r in rows:
+            item = dict(r)
+            item["actions"] = json.loads(item.pop("actions_json"))
+            result.append(item)
+        return result
+
+    def delete_routine(self, routine_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute("DELETE FROM routines WHERE id=?", (routine_id,))
+            return cursor.rowcount == 1
+
+    def save_routine_run(
+        self,
+        run_id: str,
+        routine_id: str | None,
+        session_id: int | None,
+        mission_id: str,
+        direction: str,
+        strategy: str,
+        start_pose: dict[str, Any],
+        planned_poses: list[dict[str, Any]],
+        status: str = "running",
+    ) -> dict[str, Any]:
+        with self.transaction() as connection:
+            connection.execute(
+                """INSERT INTO routine_runs(id, routine_id, session_id, mission_id, direction,
+                                           strategy, start_pose_json, planned_poses_json, status,
+                                           started_at)
+                   VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                (
+                    run_id,
+                    routine_id,
+                    session_id,
+                    mission_id,
+                    direction,
+                    strategy,
+                    json.dumps(start_pose, ensure_ascii=False),
+                    json.dumps(planned_poses, ensure_ascii=False),
+                    status,
+                ),
+            )
+        return {"id": run_id, "routine_id": routine_id, "status": status}
+
+    def finish_routine_run(
+        self, run_id: str, end_pose: dict[str, Any] | None = None, status: str = "completed"
+    ) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE routine_runs
+                   SET status=?, end_pose_json=?, finished_at=CURRENT_TIMESTAMP
+                   WHERE id=?""",
+                (status, json.dumps(end_pose) if end_pose is not None else None, run_id),
+            )
+            return cursor.rowcount == 1
+
+    def get_last_routine_run(self, routine_id: str | None = None) -> dict[str, Any] | None:
+        with contextlib.closing(self.connect()) as connection:
+            if routine_id:
+                row = connection.execute(
+                    "SELECT * FROM routine_runs WHERE routine_id=? ORDER BY started_at DESC LIMIT 1",
+                    (routine_id,),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    "SELECT * FROM routine_runs ORDER BY started_at DESC LIMIT 1"
+                ).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        for key in ("start_pose_json", "planned_poses_json", "end_pose_json"):
+            target = key.removesuffix("_json")
+            val = item.pop(key, None)
+            item[target] = json.loads(val) if val else None
+        return item
 

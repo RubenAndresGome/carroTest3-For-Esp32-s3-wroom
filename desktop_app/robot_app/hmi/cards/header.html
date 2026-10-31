@@ -16,8 +16,8 @@
             <span class="demo-badge" id="demo-badge">DEMO</span>
         </div>
         <div class="header-actions">
-            <button id="ws-btn-add-fork" class="btn-ws-mode" title="Otras ventanas, submódulos y alertas" aria-haspopup="dialog" aria-expanded="false" aria-label="Otras ventanas, submódulos y alertas"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span class="ws-label">···</span></button>
-            <button type="button" class="btn btn-warning btn-sm" id="btn-reset-hmi" title="Restablecer FSM de interfaz y purgar memoria de misión sin cortar Wi-Fi"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 9v4"/></svg><span class="btn-text">Reset FSM</span></button>
+            <button id="ws-btn-add-fork" class="btn-ws-mode ws-btn-dots" title="Otras ventanas, submódulos y alertas" aria-haspopup="dialog" aria-expanded="false" aria-label="Otras ventanas, submódulos y alertas"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span class="ws-label">···</span></button>
+            <button type="button" class="btn btn-warning btn-sm" id="btn-reset-hmi" title="Reset FSM: Limpiar vista HMI, borrar misión en curso y desbloquear pestañas; si el robot está en FALLO o ESTOP, también ofrece rearmar"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 9v4"/></svg><span class="btn-text">Limpiar vista HMI</span></button>
             <div class="header-recovery-group" role="group" aria-label="Recuperación y reinicio del robot">
                 <button type="button" class="btn btn-rearm" id="btn-clear-fault" hidden disabled title="Rearmar el robot tras fallo o parada de emergencia"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v6h6"/><path d="M12 8v5M12 17h.01"/></svg><span id="btn-clear-fault-label" class="btn-text">Rearmar sistema</span></button>
                 <button type="button" class="btn btn-sm" id="btn-reboot-robot" title="Reiniciar Robot ESP32 con corte preventivo PWM=0"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg><span class="btn-text">Reiniciar Robot</span></button>
@@ -27,7 +27,7 @@
             <button class="btn btn-estop" id="btn-estop" aria-label="Parada de emergencia"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>E-STOP</button>
             <div id="estop-status" class="estop-status" role="status" aria-live="assertive" hidden></div>
         </div>
-        <div id="glass-fork-menu" class="glass-fork-menu" role="dialog" aria-label="Otras ventanas, submódulos y alertas" style="display: none;">
+        <div id="glass-fork-menu" class="glass-fork-menu" role="dialog" aria-label="Otras ventanas, submódulos y alertas">
             <div class="glass-fork-menu-header">
                 <span>Otras ventanas, submódulos y alertas</span>
                 <button type="button" class="win-btn win-btn-close" id="btn-close-fork-menu" aria-label="Cerrar catálogo">✕</button>

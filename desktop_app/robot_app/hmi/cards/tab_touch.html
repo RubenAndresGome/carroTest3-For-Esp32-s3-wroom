@@ -1,88 +1,218 @@
 <div class="tab-content" id="tab-touch" role="tabpanel" aria-labelledby="tab-control-touch">
-        <div class="touch-layout">
-            <div class="touch-joystick-area">
-                <div class="joystick-wrapper" id="joystick-wrapper">
-                    <svg class="joystick-svg" viewBox="0 0 300 300" id="joystick-svg">
-                        <circle cx="150" cy="150" r="138" class="joy-donut-shell"/>
-                        <circle cx="150" cy="150" r="118" class="joy-track"/>
-                        <circle cx="150" cy="150" r="130" class="joy-boundary"/>
-                        <circle cx="150" cy="150" r="130" class="joy-boundary-active"/>
-                        <line x1="150" y1="20" x2="150" y2="280" class="joy-crosshair"/>
-                        <line x1="20" y1="150" x2="280" y2="150" class="joy-crosshair"/>
-                        <circle cx="150" cy="150" r="78" class="joy-donut-hole"/>
-                        <circle cx="150" cy="150" r="22" class="joy-deadzone"/>
-                        <circle cx="150" cy="150" r="118" class="joy-speed-arc" stroke-dasharray="0 742" stroke-dashoffset="0" transform="rotate(-90 150 150)" id="joy-speed-arc"/>
-                        <line x1="150" y1="150" x2="150" y2="150" class="joy-dir-line" id="joy-dir-line"/>
-                        <circle cx="150" cy="150" r="14" class="joy-thumb-outer"/>
-                        <circle cx="150" cy="150" r="5" class="joy-thumb" id="joy-thumb"/>
-                        <circle cx="150" cy="150" r="3" class="joy-center-dot"/>
-                        <text x="150" y="19" text-anchor="middle" class="joy-label">AVANCE</text>
-                        <text x="150" y="287" text-anchor="middle" class="joy-label">REVERSA</text>
-                        <text x="13" y="154" text-anchor="middle" class="joy-label" transform="rotate(-90 13 154)">IZQ.</text>
-                        <text x="287" y="154" text-anchor="middle" class="joy-label" transform="rotate(90 287 154)">DER.</text>
-                        <text x="150" y="111" text-anchor="middle" class="donut-kicker">ÁNGULO ACTUAL Z</text>
-                        <text x="150" y="137" text-anchor="middle" class="donut-value" id="touch-angle-value">0.0°</text>
-                        <text x="150" y="170" text-anchor="middle" class="donut-kicker">VELOCIDAD DETECTADA</text>
-                        <text x="150" y="195" text-anchor="middle" class="donut-value" id="touch-speed-value">--</text>
-                        <text x="185" y="195" class="donut-unit">cm/s</text>
-                        <text x="150" y="216" text-anchor="middle" class="donut-direction" id="joy-dir-val">EN REPOSO</text>
-                    </svg>
-                </div>
+        <div class="touch-submode-header">
+            <div class="segmented-control" role="radiogroup" aria-label="Submodo de Control Touch" id="touch-submode-selector">
+                <button type="button" role="radio" aria-checked="true" id="touch-submode-free" class="segmented-btn active" data-submode="free">
+                    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m-10-10h4m12 0h4"/></svg>
+                    Control Continuo Libre
+                </button>
+                <button type="button" role="radio" aria-checked="false" id="touch-submode-routine" class="segmented-btn" data-submode="routine">
+                    <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h7"/><path d="M17 15l4 3-4 3"/></svg>
+                    Rutinas Programadas
+                </button>
             </div>
-            <div class="touch-side">
-                <div class="card">
-                    <div class="card-title">Salida Motores Actual</div>
-                    <svg class="motor-bars-svg" viewBox="0 0 220 240" id="motor-bars">
-                        <rect x="25" y="20" width="70" height="200" rx="4" class="bar-bg"/>
-                        <rect x="125" y="20" width="70" height="200" rx="4" class="bar-bg"/>
-                        <line x1="25" y1="120" x2="95" y2="120" class="bar-center-line"/>
-                        <line x1="125" y1="120" x2="195" y2="120" class="bar-center-line"/>
-                        <rect id="bar-left-fill" x="27" y="120" width="66" height="0" rx="3" class="bar-fill-fwd"/>
-                        <rect id="bar-right-fill" x="127" y="120" width="66" height="0" rx="3" class="bar-fill-fwd"/>
-                        <text x="60" y="14" text-anchor="middle" class="bar-label">IZQ</text>
-                        <text x="160" y="14" text-anchor="middle" class="bar-label">DER</text>
-                        <text id="bar-left-val" x="60" y="130" text-anchor="middle" class="bar-value">0</text>
-                        <text id="bar-right-val" x="160" y="130" text-anchor="middle" class="bar-value">0</text>
-                        <text id="bar-left-dir" x="60" y="235" text-anchor="middle" class="bar-dir-label">stop</text>
-                        <text id="bar-right-dir" x="160" y="235" text-anchor="middle" class="bar-dir-label">stop</text>
-                        <text x="10" y="26" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">+230</text>
-                        <text x="10" y="123" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">0</text>
-                        <text x="14" y="224" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">-230</text>
-                    </svg>
-                </div>
-                <div class="card">
-                    <div class="card-title">Encoder Data (Live)</div>
-                    <div class="encoder-list stale" id="encoder-live-list">
-                        <div class="encoder-row" id="encoder-row-fl" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Sup. Izq.</div><div class="encoder-pulses" id="encoder-pulses-fl">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-fl">-- <small>cm/s</small></div></div>
-                        <div class="encoder-row" id="encoder-row-fr" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Sup. Der.</div><div class="encoder-pulses" id="encoder-pulses-fr">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-fr">-- <small>cm/s</small></div></div>
-                        <div class="encoder-row" id="encoder-row-bl" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Inf. Izq.</div><div class="encoder-pulses" id="encoder-pulses-bl">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-bl">-- <small>cm/s</small></div></div>
-                        <div class="encoder-row" id="encoder-row-br" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Inf. Der.</div><div class="encoder-pulses" id="encoder-pulses-br">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-br">-- <small>cm/s</small></div></div>
+            <div class="touch-capability blocked" id="touch-capability" role="status" aria-live="polite">Esperando telemetría: Touch requiere manual_drive_v1.</div>
+        </div>
+
+        <!-- SUBMODO 1: CONTROL CONTINUO LIBRE (JOYSTICK) -->
+        <div id="touch-free-panel" class="touch-panel active">
+            <div class="touch-layout">
+                <div class="touch-joystick-area">
+                    <div class="joystick-wrapper" id="joystick-wrapper">
+                        <svg class="joystick-svg" viewBox="0 0 300 300" id="joystick-svg">
+                            <circle cx="150" cy="150" r="138" class="joy-donut-shell"/>
+                            <circle cx="150" cy="150" r="118" class="joy-track"/>
+                            <circle cx="150" cy="150" r="130" class="joy-boundary"/>
+                            <circle cx="150" cy="150" r="130" class="joy-boundary-active"/>
+                            <line x1="150" y1="20" x2="150" y2="280" class="joy-crosshair"/>
+                            <line x1="20" y1="150" x2="280" y2="150" class="joy-crosshair"/>
+                            <circle cx="150" cy="150" r="78" class="joy-donut-hole"/>
+                            <circle cx="150" cy="150" r="22" class="joy-deadzone"/>
+                            <circle cx="150" cy="150" r="118" class="joy-speed-arc" stroke-dasharray="0 742" stroke-dashoffset="0" transform="rotate(-90 150 150)" id="joy-speed-arc"/>
+                            <line x1="150" y1="150" x2="150" y2="150" class="joy-dir-line" id="joy-dir-line"/>
+                            <circle cx="150" cy="150" r="14" class="joy-thumb-outer"/>
+                            <circle cx="150" cy="150" r="5" class="joy-thumb" id="joy-thumb"/>
+                            <circle cx="150" cy="150" r="3" class="joy-center-dot"/>
+                            <text x="150" y="19" text-anchor="middle" class="joy-label">AVANCE</text>
+                            <text x="150" y="287" text-anchor="middle" class="joy-label">REVERSA</text>
+                            <text x="13" y="154" text-anchor="middle" class="joy-label" transform="rotate(-90 13 154)">IZQ.</text>
+                            <text x="287" y="154" text-anchor="middle" class="joy-label" transform="rotate(90 287 154)">DER.</text>
+                            <text x="150" y="111" text-anchor="middle" class="donut-kicker">ÁNGULO ACTUAL Z</text>
+                            <text x="150" y="137" text-anchor="middle" class="donut-value" id="touch-angle-value">0.0°</text>
+                            <text x="150" y="170" text-anchor="middle" class="donut-kicker">VELOCIDAD DETECTADA</text>
+                            <text x="150" y="195" text-anchor="middle" class="donut-value" id="touch-speed-value">--</text>
+                            <text x="185" y="195" class="donut-unit">cm/s</text>
+                            <text x="150" y="216" text-anchor="middle" class="donut-direction" id="joy-dir-val">EN REPOSO</text>
+                        </svg>
                     </div>
                 </div>
-                <div class="joy-info">
-                    <div class="joy-info-item"><div class="joy-info-label">Orden táctil</div><div class="joy-info-value" id="joy-speed-val">0%</div></div>
-                    <div class="joy-info-item"><div class="joy-info-label">Estado</div><div class="joy-info-value" id="touch-live-state">IDLE</div></div>
+                <div class="touch-side">
+                    <div class="card">
+                        <div class="card-title">Salida Motores Actual</div>
+                        <svg class="motor-bars-svg" viewBox="0 0 220 240" id="motor-bars">
+                            <rect x="25" y="20" width="70" height="200" rx="4" class="bar-bg"/>
+                            <rect x="125" y="20" width="70" height="200" rx="4" class="bar-bg"/>
+                            <line x1="25" y1="120" x2="95" y2="120" class="bar-center-line"/>
+                            <line x1="125" y1="120" x2="195" y2="120" class="bar-center-line"/>
+                            <rect id="bar-left-fill" x="27" y="120" width="66" height="0" rx="3" class="bar-fill-fwd"/>
+                            <rect id="bar-right-fill" x="127" y="120" width="66" height="0" rx="3" class="bar-fill-fwd"/>
+                            <text x="60" y="14" text-anchor="middle" class="bar-label">IZQ</text>
+                            <text x="160" y="14" text-anchor="middle" class="bar-label">DER</text>
+                            <text id="bar-left-val" x="60" y="130" text-anchor="middle" class="bar-value">0</text>
+                            <text id="bar-right-val" x="160" y="130" text-anchor="middle" class="bar-value">0</text>
+                            <text id="bar-left-dir" x="60" y="235" text-anchor="middle" class="bar-dir-label">stop</text>
+                            <text id="bar-right-dir" x="160" y="235" text-anchor="middle" class="bar-dir-label">stop</text>
+                            <text x="10" y="26" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">+230</text>
+                            <text x="10" y="123" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">0</text>
+                            <text x="14" y="224" font-size="7" fill="var(--text-muted)" font-family="var(--font-mono)">-230</text>
+                        </svg>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Encoder Data (Live)</div>
+                        <div class="encoder-list stale" id="encoder-live-list">
+                            <div class="encoder-row" id="encoder-row-fl" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Sup. Izq.</div><div class="encoder-pulses" id="encoder-pulses-fl">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-fl">-- <small>cm/s</small></div></div>
+                            <div class="encoder-row" id="encoder-row-fr" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Sup. Der.</div><div class="encoder-pulses" id="encoder-pulses-fr">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-fr">-- <small>cm/s</small></div></div>
+                            <div class="encoder-row" id="encoder-row-bl" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Inf. Izq.</div><div class="encoder-pulses" id="encoder-pulses-bl">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-bl">-- <small>cm/s</small></div></div>
+                            <div class="encoder-row" id="encoder-row-br" data-dir="stop"><div class="encoder-wheel"><span class="encoder-arrow">↻</span></div><div><div class="encoder-name">Inf. Der.</div><div class="encoder-pulses" id="encoder-pulses-br">0 pulsos</div></div><div class="encoder-speed" id="encoder-speed-br">-- <small>cm/s</small></div></div>
+                        </div>
+                    </div>
+                    <div class="joy-info">
+                        <div class="joy-info-item"><div class="joy-info-label">Orden táctil</div><div class="joy-info-value" id="joy-speed-val">0%</div></div>
+                        <div class="joy-info-item"><div class="joy-info-label">Estado</div><div class="joy-info-value" id="touch-live-state">IDLE</div></div>
+                    </div>
                 </div>
-                <div class="touch-capability blocked" id="touch-capability" role="status" aria-live="polite">Esperando telemetría: Touch requiere manual_drive_v1.</div>
             </div>
         </div>
-        <div class="card touch-recording-card" id="touch-recording-card">
-            <div class="card-title">Grabación autónoma desde encoders</div>
-            <p id="touch-recording-status" class="touch-capability" role="status" aria-live="polite">Mueve el joystick para grabar una ruta manual. Al soltar se generará la vista previa.</p>
-            <div class="route-legend" aria-label="Leyenda de grabación Touch"><span class="measured"><i aria-hidden="true"></i>Traza medida</span><span class="simplified"><i aria-hidden="true"></i>Vector simplificado</span><span class="orthogonal"><i aria-hidden="true"></i>Regreso X→Y</span></div>
-            <canvas id="touch-recording-preview" class="touch-recording-preview" width="960" height="220" aria-label="Vista previa de la ruta Touch grabada"></canvas>
-            <div class="route-metrics" aria-label="Métricas de la grabación Touch">
-                <div class="route-metric"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="touch-recording-samples">0</strong></div>
-                <div class="route-metric"><span class="route-metric-label">Vectores</span><strong class="route-metric-value" id="touch-recording-vectors">0</strong></div>
-                <div class="route-metric"><span class="route-metric-label">Pasos X→Y</span><strong class="route-metric-value" id="touch-recording-segments">0 / 256</strong></div>
-                <div class="route-metric"><span class="route-metric-label">Tolerancia RDP</span><strong class="route-metric-value" id="touch-recording-tolerance">—</strong></div>
+
+        <!-- SUBMODO 2: RUTINAS PROGRAMADAS (JOG & BUILDER) -->
+        <div id="touch-routine-panel" class="touch-panel" hidden>
+            <div class="routine-grid">
+                <!-- COLUMNA IZQUIERDA: BOTONERA JOG ("ENSEÑAR") -->
+                <div class="card routine-jog-card">
+                    <div class="card-title">Botonera Jog (Enseñar Acción)</div>
+                    <p class="card-subtitle">Ejecuta maniobras discretas en lazo cerrado IMU+PCNT y agrégalas a la secuencia.</p>
+
+                    <div class="routine-plan-only-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="touch-routine-plan-only">
+                            <span>Solo planificar (sin mover robot físicamente)</span>
+                        </label>
+                    </div>
+
+                    <!-- GIROS -->
+                    <div class="jog-section">
+                        <div class="jog-section-title">Giro Relativo al Chasis (Yaw)</div>
+                        <div class="jog-btn-grid jog-turns">
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="-90">↺ -90°</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="-45">↺ -45°</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="-30">↺ -30°</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="-15">↺ -15°</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="15">+15° ↻</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="30">+30° ↻</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="45">+45° ↻</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="turn" data-val="90">+90° ↻</button>
+                        </div>
+                        <div class="jog-custom-row">
+                            <input type="number" id="touch-jog-custom-angle" class="form-input" placeholder="° (-180 a 180)" min="-180" max="180" step="1">
+                            <button type="button" class="btn" id="btn-jog-custom-turn">Girar Personalizado</button>
+                        </div>
+                    </div>
+
+                    <!-- TRASLACIÓN -->
+                    <div class="jog-section">
+                        <div class="jog-section-title">Desplazamiento Rectilíneo</div>
+                        <div class="jog-btn-grid jog-moves">
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="forward" data-val="5">↑ Avance 5 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="forward" data-val="10">↑ Avance 10 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="forward" data-val="25">↑ Avance 25 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="forward" data-val="50">↑ Avance 50 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="reverse" data-val="5">↓ Reversa 5 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="reverse" data-val="10">↓ Reversa 10 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="reverse" data-val="25">↓ Reversa 25 cm</button>
+                            <button type="button" class="btn btn-jog" data-jog-type="move" data-dir="reverse" data-val="50">↓ Reversa 50 cm</button>
+                        </div>
+                        <div class="jog-custom-row">
+                            <input type="number" id="touch-jog-custom-dist" class="form-input" placeholder="cm (1 a 200)" min="1" max="200" step="1">
+                            <button type="button" class="btn" id="btn-jog-custom-fwd">↑ Avanzar</button>
+                            <button type="button" class="btn" id="btn-jog-custom-rev">↓ Retroceder</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: SECUENCIA DE ACCIONES Y PERSISTENCIA -->
+                <div class="card routine-sequence-card">
+                    <div class="card-title">Secuencia de Acciones Discretas</div>
+                    <div class="routine-meta-row">
+                        <span class="routine-metric">Acciones: <strong id="routine-actions-count">0</strong> / 128</span>
+                        <span class="routine-metric">Distancia: <strong id="routine-total-dist">0.0</strong> / 2000 cm</span>
+                    </div>
+
+                    <!-- LISTA SCROLLABLE DE ACCIONES -->
+                    <div class="routine-actions-list" id="touch-routine-list" role="list" aria-label="Lista ordenada de acciones de la rutina">
+                        <div class="routine-empty-hint" id="touch-routine-empty-hint">Secuencia vacía. Usa la botonera jog para enseñar acciones o carga una rutina guardada.</div>
+                    </div>
+
+                    <!-- HERRAMIENTAS DE EDICIÓN -->
+                    <div class="routine-edit-tools">
+                        <button type="button" class="btn" id="btn-routine-compact" title="Suma giros o movimientos consecutivos en el mismo sentido">Compactar</button>
+                        <button type="button" class="btn" id="btn-routine-invert" title="Aplica la inversa matemática exacta G^-1 a la lista">Invertir Lista (G⁻¹)</button>
+                        <button type="button" class="btn" id="btn-routine-clear">Limpiar Lista</button>
+                    </div>
+
+                    <!-- GUARDAR Y CARGAR -->
+                    <div class="routine-storage-box">
+                        <div class="routine-save-row">
+                            <input type="text" id="touch-routine-name" class="form-input" placeholder="Nombre de la rutina...">
+                            <button type="button" class="btn btn-accent" id="btn-routine-save">Guardar Rutina</button>
+                        </div>
+                        <div class="routine-load-row">
+                            <select id="touch-routine-select" class="form-select" aria-label="Rutinas guardadas en base de datos">
+                                <option value="">-- Seleccionar rutina guardada --</option>
+                            </select>
+                            <button type="button" class="btn" id="btn-routine-load">Cargar</button>
+                            <button type="button" class="btn btn-danger-outline" id="btn-routine-delete">Eliminar</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="touch-recording-actions">
-                <label><input type="checkbox" id="touch-open-area-ack"> Confirma que el área está despejada: reconozco que el área rectangular necesaria para el regreso X→Y está despejada y supervisada.</label>
-                <button type="button" class="btn btn-accent" id="btn-touch-return" disabled>Regresar en reversa</button>
-                <button type="button" class="btn" id="btn-touch-delete" disabled>Eliminar grabación</button>
+
+            <!-- PANEL INFERIOR: PREVISUALIZACIÓN Y EJECUCIÓN -->
+            <div class="card routine-preview-card">
+                <div class="card-title">Previsualización de Trayectoria y Ejecución</div>
+                <div class="route-legend" aria-label="Leyenda de Rutina">
+                    <span class="measured"><i aria-hidden="true"></i>Sentido Directo (A₁ → Aₙ)</span>
+                    <span class="simplified"><i aria-hidden="true"></i>Vector simplificado</span>
+                    <span class="orthogonal"><i aria-hidden="true"></i>Sentido Inverso (G⁻¹ Retorno)</span>
+                </div>
+                <canvas id="touch-routine-preview" class="touch-routine-preview" width="960" height="220" aria-label="Vista previa de la rutina calculada"></canvas>
+
+                <div class="routine-run-controls">
+                    <div class="routine-direction-group" role="radiogroup" aria-label="Sentido de ejecución">
+                        <label class="radio-label">
+                            <input type="radio" name="routine-direction" value="forward" checked>
+                            <span>Directo (A₁ → Aₙ)</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="routine-direction" value="reverse">
+                            <span>Inverso Espejo (Desandar Exacto G⁻¹)</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="routine-direction" value="pivot_forward">
+                            <span>Retorno Frontal Ockham</span>
+                        </label>
+                    </div>
+
+                    <div class="routine-ack-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="touch-routine-ack">
+                            <span>Confirma que el área está despejada: reconozco que la trayectoria requerida para la rutina está despejada y supervisada.</span>
+                        </label>
+                    </div>
+
+                    <div class="routine-run-actions">
+                        <button type="button" class="btn btn-accent" id="btn-touch-routine-run" disabled>Ejecutar Rutina en Lazo Cerrado</button>
+                        <button type="button" class="btn" id="btn-touch-routine-refresh-preview">Refrescar Vista Previa</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- TAB 4: RUTAS -->

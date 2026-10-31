@@ -117,7 +117,9 @@ class VectorRouteStack {
      * @returns {VectorNode | null}
      */
     lastNode(logicalSteps) {
-        const list = Array.isArray(logicalSteps) && logicalSteps.length ? logicalSteps : this.nodes;
+        // Si se pasa la lista lógica, es la única fuente de verdad (aunque esté vacía).
+        // Caer en this.nodes tras deshacer el último paso conservaba un rumbo obsoleto (p. ej. 45° en vez de +X).
+        const list = Array.isArray(logicalSteps) ? logicalSteps : this.nodes;
         if (!list || list.length === 0) return null;
         for (let i = list.length - 1; i >= 0; i--) {
             const node = list[i];

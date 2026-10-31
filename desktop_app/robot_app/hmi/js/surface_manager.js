@@ -133,13 +133,19 @@ const SurfaceManager = {
 
     async applySelected() {
         if (['FALLO', 'ESTOP'].includes(Calibration.robotState || Calibration.lastRobotState)) {
-            LogSystem.add('WARN', `El robot está en ${Calibration.robotState || Calibration.lastRobotState}. Presiona "Rearmar" antes de aplicar una superficie.`);
+            const msg = `El robot está en ${Calibration.robotState || Calibration.lastRobotState}. Presiona "Rearmar" antes de aplicar una superficie.`;
+            OperatorFeedback.show('surface-alert', msg, 'warn');
+            LogSystem.add('WARN', msg);
             return;
         }
         const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-surface'));
         const id = select?.value;
-        if (!id) return LogSystem.add('WARN', 'Selecciona una superficie primero.');
+        if (!id) {
+            OperatorFeedback.show('surface-alert', 'Selecciona una superficie primero.', 'warn');
+            return LogSystem.add('WARN', 'Selecciona una superficie primero.');
+        }
 
+        OperatorFeedback.clear('surface-alert');
         const applyBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-apply-surface'));
         if (applyBtn) applyBtn.disabled = true;
 
@@ -162,7 +168,9 @@ const SurfaceManager = {
             Calibration.setState('LISTO — SUPERFICIE APLICADA', true);
             LogSystem.add('INFO', `Superficie "${result.surface?.name || id}" aplicada y calibrada en ESP32.`);
         } catch (err) {
-            LogSystem.add('ERROR', `Fallo al aplicar superficie: ${err.message}`);
+            const msg = `Fallo al aplicar superficie: ${humanizeError(err.message)}`;
+            OperatorFeedback.show('surface-alert', msg, 'error');
+            LogSystem.add('ERROR', msg);
         } finally {
             if (applyBtn) applyBtn.disabled = false;
         }
@@ -181,10 +189,12 @@ const SurfaceManager = {
         const autoNameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('surface-auto-name'));
         const name = autoNameInput?.value?.trim();
         if (!name) {
+            OperatorFeedback.show('surface-alert', 'Escribe el nombre del piso antes de guardar.', 'warn');
             LogSystem.add('WARN', 'Escribe el nombre del piso antes de guardar.');
             if (autoNameInput) autoNameInput.focus();
             return;
         }
+        OperatorFeedback.clear('surface-alert');
         const { pwmPos, pwmNeg } = this._extractPwmFromTelemetry();
         try {
             const saved = await WSControl.api('/api/v1/calibration/surfaces', {
@@ -200,7 +210,9 @@ const SurfaceManager = {
             if (calibrateLabel) calibrateLabel.textContent = 'Calibrar físicamente (Giro ±25°)';
             await this.loadSurfaces(saved.id);
         } catch (err) {
-            LogSystem.add('ERROR', `Error guardando superficie: ${err.message}`);
+            const msg = `Error guardando superficie: ${humanizeError(err.message)}`;
+            OperatorFeedback.show('surface-alert', msg, 'error');
+            LogSystem.add('ERROR', msg);
         }
     },
 
@@ -225,7 +237,7 @@ const SurfaceManager = {
             if (calibrateLabel) calibrateLabel.textContent = 'Calibrar físicamente (Giro ±25°)';
             await this.loadSurfaces(saved.id);
         } catch (err) {
-            LogSystem.add('ERROR', `Error registrando calibración automática en SQLite: ${err.message}`);
+            LogSystem.add('ERROR', `Error registrando calibración automática en SQLite: ${humanizeError(err.message)}`);
         }
     },
 
@@ -246,14 +258,20 @@ const SurfaceManager = {
         const candPos = Number((/** @type {HTMLSelectElement | null} */ (document.getElementById('surface-cand-pos')))?.value);
         const candNeg = Number((/** @type {HTMLSelectElement | null} */ (document.getElementById('surface-cand-neg')))?.value);
 
-        if (!name) return LogSystem.add('WARN', 'El nombre de la superficie es obligatorio.');
+        if (!name) {
+            OperatorFeedback.show('surface-alert', 'El nombre de la superficie es obligatorio.', 'warn');
+            return LogSystem.add('WARN', 'El nombre de la superficie es obligatorio.');
+        }
         if (!Number.isFinite(pwmPos) || pwmPos < 140 || pwmPos > 247 || !Number.isFinite(pwmNeg) || pwmNeg < 140 || pwmNeg > 247) {
+            OperatorFeedback.show('surface-alert', 'PWM debe estar entre 140 y 247.', 'warn');
             return LogSystem.add('WARN', 'PWM debe estar entre 140 y 247.');
         }
         if (candPos === candNeg || ![-1, 1].includes(candPos) || ![-1, 1].includes(candNeg)) {
+            OperatorFeedback.show('surface-alert', 'Las polaridades deben ser opuestas (+1 y -1).', 'warn');
             return LogSystem.add('WARN', 'Las polaridades deben ser opuestas (+1 y -1).');
         }
 
+        OperatorFeedback.clear('surface-alert');
         try {
             const saved = await WSControl.api('/api/v1/calibration/surfaces', {
                 method: 'POST',
@@ -262,7 +280,9 @@ const SurfaceManager = {
             LogSystem.add('INFO', `Superficie guardada en SQLite: ${saved.name} (ID: ${saved.id})`);
             await this.loadSurfaces(saved.id);
         } catch (err) {
-            LogSystem.add('ERROR', `Error guardando superficie: ${err.message}`);
+            const msg = `Error guardando superficie: ${humanizeError(err.message)}`;
+            OperatorFeedback.show('surface-alert', msg, 'error');
+            LogSystem.add('ERROR', msg);
         }
     },
 
@@ -283,12 +303,16 @@ const SurfaceManager = {
     async deleteSelected() {
         const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('select-surface'));
         const id = select?.value;
-        if (!id) return LogSystem.add('WARN', 'Selecciona una superficie para borrar.');
+        if (!id) {
+            OperatorFeedback.show('surface-alert', 'Selecciona una superficie para borrar.', 'warn');
+            return LogSystem.add('WARN', 'Selecciona una superficie para borrar.');
+        }
 
         const surface = this.surfaces.find(s => s.id === id);
         const name = surface ? surface.name : id;
         if (!confirm(`¿Eliminar la superficie "${name}" de SQLite?`)) return;
 
+        OperatorFeedback.clear('surface-alert');
         try {
             await WSControl.api(`/api/v1/calibration/surfaces/${encodeURIComponent(id)}`, { method: 'DELETE' });
             LogSystem.add('INFO', `Superficie "${name}" eliminada de SQLite.`);
@@ -299,7 +323,9 @@ const SurfaceManager = {
             }
             await this.loadSurfaces();
         } catch (err) {
-            LogSystem.add('ERROR', `Error eliminando superficie: ${err.message}`);
+            const msg = `Error eliminando superficie: ${humanizeError(err.message)}`;
+            OperatorFeedback.show('surface-alert', msg, 'error');
+            LogSystem.add('ERROR', msg);
         }
     }
 };

@@ -193,3 +193,65 @@ export function isRobotStatus(value: unknown): value is RobotStatus {
   const candidate = value as Partial<RobotStatus>;
   return typeof candidate.robot_host === "string" && typeof candidate.connection?.state === "string";
 }
+
+export type TurnAction = {
+  id?: string;
+  type: "turn";
+  delta_deg: number;
+};
+
+export type MoveAction = {
+  id?: string;
+  type: "move";
+  distance_cm: number;
+  direction: "forward" | "reverse";
+};
+
+export type RoutineAction = TurnAction | MoveAction;
+
+export interface Routine {
+  id: string;
+  name: string;
+  schema_version: 1;
+  actions: RoutineAction[];
+  source: "jog" | "gesture" | "mixed" | "manual";
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RoutineRunRequest {
+  direction: "forward" | "reverse" | "pivot_forward";
+  reverse_strategy?: "mirror" | "pivot_forward";
+}
+
+export interface RoutineCompiledPose {
+  x_mm: number;
+  y_mm: number;
+  yaw_deg: number;
+  action_id: string;
+}
+
+export interface RoutineCompiledSegment {
+  kind: "turn" | "move";
+  heading_deg: number;
+  delta_deg?: number;
+  start_x_mm?: number;
+  start_y_mm?: number;
+  x_mm: number;
+  y_mm: number;
+  distance_cm?: number;
+  drive_mode?: "forward" | "reverse" | "auto";
+  action_id: string;
+}
+
+export interface RoutinePreviewResponse {
+  direction: "forward" | "reverse";
+  strategy: "mirror" | "pivot_forward";
+  start_pose: { x_mm: number; y_mm: number; yaw_deg: number };
+  segments: RoutineCompiledSegment[];
+  poses: RoutineCompiledPose[];
+  action_count: number;
+  segment_count: number;
+  forward?: { segments: RoutineCompiledSegment[]; poses: RoutineCompiledPose[] };
+  reverse?: { segments: RoutineCompiledSegment[]; poses: RoutineCompiledPose[] };
+}

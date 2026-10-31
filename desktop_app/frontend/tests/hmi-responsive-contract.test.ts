@@ -346,5 +346,55 @@ describe("contrato responsive del HMI canónico", () => {
     expect(html).toContain("PILA VECTORIAL");
     expect(html).toContain("Ángulo θReal relativo");
   });
+
+  it("garantiza que Modo Cine mantenga visible el header con E-STOP y soporte safe-area (C1)", () => {
+    expect(html).toContain("env(safe-area-inset-top, 0px)");
+    expect(html).toContain("body.cinema-active .app-header");
+    expect(html).toContain("document.body.classList.toggle('cinema-active'");
+  });
+
+  it("implementa modo Ventana Única (single), foco en mosaico (.is-tile-focused) y normalización zIndex < 80", () => {
+    expect(html).toContain('id="ws-mode-single"');
+    expect(html).toContain("#hmi-workspace.workspace-single");
+    expect(html).toContain(".is-tile-focused");
+    expect(html).toContain("toggleTileFocus(");
+    expect(html).toContain("focusSingle(");
+    expect(html).toContain("this.maxZIndex >= 80");
+    expect(html).toContain("Ventanas abiertas");
+    expect(html).toContain("Abrir módulo");
+  });
+
+  it("implementa perfiles Operador/Técnico, Guía del operador de 8 secciones y Acerca de con logos institucionales y licencia Apache 2.0", () => {
+    expect(html).toContain('body[data-profile="operator"] [data-debug-only]');
+    expect(html).toContain('id="setting-profile"');
+    expect(html).toContain('id="modal-tab-ajustes"');
+    expect(html).toContain('id="modal-tab-guia"');
+    expect(html).toContain('id="modal-tab-acerca"');
+    expect(html).toContain("openGuideSection(");
+    expect(html).toContain("Rubén Andrés Gómez Molina");
+    expect(html).toContain("Alejandro Tapia Muñoz");
+    expect(html).toContain("Dra. Rosa María López Salinas");
+    expect(html).toContain("TecNM");
+    expect(html).toContain("ITESS");
+    expect(html).toContain("CENIDET");
+    expect(html).toContain("Apache License 2.0");
+    expect(html).toContain("https://github.com/RubenAndresGome/carroTest3-For-Esp32-s3-wroom");
+    expect(html).toContain('data-step="1"');
+    expect(html).toContain('data-step="2"');
+    expect(html).toContain('data-step="3"');
+    expect(html).toContain('data-step="4"');
+    expect(html).toContain('data-step="5"');
+    expect(html).toContain("①");
+    expect(html).toContain("②");
+    expect(html).toContain("③");
+    expect(html).toContain("④");
+    expect(html).toContain("⑤");
+    expect(html).toContain('data-help-section="calibracion"');
+    expect(html).toContain('data-help-section="conexion"');
+    expect(html).toContain('data-help-section="estados"');
+    expect(html).toContain('data-help-section="rutas"');
+    expect(html).toContain('data-help-section="ockham"');
+  });
 });
+
 

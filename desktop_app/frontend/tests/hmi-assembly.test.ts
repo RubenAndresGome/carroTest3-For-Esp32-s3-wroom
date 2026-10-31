@@ -268,3 +268,82 @@ describe("Comportamiento funcional de humanizeError() y ERROR_MESSAGES (Fase 1.2
     expect(sandbox.humanizeError("unknown_error_xyz")).toBe("unknown_error_xyz");
   });
 });
+
+describe("Contrato de modularidad y seguridad operativa Etapa 1 (C1-C5, A6-A10)", () => {
+  it("todos los módulos .js en hmi/js/ tienen <= 450 líneas", () => {
+    const diskJsFiles = readdirSync(jsDir).filter(f => f.endsWith(".js"));
+    for (const file of diskJsFiles) {
+      const content = readFileSync(join(jsDir, file), "utf8");
+      const lineCount = content.split(/\r?\n/).length;
+      expect(lineCount, `${file} excede 450 líneas (${lineCount})`).toBeLessThanOrEqual(450);
+    }
+  });
+
+  it("touch.js se mantiene por debajo de 200 líneas tras limpieza de código legacy", () => {
+    const touchContent = readFileSync(join(jsDir, "touch.js"), "utf8");
+    const lines = touchContent.split(/\r?\n/).length;
+    expect(lines).toBeLessThanOrEqual(200);
+  });
+
+  it("touch_routine.js se mantiene por debajo de 380 líneas", () => {
+    const routineContent = readFileSync(join(jsDir, "touch_routine.js"), "utf8");
+    const lines = routineContent.split(/\r?\n/).length;
+    expect(lines).toBeLessThanOrEqual(380);
+  });
+
+  it("separa stopRoute (Detener preservando cola) de discardRoute (Descartar con confirmación) (C2)", () => {
+    const rlContent = readFileSync(join(jsDir, "route_lifecycle.js"), "utf8");
+    const rmContent = readFileSync(join(jsDir, "route_manager.js"), "utf8");
+
+    expect(rlContent).toContain("stopRoute(manager)");
+    expect(rlContent).toContain("discardRoute(manager)");
+    expect(rlContent).toContain("manager.stoppedAtIndex");
+    expect(rmContent).toContain("stoppedAtIndex: null");
+    expect(rmContent).toContain("'Detenido'");
+    expect(rmContent).toContain("'stopped'");
+  });
+
+  it("exige confirmación física OperatorFeedback.confirmMotion antes de iniciar ruta o calibrar (C3)", () => {
+    const rlContent = readFileSync(join(jsDir, "route_lifecycle.js"), "utf8");
+    const calContent = readFileSync(join(jsDir, "calibration.js"), "utf8");
+
+    expect(rlContent).toContain("OperatorFeedback.confirmMotion");
+    expect(calContent).toContain("OperatorFeedback.confirmMotion");
+  });
+
+  it("elimina fallbacks silenciosos || 50 y || 90 en _executeQuickCommand y valida con readBoundedNumber (C4)", () => {
+    const mainContent = readFileSync(join(jsDir, "main.js"), "utf8");
+    const testingHtml = readFileSync(join(cardsDir, "tab_testing.html"), "utf8");
+
+    expect(mainContent).not.toMatch(/parseFloat\(paramInput\?\.value\)\s*\|\|\s*50/);
+    expect(mainContent).not.toMatch(/parseFloat\(paramInput\?\.value\)\s*\|\|\s*90/);
+    expect(mainContent).toContain("OperatorFeedback.readBoundedNumber");
+    expect(testingHtml).toContain('aria-describedby="cmd-param-hint"');
+  });
+
+  it("etiqueta #btn-reset-hmi como 'Limpiar vista HMI' y condiciona clear_fault al estado de fallo (C5)", () => {
+    const headerHtml = readFileSync(join(cardsDir, "header.html"), "utf8");
+    const conexionHtml = readFileSync(join(cardsDir, "tab_conexion.html"), "utf8");
+    const mainContent = readFileSync(join(jsDir, "main.js"), "utf8");
+
+    expect(headerHtml).toContain("Limpiar vista HMI");
+    expect(conexionHtml).toContain('id="surface-alert"');
+    expect(mainContent).toContain("willRearm");
+    expect(mainContent).not.toContain("FSMDisplay.update('IDLE')");
+  });
+
+  it("persiste historial tras POST /api/v1/missions (A6), retiene caja Ockham hasta éxito (A7) y reintenta E-STOP (A9)", () => {
+    const rlContent = readFileSync(join(jsDir, "route_lifecycle.js"), "utf8");
+    const ockhamContent = readFileSync(join(jsDir, "route_ockham.js"), "utf8");
+    const wsContent = readFileSync(join(jsDir, "ws_control.js"), "utf8");
+
+    expect(rlContent).toContain("this._persistRouteHistory(manager, curName, mode)");
+    expect(ockhamContent).toContain("confirmBtn.setAttribute('aria-busy', 'true')");
+    expect(ockhamContent).toContain("OperatorFeedback.show('route-ockham-error'");
+    expect(wsContent).toContain("async estop()");
+    expect(wsContent).toContain("OperatorFeedback.estopStatus('confirmed')");
+    expect(wsContent).toContain("OperatorFeedback.estopStatus('failed'");
+  });
+});
+
+

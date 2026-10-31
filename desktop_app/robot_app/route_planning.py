@@ -242,6 +242,7 @@ REALIGNMENT_POLICIES: dict[str, RealignmentPolicy] = {
     "angular_decomposition": OrthogonalRealignmentPolicy(),
     "angular_vectorial": VectorialRealignmentPolicy(),
     "touch_reverse": OrthogonalRealignmentPolicy(),
+    "routine": VectorialRealignmentPolicy(),
 }
 
 

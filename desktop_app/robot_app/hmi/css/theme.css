@@ -31,6 +31,39 @@
             --glass-highlight: rgba(255, 255, 255, 0.055);
             --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.28);
 
+            /* Tokens Semánticos de Superficie y Texto (Fase 0) */
+            --surface-1: #0a0e14;
+            --surface-2: #121a24;
+            --surface-3: #182330;
+            --text-strong: #f0f6fc;
+            --text-normal: #c9d5e2;
+            --ok: #00e676;
+            --danger: #ff1744;
+            --fsm-active: #00e676;
+            --fsm-done: #00b0ff;
+            --fsm-idle: #64748b;
+            --chart-grid: rgba(148, 163, 184, 0.16);
+            --chart-series-1: #00b0ff;
+            --chart-series-2: #00e676;
+            --chart-series-3: #ff6d00;
+            --chart-series-4: #c56cff;
+            --chart-series-5: #f59e0b;
+            --chart-series-6: #ff007f;
+
+            /* Escala Tipográfica y Espaciado */
+            --text-xs: 10px;
+            --text-sm: 11px;
+            --text-base: 13px;
+            --text-md: 14px;
+            --text-lg: 16px;
+            --text-xl: 20px;
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+
             /* Superficies Glass Graduadas */
             --glass-surface-translucent: rgba(18, 27, 39, 0.72);
             --glass-surface-card: rgba(22, 32, 46, 0.82);
@@ -65,6 +98,7 @@
            ============================================ */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         [hidden] { display:none !important; }
+        body[data-profile="operator"] [data-debug-only] { display: none !important; }
         html {
             font-size: 14px;
             touch-action: manipulation;
@@ -93,13 +127,20 @@
             --bg-card: #121212;
             --bg-card-hover: #1f1f1f;
             --bg-input: #050505;
+            --surface-1: #000000;
+            --surface-2: #0a0a0a;
+            --surface-3: #141414;
             --border: #64748b;
             --border-light: #94a3b8;
             --text-primary: #ffffff;
             --text-secondary: #e2e8f0;
             --text-muted: #cbd5e1;
+            --text-strong: #ffffff;
+            --text-normal: #f1f5f9;
             --accent: #00ff7f;
+            --ok: #00ff7f;
             --accent-dim: rgba(0, 255, 127, 0.2);
+            --chart-grid: rgba(255, 255, 255, 0.28);
             --glass-surface: rgba(18, 18, 18, 0.95);
             --glass-surface-card: rgba(18, 18, 18, 0.95);
             --glass-border: rgba(255, 255, 255, 0.35);
@@ -112,14 +153,21 @@
             --bg-card: #ffffff;
             --bg-card-hover: #f0f4f8;
             --bg-input: #f8fafc;
+            --surface-1: #e6ecf3;
+            --surface-2: #ffffff;
+            --surface-3: #f0f4f8;
             --border: #bcccdc;
             --border-light: #9fb3c8;
             --text-primary: #102a43;
             --text-secondary: #243b53;
             --text-muted: #486581;
-            --accent: #00a854;
-            --accent-dim: rgba(0, 168, 84, 0.15);
-            --accent-glow: rgba(0, 168, 84, 0.35);
+            --text-strong: #0b1f33;
+            --text-normal: #1e3a56;
+            --accent: #00873f;
+            --ok: #00873f;
+            --accent-dim: rgba(0, 135, 63, 0.14);
+            --accent-glow: rgba(0, 135, 63, 0.32);
+            --chart-grid: rgba(16, 42, 67, 0.14);
             --glass-surface: rgba(255, 255, 255, 0.85);
             --glass-surface-card: rgba(255, 255, 255, 0.88);
             --glass-surface-translucent: rgba(245, 248, 252, 0.82);
@@ -127,12 +175,52 @@
             --glass-border: rgba(160, 180, 205, 0.4);
             --glass-border-subtle: rgba(160, 180, 205, 0.3);
             --shadow-elevated: 0 18px 44px rgba(16, 42, 67, 0.15);
+
+            /* Semánticos legibles sobre blanco (los neón del tema oscuro quedan < 2:1) */
+            --accent: #00703a;
+            --ok: #00703a;
+            --accent-dim: rgba(0, 112, 58, 0.12);
+            --accent-glow: rgba(0, 112, 58, 0.28);
+            --warn: #8a5300;
+            --warn-dim: rgba(138, 83, 0, 0.12);
+            --error: #c0103c;
+            --danger: #c0103c;
+            --error-dim: rgba(192, 16, 60, 0.10);
+            --info: #0369a1;
+            --info-dim: rgba(3, 105, 161, 0.10);
+            --reverse: #b14400;
+            --reverse-dim: rgba(177, 68, 0, 0.10);
+            --chart-series-1: #0369a1;
+            --chart-series-2: #00703a;
+            --chart-series-3: #b14400;
+            --chart-series-4: #7b2cb0;
+            --chart-series-5: #8a5300;
+            --chart-series-6: #b0105f;
+            --glass-highlight: rgba(255, 255, 255, 0.7);
+            --glass-specular-edge: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+            /* Tokens --ui-*: solo el tema claro los define. En oscuro y alto contraste
+               cada uso cae en su valor de respaldo original (sin cambio visual). */
+            --ui-bg-sunken: #eef2f7;
+            --ui-bg-surface: rgba(255, 255, 255, 0.94);
+            --ui-bg-raised: #e9eef4;
+            --ui-bg-tint: rgba(16, 42, 67, 0.04);
+            --ui-bg-well: rgba(16, 42, 67, 0.06);
+            --ui-fg-muted: #334e68;
+            --ui-fg-accent: #00703a;
+            --ui-fg-warn: #8a5300;
+            --ui-fg-danger: #b0103a;
+            --ui-fg-info: #035b8c;
+            --ui-fg-violet: #7b2cb0;
+            --ui-border: #bcccdc;
+            --ui-border-strong: #9fb3c8;
+            color-scheme: light;
         }
         body.theme-light-glass {
             background-color: #e6ecf3;
             background-image:
-                radial-gradient(circle at 18% 2%, rgba(0,168,84,0.08) 0%, transparent 28%),
+                radial-gradient(circle at 18% 2%, rgba(0,135,63,0.08) 0%, transparent 28%),
                 radial-gradient(circle at 88% 12%, rgba(0,176,255,0.06) 0%, transparent 32%),
-                linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+                linear-gradient(rgba(16,42,67,0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(16,42,67,0.035) 1px, transparent 1px);
         }

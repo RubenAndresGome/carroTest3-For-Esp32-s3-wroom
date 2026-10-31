@@ -3,12 +3,13 @@
 /** @typedef {import('@frontend/protocol').CommandName} CommandName */
 
 /* ==============================================
-   SETTINGS MANAGER (User Settings, Themes, i18n & Modes)
+   SETTINGS MANAGER (User Settings, Profiles, Themes, Guide & Modes)
    ============================================== */
 
 const SettingsManager = {
     STORAGE_KEY: 'hmi_user_settings',
     settings: {
+        profile: 'operator',
         telemetry_recording: 'always',
         theme: 'cyber-dark',
         language: 'es',
@@ -28,13 +29,15 @@ const SettingsManager = {
             tab_touch: 'Control Touch (no disponible)',
             tab_rutas: 'Rutas (Ockham)',
             ws_tabs: 'Pestañas',
+            ws_single: 'Única',
             ws_tiling: 'Mosaico',
             ws_floating: 'Flotante',
             btn_rearm: 'Rearmar sistema',
             btn_reboot: 'Reiniciar Robot',
             btn_close: 'Cerrar aplicación',
             btn_fork: 'Crear nueva ruta planificada',
-            btn_start: 'Guardar la Ruta en "Rutas" / Programar recorrido',
+            btn_start: 'Ejecutar ruta',
+            btn_save_route: 'Guardar ruta',
             btn_preview: 'Previsualizar',
             btn_stop: 'Detener',
             btn_discard: 'Descartar',
@@ -48,13 +51,15 @@ const SettingsManager = {
             tab_touch: 'Touch Control (unavailable)',
             tab_rutas: 'Routes (Ockham)',
             ws_tabs: 'Tabs',
+            ws_single: 'Single',
             ws_tiling: 'Tiling',
             ws_floating: 'Floating',
             btn_rearm: 'Rearm system',
             btn_reboot: 'Reboot Robot',
             btn_close: 'Close application',
             btn_fork: 'Create new planned route',
-            btn_start: 'Save Route in "Routes" / Schedule run',
+            btn_start: 'Run route',
+            btn_save_route: 'Save route',
             btn_preview: 'Preview',
             btn_stop: 'Stop',
             btn_discard: 'Discard',
@@ -102,6 +107,9 @@ const SettingsManager = {
         this.syncBackend();
     },
     apply() {
+        const profile = this.settings.profile === 'technician' ? 'technician' : 'operator';
+        document.body.dataset.profile = profile;
+
         document.documentElement.setAttribute('data-theme', this.settings.theme);
         document.body.classList.remove('theme-cyber-dark', 'theme-high-contrast', 'theme-light-glass');
         document.body.classList.add(`theme-${this.settings.theme}`);
@@ -109,16 +117,18 @@ const SettingsManager = {
         document.documentElement.lang = this.settings.language;
         this.applyTranslations(this.settings.language);
 
+        const selProfile = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-profile'));
         const selTelem = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-telemetry-mode'));
         const selTheme = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-theme'));
         const selLang = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-language'));
         const selMode = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-default-mode'));
+        if (selProfile) selProfile.value = profile;
         if (selTelem) selTelem.value = this.settings.telemetry_recording;
         if (selTheme) selTheme.value = this.settings.theme;
         if (selLang) selLang.value = this.settings.language;
         if (selMode) selMode.value = this.settings.default_mode;
 
-        ['tabs', 'tiling', 'floating'].forEach(m => {
+        ['tabs', 'single', 'tiling', 'floating'].forEach(m => {
             const btn = document.getElementById(`ws-mode-${m}`);
             if (btn) {
                 const isActive = m === (typeof WindowManager !== 'undefined' ? WindowManager.mode : this.settings.default_mode);
@@ -134,8 +144,7 @@ const SettingsManager = {
             if (el) {
                 const icon = el.querySelector('svg');
                 if (icon) {
-                    const iconHtml = icon.outerHTML;
-                    el.innerHTML = `${iconHtml}${text}`;
+                    el.innerHTML = `${icon.outerHTML}${text}`;
                 } else {
                     el.textContent = text;
                 }
@@ -150,6 +159,8 @@ const SettingsManager = {
 
         const wsTabsLabel = document.querySelector('#ws-mode-tabs .ws-label');
         if (wsTabsLabel) wsTabsLabel.textContent = t.ws_tabs;
+        const wsSingleLabel = document.querySelector('#ws-mode-single .ws-label');
+        if (wsSingleLabel) wsSingleLabel.textContent = t.ws_single;
         const wsTilingLabel = document.querySelector('#ws-mode-tiling .ws-label');
         if (wsTilingLabel) wsTilingLabel.textContent = t.ws_tiling;
         const wsFloatingLabel = document.querySelector('#ws-mode-floating .ws-label');
@@ -166,6 +177,7 @@ const SettingsManager = {
 
         setLabel('#btn-fork-route', t.btn_fork);
         setLabel('#btn-route-start', t.btn_start);
+        setLabel('#btn-route-save', t.btn_save_route);
         setLabel('#btn-route-preview', t.btn_preview);
         setLabel('#btn-route-stop', t.btn_stop);
         setLabel('#btn-route-discard', t.btn_discard);
@@ -197,12 +209,59 @@ const SettingsManager = {
             } catch (_) {}
         }
     },
+    switchModalTab(tabName) {
+        const tabs = ['ajustes', 'guia', 'acerca'];
+        const target = tabs.includes(tabName) ? tabName : 'ajustes';
+        tabs.forEach(name => {
+            const btn = document.getElementById(`modal-tab-btn-${name}`);
+            const panel = document.getElementById(`modal-tab-${name}`);
+            const isActive = name === target;
+            if (btn) {
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            }
+            if (panel) {
+                panel.hidden = !isActive;
+            }
+        });
+    },
+    openModal(tabName = 'ajustes') {
+        const modal = document.getElementById('modal-settings');
+        const btnOpen = document.getElementById('btn-open-settings');
+        if (!modal) return;
+        this.apply();
+        this.switchModalTab(tabName);
+        modal.hidden = false;
+        modal.style.display = 'flex';
+        if (btnOpen) btnOpen.setAttribute('aria-expanded', 'true');
+    },
+    closeModal() {
+        const modal = document.getElementById('modal-settings');
+        const btnOpen = document.getElementById('btn-open-settings');
+        if (!modal) return;
+        modal.hidden = true;
+        modal.style.display = 'none';
+        if (btnOpen) btnOpen.setAttribute('aria-expanded', 'false');
+    },
+    openGuideSection(sectionId) {
+        const aliasMap = { calibrar: 'calibracion', conectar: 'conexion' };
+        const targetId = aliasMap[sectionId] || sectionId;
+        this.openModal('guia');
+        const detailsList = /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll('#modal-tab-guia details.guide-section'));
+        detailsList.forEach(d => {
+            const isMatch = d.dataset.guideId === targetId;
+            d.open = isMatch;
+            if (isMatch && typeof d.scrollIntoView === 'function') {
+                d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+    },
     _bindModeSelection(selMode) {
         if (!selMode) return;
         selMode.addEventListener('change', (e) => {
             const newMode = e.target.value;
-            if (['tabs', 'tiling', 'floating'].includes(newMode)) {
-                ['tabs', 'tiling', 'floating'].forEach(m => {
+            if (['tabs', 'single', 'tiling', 'floating'].includes(newMode)) {
+                ['tabs', 'single', 'tiling', 'floating'].forEach(m => {
                     const btn = document.getElementById(`ws-mode-${m}`);
                     if (btn) {
                         const isActive = m === newMode;
@@ -216,33 +275,34 @@ const SettingsManager = {
             }
         });
     },
-
     _bindModalVisibility(btnOpen, btnClose, modal) {
         if (btnOpen && modal) {
-            btnOpen.addEventListener('click', () => {
-                this.apply();
-                modal.style.display = 'flex';
-                btnOpen.setAttribute('aria-expanded', 'true');
-            });
+            btnOpen.addEventListener('click', () => this.openModal('ajustes'));
         }
         if (btnClose && modal) {
-            btnClose.addEventListener('click', () => {
-                modal.style.display = 'none';
-                if (btnOpen) btnOpen.setAttribute('aria-expanded', 'false');
-            });
+            btnClose.addEventListener('click', () => this.closeModal());
         }
         if (modal) {
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                    if (btnOpen) btnOpen.setAttribute('aria-expanded', 'false');
-                }
+                if (e.target === modal) this.closeModal();
             });
         }
+        document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.getAttribute('data-modal-tab') || 'ajustes';
+                this.switchModalTab(tab);
+            });
+        });
     },
-
-    _bindSaveSettings(btnSave, modal, btnOpen) {
-        if (!btnSave || !modal) return;
+    _bindSaveSettings(btnSave) {
+        if (!btnSave) return;
+        const selProfile = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-profile'));
+        if (selProfile) {
+            selProfile.addEventListener('change', () => {
+                this.settings.profile = selProfile.value === 'technician' ? 'technician' : 'operator';
+                document.body.dataset.profile = this.settings.profile;
+            });
+        }
         btnSave.addEventListener('click', () => {
             const selTelem = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-telemetry-mode'));
             const selTheme = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-theme'));
@@ -250,20 +310,19 @@ const SettingsManager = {
             const selModeEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-default-mode'));
 
             this.save({
+                profile: selProfile ? selProfile.value : this.settings.profile,
                 telemetry_recording: selTelem ? selTelem.value : this.settings.telemetry_recording,
                 theme: selTheme ? selTheme.value : this.settings.theme,
                 language: selLang ? selLang.value : this.settings.language,
                 default_mode: selModeEl ? selModeEl.value : this.settings.default_mode
             });
 
-            modal.style.display = 'none';
-            if (btnOpen) btnOpen.setAttribute('aria-expanded', 'false');
+            this.closeModal();
             if (typeof LogSystem !== 'undefined') {
                 LogSystem.add('INFO', 'Configuración guardada y aplicada correctamente.');
             }
         });
     },
-
     bindUI() {
         const btnOpen = document.getElementById('btn-open-settings');
         const btnClose = document.getElementById('btn-close-settings');
@@ -273,6 +332,7 @@ const SettingsManager = {
 
         this._bindModeSelection(selMode);
         this._bindModalVisibility(btnOpen, btnClose, modal);
-        this._bindSaveSettings(btnSave, modal, btnOpen);
+        this._bindSaveSettings(btnSave);
     }
 };
+

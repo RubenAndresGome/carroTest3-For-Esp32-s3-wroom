@@ -11,10 +11,13 @@ const WindowInteract = {
     _activeResize: null,
 
     /**
-     * Inicia el arrastre de una ventana flotante por su encabezado mediante Pointer Events.
+     * Inicia el arrastre de una ventana flotante por su encabezado mediante Pointer Events (A1).
      */
     startDrag(e, win, bringToFrontFn, isFloatingMode) {
         if (!isFloatingMode || !win || win.isMaximized) return;
+        const target = /** @type {HTMLElement | null} */ (e.target);
+        if (target?.closest?.('.window-controls, .win-btn, button')) return;
+        if (e.button !== undefined && e.button !== 0) return;
 
         try { win.headerEl.setPointerCapture(e.pointerId); } catch (_) {}
         bringToFrontFn(win.id);
@@ -45,8 +48,11 @@ const WindowInteract = {
         const dx = ev.clientX - this._activeDrag.startX;
         const dy = ev.clientY - this._activeDrag.startY;
         const win = this._activeDrag.win;
-        win.rect.x = Math.max(0, this._activeDrag.winX + dx);
-        win.rect.y = Math.max(0, this._activeDrag.winY + dy);
+        const w = win.el?.offsetWidth || win.rect.width || 320;
+        const maxX = Math.max(0, window.innerWidth - Math.min(w, window.innerWidth));
+        const maxY = Math.max(0, window.innerHeight - 48);
+        win.rect.x = Math.min(maxX, Math.max(0, this._activeDrag.winX + dx));
+        win.rect.y = Math.min(maxY, Math.max(0, this._activeDrag.winY + dy));
         win.el.style.left = `${win.rect.x}px`;
         win.el.style.top = `${win.rect.y}px`;
     },

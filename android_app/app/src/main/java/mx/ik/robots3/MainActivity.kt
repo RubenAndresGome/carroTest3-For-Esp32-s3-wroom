@@ -195,7 +195,12 @@ class MainActivity : Activity() {
             addJavascriptInterface(RobotHostBridge(), "RobotHost")
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                    return request.url.host !in setOf("127.0.0.1", "localhost")
+                    val url = request.url
+                    if (url.host in setOf("127.0.0.1", "localhost")) return false
+                    if (url.scheme in setOf("http", "https")) {
+                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, url)) }
+                    }
+                    return true
                 }
             }
             webChromeClient = object : WebChromeClient() {

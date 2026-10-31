@@ -8,6 +8,8 @@
 
 const WindowManager = {
     mode: 'tabs',
+    preferredMode: 'tabs',
+    activeSingleId: 'tab-conexion',
     windows: new Map(),
     maxZIndex: 10,
     workspaceEl: null,
@@ -17,38 +19,30 @@ const WindowManager = {
         this._bindModeButtons();
         this._bindForkMenu();
         this._registerPanels();
-
         const savedMode = (typeof SettingsManager !== 'undefined' && SettingsManager.settings?.default_mode)
-            || localStorage.getItem('hmi_workspace_mode')
-            || 'tabs';
-        const initialMode = window.innerWidth < 768 ? 'tabs' : savedMode;
-        this.setMode(initialMode, true);
-
+            || localStorage.getItem('hmi_workspace_mode') || 'tabs';
+        this.preferredMode = ['tabs', 'single', 'tiling', 'floating'].includes(savedMode) ? savedMode : 'tabs';
+        this.setMode(this.preferredMode, true, window.innerWidth <= 900);
         window.addEventListener('resize', () => {
-            if (window.innerWidth < 768 && this.mode !== 'tabs') {
-                this.setMode('tabs');
-            }
+            if (window.innerWidth <= 900 && (this.mode === 'floating' || this.mode === 'tiling')) this.setMode('tabs', true, true);
+            else if (window.innerWidth > 900 && this.mode !== this.preferredMode) this.setMode(this.preferredMode, true, true);
         });
     },
-
     _initWorkspaceEl() {
         this.workspaceEl = document.getElementById('hmi-workspace');
         if (!this.workspaceEl) {
             const firstTab = document.querySelector('.tab-content');
             if (firstTab?.parentNode) {
-                const parent = firstTab.parentNode;
-                const ws = document.createElement('div');
-                ws.id = 'hmi-workspace';
-                ws.className = 'workspace-tabs';
+                const parent = firstTab.parentNode, ws = document.createElement('div');
+                ws.id = 'hmi-workspace'; ws.className = 'workspace-tabs';
                 parent.insertBefore(ws, firstTab);
                 parent.querySelectorAll('.tab-content').forEach(tab => ws.appendChild(tab));
                 this.workspaceEl = ws;
             }
         }
     },
-
     _bindModeButtons() {
-        ['tabs', 'tiling', 'floating'].forEach(m => {
+        ['tabs', 'single', 'tiling', 'floating'].forEach(m => {
             const btn = document.getElementById(`ws-mode-${m}`);
             if (btn) btn.addEventListener('click', () => this.setMode(m));
         });
@@ -79,7 +73,6 @@ const WindowManager = {
             { id: 'tab-rutas', title: 'Programador de Rutas', icon: '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h3a3 3 0 0 0 3-3v-6a3 3 0 0 1 3-3"/></svg>', singleton: true, forkable: true },
             { id: 'tab-boost', title: 'HUD Cinético & Boost', icon: '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', singleton: true, isCustomWidget: true, initiallyMinimized: true }
         ];
-
         panels.forEach((p, idx) => {
             const el = document.getElementById(p.id);
             if (!el) return;
@@ -90,90 +83,88 @@ const WindowManager = {
             });
         });
     },
-
     _getTabButton(id) {
         if (!id) return null;
         const cleanId = id.replace(/^tab-/, '');
-        return document.getElementById(`tab-control-${cleanId}`) ||
-               document.getElementById(`tab-control-${id}`) ||
-               document.querySelector(`.tab-btn[data-tab="${cleanId}"]`) ||
-               document.querySelector(`.tab-btn[data-win="${id}"]`);
+        return document.getElementById(`tab-control-${cleanId}`) || document.getElementById(`tab-control-${id}`) ||
+               document.querySelector(`.tab-btn[data-tab="${cleanId}"]`) || document.querySelector(`.tab-btn[data-win="${id}"]`);
     },
-
     _onTaskbarButtonClick(e, id, cleanId) {
-        if (e.target?.classList.contains('tab-btn-close')) {
-            e.stopPropagation();
-            this.closeWindow(id);
-            return;
-        }
+        if (e.target?.classList.contains('tab-btn-close')) { e.stopPropagation(); this.closeWindow(id); return; }
         const win = this.windows.get(id);
         if (!win) return;
         if (win.isMinimized) { this.restoreWindow(id); return; }
-        const isCurrentlyActive = (this.mode === 'tabs' && state.activeTab === cleanId && !win.isMinimized) ||
-            (this.mode !== 'tabs' && win.el.classList.contains('is-focused') && !win.isMinimized);
-        if (isCurrentlyActive) {
-            this.minimizeWindow(id);
-        } else if (this.mode === 'tabs') {
-            if (typeof TabManager !== 'undefined') TabManager.switch(cleanId);
-            else this.restoreWindow(id);
-        } else {
-            this.bringToFront(id);
+        if (this.mode === 'tabs') {
+            if (typeof TabManager !== 'undefined') TabManager.switch(cleanId); else this.restoreWindow(id);
+            return;
         }
+        if (this.mode === 'single') { this.focusSingle(id); return; }
+        const isCurrentlyActive = win.el.classList.contains('is-focused') && !win.isMinimized;
+        if (isCurrentlyActive && this.mode === 'floating') this.minimizeWindow(id);
+        else { this.bringToFront(id); if (this.mode === 'tiling') win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
     },
-
     ensureTaskbarButton(id, title, icon, isSingleton = false) {
         let btn = this._getTabButton(id);
         if (!btn) {
             const tabBar = document.querySelector('.tab-bar');
             if (!tabBar) return null;
-            const cleanId = id.replace(/^tab-/, '');
+            const cleanId = id.replace(/^tab-/, ''), isPermanent = ['tab-conexion', 'tab-mapa', 'tab-testing', 'tab-touch', 'tab-rutas'].includes(id);
             btn = document.createElement('button');
-            btn.id = `tab-control-${cleanId}`;
-            btn.className = 'tab-btn tab-btn-dynamic';
-            btn.dataset.tab = cleanId;
-            btn.dataset.win = id;
-            btn.setAttribute('role', 'tab');
-            btn.setAttribute('aria-controls', id);
-            btn.setAttribute('aria-selected', 'false');
+            btn.id = `tab-control-${cleanId}`; btn.className = 'tab-btn tab-btn-dynamic';
+            btn.dataset.tab = cleanId; btn.dataset.win = id;
+            btn.setAttribute('role', 'tab'); btn.setAttribute('aria-controls', id); btn.setAttribute('aria-selected', 'false');
             btn.tabIndex = -1;
-            const isPermanent = ['tab-conexion', 'tab-mapa', 'tab-testing', 'tab-touch', 'tab-rutas'].includes(id);
             btn.innerHTML = `${icon}<span class="tab-btn-title">${title}</span>${!isPermanent ? `<span class="tab-btn-close" title="Cerrar ventana" aria-label="Cerrar">✕</span>` : ''}`;
-
             btn.addEventListener('click', (e) => this._onTaskbarButtonClick(e, id, cleanId));
             tabBar.appendChild(btn);
         }
         return btn;
     },
-
     openWindow(id) {
         const fullId = id.startsWith('tab-') ? id : `tab-${id}`;
         let win = this.windows.get(fullId) || this.windows.get(id);
         if (!win && fullId === 'tab-boost') {
             const el = document.getElementById('tab-boost');
             if (el) {
-                this.registerWindow('tab-boost', el, 'HUD Cinético & Boost', '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', {
-                    isSingleton: true, isForkable: false
-                });
+                this.registerWindow('tab-boost', el, 'HUD Cinético & Boost', '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', { isSingleton: true, isForkable: false });
                 win = this.windows.get('tab-boost');
             }
         }
         if (!win) return null;
         this.ensureTaskbarButton(win.id, win.title, win.icon, false);
-        this.restoreWindow(win.id);
-        this.bringToFront(win.id);
+        this.focusOrRestoreWindow(win.id);
         return win.id;
+    },
+
+    focusOrRestoreWindow(id) {
+        const win = this.windows.get(id);
+        if (!win) return;
+        if (this.mode === 'single') { this.focusSingle(id); return; }
+        this.restoreWindow(id);
+        this.bringToFront(id);
+    },
+
+    focusSingle(id) {
+        const fullId = this.windows.has(id) ? id : (id.startsWith('tab-') ? id : `tab-${id}`);
+        const win = this.windows.get(fullId);
+        if (!win) return;
+        this.activeSingleId = fullId;
+        const cleanId = fullId.replace(/^tab-/, '');
+        if (typeof state !== 'undefined' && ['conexion', 'mapa', 'testing', 'touch', 'rutas'].includes(cleanId)) state.activeTab = cleanId;
+        if (this.mode === 'single') {
+            WindowLayout.applySingle(this.windows, this.activeSingleId, wid => this._getTabButton(wid), wid => this.maximizeWindow(wid));
+            if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) setTimeout(() => RouteManager.resizeCharts(), 50);
+        }
     },
 
     registerWindow(id, element, title, icon, options = {}) {
         if (!element) return;
         element.classList.add('window-frame');
-
         let header = element.querySelector('.window-header');
         if (!header) {
             header = this._createWindowHeader(id, title, icon, options);
             element.insertBefore(header, element.firstChild);
         }
-
         let resizeHandle = element.querySelector('.window-resize-handle');
         if (!resizeHandle) {
             resizeHandle = document.createElement('div');
@@ -182,111 +173,93 @@ const WindowManager = {
             resizeHandle.setAttribute('aria-label', 'Redimensionar ventana');
             element.appendChild(resizeHandle);
         }
-
         const isInitiallyMin = Boolean(options.initiallyMinimized);
         const winData = {
             id, el: element, headerEl: header, title, icon,
-            isMinimized: isInitiallyMin, isMaximized: false,
+            isMinimized: isInitiallyMin, isMaximized: false, isTileFocused: false,
             isSingleton: Boolean(options.isSingleton),
             isFork: Boolean(options.isFork) || id.startsWith('fork-'),
             isCustomWidget: Boolean(options.isCustomWidget) || id.startsWith('custom-win-'),
             rect: options.initialRect || { x: 30, y: 30, width: 600, height: 460 },
             zIndex: ++this.maxZIndex
         };
-
-        if (isInitiallyMin) {
-            element.classList.add('is-minimized');
-            element.style.display = 'none';
-        }
+        if (isInitiallyMin) { element.classList.add('is-minimized'); element.style.display = 'none'; }
         this.windows.set(id, winData);
         this._bindHeaderControls(header, id);
-
         element.addEventListener('pointerdown', () => this.bringToFront(id));
         header.addEventListener('pointerdown', (e) => this._startDrag(e, id));
+        header.addEventListener('dblclick', (e) => {
+            if (/** @type {HTMLElement} */ (e.target)?.closest?.('.window-controls, .win-btn, button')) return;
+            if (this.mode === 'tiling') this.toggleTileFocus(id);
+            else if (this.mode === 'floating') this.maximizeWindow(id);
+        });
         resizeHandle.addEventListener('pointerdown', (e) => this._startResize(e, id));
-
         WindowInteract.observeTilingDimensions(winData, () => this.mode);
-
-        if (this.mode === 'floating') {
-            WindowLayout.applyWindowRect(winData);
-        }
+        if (this.mode === 'floating') WindowLayout.applyWindowRect(winData);
     },
 
     _createWindowHeader(id, title, icon, options) {
         const header = document.createElement('div');
         header.className = 'window-header';
         const isPermanent = ['tab-conexion', 'tab-mapa', 'tab-testing', 'tab-touch', 'tab-rutas'].includes(id);
-        header.innerHTML = `
-            <div class="window-title"><span>${icon}</span><span>${title}</span></div>
-            <div class="window-controls">
-                ${options.isForkable ? `<button type="button" class="win-btn win-btn-fork" title="Bifurcar vista" aria-label="Bifurcar"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg></button>` : ''}
-                <button type="button" class="win-btn win-btn-min" title="Minimizar a la barra" aria-label="Minimizar">—</button>
-                <button type="button" class="win-btn win-btn-max" title="Maximizar" aria-label="Maximizar">□</button>
-                ${!isPermanent ? `<button type="button" class="win-btn win-btn-close" title="Cerrar" aria-label="Cerrar">✕</button>` : ''}
-            </div>
-        `;
+        header.innerHTML = `<div class="window-title"><span>${icon}</span><span>${title}</span></div><div class="window-controls">${options.isForkable ? `<button type="button" class="win-btn win-btn-fork" title="Bifurcar vista" aria-label="Bifurcar"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg></button>` : ''}<button type="button" class="win-btn win-btn-focus" title="Enfocar mosaico" aria-label="Enfocar mosaico">⊡</button><button type="button" class="win-btn win-btn-min" title="Minimizar a la barra" aria-label="Minimizar">—</button><button type="button" class="win-btn win-btn-max" title="Maximizar" aria-label="Maximizar">□</button>${!isPermanent ? `<button type="button" class="win-btn win-btn-close" title="Cerrar" aria-label="Cerrar">✕</button>` : ''}</div>`;
         return header;
     },
 
     _bindHeaderControls(header, id) {
         const forkBtn = header.querySelector('.win-btn-fork');
+        const focusBtn = header.querySelector('.win-btn-focus');
         const minBtn = header.querySelector('.win-btn-min');
         const maxBtn = header.querySelector('.win-btn-max');
         const closeBtn = header.querySelector('.win-btn-close');
-
         if (forkBtn) forkBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (id === 'tab-rutas' && typeof RouteManager !== 'undefined') RouteManager.forkCurrentRoute();
             else this.createForkWindow(id);
         });
+        if (focusBtn) focusBtn.addEventListener('click', (e) => { e.stopPropagation(); this.toggleTileFocus(id); });
         if (minBtn) minBtn.addEventListener('click', (e) => { e.stopPropagation(); this.minimizeWindow(id); });
         if (maxBtn) maxBtn.addEventListener('click', (e) => { e.stopPropagation(); this.maximizeWindow(id); });
         if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); this.closeWindow(id); });
     },
-    setMode(mode, silent = false) {
-        if (!['tabs', 'tiling', 'floating'].includes(mode)) return;
+
+    setMode(mode, silent = false, isResponsiveOverride = false) {
+        if (!['tabs', 'single', 'tiling', 'floating'].includes(mode)) return;
+        if (!isResponsiveOverride) this.preferredMode = mode;
         if (this.mode === 'tiling') WindowLayout.preserveTilingDimensions(this.windows);
         let effectiveMode = mode;
-        if (window.innerWidth < 768 && mode !== 'tabs') {
-            if (!silent && typeof LogSystem !== 'undefined') {
-                LogSystem.add('INFO', 'Espacio multi-panel adaptado a modo pestañas en pantallas compactas.');
-            }
+        if (window.innerWidth <= 900 && (mode === 'floating' || mode === 'tiling')) {
+            if (!silent && typeof LogSystem !== 'undefined') LogSystem.add('INFO', 'Espacio multi-panel adaptado a modo pestañas en pantallas compactas.');
             effectiveMode = 'tabs';
         }
         this.mode = effectiveMode;
-        try { localStorage.setItem('hmi_workspace_mode', effectiveMode); } catch (_) {}
-        this._syncModeSelectors(effectiveMode, silent);
+        if (!isResponsiveOverride) { try { localStorage.setItem('hmi_workspace_mode', this.preferredMode); } catch (_) {} }
+        this._syncModeSelectors(effectiveMode, silent, isResponsiveOverride);
         if (this.workspaceEl) {
-            this.workspaceEl.classList.remove('workspace-tabs', 'workspace-tiling', 'workspace-floating');
-            this.workspaceEl.classList.add(`workspace-${mode}`);
+            this.workspaceEl.classList.remove('workspace-tabs', 'workspace-single', 'workspace-tiling', 'workspace-floating');
+            this.workspaceEl.classList.add(`workspace-${effectiveMode}`);
         }
+        const activeTab = (typeof state !== 'undefined' && state.activeTab) ? state.activeTab : 'conexion';
+        const activeWinId = activeTab.startsWith('tab-') ? activeTab : `tab-${activeTab}`;
+        if (effectiveMode === 'tabs') WindowLayout.applyTabs(this.windows, id => this._getTabButton(id), id => this.maximizeWindow(id));
+        else if (effectiveMode === 'single') {
+            this.activeSingleId = this.windows.has(this.activeSingleId) ? this.activeSingleId : activeWinId;
+            WindowLayout.applySingle(this.windows, this.activeSingleId, id => this._getTabButton(id), id => this.maximizeWindow(id));
+        } else if (effectiveMode === 'tiling') WindowLayout.applyTiling(this.windows, id => this._getTabButton(id), id => this.maximizeWindow(id));
+        else if (effectiveMode === 'floating') WindowLayout.applyFloating(this.windows, activeWinId, id => this._getTabButton(id), id => this.bringToFront(id), silent);
 
-        if (mode === 'tabs') {
-            WindowLayout.applyTabs(this.windows, id => this._getTabButton(id), id => this.maximizeWindow(id));
-        } else if (mode === 'tiling') {
-            WindowLayout.applyTiling(this.windows, id => this._getTabButton(id), id => this.maximizeWindow(id));
-        } else if (mode === 'floating') {
-            const activeTab = (typeof state !== 'undefined' && state.activeTab) ? state.activeTab : 'rutas';
-            const activeWinId = activeTab.startsWith('tab-') ? activeTab : `tab-${activeTab}`;
-            WindowLayout.applyFloating(this.windows, activeWinId, id => this._getTabButton(id), id => this.bringToFront(id), silent);
-        }
-
-        if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) {
-            setTimeout(() => RouteManager.resizeCharts(), 60);
-        }
+        if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) setTimeout(() => RouteManager.resizeCharts(), 60);
     },
 
-    _syncModeSelectors(effectiveMode, silent) {
+    _syncModeSelectors(effectiveMode, silent, isResponsiveOverride = false) {
         const selMode = /** @type {HTMLSelectElement | null} */ (document.getElementById('setting-default-mode'));
-        if (selMode && selMode.value !== effectiveMode) selMode.value = effectiveMode;
-
-        if (!silent && typeof SettingsManager !== 'undefined' && SettingsManager.settings && SettingsManager.settings.default_mode !== effectiveMode) {
-            SettingsManager.settings.default_mode = effectiveMode;
+        if (selMode && !isResponsiveOverride && selMode.value !== this.preferredMode) selMode.value = this.preferredMode;
+        if (!silent && !isResponsiveOverride && typeof SettingsManager !== 'undefined' && SettingsManager.settings && SettingsManager.settings.default_mode !== this.preferredMode) {
+            SettingsManager.settings.default_mode = this.preferredMode;
             try { localStorage.setItem(SettingsManager.STORAGE_KEY, JSON.stringify(SettingsManager.settings)); } catch (_) {}
             SettingsManager.syncBackend();
         }
-
-        ['tabs', 'tiling', 'floating'].forEach(m => {
+        ['tabs', 'single', 'tiling', 'floating'].forEach(m => {
             const btn = document.getElementById(`ws-mode-${m}`);
             if (btn) {
                 const isActive = m === effectiveMode;
@@ -299,26 +272,28 @@ const WindowManager = {
     bringToFront(id) {
         const win = this.windows.get(id);
         if (!win) return;
+        if (this.maxZIndex >= 80) {
+            const sorted = Array.from(this.windows.values()).sort((a, b) => (a.zIndex || 10) - (b.zIndex || 10));
+            sorted.forEach((w, idx) => {
+                w.zIndex = 11 + idx;
+                if (this.mode === 'floating') w.el.style.zIndex = String(w.zIndex);
+            });
+            this.maxZIndex = 10 + sorted.length;
+        }
         win.zIndex = ++this.maxZIndex;
-        win.el.style.zIndex = win.zIndex;
+        if (this.mode === 'floating') win.el.style.zIndex = String(win.zIndex);
         this.windows.forEach(w => w.el.classList.remove('is-focused'));
         win.el.classList.add('is-focused');
-
         this.windows.forEach(w => {
             const btn = this._getTabButton(w.id);
             if (!btn) return;
             if (w.id === id) {
-                w.isMinimized = false;
-                w.el.classList.remove('is-minimized');
-                btn.classList.add('active');
-                btn.classList.remove('is-minimized');
-                btn.setAttribute('aria-selected', 'true');
-                btn.tabIndex = 0;
+                w.isMinimized = false; w.el.classList.remove('is-minimized');
+                btn.classList.add('active'); btn.classList.remove('is-minimized');
+                btn.setAttribute('aria-selected', 'true'); btn.tabIndex = 0;
             } else {
-                btn.classList.remove('active');
-                btn.setAttribute('aria-selected', 'false');
-                btn.tabIndex = -1;
-                btn.classList.toggle('is-minimized', w.isMinimized);
+                btn.classList.remove('active'); btn.setAttribute('aria-selected', 'false');
+                btn.tabIndex = -1; btn.classList.toggle('is-minimized', w.isMinimized);
             }
         });
     },
@@ -326,28 +301,30 @@ const WindowManager = {
     minimizeWindow(id) {
         const win = this.windows.get(id);
         if (!win) return;
+        if (this.mode === 'single') {
+            const fallback = Array.from(this.windows.keys()).find(k => k !== id && !this.windows.get(k)?.isMinimized) || 'tab-conexion';
+            this.focusSingle(fallback);
+            return;
+        }
         win.isMinimized = true;
         win.el.style.display = 'none';
         win.el.classList.add('is-minimized');
-        win.el.classList.remove('is-focused');
+        win.el.classList.remove('is-focused', 'is-tile-focused');
         if (this.mode === 'tabs') win.el.classList.remove('active');
-
         const btn = this._getTabButton(id);
         if (btn) {
-            btn.classList.remove('active');
-            btn.classList.add('is-minimized');
-            btn.setAttribute('aria-selected', 'false');
-            btn.tabIndex = -1;
+            btn.classList.remove('active'); btn.classList.add('is-minimized');
+            btn.setAttribute('aria-selected', 'false'); btn.tabIndex = -1;
         }
     },
 
     restoreWindow(id) {
         const win = this.windows.get(id);
         if (!win) return;
+        if (this.mode === 'single') { this.focusSingle(id); return; }
         win.isMinimized = false;
         win.el.classList.remove('is-minimized');
         const cleanId = id.replace(/^tab-/, '');
-
         if (this.mode === 'floating') {
             win.el.style.display = 'flex';
             WindowLayout.applyWindowRect(win);
@@ -361,26 +338,28 @@ const WindowManager = {
             if (typeof state !== 'undefined') state.activeTab = cleanId;
             document.querySelectorAll('.tab-content').forEach(elem => {
                 const c = /** @type {HTMLElement} */ (elem);
-                if (c.id !== id && c.id !== win.id) {
-                    c.classList.remove('active');
-                    c.style.display = 'none';
-                }
+                if (c.id !== id && c.id !== win.id) { c.classList.remove('active'); c.style.display = 'none'; }
             });
         }
-
         const btn = this._getTabButton(id);
         if (btn) {
-            btn.classList.remove('is-minimized');
-            btn.classList.add('active');
-            btn.setAttribute('aria-selected', 'true');
-            btn.tabIndex = 0;
+            btn.classList.remove('is-minimized'); btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true'); btn.tabIndex = 0;
         }
-
         this.bringToFront(id);
         if (this.mode === 'tiling') win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        if (cleanId === 'rutas' && typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) {
-            RouteManager.resizeCharts();
-        }
+        if (cleanId === 'rutas' && typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) RouteManager.resizeCharts();
+    },
+
+    toggleTileFocus(id) {
+        const win = this.windows.get(id);
+        if (!win) return;
+        const next = !win.el.classList.contains('is-tile-focused');
+        this.windows.forEach(w => { w.isTileFocused = false; w.el.classList.remove('is-tile-focused'); });
+        win.isTileFocused = next;
+        win.el.classList.toggle('is-tile-focused', next);
+        if (next) win.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) setTimeout(() => RouteManager.resizeCharts(), 50);
     },
 
     maximizeWindow(id) {
@@ -388,44 +367,29 @@ const WindowManager = {
         if (!win) return;
         win.isMaximized = !win.isMaximized;
         win.el.classList.toggle('is-maximized', win.isMaximized);
-
         const maxBtn = win.headerEl.querySelector('.win-btn-max');
-        if (maxBtn) {
-            maxBtn.textContent = win.isMaximized ? '❐' : '□';
-            maxBtn.title = win.isMaximized ? 'Restaurar tamaño' : 'Maximizar';
-        }
-
+        if (maxBtn) { maxBtn.textContent = win.isMaximized ? '❐' : '□'; maxBtn.title = win.isMaximized ? 'Restaurar tamaño' : 'Maximizar'; }
         this.bringToFront(id);
-        if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) {
-            setTimeout(() => RouteManager.resizeCharts(), 50);
-        }
+        if (typeof RouteManager !== 'undefined' && RouteManager.resizeCharts) setTimeout(() => RouteManager.resizeCharts(), 50);
     },
 
     closeWindow(id) {
-        const isPermanent = ['tab-conexion', 'tab-mapa', 'tab-testing', 'tab-touch', 'tab-rutas'].includes(id);
-        if (isPermanent) return;
+        if (['tab-conexion', 'tab-mapa', 'tab-testing', 'tab-touch', 'tab-rutas'].includes(id)) return;
         const win = this.windows.get(id);
         if (!win) return;
-
         const btn = this._getTabButton(id);
         if (btn) btn.remove();
-
         if (id === 'tab-boost') {
-            win.isMinimized = false;
-            win.el.style.display = 'none';
-            win.el.classList.remove('active', 'is-focused');
-            if (this.mode === 'tabs' && typeof state !== 'undefined' && state.activeTab === 'boost') {
-                if (typeof TabManager !== 'undefined') TabManager.switch('conexion');
-            }
+            win.isMinimized = true; win.el.style.display = 'none';
+            win.el.classList.remove('active', 'is-focused', 'is-tile-focused');
+            if (this.mode === 'single' && this.activeSingleId === id) this.focusSingle('tab-conexion');
+            if (this.mode === 'tabs' && typeof state !== 'undefined' && state.activeTab === 'boost' && typeof TabManager !== 'undefined') TabManager.switch('conexion');
             return;
         }
-
         if (win.el?.parentNode) win.el.parentNode.removeChild(win.el);
         this.windows.delete(id);
-
-        if (this.mode === 'tabs' && typeof state !== 'undefined' && state.activeTab === id) {
-            if (typeof TabManager !== 'undefined') TabManager.switch('conexion');
-        }
+        if (this.mode === 'single' && this.activeSingleId === id) this.focusSingle('tab-conexion');
+        if (this.mode === 'tabs' && typeof state !== 'undefined' && state.activeTab === id && typeof TabManager !== 'undefined') TabManager.switch('conexion');
     },
 
     _startDrag(e, id) {
@@ -448,31 +412,28 @@ const WindowManager = {
         const forkEl = WindowLayout.createForkDOM(sourceWin, forkId, this.workspaceEl);
         const forkTitle = `Fork · ${sourceWin.title}`;
         const forkIcon = '<svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg>';
-
         this.registerWindow(forkId, forkEl, forkTitle, forkIcon, {
             isSingleton: false, isForkable: false,
-            initialRect: {
-                x: (sourceWin.rect?.x || 30) + 30, y: (sourceWin.rect?.y || 30) + 30,
-                width: sourceWin.rect?.width || 560, height: sourceWin.rect?.height || 420
-            }
+            initialRect: { x: (sourceWin.rect?.x || 30) + 30, y: (sourceWin.rect?.y || 30) + 30, width: sourceWin.rect?.width || 560, height: sourceWin.rect?.height || 420 }
         });
         this.ensureTaskbarButton(forkId, forkTitle, forkIcon, false);
-        if (this.mode !== 'floating') this.setMode('floating');
-        this.bringToFront(forkId);
-        if (typeof LogSystem !== 'undefined') LogSystem.add('INFO', `Vista bifurcada creada en ventana flotante: ${sourceWin.title}`);
+        if (this.mode === 'tabs') this.setMode('single');
+        if (this.mode === 'single') this.focusSingle(forkId);
+        else { this.restoreWindow(forkId); this.bringToFront(forkId); }
+        if (typeof LogSystem !== 'undefined') LogSystem.add('INFO', `Vista bifurcada creada: ${sourceWin.title}`);
     },
 
     createCustomWindow(entry, options = {}) {
         const winId = `custom-win-${entry.id}-${Date.now().toString(36)}`;
         const winEl = WindowLayout.createCustomDOM(entry, winId, this.workspaceEl, options);
-
         this.registerWindow(winId, winEl, entry.name, entry.icon, {
             isSingleton: entry.isSingleton, isForkable: false,
             initialRect: options.initialRect || { x: 50, y: 50, width: 500, height: 380 }
         });
         this.ensureTaskbarButton(winId, entry.name, entry.icon, entry.isSingleton);
-        if (this.mode !== 'floating') this.setMode('floating');
-        this.bringToFront(winId);
+        if (this.mode === 'tabs') this.setMode('single');
+        if (this.mode === 'single') this.focusSingle(winId);
+        else { this.restoreWindow(winId); this.bringToFront(winId); }
         return winId;
     },
 
@@ -480,3 +441,4 @@ const WindowManager = {
         WindowLayout.renderForkMenu();
     }
 };
+

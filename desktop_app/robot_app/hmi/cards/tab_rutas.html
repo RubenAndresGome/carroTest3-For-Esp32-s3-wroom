@@ -1,7 +1,10 @@
 <div class="tab-content" id="tab-rutas" role="tabpanel" aria-labelledby="tab-control-rutas">
         <div class="card route-content">
             <div class="route-program-header">
-                <div class="card-title">Programador de rutas</div>
+                <div class="card-title-row">
+                    <div class="card-title">Programador de rutas</div>
+                    <button type="button" class="btn btn-sm help-icon-btn" data-help-section="rutas" title="Ayuda sobre Programador de Rutas" aria-label="Ayuda sobre Programador de Rutas">?</button>
+                </div>
                 <span class="route-mode-chip" id="route-mode-chip">RECTANGULAR · FIN 0°</span>
             </div>
 
@@ -25,13 +28,15 @@
                         <div class="fsm-node" data-state="FALLO">FALLO<span class="fsm-ping"></span></div>
                         <div class="fsm-arrow" aria-hidden="true"></div>
                         <div class="fsm-node" data-state="ESTOP">ESTOP<span class="fsm-ping"></span></div>
+                        <button type="button" class="btn btn-sm help-icon-btn" data-help-section="estados" title="Significado de los estados del robot" aria-label="Ayuda sobre estados del robot">?</button>
                     </div>
-                    <div class="fsm-checkpoint-meta" id="checkpoint-meta">
+                    <div class="fsm-checkpoint-meta" id="checkpoint-meta" data-debug-only>
                         <span id="route-mission-safety" class="info-panel-inline">Protección de pasos: IDLE · checkpoint 0/0.</span>
                     </div>
                 </div>
 
-                <!-- GESTIÓN Y EDICIÓN DEL NOMBRE DE LA RUTA -->
+                <!-- PASO 1: GESTIÓN Y EDICIÓN DEL NOMBRE DE LA RUTA -->
+                <div class="route-step-header" data-step="1"><span class="route-step-badge" aria-hidden="true">①</span><span>1. Nombrar o seleccionar ruta</span></div>
                 <div class="route-name-toolbar">
                     <span class="route-name-label">Ruta:</span>
                     <div class="route-name-input-wrap">
@@ -43,43 +48,55 @@
                     <button type="button" class="btn btn-sm" id="btn-save-route-name" title="Guardar nombre de ruta">
                         <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     </button>
+                    <label for="route-library-select" class="route-name-label">Guardadas:</label>
+                    <select id="route-library-select" class="route-library-select">
+                        <option value="">Elegir ruta guardada…</option>
+                    </select>
+                    <button type="button" class="btn btn-sm" id="btn-route-library-load" title="Reemplazar la ruta actual por la ruta guardada elegida" disabled>Cargar</button>
                 </div>
 
                 <!-- LAYOUT MASTER-DETAIL DE 2 COLUMNAS (.route-planner-layout) -->
                 <div class="route-planner-layout">
                     <!-- COLUMNA IZQUIERDA: CONTROL, ACCIONES Y COLA DE PASOS (42%) -->
                     <div class="route-planner-col-control">
-                        <!-- FORK TOOLBAR: Bifurcación y Comparación A/B -->
-                        <div class="route-fork-toolbar" id="route-fork-toolbar">
+                        <!-- FORK TOOLBAR: Bifurcación y Comparación A/B (Solo Técnico) -->
+                        <div class="route-fork-toolbar" id="route-fork-toolbar" data-debug-only>
                             <button type="button" class="btn btn-sm btn-accent" id="btn-fork-route" title="Crear rama alternativa de la ruta actual"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6M18 9v9"/></svg>Crear nueva ruta planificada</button>
-                            <label for="route-branch-select" style="font-size: 10px; font-weight: 600; color: var(--text-secondary);">Rama:</label>
+                            <label for="route-branch-select" class="route-fork-label">Rama:</label>
                             <select id="route-branch-select" class="route-branch-select" aria-label="Seleccionar rama de ruta">
                                 <option value="main">Ruta Base (A)</option>
                             </select>
                             <button type="button" class="btn btn-sm" id="btn-compare-branches" title="Superponer ruta base y bifurcada en el mapa"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Comparar A/B</button>
-                            <button type="button" class="btn btn-sm btn-stop" id="btn-delete-branch" title="Eliminar rama bifurcada activa" style="display: none;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar Rama</button>
-                            <div id="route-fork-metrics" class="route-fork-metrics" style="display: none;">
+                            <button type="button" class="btn btn-sm btn-stop badge-hidden" id="btn-delete-branch" title="Eliminar rama bifurcada activa"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar Rama</button>
+                            <div id="route-fork-metrics" class="route-fork-metrics badge-hidden">
                                 <span id="route-fork-delta-dist">Δ Distancia: 0.0 cm</span>
                                 <span id="route-fork-delta-steps">Δ Pasos: 0</span>
                             </div>
                         </div>
                         
-                        <!-- FORMULARIO DE CAPTURA RÁPIDA -->
+                        <!-- PASO 2 & 3: MODO DE ENTRADA Y CAPTURA DE PUNTOS -->
+                        <div class="route-step-header" data-step="2"><span class="route-step-badge" aria-hidden="true">②</span><span>2. Elegir modo de coordenadas</span></div>
                         <form id="route-form" class="route-form route-dock-glass">
                             <div class="cmd-input-group">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <div class="route-mode-row">
                                     <label for="route-mode">Modo de Entrada:</label>
                                     <div class="route-axis-toggle" id="route-axis-default-group" title="Al capturar un eje, completa el otro con 0. Si reemplazas ese 0 automático, el primer eje pasa a 0.">
                                         <input type="checkbox" id="route-axis-default" aria-label="Eje único: completar el otro eje con cero" checked>
-                                        <label for="route-axis-default" style="cursor: pointer; font-size: 11px; margin-left: 4px;">Eje único</label>
+                                        <label for="route-axis-default" class="route-axis-label">Eje único</label>
                                     </div>
                                 </div>
-                                <select id="route-mode" style="width: 100%; padding: 5px; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                                <div class="mode-segmented-group" role="group" aria-label="Selector rápido de modo de ruta">
+                                    <button type="button" class="mode-seg-btn active" data-mode="rect" aria-pressed="true">Rectangular</button>
+                                    <button type="button" class="mode-seg-btn" data-mode="polar" aria-pressed="false">Angular X→Y</button>
+                                    <button type="button" class="mode-seg-btn" data-mode="vectorial" aria-pressed="false">Vectorial</button>
+                                </div>
+                                <select id="route-mode" class="route-select-full">
                                     <option value="rect">Rectangular (X, Y)</option>
                                     <option value="polar">Angular por descomposición (X→Y)</option>
                                     <option value="vectorial">Angular vectorial (directa)</option>
                                 </select>
                             </div>
+                            <div class="route-step-header" data-step="3"><span class="route-step-badge" aria-hidden="true">③</span><span>3. Agregar pasos a la ruta</span></div>
                             <div class="cmd-input-group">
                                 <label id="route-label-1" for="route-input-1">Coordenada Relativa X (+X Derecha):</label>
                                 <div class="signed-number-control"><input type="text" inputmode="decimal" id="route-input-1" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-1" data-toggle-sign="route-input-1" aria-label="Cambiar signo del primer valor">&plusmn;</button></div>
@@ -88,14 +105,39 @@
                                 <label id="route-label-2" for="route-input-2">Coordenada Relativa Y (+Y Frente):</label>
                                 <div class="signed-number-control"><input type="text" inputmode="decimal" id="route-input-2" step="0.1" required><button type="button" class="sign-toggle" id="route-sign-2" data-toggle-sign="route-input-2" aria-label="Cambiar signo del segundo valor">&plusmn;</button></div>
                             </div>
+                            <div class="route-angle-rose" id="route-angle-rose" hidden>
+                                <div class="route-angle-rose-dial" role="group" aria-label="Rosa de ángulos θReal: el botón 0° sigue la prolongación del paso anterior">
+                                    <svg class="route-angle-rose-svg" viewBox="0 0 260 260" aria-hidden="true">
+                                        <circle cx="130" cy="130" r="96" class="rose-ring"/>
+                                        <circle cx="130" cy="130" r="62" class="rose-core"/>
+                                        <line x1="68" y1="130" x2="192" y2="130" class="rose-cross"/>
+                                        <line x1="130" y1="68" x2="130" y2="192" class="rose-cross"/>
+                                        <g id="route-rose-ref"><line x1="130" y1="130" x2="190" y2="130" class="rose-ref"/></g>
+                                        <g id="route-rose-new"><line x1="130" y1="130" x2="178" y2="130" class="rose-new"/><polygon points="190,130 176,122 176,138" class="rose-new-head"/></g>
+                                        <circle cx="130" cy="130" r="4" class="rose-center"/>
+                                    </svg>
+                                    <button type="button" class="rose-btn" data-rel="0" aria-pressed="false"><span class="rose-rel">0°</span><span class="rose-abs">→ 0°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="45" aria-pressed="false"><span class="rose-rel">+45°</span><span class="rose-abs">→ 45°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="90" aria-pressed="false"><span class="rose-rel">+90°</span><span class="rose-abs">→ 90°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="135" aria-pressed="false"><span class="rose-rel">+135°</span><span class="rose-abs">→ 135°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="180" aria-pressed="false"><span class="rose-rel">+180°</span><span class="rose-abs">→ 180°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="-135" aria-pressed="false"><span class="rose-rel">-135°</span><span class="rose-abs">→ -135°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="-90" aria-pressed="false"><span class="rose-rel">-90°</span><span class="rose-abs">→ -90°</span></button>
+                                    <button type="button" class="rose-btn" data-rel="-45" aria-pressed="false"><span class="rose-rel">-45°</span><span class="rose-abs">→ -45°</span></button>
+                                </div>
+                                <div class="route-angle-rose-legend" aria-live="polite">
+                                    <span class="rose-legend-ref">Referencia: <strong id="route-rose-ref-text">+X (0°)</strong></span>
+                                    <span class="rose-legend-new">Nuevo paso: <strong id="route-rose-new-text">0° → 0°</strong></span>
+                                </div>
+                            </div>
                             <button type="submit" class="btn btn-accent"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>+ Agregar paso</button>
                             <button type="button" class="btn" id="btn-route-pop"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>Deshacer</button>
                         </form>
                         <div id="route-form-alert" class="inline-alert" role="alert" hidden></div>
 
-                        <div id="route-polar-preview" style="font-size: 11px; color: var(--accent); margin-bottom: 15px; font-family: var(--font-mono); display: none;" aria-live="polite">V1 · L=0.00 cm · θ=0.00° · φ=0.00° · ΔX=0.00 cm · ΔY=0.00 cm</div>
-                        <div class="route-metrics" aria-label="Métricas del recorrido"><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Duración</span><strong class="route-metric-value" id="route-metric-duration">0.0 s</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="route-metric-samples">0</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Segmentos ≤256</span><strong class="route-metric-value" id="route-metric-segments">0</strong></div><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Desviación</span><strong class="route-metric-value" id="route-metric-deviation">0.0 cm</strong></div></div>
-                        <div class="route-vectorial-safety" id="route-vectorial-safety" hidden>
+                        <div id="route-polar-preview" class="route-polar-preview" aria-live="polite">V1 · L=0.00 cm · θ=0.00° · φ=0.00° · ΔX=0.00 cm · ΔY=0.00 cm</div>
+                        <div class="route-metrics" aria-label="Métricas del recorrido"><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Duración</span><strong class="route-metric-value" id="route-metric-duration">0.0 s</strong></div><div class="route-metric metric-chip-glass" data-debug-only><span class="route-metric-label">Muestras</span><strong class="route-metric-value" id="route-metric-samples">0</strong></div><div class="route-metric metric-chip-glass"><span class="route-metric-label">Segmentos ≤256</span><strong class="route-metric-value" id="route-metric-segments">0</strong></div><div class="route-metric metric-chip-glass glow-plan metric-highlight-green"><span class="route-metric-label">Desviación</span><strong class="route-metric-value" id="route-metric-deviation">0.0 cm</strong></div></div>
+                        <div class="route-vectorial-safety" id="route-vectorial-safety" data-debug-only hidden>
                             <label class="route-vectorial-toggle" for="route-vectorial-enabled">
                                 <input type="checkbox" id="route-vectorial-enabled">
                                 Habilitar ejecución vectorial
@@ -104,26 +146,31 @@
                             <div class="route-vectorial-status" id="route-vectorial-status" aria-live="polite">Esperando telemetría y configuración.</div>
                         </div>
 
-                        <!-- ACCIONES DE MISIÓN DE IDA -->
+                        <!-- PASO 4: PREVISUALIZAR Y EJECUTAR RECORRIDO -->
+                        <div class="route-step-header" data-step="4"><span class="route-step-badge" aria-hidden="true">④</span><span>4. Guardar y ejecutar recorrido</span></div>
                         <div class="route-actions-wrap">
-                            <button type="button" class="btn btn-success btn-save-route-primary w-full text-slate-950 font-bold shadow-lg shadow-emerald-950/50 hover:bg-emerald-400" id="btn-route-start" data-action="programar" title="Guardar la Ruta en Rutas y programar recorrido"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar la Ruta en "Rutas" / Programar recorrido</button>
+                            <div class="route-primary-actions-grid">
+                                <button type="button" class="btn btn-route-save" id="btn-route-save" title="Guardar la ruta en «Guardadas» sin mover el robot"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar ruta</button>
+                                <button type="button" class="btn btn-success btn-save-route-primary w-full text-slate-950 font-bold shadow-lg shadow-emerald-950/50 hover:bg-emerald-400" id="btn-route-start" data-action="programar" title="Guardar la ruta y ejecutarla en el robot"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>Ejecutar ruta</button>
+                            </div>
                             <div class="route-secondary-actions-grid">
                                 <button type="button" class="btn btn-outline" id="btn-route-preview"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Previsualizar</button>
                                 <button type="button" class="btn btn-outline btn-warning btn-stop" id="btn-route-stop"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>Detener</button>
                                 <button type="button" class="btn btn-outline btn-ghost" id="btn-route-discard"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Descartar</button>
-                                <button type="button" class="btn btn-outline btn-error btn-danger-outline" id="btn-route-clear-memory"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar misión Python</button>
+                                <button type="button" class="btn btn-outline btn-error btn-danger-outline" id="btn-route-clear-memory" data-debug-only><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Borrar misión Python</button>
                             </div>
                             <div id="route-start-alert" class="inline-alert" role="alert" hidden></div>
                         </div>
 
-                    <!-- COLA DE WAYPOINTS Y PASOS CON SCROLL INTERNO -->
-                    <section class="card route-queue-card" id="card-route-queue" style="margin-top: 0; padding: 10px;">
-                        <div class="data-table-title" style="margin-bottom: 6px;">Cola de Waypoints y Pasos</div>
+                    <!-- PASO 5: COLA DE WAYPOINTS Y PASOS CON SCROLL INTERNO -->
+                    <div class="route-step-header" data-step="5"><span class="route-step-badge" aria-hidden="true">⑤</span><span>5. Revisar cola de pasos y retorno Ockham</span></div>
+                    <section class="card route-queue-card route-queue-card-clean" id="card-route-queue">
+                        <div class="data-table-title data-table-title-tight">Cola de Waypoints y Pasos</div>
                         <div class="route-queue-scroll">
                             <table class="data-table">
                                 <thead><tr><th>#</th><th>Paso</th><th>X (cm)</th><th>Y (cm)</th><th>Estado</th></tr></thead>
                                 <tbody id="route-list">
-                                    <tr><td colspan="5" style="color:var(--text-muted)">La ruta está vacía. Agrega puntos arriba.</td></tr>
+                                    <tr><td colspan="5" class="text-muted-cell">La ruta está vacía. Agrega puntos arriba.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -173,49 +220,50 @@
                     </div>
 
                     <!-- COCKPIT OCKHAM DEDICADO -->
-                    <section class="card route-ockham-cockpit" id="card-route-ockham" style="margin-top: 14px; border: 1px solid rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.04); box-shadow: 0 0 12px rgba(245, 158, 11, 0.08); padding: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24" style="color: var(--accent, #f59e0b);"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                                <span class="card-title" style="margin: 0; color: var(--accent, #f59e0b);">Cockpit de Retorno Ockham</span>
+                    <section class="card route-ockham-cockpit ockham-cockpit-card" id="card-route-ockham">
+                        <div class="ockham-header-row">
+                            <div class="ockham-title-wrap">
+                                <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                <span class="card-title ockham-title-accent">Cockpit de Retorno Ockham</span>
+                                <button type="button" class="btn btn-sm help-icon-btn" data-help-section="ockham" title="Ayuda sobre Retorno Ockham" aria-label="Ayuda sobre Retorno Ockham">?</button>
                             </div>
-                            <div style="display: flex; gap: 6px; align-items: center;">
-                                <span class="badge ockham-badge-settling" id="ockham-badge-settling" style="display: none; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">SETTLING 500ms</span>
-                                <span class="badge ockham-badge-realigning" id="ockham-badge-realigning" style="display: none; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono);">REALINEANDO &gt;1.5°</span>
+                            <div class="ockham-badges-wrap">
+                                <span class="badge ockham-badge-settling" id="ockham-badge-settling">SETTLING 500ms</span>
+                                <span class="badge ockham-badge-realigning" id="ockham-badge-realigning">REALINEANDO &gt;1.5°</span>
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
-                            <button type="button" class="btn btn-reverse" id="btn-route-ockham" style="font-weight: 700;"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Regresar al origen</button>
-                            <span id="ockham-current-stage" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary);">Ockham: Inactivo</span>
+                        <div class="ockham-stage-row">
+                            <button type="button" class="btn btn-reverse" id="btn-route-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Regresar al origen</button>
+                            <span id="ockham-current-stage" class="ockham-stage-label">Ockham: Inactivo</span>
                         </div>
 
                         <!-- CHIPS DE EXACTITUD Y AUDITORÍA VIVA OCKHAM -->
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 10px;">
-                            <div class="metric-chip-glass" id="ockham-chip-lat" style="padding: 6px 10px;">
-                                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Desvío Lateral (Máx 2.5 cm)</div>
-                                <div id="ockham-val-lat" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--info);">0.0 cm</div>
+                        <div class="ockham-chips-grid">
+                            <div class="metric-chip-glass ockham-chip-pad" id="ockham-chip-lat">
+                                <div class="ockham-chip-title">Desvío Lateral (Máx 2.5 cm)</div>
+                                <div id="ockham-val-lat" class="ockham-chip-value info-text">0.0 cm</div>
                             </div>
-                            <div class="metric-chip-glass" id="ockham-chip-ang" style="padding: 6px 10px;">
-                                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Desvío Angular (Máx 1.5°)</div>
-                                <div id="ockham-val-ang" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--warn);">0.0°</div>
+                            <div class="metric-chip-glass ockham-chip-pad" id="ockham-chip-ang">
+                                <div class="ockham-chip-title">Desvío Angular (Máx 1.5°)</div>
+                                <div id="ockham-val-ang" class="ockham-chip-value warn-text">0.0°</div>
                             </div>
-                            <div class="metric-chip-glass" id="ockham-chip-long" style="padding: 6px 10px;">
-                                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Error Longitudinal</div>
-                                <div id="ockham-val-long" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text-primary);">0.0 cm</div>
+                            <div class="metric-chip-glass ockham-chip-pad" id="ockham-chip-long">
+                                <div class="ockham-chip-title">Error Longitudinal</div>
+                                <div id="ockham-val-long" class="ockham-chip-value">0.0 cm</div>
                             </div>
                         </div>
 
-                        <div id="route-ockham-confirm-box" class="info-panel" style="display:none; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent, #f59e0b); border-radius: 8px; padding: 12px; margin-bottom: 0;">
-                            <div style="font-weight: 700; margin-bottom: 6px; color: var(--accent, #f59e0b); display: flex; align-items: center; gap: 6px;">
+                        <div id="route-ockham-confirm-box" class="info-panel ockham-confirm-panel">
+                            <div class="ockham-confirm-title">
                                 <svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                                 Simulación de Regreso Ockham
                             </div>
-                            <div id="route-ockham-sim-info" style="font-size: 0.9em; margin-bottom: 10px;">
+                            <div id="route-ockham-sim-info" class="ockham-sim-info">
                                 Simulación calculada. Revisa los pasos enlazados en el mapa antes de confirmar.
                             </div>
                             <div id="route-ockham-error" class="inline-alert" role="alert" hidden></div>
-                            <div style="display: flex; gap: 10px;">
+                            <div class="ockham-confirm-actions">
                                 <button type="button" class="btn btn-accent" id="btn-confirm-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Confirmar Regreso</button>
                                 <button type="button" class="btn btn-stop" id="btn-cancel-ockham"><svg class="ui-icon" aria-hidden="true" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
                             </div>
@@ -223,7 +271,7 @@
                     </section>
 
                     <!-- TELEMETRÍA DE RUTA VIVA -->
-                    <section class="data-table-wrap" id="card-route-live-telemetry" tabindex="0" aria-label="Telemetría de ruta en vivo" style="margin-top: 14px;">
+                    <section class="data-table-wrap route-live-telem-section" id="card-route-live-telemetry" tabindex="0" aria-label="Telemetría de ruta en vivo" data-debug-only>
                         <div class="data-table-title">Telemetría de Ruta (Live)</div>
                         <table class="data-table">
                             <thead><tr><th>Dato</th><th>Valor</th><th>Dato</th><th>Valor</th></tr></thead>
@@ -247,3 +295,4 @@
             </div>
         </div>
     </div>
+

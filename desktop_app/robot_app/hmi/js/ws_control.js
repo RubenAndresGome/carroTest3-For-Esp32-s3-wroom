@@ -230,7 +230,34 @@ const WSControl = {
         const apiOptions = { method: 'POST', body: JSON.stringify(body) };
         if (cmd === 'estop') apiOptions.timeoutMs = 2000;
         try { return await this.api(endpoint, apiOptions); }
-        catch (error) { LogSystem.add('ERROR', error.message); return null; }
+        catch (error) { LogSystem.add('ERROR', humanizeError(error.message)); return null; }
+    },
+
+    /**
+     * Envía E-STOP por canal de alta prioridad con 1 reintento inmediato y timeout de 2000 ms.
+     * @returns {Promise<{ ok: boolean, response?: any, error?: string }>}
+     */
+    async estop() {
+        OperatorFeedback.estopStatus('sent');
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const res = await this.api('/api/v1/estop', {
+                    method: 'POST',
+                    body: '{}',
+                    timeoutMs: 2000
+                });
+                OperatorFeedback.estopStatus('confirmed');
+                return { ok: true, response: res };
+            } catch (err) {
+                if (attempt === 2) {
+                    const msg = humanizeError(err.message);
+                    OperatorFeedback.estopStatus('failed', msg);
+                    LogSystem.add('ERROR', `E-STOP sin respuesta del backend: ${msg}`);
+                    return { ok: false, error: msg };
+                }
+            }
+        }
+        return { ok: false, error: 'unknown' };
     },
 
     manual(path, payload = {}) {

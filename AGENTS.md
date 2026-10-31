@@ -12,10 +12,11 @@
     `tab_testing.html`, `tab_touch.html`, `tab_rutas.html`, `hud_boost.html`,
     `footer_panels.html`), estilos en `css/` (5 hojas: `theme.css`, `layout.css`,
     `components.css`, `touch.css`, `responsive.css`) y lógica en `js/`
-    (18 módulos: `config.js`, `ws_control.js`, `surface_manager.js`, `calibration.js`,
-    `telemetry.js`, `fork_registry.js`, `window_interact.js`, `window_layout.js`,
-    `window_manager.js`, `route_modes.js`, `route_forks.js`, `route_charts.js`,
-    `route_ockham.js`, `route_manager.js`, `tab_manager.js`, `touch.js`,
+    (22 módulos: `config.js`, `operator_feedback.js`, `ws_control.js`,
+    `surface_manager.js`, `connection_panel.js`, `calibration.js`, `telemetry.js`,
+    `fork_registry.js`, `window_interact.js`, `window_layout.js`, `window_manager.js`,
+    `route_modes.js`, `route_vector_stack.js`, `route_forks.js`, `route_charts.js`, `route_ockham.js`,
+    `route_lifecycle.js`, `route_manager.js`, `tab_manager.js`, `touch.js`,
     `settings_manager.js`, `main.js`). El subsistema cuenta con tipado estático
     mediante JSDoc + `// @ts-check` respaldado por `tsconfig.json` y `types/globals.d.ts`,
     consumiendo directamente los contratos canónicos de `desktop_app/frontend/src/protocol.ts`.

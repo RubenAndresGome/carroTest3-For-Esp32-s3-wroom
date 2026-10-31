@@ -166,8 +166,10 @@ def estop() -> tuple[Response, int]:
 @web.post("/api/v1/manual/start")
 @_require_token
 def manual_start() -> Response | tuple[Response, int]:
+    body = request.get_json(silent=True) or {}
+    mode = body.get("mode")
     try:
-        return jsonify(_service().manual_start()), 201
+        return jsonify(_service().manual_start(mode=mode)), 201
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except RuntimeError as exc:
@@ -189,6 +191,87 @@ def manual_drive() -> Response | tuple[Response, int]:
 @_require_token
 def manual_stop() -> Response:
     return jsonify(_service().manual_stop())
+
+
+@web.post("/api/v1/jog")
+@_require_token
+def jog() -> Response | tuple[Response, int]:
+    body = request.get_json(silent=True) or {}
+    action = body.get("action", {})
+    execute = bool(body.get("execute", True))
+    try:
+        res = _service().jog(action=action, execute=execute)
+        return jsonify(res), 202 if execute else 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.route("/api/v1/routines", methods=["GET", "POST"])
+@_require_token
+def routines() -> Response | tuple[Response, int]:
+    service = _service()
+    if request.method == "GET":
+        return jsonify(service.list_routines())
+    body = request.get_json(silent=True) or {}
+    try:
+        saved = service.save_routine(
+            name=str(body.get("name") or ""),
+            actions=body.get("actions", []),
+            source=str(body.get("source", "manual")),
+            routine_id=body.get("id"),
+        )
+        return jsonify(saved), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.post("/api/v1/routines/preview")
+@_require_token
+def routine_preview() -> Response | tuple[Response, int]:
+    body = request.get_json(silent=True) or {}
+    try:
+        preview = _service().preview_routine(
+            actions=body.get("actions", []),
+            direction=str(body.get("direction", "forward")),
+            strategy=str(body.get("reverse_strategy", "mirror")),
+            start_pose=body.get("start_pose"),
+        )
+        return jsonify(preview)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
+
+
+@web.route("/api/v1/routines/<routine_id>", methods=["GET", "DELETE"])
+@_require_token
+def routine_item(routine_id: str) -> Response | tuple[Response, int]:
+    service = _service()
+    if request.method == "GET":
+        item = service.get_routine(routine_id)
+        if item is None:
+            return jsonify({"error": "rutina_no_encontrada"}), 404
+        return jsonify(item)
+    if not service.delete_routine(routine_id):
+        return jsonify({"error": "rutina_no_encontrada"}), 404
+    return jsonify({"deleted": True, "id": routine_id})
+
+
+@web.post("/api/v1/routines/<routine_id>/run")
+@_require_token
+def run_routine(routine_id: str) -> Response | tuple[Response, int]:
+    body = request.get_json(silent=True) or {}
+    try:
+        run_res = _service().run_routine(routine_id, body)
+        return jsonify(run_res), 202
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc)}), 409
 
 
 @web.get("/api/v1/touch-recordings")

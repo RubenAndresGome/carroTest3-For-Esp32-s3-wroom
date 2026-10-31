@@ -40,6 +40,8 @@ const RouteOckhamCockpit = {
      * Inicia la simulación previa del retorno seguro a origen de Ockham.
      */
     async ockhamReturn(manager) {
+        OperatorFeedback.clear('route-ockham-error');
+        OperatorFeedback.clear('route-start-alert');
         try {
             manager.isOckhamSimulating = true;
             const preview = await WSControl.api('/api/v1/missions/return-home', {
@@ -64,7 +66,9 @@ const RouteOckhamCockpit = {
             this._updateSimulationUI(manager, preview);
         } catch (error) {
             manager.isOckhamSimulating = false;
-            LogSystem.add('ERROR', `No se pudo simular Ockham: ${error.message}`);
+            const msg = `No se pudo simular Ockham: ${humanizeError(error.message)}`;
+            OperatorFeedback.show('route-start-alert', msg, 'error');
+            LogSystem.add('ERROR', msg);
         }
     },
 
@@ -88,15 +92,21 @@ const RouteOckhamCockpit = {
      */
     async confirmOckhamReturn(manager) {
         const box = document.getElementById('route-ockham-confirm-box');
-        if (box) box.style.display = 'none';
-        manager.isOckhamSimulating = false;
-        manager.isOckhamRunning = true;
+        const confirmBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-confirm-ockham'));
+        OperatorFeedback.clear('route-ockham-error');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.setAttribute('aria-busy', 'true');
+        }
 
         try {
             const mission = await WSControl.api('/api/v1/missions/return-home', {
                 method: 'POST',
                 body: JSON.stringify({ preview: false })
             });
+            if (box) box.style.display = 'none';
+            manager.isOckhamSimulating = false;
+            manager.isOckhamRunning = true;
             if (manager.ockhamQueue && manager.ockhamQueue.length > 0) {
                 manager.queue = manager.ockhamQueue;
             }
@@ -111,7 +121,14 @@ const RouteOckhamCockpit = {
             manager.drawPlan();
         } catch (error) {
             manager.isOckhamRunning = false;
-            LogSystem.add('ERROR', `No se pudo iniciar regreso Ockham: ${error.message}`);
+            const msg = `No se pudo iniciar regreso Ockham: ${humanizeError(error.message)}`;
+            OperatorFeedback.show('route-ockham-error', msg, 'error');
+            LogSystem.add('ERROR', msg);
+        } finally {
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.removeAttribute('aria-busy');
+            }
         }
     },
 
@@ -121,6 +138,7 @@ const RouteOckhamCockpit = {
     cancelOckhamReturn(manager) {
         const box = document.getElementById('route-ockham-confirm-box');
         if (box) box.style.display = 'none';
+        OperatorFeedback.clear('route-ockham-error');
         manager.isOckhamSimulating = false;
         manager.isOckhamRunning = false;
         manager.ockhamQueue = [];
